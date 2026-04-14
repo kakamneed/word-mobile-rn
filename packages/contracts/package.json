@@ -1,0 +1,20 @@
+{
+  "name": "@word/contracts",
+  "version": "0.1.0",
+  "description": "Cross-platform TypeScript contracts for Word Mobile",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "license": "MIT"
+}

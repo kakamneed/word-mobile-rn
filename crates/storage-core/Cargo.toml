@@ -1,0 +1,20 @@
+[package]
+name = "word-storage-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Persistence, database, and models for Word"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+# Storage dependencies
+rusqlite = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

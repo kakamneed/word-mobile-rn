@@ -1,0 +1,22 @@
+[package]
+name = "word-app-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Application lifecycle and bootstrap orchestration for Word"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+once_cell = "1.19"
+
+# Internal dependencies
+word-storage-core = { path = "../storage-core" }
+word-study-core = { path = "../study-core" }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

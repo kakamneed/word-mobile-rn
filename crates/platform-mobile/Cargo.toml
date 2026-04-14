@@ -1,0 +1,31 @@
+[package]
+name = "word-platform-mobile"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Mobile platform adapter for Word (iOS/Android)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+# Internal dependencies
+word-app-core = { path = "../app-core" }
+word-storage-core = { path = "../storage-core" }
+word-study-core = { path = "../study-core" }
+
+# Platform-specific dependencies
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+android_logger = "0.14"
+log = "0.4"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+objc = "0.2"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
