@@ -12,6 +12,7 @@ import {
 import {
   applyPlanToToday,
   fetchActivePlan,
+  normalizePlanGrowth,
   type PlanSummary,
 } from '../../lib/plan-client';
 import {
@@ -99,10 +100,12 @@ export function PlanScreen({onBack}: PlanScreenProps): React.JSX.Element {
     );
   }
 
+  const normalizedPlan = normalizePlanGrowth(plan);
+
   if (editing) {
     return (
       <PlanQuickEdit
-        plan={plan}
+        plan={normalizedPlan}
         onSave={handleSave}
         onCancel={() => setEditing(false)}
       />
@@ -130,7 +133,7 @@ export function PlanScreen({onBack}: PlanScreenProps): React.JSX.Element {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>每日目标</Text>
           <Text style={styles.sectionHint}>
-            主页和答题页统一按题显示进度。新词、复习按每词 4 题换算；词根词缀按每项 2 题换算。
+            主页和答题页统一按题显示进度。新词、复习按每词 4 题换算；词根词缀按每项 1 题计算。
           </Text>
 
           <View style={styles.targetRow}>
@@ -162,7 +165,7 @@ export function PlanScreen({onBack}: PlanScreenProps): React.JSX.Element {
           <View style={styles.targetRow}>
             <TargetItem
               primaryValue={`${plan.rootAffixPerDay ?? 0} 项`}
-              secondaryValue={`${(plan.rootAffixPerDay ?? 0) * 2} 题`}
+              secondaryValue={`${plan.rootAffixPerDay ?? 0} 题`}
               label="词根词缀"
               fullWidth
             />
@@ -171,11 +174,42 @@ export function PlanScreen({onBack}: PlanScreenProps): React.JSX.Element {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>自动增长</Text>
-          <Text style={styles.growthText}>
-            每 <Text style={styles.growthValue}>{plan.growthIntervalDays}</Text>{' '}
-            天增加 <Text style={styles.growthValue}>{plan.growthIncrement}</Text>{' '}
-            个计划单位。
-          </Text>
+          {normalizedPlan.growthRuleMode === 'perMode' ? (
+            <View style={styles.growthList}>
+              {(
+                [
+                  ['newWord', '新词'],
+                  ['review', '复习'],
+                  ['mixedTest', '混合'],
+                  ['wrongWordReinforcement', '错词'],
+                  ['rootAffix', '词根词缀'],
+                ] as const
+              ).map(([mode, label]) => {
+                const rule = normalizedPlan.growthRulesByMode?.[mode];
+                if (!rule) {
+                  return null;
+                }
+                return (
+                  <Text key={mode} style={styles.growthText}>
+                    {label}：每 <Text style={styles.growthValue}>{rule.intervalDays}</Text> 天增加{' '}
+                    <Text style={styles.growthValue}>{rule.increment}</Text> 个
+                  </Text>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.growthText}>
+              所有模式共用：每{' '}
+              <Text style={styles.growthValue}>
+                {normalizedPlan.sharedGrowthRule?.intervalDays ?? normalizedPlan.growthIntervalDays}
+              </Text>{' '}
+              天增加{' '}
+              <Text style={styles.growthValue}>
+                {normalizedPlan.sharedGrowthRule?.increment ?? normalizedPlan.growthIncrement}
+              </Text>{' '}
+              个计划单位。
+            </Text>
+          )}
         </View>
 
         <WordbookList wordbooks={wordbooks} onToggle={handleToggleWordbook} />
@@ -246,6 +280,7 @@ const styles = StyleSheet.create({
   targetValue: {fontSize: 22, fontWeight: 'bold', color: '#007AFF', marginBottom: 4},
   targetSecondary: {fontSize: 13, color: '#666', marginBottom: 6},
   targetLabel: {fontSize: 13, color: '#666'},
+  growthList: {gap: 8},
   growthText: {fontSize: 15, color: '#333', lineHeight: 22},
   growthValue: {fontWeight: '600', color: '#007AFF'},
   hintText: {fontSize: 14, color: '#666', lineHeight: 22},

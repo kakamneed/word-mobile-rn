@@ -39,7 +39,7 @@ pub fn bootstrap(
 ) -> Result<BootstrapState, BootstrapError> {
     let conn = persistence::initialize_database(db_path)
         .map_err(|e| BootstrapError::Storage(e.to_string()))?;
-    evaluate_bootstrap(runtime, &conn).map_err(|e| BootstrapError::Platform(e.into()))
+    evaluate_bootstrap(runtime, &conn).map_err(|e| BootstrapError::Storage(e.to_string()))
 }
 
 /// Bootstrap with an existing connection (for testing).
@@ -47,5 +47,5 @@ pub fn bootstrap_with_connection(
     runtime: &dyn PlatformRuntime,
     conn: &Connection,
 ) -> Result<BootstrapState, BootstrapError> {
-    evaluate_bootstrap(runtime, conn).map_err(|e| BootstrapError::Platform(e.into()))
+    evaluate_bootstrap(runtime, conn).map_err(|e| BootstrapError::Storage(e.to_string()))
 }

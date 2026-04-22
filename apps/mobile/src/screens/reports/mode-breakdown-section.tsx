@@ -31,56 +31,65 @@ export function ModeBreakdownSection({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>按模式查看</Text>
-      <Text style={styles.subtitle}>点击模式可展开建议和该模式独立趋势图</Text>
+      <Text style={styles.subtitle}>
+        点击上半部分摘要区展开或收起，下方图表区域可以独立左右滑动。
+      </Text>
 
       {breakdown.map(item => {
         const config = MODE_CONFIG[item.mode];
-        const missed = item.totalQuestions - item.correctCount;
         const selected = selectedMode === item.mode;
+        const missed = item.totalQuestions - item.correctCount;
         const modeSeries = (seriesByMode[item.mode] ?? []) as DailyStat[];
 
         return (
-          <TouchableOpacity
-            key={item.mode}
-            style={[styles.card, selected && styles.cardSelected]}
-            onPress={() => onSelectMode(selected ? null : item.mode)}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{config.label}</Text>
-              <Text style={[styles.cardAccuracy, {color: config.color}]}>
-                {Math.round(item.accuracyPercent)}%
-              </Text>
-            </View>
+          <View key={item.mode} style={[styles.card, selected && styles.cardSelected]}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.summaryTapArea}
+              onPress={() => onSelectMode(selected ? null : item.mode)}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{config.label}</Text>
+                <Text style={[styles.cardAccuracy, {color: config.color}]}>
+                  {Math.round(item.accuracyPercent)}%
+                </Text>
+              </View>
 
-            <View style={styles.statsRow}>
-              <Text style={styles.statsText}>题目 {item.totalQuestions}</Text>
-              <Text style={styles.statsText}>正确 {item.correctCount}</Text>
-              <Text style={styles.statsText}>错题 {missed}</Text>
-            </View>
+              <View style={styles.statsRow}>
+                <Text style={styles.statsText}>题目 {item.totalQuestions}</Text>
+                <Text style={styles.statsText}>正确 {item.correctCount}</Text>
+                <Text style={styles.statsText}>错题 {missed}</Text>
+              </View>
 
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {width: `${item.accuracyPercent}%`, backgroundColor: config.color},
-                ]}
-              />
-            </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${item.accuracyPercent}%`,
+                      backgroundColor: config.color,
+                    },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
 
             {selected ? (
               <>
                 <Text style={styles.tipText}>
                   {buildAdvice(config.label, item.accuracyPercent)}
                 </Text>
-                <DailyLineChart
-                  data={modeSeries}
-                  title={`${config.label}趋势`}
-                  subtitle="可左右滑动，点击点查看当天正确率"
-                  lineColor={config.color}
-                  compact
-                />
+                <View style={styles.chartRegion}>
+                  <DailyLineChart
+                    data={modeSeries}
+                    title={`${config.label}趋势`}
+                    subtitle="在图表区域左右滑动，点击节点查看当天详情。"
+                    lineColor={config.color}
+                    compact
+                  />
+                </View>
               </>
             ) : null}
-          </TouchableOpacity>
+          </View>
         );
       })}
     </View>
@@ -92,15 +101,15 @@ function buildAdvice(label: string, accuracy: number): string {
     return `${label}表现稳定，可以继续保持当前节奏。`;
   }
   if (accuracy >= 50) {
-    return `${label}表现中等，建议继续巩固薄弱点。`;
+    return `${label}表现中等，建议继续查漏补缺。`;
   }
-  return `${label}仍有明显薄弱点，建议降低速度并加强回顾。`;
+  return `${label}仍有明显薄弱点，建议放慢速度并加强回顾。`;
 }
 
 const styles = StyleSheet.create({
   container: {backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16},
   title: {fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 4},
-  subtitle: {fontSize: 14, color: '#999', marginBottom: 16},
+  subtitle: {fontSize: 14, color: '#999', marginBottom: 16, lineHeight: 20},
   card: {
     backgroundColor: '#f8f8f8',
     borderRadius: 12,
@@ -110,6 +119,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardSelected: {borderColor: '#007AFF', backgroundColor: '#F4F9FF'},
+  summaryTapArea: {borderRadius: 12},
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -128,4 +138,5 @@ const styles = StyleSheet.create({
   },
   progressFill: {height: '100%', borderRadius: 4},
   tipText: {fontSize: 14, color: '#666', marginTop: 12, lineHeight: 20},
+  chartRegion: {marginTop: 8},
 });

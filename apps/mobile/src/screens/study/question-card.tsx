@@ -42,18 +42,34 @@ export function QuestionCard({
   const startTime = useRef(Date.now());
 
   const isChoice = Array.isArray(question.choices) && question.choices.length > 0;
+  const isCnToEnChoice = question.questionType === 'cnToEnChoice';
   const isRootAffix =
     question.questionType === 'glossToRootInput' ||
     question.questionType === 'rootToGlossInput';
   const isExampleChoice =
     question.questionType === 'exampleToCnChoice' &&
     Boolean(question.exampleSentence);
+  const isWordPromptQuestion =
+    question.questionType === 'enToCnChoice' ||
+    question.questionType === 'enToCnInput';
   const isInputQuestion = !isChoice;
   const compactCard = isRootAffix || isExampleChoice || showFeedback;
   const compactInputMode = isRootAffix && !showFeedback;
-  const canSubmit = answer.trim().length > 0;
-  const hideInlinePrompt = isRootAffix || isExampleChoice;
-  const rootFragment = normalizeRootFragment(question.word);
+  const canSubmit = isInputQuestion || answer.trim().length > 0;
+  const hideInlinePrompt =
+    isRootAffix || isExampleChoice || isCnToEnChoice || isWordPromptQuestion;
+  const displayWord = isCnToEnChoice ? question.prompt : question.word;
+  const displayPhonetic = isCnToEnChoice
+    ? null
+    : question.phoneticUs || question.phoneticUk || null;
+  const displayPartOfSpeech = isCnToEnChoice
+    ? null
+    : question.partOfSpeech?.trim() || null;
+  const rootFragment = normalizeRootFragment(
+    question.questionType === 'glossToRootInput'
+      ? (question.acceptedMeanings[0] ?? '')
+      : question.word,
+  );
 
   const rootExampleRows = useMemo(() => {
     if (!isRootAffix || !question.exampleSentence) {
@@ -63,11 +79,13 @@ export function QuestionCard({
     const examples = question.exampleSentence
       .split(',')
       .map(item => item.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .slice(0, 3);
     const glosses = (question.exampleTranslation ?? '')
       .split(',')
       .map(item => item.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .slice(0, 3);
 
     return examples.map((word, index) => ({
       word,
@@ -93,6 +111,13 @@ export function QuestionCard({
       return;
     }
     onSubmit(answer.trim(), Date.now() - startTime.current);
+  };
+
+  const handleSkip = () => {
+    if (!onSubmit) {
+      return;
+    }
+    onSubmit('', Date.now() - startTime.current);
   };
 
   return (
@@ -123,12 +148,17 @@ export function QuestionCard({
           keyboardShouldPersistTaps="handled">
           <View style={[styles.header, compactCard && styles.headerCompact]}>
             <Text style={[styles.word, compactCard && styles.wordCompact]}>
-              {question.word}
+              {displayWord}
             </Text>
-            {question.phoneticUs || question.phoneticUk ? (
-              <Text style={styles.phonetic}>
-                {question.phoneticUs || question.phoneticUk || ''}
-              </Text>
+            {displayPhonetic || displayPartOfSpeech ? (
+              <View style={styles.metaRow}>
+                {displayPhonetic ? (
+                  <Text style={styles.phonetic}>{displayPhonetic}</Text>
+                ) : null}
+                {displayPartOfSpeech ? (
+                  <Text style={styles.partOfSpeech}>{displayPartOfSpeech}</Text>
+                ) : null}
+              </View>
             ) : null}
           </View>
 
@@ -147,7 +177,12 @@ export function QuestionCard({
 
           {isExampleChoice && question.exampleSentence ? (
             <View style={[styles.exampleBox, styles.exampleBoxCompact]}>
-              <Text style={styles.exampleEn}>{question.exampleSentence}</Text>
+              {renderHighlightedSentence(
+                question.exampleSentence,
+                question.word,
+                styles.exampleEn,
+                styles.exampleHighlight,
+              )}
               {question.exampleTranslation ? (
                 <Text style={styles.exampleCn}>{question.exampleTranslation}</Text>
               ) : null}
@@ -207,13 +242,17 @@ export function QuestionCard({
                   {!compactInputMode ? (
                     <View style={styles.inlineActions}>
                       <TouchableOpacity
-                        style={[
-                          styles.inlinePrimaryButton,
-                          !canSubmit && styles.inlinePrimaryButtonDisabled,
-                        ]}
+                        style={styles.inlinePrimaryButton}
                         onPress={handleSubmit}
-                        disabled={!canSubmit}>
+                        >
                         <Text style={styles.inlinePrimaryButtonText}>提交答案</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.inlineSkipButton}
+                        onPress={handleSkip}>
+                        <Text style={styles.inlineSkipOverlay}>Skip</Text>
+                        <Text style={styles.inlineSkipText}>璺宠繃</Text>
                       </TouchableOpacity>
 
                       {onCancel ? (
@@ -221,6 +260,28 @@ export function QuestionCard({
                           style={styles.inlineCancelButton}
                           onPress={onCancel}>
                           <Text style={styles.inlineCancelText}>结束本轮</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {compactInputMode ? (
+                    <View style={styles.compactActions}>
+                      <TouchableOpacity
+                        style={styles.compactActionPrimary}
+                        onPress={handleSubmit}>
+                        <Text style={styles.compactActionPrimaryText}>Submit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.compactActionGhost}
+                        onPress={handleSkip}>
+                        <Text style={styles.compactActionGhostText}>Skip</Text>
+                      </TouchableOpacity>
+                      {onCancel ? (
+                        <TouchableOpacity
+                          style={styles.compactActionGhost}
+                          onPress={onCancel}>
+                          <Text style={styles.compactActionGhostText}>End</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -375,6 +436,48 @@ function renderHighlightedWord(
   );
 }
 
+function renderHighlightedSentence(
+  sentence: string,
+  target: string,
+  textStyle: object,
+  highlightStyle: object,
+): React.JSX.Element {
+  const normalizedTarget = target.trim().toLowerCase();
+  if (!normalizedTarget) {
+    return <Text style={textStyle}>{sentence}</Text>;
+  }
+
+  const lowerSentence = sentence.toLowerCase();
+  const segments: React.ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = lowerSentence.indexOf(normalizedTarget, cursor);
+
+  while (matchIndex >= 0) {
+    if (matchIndex > cursor) {
+      segments.push(sentence.slice(cursor, matchIndex));
+    }
+    segments.push(
+      <Text
+        key={`${matchIndex}-${sentence.slice(matchIndex, matchIndex + normalizedTarget.length)}`}
+        style={highlightStyle}>
+        {sentence.slice(matchIndex, matchIndex + normalizedTarget.length)}
+      </Text>,
+    );
+    cursor = matchIndex + normalizedTarget.length;
+    matchIndex = lowerSentence.indexOf(normalizedTarget, cursor);
+  }
+
+  if (segments.length === 0) {
+    return <Text style={textStyle}>{sentence}</Text>;
+  }
+
+  if (cursor < sentence.length) {
+    segments.push(sentence.slice(cursor));
+  }
+
+  return <Text style={textStyle}>{segments}</Text>;
+}
+
 const styles = StyleSheet.create({
   keyboardContainer: {flex: 1},
   container: {flex: 1, backgroundColor: '#fff'},
@@ -415,9 +518,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingVertical: 4,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
   word: {fontSize: 30, fontWeight: 'bold', color: '#333', marginBottom: 6},
   wordCompact: {fontSize: 26, marginBottom: 0},
   phonetic: {fontSize: 16, color: '#666', fontStyle: 'italic'},
+  partOfSpeech: {
+    fontSize: 13,
+    color: '#3B6BFF',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    backgroundColor: '#EEF4FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
   promptSection: {marginBottom: 10},
   promptSectionCompact: {marginBottom: 6},
   promptLabel: {fontSize: 14, color: '#999', marginBottom: 6},
@@ -434,6 +553,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   exampleEn: {fontSize: 15, color: '#333', marginBottom: 6, fontStyle: 'italic'},
+  exampleHighlight: {
+    color: '#007AFF',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
   exampleCn: {fontSize: 13, color: '#666', lineHeight: 18},
   rootExampleRow: {marginBottom: 10},
   rootExampleWord: {
@@ -505,8 +629,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  inlinePrimaryButtonDisabled: {backgroundColor: '#ccc'},
   inlinePrimaryButtonText: {fontSize: 16, fontWeight: '600', color: '#fff'},
+  inlineSkipButton: {
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#f0f4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  inlineSkipText: {fontSize: 1, color: 'transparent', position: 'absolute'},
+  inlineSkipOverlay: {fontSize: 15, color: '#3B6BFF', fontWeight: '600'},
+  compactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  compactActionPrimary: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  compactActionPrimaryText: {fontSize: 15, fontWeight: '600', color: '#fff'},
+  compactActionGhost: {
+    minHeight: 42,
+    borderRadius: 12,
+    backgroundColor: '#f0f4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  compactActionGhostText: {fontSize: 14, color: '#3B6BFF', fontWeight: '600'},
   inlineCancelButton: {
     minHeight: 44,
     alignItems: 'center',

@@ -14,12 +14,15 @@ import type {SessionMode} from '../../lib/mobile-bridge';
 import {
   fetchLatestPassageForDate,
   fetchTodayPassageContext,
+  getCachedLatestPassageForDate,
+  getCachedTodayPassageContext,
   generateTodayPassage,
   type AIPassage,
   type TodayAiPassageContext,
 } from '../../lib/ai-passage-client';
 import {
   fetchToday,
+  getCachedToday,
   getPrimaryAction,
   type TodayHomeState,
 } from '../../lib/today-client';
@@ -38,10 +41,15 @@ export function TodayScreen({
   onNavigateToAi,
   onStartStudy,
 }: TodayScreenProps): React.JSX.Element {
-  const [state, setState] = useState<TodayHomeState | null>(null);
-  const [aiContext, setAiContext] = useState<TodayAiPassageContext | null>(null);
-  const [todayPassage, setTodayPassage] = useState<AIPassage | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<TodayHomeState | null>(() => getCachedToday());
+  const [aiContext, setAiContext] = useState<TodayAiPassageContext | null>(() =>
+    getCachedTodayPassageContext(),
+  );
+  const [todayPassage, setTodayPassage] = useState<AIPassage | null>(() => {
+    const cachedToday = getCachedToday();
+    return cachedToday ? getCachedLatestPassageForDate(cachedToday.todayDate) : null;
+  });
+  const [loading, setLoading] = useState(() => !getCachedToday());
   const [refreshing, setRefreshing] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +58,26 @@ export function TodayScreen({
     try {
       setError(null);
       const todayData = await fetchToday();
-      const nextAiContext = await fetchTodayPassageContext();
-      const latestTodayPassage = await fetchLatestPassageForDate(todayData.todayDate);
       setState(todayData);
-      setAiContext(nextAiContext);
-      setTodayPassage(latestTodayPassage);
+      setTodayPassage(getCachedLatestPassageForDate(todayData.todayDate));
+      setLoading(false);
+      void (async () => {
+        try {
+          const nextAiContext = await fetchTodayPassageContext();
+          setAiContext(nextAiContext);
+          if (!nextAiContext.tasksComplete) {
+            setTodayPassage(null);
+            return;
+          }
+          const latestTodayPassage = await fetchLatestPassageForDate(
+            todayData.todayDate,
+          );
+          setTodayPassage(latestTodayPassage);
+        } catch {
+          setAiContext(null);
+          setTodayPassage(null);
+        }
+      })();
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
     } finally {
@@ -133,6 +156,7 @@ export function TodayScreen({
       </View>
 
       <ScrollView
+        nestedScrollEnabled
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         contentContainerStyle={styles.scroll}>
         <NextActionCard
@@ -141,7 +165,11 @@ export function TodayScreen({
         />
 
         {state.todaySnapshot ? (
-          <TaskBreakdownSection snapshot={state.todaySnapshot} onStartStudy={onStartStudy} />
+          <TaskBreakdownSection
+            snapshot={state.todaySnapshot}
+            activePlan={state.activePlan}
+            onStartStudy={onStartStudy}
+          />
         ) : null}
 
         {aiContext?.tasksComplete ? (

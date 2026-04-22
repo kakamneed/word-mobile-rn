@@ -1,6 +1,7 @@
 package com.wordmobile;
 
 import android.app.Application;
+import android.util.Log;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactHost;
@@ -13,6 +14,7 @@ import com.facebook.soloader.SoLoader;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
+  private static final String TAG = "MainApplication";
 
   private final ReactNativeHost mReactNativeHost =
       new DefaultReactNativeHost(this) {
@@ -57,6 +59,10 @@ public class MainApplication extends Application implements ReactApplication {
   public void onCreate() {
     super.onCreate();
     SoLoader.init(this, false);
+    String rustInitResult = RustBridge.initialize(this);
+    if (!rustInitResult.isEmpty() && !"library_not_loaded".equals(rustInitResult)) {
+      Log.w(TAG, "Rust bridge initialization failed: " + rustInitResult);
+    }
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
     }

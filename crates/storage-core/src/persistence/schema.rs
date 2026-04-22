@@ -215,7 +215,9 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
 
 fn record_schema_version(conn: &Connection) -> Result<(), crate::StorageError> {
     let current: Option<i64> = conn
-        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| row.get(0))
+        .query_row("SELECT MAX(version) FROM _schema_version", [], |row| {
+            row.get(0)
+        })
         .map_err(|e| crate::StorageError::Schema(format!("Failed to query version: {e}")))?;
 
     match current {

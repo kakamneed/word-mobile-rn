@@ -1,0 +1,20 @@
+{
+  "slug": "2026-04-22-flutter-rust-supabase-rearchitecture",
+  "title": "Flutter Rust Supabase Rearchitecture Blueprint",
+  "status": "in_progress",
+  "mode": "plan_only",
+  "progress": "not_started",
+  "created": "2026-04-22",
+  "updated": "2026-04-22",
+  "plan": ".vico/plans/active/2026-04-22-flutter-rust-supabase-rearchitecture.md",
+  "relationships": [
+    {
+      "type": "related",
+      "slug": "2026-04-16-rust-mobile-bridge-and-study-fixes"
+    },
+    {
+      "type": "related",
+      "slug": "2026-04-19-ios-migration-and-remote-build"
+    }
+  ]
+}

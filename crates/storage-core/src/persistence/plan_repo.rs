@@ -1,6 +1,6 @@
 use rusqlite::{Connection, Row};
 
-use crate::models::{PlanTemplate};
+use crate::models::PlanTemplate;
 use crate::StorageError;
 
 /// Saves a plan template (INSERT for new, UPDATE for existing).

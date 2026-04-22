@@ -55,7 +55,11 @@ pub fn get_entries_by_source_ids(
         return Ok(Vec::new());
     }
 
-    let placeholders: Vec<String> = source_ids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+    let placeholders: Vec<String> = source_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect();
     let sql = format!(
         "SELECT source_entry_key, word, lemma, phonetic_us, phonetic_uk, part_of_speech, frequency, difficulty
          FROM entries
@@ -63,9 +67,14 @@ pub fn get_entries_by_source_ids(
         placeholders.join(",")
     );
 
-    let mut stmt = conn.prepare(&sql).map_err(|e| StorageError::Database(format!("Failed to prepare: {e}")))?;
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| StorageError::Database(format!("Failed to prepare: {e}")))?;
 
-    let param_refs: Vec<&dyn rusqlite::ToSql> = source_ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+    let param_refs: Vec<&dyn rusqlite::ToSql> = source_ids
+        .iter()
+        .map(|s| s as &dyn rusqlite::ToSql)
+        .collect();
     let rows = stmt
         .query_map(&param_refs[..], |row| {
             Ok(StandardizedEntry {

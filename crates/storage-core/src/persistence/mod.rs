@@ -3,15 +3,14 @@
 //! Provides database connection management, schema migrations, and
 //! repository modules for each domain area.
 
-use rusqlite::Connection;
 use std::path::Path;
 
-pub mod connection;
 pub mod entry_repo;
 pub mod plan_repo;
 pub mod schema;
 pub mod study_repo;
 pub mod wordbook_repo;
+pub use rusqlite::Connection;
 
 /// Errors that can occur during storage operations.
 #[derive(Debug, thiserror::Error)]

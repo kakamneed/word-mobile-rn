@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,12 +12,12 @@ import {
   completeStudySession,
   startStudySession,
   submitStudyAnswer,
-  type SessionSummary,
   type SessionMode,
+  type SessionSummary,
+  type StartSessionRequest,
   type StudyQuestion,
   type StudyResult,
   type StudySession,
-  type StartSessionRequest,
 } from '../../lib/study-client';
 import {QuestionCard} from './question-card';
 import {StudySummaryScreen} from './study-summary-screen';
@@ -64,6 +64,11 @@ export function StudySessionScreen({
   onCancel,
 }: StudySessionScreenProps): React.JSX.Element {
   const [studyState, setStudyState] = useState<StudyState>({type: 'loading'});
+  const latestStudyStateRef = useRef<StudyState>({type: 'loading'});
+
+  useEffect(() => {
+    latestStudyStateRef.current = studyState;
+  }, [studyState]);
 
   const initializeSession = useCallback(
     async (modeOverride: SessionMode) => {
@@ -165,29 +170,59 @@ export function StudySessionScreen({
     }
   }, [onComplete, studyState]);
 
+  const handleContinueNextRound = useCallback(async () => {
+    if (studyState.type !== 'complete') {
+      return;
+    }
+
+    const nextMode = nextModeFrom(studyState.mode);
+    if (!nextMode) {
+      await handleComplete();
+      return;
+    }
+
+    try {
+      await completeStudySession(studyState.summary.sessionId);
+      await initializeSession(nextMode);
+    } catch {
+      Alert.alert('切换失败', '下一轮学习准备失败，请稍后重试。');
+    }
+  }, [handleComplete, initializeSession, studyState]);
+
+  const handleExitToToday = useCallback(async () => {
+    onCancel();
+  }, [onCancel]);
+
+  const handleAbandonSession = useCallback(async () => {
+    const current = latestStudyStateRef.current;
+    if (current.type === 'question' || current.type === 'feedback') {
+      await cancelStudySession(current.session.sessionId);
+    }
+    onCancel();
+  }, [onCancel]);
+
   const handleCancel = useCallback(() => {
     Alert.alert(
       '退出本项学习？',
-      '当前进度会被保留，回到今日页后可以继续这项学习。',
+      '当前进度会被保留，并同步到首页。返回首页后可继续其他学习。',
       [
         {text: '继续学习', style: 'cancel'},
         {
           text: '返回今日页',
           onPress: () => {
-            onCancel();
+            void handleExitToToday();
           },
         },
         {
-          text: '放弃本项',
+          text: '结束本轮',
           style: 'destructive',
-          onPress: async () => {
-            await cancelStudySession();
-            onCancel();
+          onPress: () => {
+            void handleAbandonSession();
           },
         },
       ],
     );
-  }, [onCancel]);
+  }, [handleAbandonSession, handleExitToToday]);
 
   const nextModeFrom = (currentMode: SessionMode): SessionMode | null => {
     switch (currentMode) {
@@ -255,12 +290,7 @@ export function StudySessionScreen({
           nextAction={studyState.nextAction}
           onReturnToToday={handleComplete}
           onContinueNextRound={() => {
-            const nextMode = nextModeFrom(studyState.mode);
-            if (nextMode) {
-              void initializeSession(nextMode);
-            } else {
-              void handleComplete();
-            }
+            void handleContinueNextRound();
           }}
         />
       );

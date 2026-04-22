@@ -7,6 +7,87 @@ react {
 
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
+def rustCrateDir = file("../../../../crates/platform-mobile")
+def rustTargetDir = file("${rustCrateDir}/target")
+def rustLibraryName = "word_platform_mobile"
+def rustGeneratedJniDir = file("$buildDir/generated/rust/jniLibs")
+def rustTarget = [
+    abi: "arm64-v8a",
+    triple: "aarch64-linux-android",
+    linkerTriple: "aarch64-linux-android",
+]
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def androidSdkDir = localProperties.getProperty("sdk.dir")
+def rustNdkDir = androidSdkDir ? file("${androidSdkDir}/ndk/${rootProject.ext.ndkVersion}") : null
+if ((rustNdkDir == null || !rustNdkDir.exists()) && androidSdkDir) {
+    def installedNdkRoot = file("${androidSdkDir}/ndk")
+    if (installedNdkRoot.exists()) {
+        def installedNdks = installedNdkRoot.listFiles()?.findAll { it.isDirectory() }?.sort { left, right -> right.name <=> left.name }
+        rustNdkDir = installedNdks ? installedNdks.first() : null
+    }
+}
+
+def hasRustAndroidTarget = { String triple ->
+    try {
+        def output = new ByteArrayOutputStream()
+        exec {
+            commandLine "rustup", "target", "list", "--installed"
+            standardOutput = output
+            errorOutput = new ByteArrayOutputStream()
+            ignoreExitValue = true
+        }
+        return output.toString().readLines().any { it.trim() == triple }
+    } catch (Exception ignored) {
+        return false
+    }
+}
+
+def rustBuildEnabled = {
+    rustNdkDir != null && rustNdkDir.exists() && hasRustAndroidTarget(rustTarget.triple)
+}
+
+def rustToolchainBinDir = {
+    rustNdkDir ? file("${rustNdkDir}/toolchains/llvm/prebuilt/windows-x86_64/bin") : null
+}
+
+def configureRustToolchainEnv = { Exec task, boolean releaseBuild ->
+    def binDir = rustToolchainBinDir()
+    def linker = file("${binDir}/${rustTarget.linkerTriple}${rootProject.ext.minSdkVersion}-clang.cmd")
+    def cc = file("${binDir}/${rustTarget.linkerTriple}${rootProject.ext.minSdkVersion}-clang.cmd")
+    def cxx = file("${binDir}/${rustTarget.linkerTriple}${rootProject.ext.minSdkVersion}-clang++.cmd")
+    def ar = file("${binDir}/llvm-ar.exe")
+    def ranlib = file("${binDir}/llvm-ranlib.exe")
+
+    task.environment "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER", linker.absolutePath
+    task.environment "CC", cc.absolutePath
+    task.environment "CXX", cxx.absolutePath
+    task.environment "AR", ar.absolutePath
+    task.environment "RANLIB", ranlib.absolutePath
+    task.environment "TARGET_CC", cc.absolutePath
+    task.environment "TARGET_CXX", cxx.absolutePath
+    task.environment "TARGET_AR", ar.absolutePath
+    task.environment "TARGET_RANLIB", ranlib.absolutePath
+    task.environment "CC_aarch64_linux_android", cc.absolutePath
+    task.environment "CXX_aarch64_linux_android", cxx.absolutePath
+    task.environment "AR_aarch64_linux_android", ar.absolutePath
+    task.environment "RANLIB_aarch64_linux_android", ranlib.absolutePath
+    task.environment "ANDROID_NDK_HOME", rustNdkDir.absolutePath
+    task.environment "ANDROID_NDK_ROOT", rustNdkDir.absolutePath
+    task.environment "CARGO_TARGET_DIR", rustTargetDir.absolutePath
+    task.environment "PATH", "${binDir.absolutePath};${System.getenv('PATH')}"
+
+    task.doFirst {
+        [linker, cc, cxx, ar, ranlib].each { tool ->
+            if (!tool.exists()) {
+                throw new GradleException("Rust Android tool not found: ${tool.absolutePath}")
+            }
+        }
+    }
+}
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -43,6 +124,49 @@ android {
     lint {
         checkReleaseBuilds false
         abortOnError false
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDir(rustGeneratedJniDir)
+        }
+    }
+}
+
+tasks.register("buildRustDebugArm64", Exec) {
+    onlyIf { rustBuildEnabled() }
+    workingDir rustCrateDir
+    commandLine "cargo", "build", "--manifest-path", file("${rustCrateDir}/Cargo.toml").absolutePath, "--target", rustTarget.triple
+    configureRustToolchainEnv(delegate, false)
+}
+
+tasks.register("copyRustDebugArm64", Copy) {
+    dependsOn "buildRustDebugArm64"
+    onlyIf { rustBuildEnabled() }
+    from file("${rustTargetDir}/${rustTarget.triple}/debug/lib${rustLibraryName}.so")
+    into file("${rustGeneratedJniDir}/${rustTarget.abi}")
+}
+
+tasks.register("buildRustReleaseArm64", Exec) {
+    onlyIf { rustBuildEnabled() }
+    workingDir rustCrateDir
+    commandLine "cargo", "build", "--release", "--manifest-path", file("${rustCrateDir}/Cargo.toml").absolutePath, "--target", rustTarget.triple
+    configureRustToolchainEnv(delegate, true)
+}
+
+tasks.register("copyRustReleaseArm64", Copy) {
+    dependsOn "buildRustReleaseArm64"
+    onlyIf { rustBuildEnabled() }
+    from file("${rustTargetDir}/${rustTarget.triple}/release/lib${rustLibraryName}.so")
+    into file("${rustGeneratedJniDir}/${rustTarget.abi}")
+}
+
+afterEvaluate {
+    tasks.matching { it.name == "mergeDebugJniLibFolders" || it.name == "mergeDebugNativeLibs" }.configureEach {
+        dependsOn "copyRustDebugArm64"
+    }
+    tasks.matching { it.name == "mergeReleaseJniLibFolders" || it.name == "mergeReleaseNativeLibs" }.configureEach {
+        dependsOn "copyRustReleaseArm64"
     }
 }
 

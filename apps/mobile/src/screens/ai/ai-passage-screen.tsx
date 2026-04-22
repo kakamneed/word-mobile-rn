@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   blockText: {fontSize: 15, color: '#444', lineHeight: 24},
   wordSegment: {fontWeight: '700', color: '#007AFF'},
-  wordGloss: {fontWeight: '400', color: '#666'},
+  wordGloss: {fontWeight: '600', color: '#D32F2F'},
   emptyCard: {
     backgroundColor: '#fff',
     borderRadius: 12,

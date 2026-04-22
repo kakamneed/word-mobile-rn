@@ -1,5 +1,15 @@
-import React, {useState} from 'react';
-import {View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView} from 'react-native';
+import React, {useEffect, useState} from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {markOnboardingCompleted} from '../../lib/mobile-bridge';
+import {applyPlanToToday, fetchActivePlan, savePlan} from '../../lib/plan-client';
+import {fetchWordbooks, toggleWordbook} from '../../lib/vocabulary-client';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -7,12 +17,36 @@ interface OnboardingFlowProps {
 
 type OnboardingStep = 'welcome' | 'vocabulary' | 'plan' | 'complete';
 
-export function OnboardingFlow({onComplete}: OnboardingFlowProps): React.JSX.Element {
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
-  const [selectedWordbooks, setSelectedWordbooks] = useState<string[]>(['cet4']);
-  const [dailyTarget, setDailyTarget] = useState(20);
+type WordbookOption = {
+  id: string;
+  name: string;
+  count: number;
+};
 
-  const handleNext = () => {
+export function OnboardingFlow({
+  onComplete,
+}: OnboardingFlowProps): React.JSX.Element {
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
+  const [selectedWordbooks, setSelectedWordbooks] = useState<string[]>([]);
+  const [dailyTarget, setDailyTarget] = useState(20);
+  const [wordbooks, setWordbooks] = useState<WordbookOption[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const loaded = await fetchWordbooks();
+      const options = loaded.map(book => ({
+        id: String(book.id),
+        name: book.name,
+        count: book.totalEntries,
+      }));
+      setWordbooks(options);
+      const active = loaded.filter(book => book.isActive).map(book => String(book.id));
+      setSelectedWordbooks(active.length > 0 ? active : options.slice(0, 1).map(book => book.id));
+    })();
+  }, []);
+
+  const handleNext = async () => {
     switch (currentStep) {
       case 'welcome':
         setCurrentStep('vocabulary');
@@ -24,7 +58,7 @@ export function OnboardingFlow({onComplete}: OnboardingFlowProps): React.JSX.Ele
         setCurrentStep('complete');
         break;
       case 'complete':
-        onComplete();
+        await finishOnboarding();
         break;
     }
   };
@@ -43,27 +77,60 @@ export function OnboardingFlow({onComplete}: OnboardingFlowProps): React.JSX.Ele
     }
   };
 
+  const finishOnboarding = async () => {
+    setSaving(true);
+    try {
+      const currentPlan = await fetchActivePlan();
+      const planId = currentPlan?.id ?? 1;
+      await savePlan(planId, {
+        name: currentPlan?.name ?? 'Starter Plan',
+        newWordsPerDay: dailyTarget,
+        reviewWordsPerDay: Math.max(dailyTarget * 2, 10),
+        mixedTestPerDay: Math.max(Math.round(dailyTarget * 0.4), 4),
+        wrongWordTestPerDay: Math.max(Math.round(dailyTarget * 0.2), 2),
+        rootAffixPerDay: 2,
+      });
+      for (const wordbook of wordbooks) {
+        await toggleWordbook(
+          parseInt(wordbook.id, 10),
+          selectedWordbooks.includes(wordbook.id),
+        );
+      }
+      await applyPlanToToday();
+      await markOnboardingCompleted();
+      onComplete();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const canProceed = currentStep !== 'vocabulary' || selectedWordbooks.length > 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.progressBar}>
-        {(['welcome', 'vocabulary', 'plan', 'complete'] as OnboardingStep[]).map((step, index) => (
-          <View
-            key={step}
-            style={[styles.progressDot, getStepIndex(currentStep) >= index && styles.progressDotActive]}
-          />
-        ))}
+        {(['welcome', 'vocabulary', 'plan', 'complete'] as OnboardingStep[]).map(
+          (step, index) => (
+            <View
+              key={step}
+              style={[
+                styles.progressDot,
+                getStepIndex(currentStep) >= index && styles.progressDotActive,
+              ]}
+            />
+          ),
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {currentStep === 'welcome' ? <WelcomeStep /> : null}
         {currentStep === 'vocabulary' ? (
           <VocabularyStep
+            wordbooks={wordbooks}
             selected={selectedWordbooks}
             onToggle={id => {
               setSelectedWordbooks(prev =>
-                prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id],
+                prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id],
               );
             }}
           />
@@ -71,27 +138,31 @@ export function OnboardingFlow({onComplete}: OnboardingFlowProps): React.JSX.Ele
         {currentStep === 'plan' ? (
           <PlanStep target={dailyTarget} onChange={setDailyTarget} />
         ) : null}
-        {currentStep === 'complete' ? <CompleteStep onEnter={handleNext} /> : null}
+        {currentStep === 'complete' ? (
+          <CompleteStep onEnter={() => void handleNext()} saving={saving} />
+        ) : null}
       </ScrollView>
 
       {currentStep !== 'welcome' && currentStep !== 'complete' ? (
         <View style={styles.navButtons}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>上一步</Text>
+            <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.nextButton, !canProceed && styles.nextButtonDisabled]}
-            onPress={handleNext}
+            onPress={() => void handleNext()}
             disabled={!canProceed}>
-            <Text style={styles.nextButtonText}>{currentStep === 'plan' ? '完成设置' : '下一步'}</Text>
+            <Text style={styles.nextButtonText}>
+              {currentStep === 'plan' ? 'Finish Setup' : 'Next'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : null}
 
       {currentStep === 'welcome' ? (
         <View style={styles.singleButton}>
-          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-            <Text style={styles.nextButtonText}>开始设置</Text>
+          <TouchableOpacity style={styles.nextButton} onPress={() => void handleNext()}>
+            <Text style={styles.nextButtonText}>Start Setup</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -106,49 +177,50 @@ function getStepIndex(step: OnboardingStep): number {
 function WelcomeStep(): React.JSX.Element {
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.icon}>词</Text>
-      <Text style={styles.title}>欢迎使用 Word Mobile</Text>
+      <Text style={styles.icon}>Word</Text>
+      <Text style={styles.title}>Welcome to Word Mobile</Text>
       <Text style={styles.description}>
-        通过每日学习计划、复习、测试和错词回顾，逐步建立稳定的词汇学习节奏。
+        Choose your wordbooks and daily target first. When setup is done,
+        Today will start from your real study state right away.
       </Text>
     </View>
   );
 }
 
 function VocabularyStep({
+  wordbooks,
   selected,
   onToggle,
 }: {
+  wordbooks: WordbookOption[];
   selected: string[];
   onToggle: (id: string) => void;
 }): React.JSX.Element {
-  const wordbooks = [
-    {id: 'cet4', name: 'CET-4 核心词汇', count: 4500},
-    {id: 'cet6', name: 'CET-6 核心词汇', count: 3000},
-    {id: 'kaoyan', name: '考研核心词汇', count: 5500},
-    {id: 'medical_resp', name: '医学英语（呼吸专题）', count: 1800},
-  ];
-
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>选择词书</Text>
-      <Text style={styles.stepDescription}>可多选，后续也可以在词书页继续调整。</Text>
+      <Text style={styles.stepTitle}>Choose Wordbooks</Text>
+      <Text style={styles.stepDescription}>You can select multiple wordbooks and adjust them later from Plan.</Text>
 
       {wordbooks.map(book => (
         <TouchableOpacity
           key={book.id}
-          style={[styles.wordbookCard, selected.includes(book.id) && styles.wordbookCardSelected]}
+          style={[
+            styles.wordbookCard,
+            selected.includes(book.id) && styles.wordbookCardSelected,
+          ]}
           onPress={() => onToggle(book.id)}>
           <View style={styles.wordbookInfo}>
             <Text style={styles.wordbookName}>{book.name}</Text>
-            <Text style={styles.wordbookCount}>{book.count} 词</Text>
+            <Text style={styles.wordbookCount}>{book.count} words</Text>
           </View>
-          <Text style={styles.checkmark}>{selected.includes(book.id) ? '已选' : ''}</Text>
+          <Text style={styles.checkmark}>{selected.includes(book.id) ? 'Selected' : ''}</Text>
         </TouchableOpacity>
       ))}
 
       <View style={styles.tipBox}>
-        <Text style={styles.tipText}>词根词缀模式会在学习页中作为独立学习模式显示。</Text>
+        <Text style={styles.tipText}>
+          The selected wordbooks and starter plan will be written into real app state, not a demo-only flow.
+        </Text>
       </View>
     </View>
   );
@@ -163,38 +235,55 @@ function PlanStep({
 }): React.JSX.Element {
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>设置每日目标</Text>
-      <Text style={styles.stepDescription}>你希望每天学习多少个新词？</Text>
+      <Text style={styles.stepTitle}>Set Daily Target</Text>
+      <Text style={styles.stepDescription}>How many new words do you want to learn each day?</Text>
 
       <View style={styles.targetSelector}>
-        <TouchableOpacity style={styles.targetButton} onPress={() => onChange(Math.max(5, target - 5))}>
+        <TouchableOpacity
+          style={styles.targetButton}
+          onPress={() => onChange(Math.max(5, target - 5))}>
           <Text style={styles.targetButtonText}>-</Text>
         </TouchableOpacity>
 
         <View style={styles.targetDisplay}>
           <Text style={styles.targetNumber}>{target}</Text>
-          <Text style={styles.targetLabel}>个 / 天</Text>
+          <Text style={styles.targetLabel}>words / day</Text>
         </View>
 
-        <TouchableOpacity style={styles.targetButton} onPress={() => onChange(Math.min(100, target + 5))}>
+        <TouchableOpacity
+          style={styles.targetButton}
+          onPress={() => onChange(Math.min(100, target + 5))}>
           <Text style={styles.targetButtonText}>+</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.targetHint}>后续可以在计划页中继续调整更完整的学习参数。</Text>
+      <Text style={styles.targetHint}>
+        The app will derive review, mixed-test, wrong-word, and root-affix starter targets from this baseline.
+      </Text>
     </View>
   );
 }
 
-function CompleteStep({onEnter}: {onEnter: () => void}): React.JSX.Element {
+function CompleteStep({
+  onEnter,
+  saving,
+}: {
+  onEnter: () => void;
+  saving: boolean;
+}): React.JSX.Element {
   return (
     <View style={styles.stepContainer}>
-      <Text style={styles.icon}>好</Text>
-      <Text style={styles.title}>设置完成</Text>
-      <Text style={styles.description}>你的学习计划已经准备好，现在可以开始今天的学习。</Text>
+      <Text style={styles.icon}>OK</Text>
+      <Text style={styles.title}>Setup Complete</Text>
+      <Text style={styles.description}>
+        Your wordbooks, plan, and Today state will be saved together, so you can start studying immediately.
+      </Text>
 
-      <TouchableOpacity style={styles.enterButton} onPress={onEnter}>
-        <Text style={styles.enterButtonText}>进入学习</Text>
+      <TouchableOpacity
+        style={[styles.enterButton, saving && styles.nextButtonDisabled]}
+        onPress={onEnter}
+        disabled={saving}>
+        <Text style={styles.enterButtonText}>{saving ? 'Saving...' : 'Enter App'}</Text>
       </TouchableOpacity>
     </View>
   );

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   RefreshControl,
   SafeAreaView,
@@ -9,7 +9,9 @@ import {
   View,
 } from 'react-native';
 import {
+  fetchWrongWordDetail,
   fetchWrongWords,
+  type WrongWordDetail,
   type WrongWordEntry,
   type WrongWordFilter,
 } from '../../lib/wrong-word-client';
@@ -35,11 +37,21 @@ export function WrongWordListScreen({
   const [words, setWords] = useState<WrongWordEntry[]>([]);
   const [filter, setFilter] = useState<WrongWordFilter>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedEntryId, setExpandedEntryId] = useState<number | null>(null);
+  const [expandedDetail, setExpandedDetail] = useState<WrongWordDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadAll = async () => {
     try {
       const wrongWords = await fetchWrongWords(filter);
       setWords(wrongWords);
+      if (
+        expandedEntryId !== null &&
+        !wrongWords.some(word => word.entryId === expandedEntryId)
+      ) {
+        setExpandedEntryId(null);
+        setExpandedDetail(null);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -49,13 +61,43 @@ export function WrongWordListScreen({
     void loadAll();
   }, [filter]);
 
-  const totalErrors = words.reduce((sum, item) => sum + item.errorCount, 0);
-  const avgPriority =
-    words.length > 0
-      ? (
-          words.reduce((sum, item) => sum + item.priorityScore, 0) / words.length
-        ).toFixed(1)
-      : '0.0';
+  const totalErrors = useMemo(
+    () => words.reduce((sum, item) => sum + item.errorCount, 0),
+    [words],
+  );
+  const avgPriority = useMemo(() => {
+    if (words.length === 0) {
+      return '0.0';
+    }
+    return (
+      words.reduce((sum, item) => sum + item.priorityScore, 0) / words.length
+    ).toFixed(1);
+  }, [words]);
+
+  const handleToggleDetail = async (entryId: number) => {
+    if (onSelectWord) {
+      onSelectWord(entryId);
+      return;
+    }
+    if (expandedEntryId === entryId) {
+      setExpandedEntryId(null);
+      setExpandedDetail(null);
+      return;
+    }
+    setExpandedEntryId(entryId);
+    setLoadingDetail(true);
+    try {
+      const detail = await fetchWrongWordDetail(entryId);
+      setExpandedDetail(detail);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const expandedWord =
+    expandedEntryId === null
+      ? null
+      : words.find(word => word.entryId === expandedEntryId) ?? null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,17 +113,7 @@ export function WrongWordListScreen({
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void loadAll();
-            }}
-          />
-        }>
+      <View style={styles.topPanel}>
         <View style={styles.statsCard}>
           <StatBlock label="错词数" value={words.length.toString()} />
           <StatBlock label="累计错误" value={totalErrors.toString()} />
@@ -117,31 +149,57 @@ export function WrongWordListScreen({
             </Text>
           </TouchableOpacity>
         ) : null}
+      </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>AI 短文入口已迁移</Text>
-          <Text style={styles.infoText}>
-            AI 短文现在只会在完成今日任务后，从 Today 页触发生成。这里保留错词查看和错词强化，不再直接生成 AI 短文。
+      {words.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>还没有错词</Text>
+          <Text style={styles.emptyText}>
+            完成学习后，答错或跳过的词会出现在这里。
           </Text>
         </View>
-
-        {words.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>还没有错词</Text>
-            <Text style={styles.emptyText}>
-              完成学习后，答错或跳过的词会出现在这里。
-            </Text>
+      ) : (
+        <View style={styles.body}>
+          <View style={[styles.listPane, expandedEntryId !== null && styles.listPaneCollapsed]}>
+            <ScrollView
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true);
+                    void loadAll();
+                  }}
+                />
+              }
+              contentContainerStyle={styles.listContent}>
+              {words.map(word => (
+                <WordRow
+                  key={word.entryId}
+                  word={word}
+                  expanded={expandedEntryId === word.entryId}
+                  onPress={() => {
+                    void handleToggleDetail(word.entryId);
+                  }}
+                />
+              ))}
+            </ScrollView>
           </View>
-        ) : (
-          words.map(word => (
-            <WordRow
-              key={word.entryId}
-              word={word}
-              onPress={() => onSelectWord?.(word.entryId)}
-            />
-          ))
-        )}
-      </ScrollView>
+
+          {expandedEntryId !== null ? (
+            <View style={styles.detailPane}>
+              <Text style={styles.detailPaneTitle}>
+                {expandedWord?.word ?? '详情'}
+              </Text>
+              <ScrollView
+                style={styles.detailScroll}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled>
+                <InlineDetailCard detail={expandedDetail} loading={loadingDetail} />
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -163,9 +221,11 @@ function StatBlock({
 
 function WordRow({
   word,
+  expanded,
   onPress,
 }: {
   word: WrongWordEntry;
+  expanded: boolean;
   onPress: () => void;
 }): React.JSX.Element {
   const priorityColor =
@@ -176,7 +236,9 @@ function WordRow({
       : '#34C759';
 
   return (
-    <TouchableOpacity style={styles.wordRow} onPress={onPress}>
+    <TouchableOpacity
+      style={[styles.wordRow, expanded && styles.wordRowExpanded]}
+      onPress={onPress}>
       <View style={styles.wordMain}>
         <View style={styles.wordHeader}>
           <Text style={styles.wordText}>{word.word}</Text>
@@ -197,10 +259,85 @@ function WordRow({
       </View>
       <View style={styles.wordSide}>
         <Text style={styles.errorCount}>错 {word.errorCount}</Text>
-        <Text style={styles.arrow}>{'>'}</Text>
+        <Text style={styles.arrow}>{expanded ? '∨' : '>'}</Text>
       </View>
     </TouchableOpacity>
   );
+}
+
+function InlineDetailCard({
+  detail,
+  loading,
+}: {
+  detail: WrongWordDetail | null;
+  loading: boolean;
+}): React.JSX.Element {
+  if (loading || !detail) {
+    return <Text style={styles.detailMuted}>正在加载详情...</Text>;
+  }
+
+  return (
+    <View style={styles.detailCard}>
+      <Text style={styles.detailTitle}>{detail.word}</Text>
+      <Text style={styles.detailSection}>词性：{detail.partOfSpeech || '-'}</Text>
+      <Text style={styles.detailSection}>
+        释义：{detail.meanings.map(item => item.meaningCn).join(' / ')}
+      </Text>
+
+      <Text style={styles.detailSectionTitle}>题型情况</Text>
+      {detail.riskBreakdown.length > 0 ? (
+        detail.riskBreakdown.map(item => (
+          <Text key={item.questionType} style={styles.detailLine}>
+            {questionTypeLabel(item.questionType)}：{item.incorrect + item.skipped}/
+            {item.attempts} 失误
+          </Text>
+        ))
+      ) : (
+        <Text style={styles.detailMuted}>暂无分题型数据</Text>
+      )}
+
+      <Text style={styles.detailSectionTitle}>最近错误</Text>
+      {detail.errorHistory.length > 0 ? (
+        detail.errorHistory.map((item, index) => (
+          <Text key={`${item.date}-${index}`} style={styles.detailLine}>
+            {formatHistoryDate(item.date)}  {humanizeContext(item.context)}
+          </Text>
+        ))
+      ) : (
+        <Text style={styles.detailMuted}>暂无错误历史</Text>
+      )}
+    </View>
+  );
+}
+
+function questionTypeLabel(questionType: string): string {
+  switch (questionType) {
+    case 'exampleToCnChoice':
+      return '例句选义';
+    case 'enToCnChoice':
+      return '英选中';
+    case 'cnToEnChoice':
+      return '中选英';
+    case 'enToCnInput':
+      return '英输中';
+    default:
+      return questionType;
+  }
+}
+
+function formatHistoryDate(value: string): string {
+  if (!value) {
+    return '-';
+  }
+  const cleaned = value.replace('T', ' ').replace('Z', '');
+  return cleaned.slice(0, 19);
+}
+
+function humanizeContext(context: string): string {
+  if (context === 'mobile review') {
+    return '学习中答错';
+  }
+  return context || '未知场景';
 }
 
 const styles = StyleSheet.create({
@@ -218,7 +355,12 @@ const styles = StyleSheet.create({
   backButton: {fontSize: 16, color: '#007AFF', minWidth: 40},
   headerTitle: {fontSize: 18, fontWeight: '600', color: '#333'},
   headerSpacer: {minWidth: 40},
-  scroll: {padding: 16},
+  topPanel: {
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
   statsCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -244,22 +386,49 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 12,
   },
   reviewButtonText: {color: '#fff', fontSize: 16, fontWeight: '600'},
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  body: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
   },
-  infoTitle: {fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 6},
-  infoText: {fontSize: 14, color: '#666', lineHeight: 22},
+  listPane: {
+    flex: 1,
+  },
+  listPaneCollapsed: {
+    flex: 0.48,
+  },
+  listContent: {
+    paddingBottom: 12,
+  },
+  detailPane: {
+    flex: 0.52,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  detailPaneTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#999',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  detailScroll: {
+    flex: 1,
+  },
   emptyState: {
+    flex: 1,
+    margin: 16,
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTitle: {fontSize: 20, fontWeight: '600', color: '#333', marginBottom: 8},
   emptyText: {fontSize: 14, color: '#666', textAlign: 'center'},
@@ -269,6 +438,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+  },
+  wordRowExpanded: {
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    backgroundColor: '#F4F9FF',
   },
   wordMain: {flex: 1},
   wordHeader: {
@@ -285,4 +459,18 @@ const styles = StyleSheet.create({
   wordSide: {justifyContent: 'center', alignItems: 'center', marginLeft: 12},
   errorCount: {fontSize: 16, fontWeight: '600', color: '#FF3B30'},
   arrow: {fontSize: 22, color: '#999', marginTop: 4},
+  detailCard: {
+    paddingBottom: 12,
+  },
+  detailTitle: {fontSize: 22, fontWeight: '700', color: '#222', marginBottom: 10},
+  detailSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  detailSection: {fontSize: 15, color: '#444', lineHeight: 24},
+  detailLine: {fontSize: 14, color: '#666', lineHeight: 22, marginBottom: 4},
+  detailMuted: {fontSize: 14, color: '#999', lineHeight: 22},
 });

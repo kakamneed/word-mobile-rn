@@ -43,7 +43,7 @@ export function ReportsOverviewScreen({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <Text style={styles.loadingText}>正在加载学习报告…</Text>
+          <Text style={styles.loadingText}>正在加载学习报告...</Text>
         </View>
       </SafeAreaView>
     );
@@ -64,6 +64,7 @@ export function ReportsOverviewScreen({
       </View>
 
       <ScrollView
+        nestedScrollEnabled
         contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl
@@ -76,9 +77,7 @@ export function ReportsOverviewScreen({
         }>
         <View style={styles.streakCard}>
           <Text style={styles.streakLabel}>连续学习</Text>
-          <Text style={styles.streakValue}>
-            {reports.streakInfo.currentStreak} 天
-          </Text>
+          <Text style={styles.streakValue}>{reports.streakInfo.currentStreak} 天</Text>
           <Text style={styles.streakSubtext}>
             最长连续 {reports.streakInfo.longestStreak} 天
           </Text>
@@ -87,10 +86,7 @@ export function ReportsOverviewScreen({
         <View style={styles.grid}>
           <MetricCard label="累计学习天数" value={reports.totalStudyDays.toString()} />
           <MetricCard label="已学词数" value={reports.totalWordsLearned.toString()} />
-          <MetricCard
-            label="总答题数"
-            value={reports.totalQuestionsAnswered.toString()}
-          />
+          <MetricCard label="总答题数" value={reports.totalQuestionsAnswered.toString()} />
           <MetricCard
             label="整体正确率"
             value={`${Math.round(reports.overallAccuracy)}%`}
@@ -100,8 +96,8 @@ export function ReportsOverviewScreen({
 
         <DailyLineChart
           data={reports.dailySeries}
-          title="每日题量趋势"
-          subtitle="可左右滑动，点击点查看当天正确率"
+          title="每日正确率趋势"
+          subtitle="左右滑动查看不同日期，点击图上节点查看当天详情。"
         />
 
         <ModeBreakdownSection

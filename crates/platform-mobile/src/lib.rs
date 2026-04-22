@@ -11,6 +11,12 @@ pub mod bridge;
 pub mod paths;
 pub mod runtime;
 
+#[cfg(target_os = "android")]
+pub mod android;
+
+#[cfg(target_os = "ios")]
+pub mod ios;
+
 pub use bridge::*;
 pub use paths::MobilePaths;
 pub use runtime::MobileRuntime;

@@ -13,11 +13,18 @@ pub struct StateTransition {
 }
 
 /// Apply a study result to update state.
-pub fn apply_result(entry_id: i64, outcome: &AnswerOutcome, current_state: &StudyEntryState) -> StateTransition {
+pub fn apply_result(
+    entry_id: i64,
+    outcome: &AnswerOutcome,
+    current_state: &StudyEntryState,
+) -> StateTransition {
     let (new_review_count, new_wrong_count) = match outcome {
         AnswerOutcome::Correct => (current_state.review_count + 1, current_state.wrong_count),
         AnswerOutcome::FuzzyCorrect => (current_state.review_count + 1, current_state.wrong_count),
-        AnswerOutcome::Incorrect => (current_state.review_count + 1, current_state.wrong_count + 1),
+        AnswerOutcome::Incorrect => (
+            current_state.review_count + 1,
+            current_state.wrong_count + 1,
+        ),
         AnswerOutcome::Skipped => (current_state.review_count, current_state.wrong_count + 1),
     };
 

@@ -1,19 +1,45 @@
-//! Study session request/response DTOs.
-
 use serde::{Deserialize, Serialize};
 
-use crate::models::{AnswerOutcome, QuestionType, SessionMode, SessionSummary, StudyQuestion, StudyResult, StudySession};
+use crate::models::{SessionMode, SessionSummary, StudyQuestion, StudyResult, StudySession};
 
-/// Request to start a study session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartSessionMeaningPayload {
+    pub pos: String,
+    pub meaning_cn: String,
+    #[serde(default)]
+    pub meaning_en: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartSessionEntryPayload {
+    pub source_id: String,
+    pub word: String,
+    pub part_of_speech: Option<String>,
+    #[serde(default)]
+    pub frequency: f64,
+    pub phonetic_us: Option<String>,
+    pub phonetic_uk: Option<String>,
+    #[serde(default)]
+    pub meaning_details: Vec<StartSessionMeaningPayload>,
+    pub meanings: Vec<String>,
+    pub example_sentence: Option<String>,
+    pub example_translation: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartSessionRequest {
     pub mode: SessionMode,
     pub wordbook_id: Option<i64>,
     pub entry_source_ids: Vec<String>,
+    #[serde(default)]
+    pub entry_payloads: Vec<StartSessionEntryPayload>,
+    #[serde(default)]
+    pub distractor_payloads: Vec<StartSessionEntryPayload>,
 }
 
-/// Response from starting a study session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartSessionResponse {
@@ -22,7 +48,6 @@ pub struct StartSessionResponse {
     pub progress: SessionProgress,
 }
 
-/// Request to submit an answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmitAnswerRequest {
@@ -31,7 +56,6 @@ pub struct SubmitAnswerRequest {
     pub response_time_ms: u64,
 }
 
-/// Response from submitting an answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmitAnswerResponse {
@@ -43,7 +67,6 @@ pub struct SubmitAnswerResponse {
     pub progress: SessionProgress,
 }
 
-/// Response from completing a session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompleteSessionResponse {
@@ -51,7 +74,6 @@ pub struct CompleteSessionResponse {
     pub next_action: String,
 }
 
-/// Session progress indicator.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionProgress {

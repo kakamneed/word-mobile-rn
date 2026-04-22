@@ -1,0 +1,220 @@
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
+
+use crate::bridge::{
+    apply_saved_plan_to_today, build_reports_overview, build_today_ai_passage_context,
+    build_today_home_state, build_wrong_word_detail, build_wrong_words,
+    cancel_study_session, complete_study_session, generate_ai_passage, get_active_plan,
+    get_ai_passage, get_ai_passage_history, get_ai_provider_config, get_bootstrap_state,
+    get_bridge_status, get_settings, get_today_home_state, get_wordbooks,
+    initialize_mobile_runtime, mark_onboarding_completed, save_ai_passage,
+    save_ai_provider_config, save_plan, start_study_session, submit_study_answer,
+    toggle_wordbook,
+};
+
+const IOS_ERROR_PREFIX: &str = "__WORDMOBILE_ERROR__:";
+
+fn sanitize_cstring_value(value: String) -> CString {
+    let sanitized = value.replace('\0', " ");
+    CString::new(sanitized).expect("CString sanitization must remove interior NUL bytes")
+}
+
+fn into_owned_c_string(value: String) -> *mut c_char {
+    sanitize_cstring_value(value).into_raw()
+}
+
+fn decode_arg(name: &str, value: *const c_char) -> Result<String, String> {
+    if value.is_null() {
+        return Err(format!("{name} was null"));
+    }
+
+    unsafe {
+        CStr::from_ptr(value)
+            .to_str()
+            .map(|text| text.to_owned())
+            .map_err(|error| format!("{name} was not valid UTF-8: {error}"))
+    }
+}
+
+fn encode_string_result(result: Result<String, String>) -> *mut c_char {
+    match result {
+        Ok(payload) => into_owned_c_string(payload),
+        Err(error) => into_owned_c_string(format!("{IOS_ERROR_PREFIX}{error}")),
+    }
+}
+
+fn encode_void_result(result: Result<(), String>) -> *mut c_char {
+    encode_string_result(result.map(|_| String::new()))
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_string_free(value: *mut c_char) {
+    if value.is_null() {
+        return;
+    }
+
+    unsafe {
+        let _ = CString::from_raw(value);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_initialize(
+    app_data_dir: *const c_char,
+    app_config_dir: *const c_char,
+    app_cache_dir: *const c_char,
+    bundle_resource_dir: *const c_char,
+) -> *mut c_char {
+    let result = (|| {
+        initialize_mobile_runtime(
+            decode_arg("app_data_dir", app_data_dir)?,
+            decode_arg("app_config_dir", app_config_dir)?,
+            decode_arg("app_cache_dir", app_cache_dir)?,
+            decode_arg("bundle_resource_dir", bundle_resource_dir)?,
+        )?;
+        Ok(String::new())
+    })();
+
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_bridge_status() -> *mut c_char {
+    encode_string_result(get_bridge_status())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_bootstrap_state() -> *mut c_char {
+    encode_string_result(get_bootstrap_state())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_mark_onboarding_completed() -> *mut c_char {
+    encode_void_result(mark_onboarding_completed())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_today_home_state() -> *mut c_char {
+    encode_string_result(get_today_home_state())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_settings() -> *mut c_char {
+    encode_string_result(get_settings())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_ai_provider_config() -> *mut c_char {
+    encode_string_result(get_ai_provider_config())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_save_ai_provider_config(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(save_ai_provider_config);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_build_today_home_state(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(build_today_home_state);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_build_reports_overview(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(build_reports_overview);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_build_wrong_words(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(build_wrong_words);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_build_wrong_word_detail(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(build_wrong_word_detail);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_build_today_ai_passage_context(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(build_today_ai_passage_context);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_active_plan() -> *mut c_char {
+    encode_string_result(get_active_plan())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_save_plan(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(save_plan);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_apply_saved_plan_to_today() -> *mut c_char {
+    encode_string_result(apply_saved_plan_to_today())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_wordbooks() -> *mut c_char {
+    encode_string_result(get_wordbooks())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_toggle_wordbook(wordbook_id: i64, is_active: i8) -> *mut c_char {
+    encode_void_result(toggle_wordbook(wordbook_id, is_active != 0))
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_start_study_session(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(start_study_session);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_submit_study_answer(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(submit_study_answer);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_complete_study_session(session_id: *const c_char) -> *mut c_char {
+    let result = decode_arg("session_id", session_id).and_then(complete_study_session);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_cancel_study_session(session_id: *const c_char) -> *mut c_char {
+    let result = decode_arg("session_id", session_id).and_then(cancel_study_session);
+    encode_void_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_save_ai_passage(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(save_ai_passage);
+    encode_void_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_ai_passage_history() -> *mut c_char {
+    encode_string_result(get_ai_passage_history())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_ai_passage(passage_id: *const c_char) -> *mut c_char {
+    let result = decode_arg("passage_id", passage_id).and_then(get_ai_passage);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_generate_ai_passage(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(generate_ai_passage);
+    encode_string_result(result)
+}

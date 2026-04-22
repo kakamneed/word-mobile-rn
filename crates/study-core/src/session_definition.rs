@@ -67,6 +67,18 @@ impl SessionDefinition {
                     "Words are drawn from the wrong-word pool.",
                 ),
             },
+            SessionMode::RootAffix => ModeRules {
+                question_types: vec![
+                    QuestionType::GlossToRootInput,
+                    QuestionType::RootToGlossInput,
+                ],
+                loops_all_types_per_word: false,
+                batch_only: false,
+                from_wrong_pool: false,
+                word_selection_description: String::from(
+                    "Items are drawn from the scoped root/affix pool.",
+                ),
+            },
         };
 
         SessionDefinition { mode, rules }

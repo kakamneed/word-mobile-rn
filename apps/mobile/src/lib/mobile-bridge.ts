@@ -2,8 +2,11 @@ import {NativeModules, Platform} from 'react-native';
 
 interface WordCoreNativeModule {
   getBootstrapState(): Promise<string>;
+  markOnboardingCompleted(): Promise<void>;
   getTodayHomeState(): Promise<string>;
   getSettings(): Promise<string>;
+  getAiProviderConfig(): Promise<string>;
+  saveAiProviderConfig(requestJson: string): Promise<string>;
   getActivePlan(): Promise<string>;
   savePlan(requestJson: string): Promise<string>;
   applySavedPlanToToday(): Promise<string>;
@@ -12,7 +15,7 @@ interface WordCoreNativeModule {
   startStudySession(requestJson: string): Promise<string>;
   submitStudyAnswer(requestJson: string): Promise<string>;
   completeStudySession(sessionId: string): Promise<string>;
-  cancelStudySession(): Promise<void>;
+  cancelStudySession(sessionId: string): Promise<void>;
   getReportsOverview(): Promise<string>;
   getWrongWords(filter: string): Promise<string>;
   getWrongWordDetail(entryId: number): Promise<string>;
@@ -20,6 +23,7 @@ interface WordCoreNativeModule {
   generateAiPassage(requestJson: string): Promise<string>;
   getAiPassageHistory(): Promise<string>;
   getAiPassage(passageId: string): Promise<string>;
+  saveAiPassage(requestJson: string): Promise<void>;
 }
 
 const {WordCoreModule} = NativeModules as {WordCoreModule?: WordCoreNativeModule};
@@ -45,6 +49,21 @@ export interface PlanSummary {
   rootAffixPerDay?: number;
   growthIntervalDays: number;
   growthIncrement: number;
+  growthRuleMode?: 'shared' | 'perMode';
+  sharedGrowthRule?: GrowthRule;
+  growthRulesByMode?: Partial<Record<GrowthModeKey, GrowthRule>>;
+}
+
+export type GrowthModeKey =
+  | 'newWord'
+  | 'review'
+  | 'mixedTest'
+  | 'wrongWordReinforcement'
+  | 'rootAffix';
+
+export interface GrowthRule {
+  intervalDays: number;
+  increment: number;
 }
 
 export interface PlanEditInput {
@@ -54,19 +73,34 @@ export interface PlanEditInput {
   mixedTestPerDay?: number;
   wrongWordTestPerDay?: number;
   rootAffixPerDay?: number;
+  growthIntervalDays?: number;
+  growthIncrement?: number;
+  growthRuleMode?: 'shared' | 'perMode';
+  sharedGrowthRule?: GrowthRule;
+  growthRulesByMode?: Partial<Record<GrowthModeKey, GrowthRule>>;
 }
 
 export interface DailySnapshot {
   date: string;
   newWordsTarget: number;
+  newWordsBaseTarget?: number;
+  newWordsCarryoverTarget?: number;
   newWordsCompleted: number;
   reviewWordsTarget: number;
+  reviewWordsBaseTarget?: number;
+  reviewWordsCarryoverTarget?: number;
   reviewWordsCompleted: number;
   mixedTestTarget: number;
+  mixedTestBaseTarget?: number;
+  mixedTestCarryoverTarget?: number;
   mixedTestCompleted: number;
   wrongWordTestTarget: number;
+  wrongWordTestBaseTarget?: number;
+  wrongWordTestCarryoverTarget?: number;
   wrongWordTestCompleted: number;
   rootAffixTarget?: number;
+  rootAffixBaseTarget?: number;
+  rootAffixCarryoverTarget?: number;
   rootAffixCompleted?: number;
 }
 
@@ -101,6 +135,19 @@ export interface SettingsSummary {
   databasePath: string;
 }
 
+export interface AiProviderProfile {
+  provider: string;
+  baseUrl: string;
+  model: string;
+  hasAuthToken: boolean;
+  authTokenPreview: string;
+}
+
+export interface AiProviderConfig {
+  primary: AiProviderProfile;
+  backup: AiProviderProfile;
+}
+
 export type SessionMode =
   | 'newWord'
   | 'review'
@@ -126,6 +173,7 @@ export interface StudyQuestion {
   questionType: QuestionType;
   entrySourceId: string;
   word: string;
+  partOfSpeech?: string | null;
   phoneticUs?: string | null;
   phoneticUk?: string | null;
   prompt: string;
@@ -266,6 +314,14 @@ export interface WrongWordDetail {
   meanings: {pos: string; meaningCn: string; meaningEn?: string}[];
   examples: {sentenceEn: string; sentenceCn: string}[];
   errorHistory: {date: string; context: string}[];
+  riskBreakdown: {
+    questionType: QuestionType;
+    attempts: number;
+    incorrect: number;
+    skipped: number;
+    fuzzyCorrect: number;
+    correct: number;
+  }[];
   relatedWords: string[];
 }
 
@@ -331,6 +387,10 @@ export async function getBootstrapState(): Promise<BootstrapState> {
   return JSON.parse(json) as BootstrapState;
 }
 
+export async function markOnboardingCompleted(): Promise<void> {
+  return ensureModule().markOnboardingCompleted();
+}
+
 export async function getTodayHomeState(): Promise<TodayHomeState> {
   const json = await ensureModule().getTodayHomeState();
   return JSON.parse(json) as TodayHomeState;
@@ -339,6 +399,21 @@ export async function getTodayHomeState(): Promise<TodayHomeState> {
 export async function getSettings(): Promise<SettingsSummary> {
   const json = await ensureModule().getSettings();
   return JSON.parse(json) as SettingsSummary;
+}
+
+export async function getAiProviderConfig(): Promise<AiProviderConfig> {
+  const json = await ensureModule().getAiProviderConfig();
+  return JSON.parse(json) as AiProviderConfig;
+}
+
+export async function saveAiProviderConfig(
+  request: {
+    primary: {provider: string; baseUrl: string; model: string; authToken: string};
+    backup: {provider: string; baseUrl: string; model: string; authToken: string};
+  },
+): Promise<AiProviderConfig> {
+  const json = await ensureModule().saveAiProviderConfig(JSON.stringify(request));
+  return JSON.parse(json) as AiProviderConfig;
 }
 
 export async function getActivePlan(): Promise<PlanSummary | null> {
@@ -397,8 +472,8 @@ export async function completeStudySession(
   return JSON.parse(json) as CompleteSessionResponse;
 }
 
-export async function cancelStudySession(): Promise<void> {
-  return ensureModule().cancelStudySession();
+export async function cancelStudySession(sessionId: string): Promise<void> {
+  return ensureModule().cancelStudySession(sessionId);
 }
 
 export async function getReportsOverview(): Promise<ReportsOverview> {
@@ -437,4 +512,8 @@ export async function getAiPassageHistory(): Promise<AIPassageHistoryItem[]> {
 export async function getAiPassage(passageId: string): Promise<AIPassage | null> {
   const json = await ensureModule().getAiPassage(passageId);
   return JSON.parse(json) as AIPassage | null;
+}
+
+export async function saveAiPassage(passage: AIPassage): Promise<void> {
+  return ensureModule().saveAiPassage(JSON.stringify(passage));
 }

@@ -23,13 +23,14 @@ pub use standardized_entry::{EntryExample, MeaningZh, StandardizedEntry};
 pub use study_answer::{AnswerOutcome, StudyAnswer};
 pub use study_question::{ChoiceOption, QuestionType, StudyQuestion};
 pub use study_requests::{
-    CompleteSessionResponse, SessionProgress, StartSessionRequest, StartSessionResponse,
-    SubmitAnswerRequest, SubmitAnswerResponse,
+    CompleteSessionResponse, SessionProgress, StartSessionEntryPayload, StartSessionRequest,
+    StartSessionResponse, SubmitAnswerRequest, SubmitAnswerResponse,
 };
 pub use study_result::{SessionSummary, StudyResult};
 pub use study_session::{SessionMode, StudySession};
 pub use today_home_state::{
-    DailyProgress, DailySnapshot, PlanSummary, TodayHomeState, WordbookSummary,
+    DailyProgress, DailySnapshot, PlanSummary, TodayCompletionSeed, TodayHomeState,
+    TodayHomeStateSeed, TodayTargetSeed, WordbookSummary,
 };
 pub use wordbook::Wordbook;
 pub use wordbook_entry::WordbookEntry;

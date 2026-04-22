@@ -49,8 +49,8 @@ export async function completeStudySession(
   return bridgeCompleteStudySession(sessionId);
 }
 
-export async function cancelStudySession(): Promise<void> {
-  return bridgeCancelStudySession();
+export async function cancelStudySession(sessionId: string): Promise<void> {
+  return bridgeCancelStudySession(sessionId);
 }
 
 export async function checkActiveSession(

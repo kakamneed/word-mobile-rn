@@ -20,17 +20,19 @@ const CHART_HEIGHT = 140;
 const COMPACT_CHART_HEIGHT = 104;
 const CHART_MIN_WIDTH = 300;
 const STEP_X = 56;
+const EDGE_INSET_X = STEP_X / 2;
 const LEFT_GUTTER = 34;
 const RIGHT_GUTTER = 18;
 const TOP_GUTTER = 12;
 const BOTTOM_GUTTER = 22;
 const DOT_SIZE = 12;
 const COMPACT_DOT_SIZE = 10;
+const ACCURACY_MAX = 100;
 
 export function DailyLineChart({
   data,
-  title = '每日题量趋势',
-  subtitle = '可左右滑动，点击点查看当天正确率',
+  title = '每日正确率趋势',
+  subtitle = '左右滑动查看不同日期，点击节点查看当天正确率和题量。',
   lineColor = '#007AFF',
   compact = false,
 }: DailyLineChartProps): React.JSX.Element {
@@ -41,7 +43,7 @@ export function DailyLineChart({
   const plotHeight = chartHeight - TOP_GUTTER - BOTTOM_GUTTER;
   const plotWidth = Math.max(
     CHART_MIN_WIDTH - LEFT_GUTTER - RIGHT_GUTTER,
-    Math.max(data.length - 1, 0) * STEP_X,
+    Math.max(data.length, 1) * STEP_X,
   );
   const chartWidth = LEFT_GUTTER + plotWidth + RIGHT_GUTTER;
 
@@ -49,15 +51,15 @@ export function DailyLineChart({
     if (data.length === 0) {
       return [];
     }
-    const maxValue = Math.max(...data.map(item => item.totalQuestions), 1);
+
     return data.map((item, index) => {
-      const x = LEFT_GUTTER + (data.length === 1 ? plotWidth / 2 : index * STEP_X);
-      const y = TOP_GUTTER + plotHeight - (item.totalQuestions / maxValue) * plotHeight;
+      const x = LEFT_GUTTER + EDGE_INSET_X + index * STEP_X;
+      const accuracy = Math.max(0, Math.min(item.accuracyPercent, ACCURACY_MAX));
+      const y = TOP_GUTTER + plotHeight - (accuracy / ACCURACY_MAX) * plotHeight;
       return {...item, x, y};
     });
   }, [data, plotHeight, plotWidth]);
 
-  const maxValue = Math.max(...data.map(item => item.totalQuestions), 1);
   const selectedPoint =
     points[Math.min(Math.max(selectedIndex, 0), Math.max(points.length - 1, 0))];
 
@@ -74,20 +76,24 @@ export function DailyLineChart({
         <View style={styles.selectedCard}>
           <Text style={styles.selectedDate}>{selectedPoint.date}</Text>
           <Text style={styles.selectedMeta}>
-            {selectedPoint.totalQuestions} 题 / 正确 {selectedPoint.correctCount} / 正确率{' '}
-            {Math.round(selectedPoint.accuracyPercent)}%
+            {`正确率 ${Math.round(selectedPoint.accuracyPercent)}% · 题量 ${selectedPoint.totalQuestions} · 答对 ${selectedPoint.correctCount}`}
           </Text>
         </View>
       ) : null}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator
+        contentContainerStyle={styles.horizontalContent}>
         <View>
           <View style={[styles.chartFrame, {height: chartHeight, width: chartWidth}]}>
-            <Text style={[styles.yAxisLabel, {top: TOP_GUTTER - 8}]}>{maxValue}</Text>
+            <Text style={[styles.yAxisLabel, {top: TOP_GUTTER - 8}]}>100%</Text>
             <Text style={[styles.yAxisLabel, {top: TOP_GUTTER + plotHeight / 2 - 8}]}>
-              {Math.round(maxValue / 2)}
+              50%
             </Text>
-            <Text style={[styles.yAxisLabel, {top: TOP_GUTTER + plotHeight - 8}]}>0</Text>
+            <Text style={[styles.yAxisLabel, {top: TOP_GUTTER + plotHeight - 8}]}>0%</Text>
 
             <View
               style={[
@@ -179,7 +185,9 @@ export function DailyLineChart({
             {points.map(point => (
               <View key={point.date} style={[styles.footerItem, {width: STEP_X}]}>
                 <Text style={styles.footerDate}>{point.date.slice(5)}</Text>
-                <Text style={styles.footerValue}>{point.totalQuestions}</Text>
+                <Text style={styles.footerValue}>
+                  {Math.round(point.accuracyPercent)}%
+                </Text>
               </View>
             ))}
           </View>
@@ -264,4 +272,7 @@ const styles = StyleSheet.create({
   footerItem: {alignItems: 'center'},
   footerDate: {fontSize: 11, color: '#999'},
   footerValue: {fontSize: 12, fontWeight: '600', color: '#333', marginTop: 2},
+  horizontalContent: {
+    paddingBottom: 2,
+  },
 });

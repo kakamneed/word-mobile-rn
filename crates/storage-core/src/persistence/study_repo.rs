@@ -1,8 +1,8 @@
 //! Study repository for session persistence.
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
-use crate::models::{SessionSummary, StudyResult, StudySession};
+use crate::models::{SessionMode, SessionSummary, StudyResult, StudySession};
 use crate::StorageError;
 
 /// Save a completed study session with results.
@@ -57,7 +57,10 @@ pub fn save_completed_session(
 }
 
 /// Get recent study sessions.
-pub fn get_recent_sessions(conn: &Connection, limit: i64) -> Result<Vec<StudySession>, StorageError> {
+pub fn get_recent_sessions(
+    conn: &Connection,
+    limit: i64,
+) -> Result<Vec<StudySession>, StorageError> {
     let mut stmt = conn
         .prepare(
             "SELECT session_id, mode, total_words, wordbook_id, started_at
@@ -70,7 +73,7 @@ pub fn get_recent_sessions(conn: &Connection, limit: i64) -> Result<Vec<StudySes
     let rows = stmt
         .query_map([limit], |row| {
             let mode_str: String = row.get(1)?;
-            let mode = serde_json::from_str(&mode_str).unwrap_or_default();
+            let mode = serde_json::from_str(&mode_str).unwrap_or(SessionMode::NewWord);
             Ok(StudySession {
                 session_id: row.get(0)?,
                 mode,
@@ -87,4 +90,56 @@ pub fn get_recent_sessions(conn: &Connection, limit: i64) -> Result<Vec<StudySes
     }
 
     Ok(sessions)
+}
+
+pub fn save_active_session_snapshot(
+    conn: &Connection,
+    mode: &SessionMode,
+    snapshot_json: &str,
+) -> Result<(), StorageError> {
+    conn.execute(
+        "INSERT INTO app_settings (key, value_json, updated_at) VALUES (?1, ?2, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+        rusqlite::params![active_session_key(mode), snapshot_json],
+    )
+    .map_err(|e| StorageError::Database(format!("Failed to save active session snapshot: {e}")))?;
+    Ok(())
+}
+
+pub fn load_active_session_snapshot(
+    conn: &Connection,
+    mode: &SessionMode,
+) -> Result<Option<String>, StorageError> {
+    conn.query_row(
+        "SELECT value_json FROM app_settings WHERE key = ?1",
+        rusqlite::params![active_session_key(mode)],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(|e| StorageError::Database(format!("Failed to load active session snapshot: {e}")))
+}
+
+pub fn delete_active_session_snapshot(
+    conn: &Connection,
+    mode: &SessionMode,
+) -> Result<(), StorageError> {
+    conn.execute(
+        "DELETE FROM app_settings WHERE key = ?1",
+        rusqlite::params![active_session_key(mode)],
+    )
+    .map_err(|e| {
+        StorageError::Database(format!("Failed to delete active session snapshot: {e}"))
+    })?;
+    Ok(())
+}
+
+fn active_session_key(mode: &SessionMode) -> String {
+    let suffix = match mode {
+        SessionMode::NewWord => "newWord",
+        SessionMode::Review => "review",
+        SessionMode::MixedTest => "mixedTest",
+        SessionMode::WrongWordReinforcement => "wrongWordReinforcement",
+        SessionMode::RootAffix => "rootAffix",
+    };
+    format!("active_study_session_{suffix}")
 }

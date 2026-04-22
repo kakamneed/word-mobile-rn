@@ -1,0 +1,756 @@
+《respiratory-origin-2023》医学词根词缀整理
+
+说明：
+1. 医学英语常见构词方式：前缀 + 词根 + 后缀。
+2. 前缀常表示“位置、程度、方向、否定”；词根决定核心含义；后缀常提示“炎症、疾病、检查、术式、状态”。
+3. 下面优先整理源文件中反复出现、或对呼吸医学阅读最有帮助的词根词缀。
+
+一、常见前缀
+
+a- / an-    无；缺乏
+  例：apnea（呼吸暂停）
+
+anti-       抗；对抗
+  例：antitrypsin（抗胰蛋白酶）
+
+dys-        异常；困难；不良
+  例：dyspnea（呼吸困难），dysfunction（功能障碍）
+
+hyper-      高；过多；过强
+  例：hypertension（高压/高血压），hypercapnia（高碳酸血症）
+
+hypo-       低；不足；减少
+  例：hypoxia（缺氧），hypoxemia（低氧血症）
+
+inter-      在……之间
+  例：interstitial（间质的）
+
+intra-      在内；内部
+  例：intracellular（细胞内的）
+
+para-       旁；邻近；异常
+  例：paracicatricial（瘢痕旁的）
+
+non-        非；无
+  例：noninvasive（无创的）
+
+sub-        下；次级；低于
+  例：submassive（次大面积的）
+
+endo-       内；向内
+  例：endotracheal（气管内的）
+
+extra-      外；在……之外
+  例：extrapulmonary（肺外的）
+
+trans-      穿过；经由
+  例：transbronchial（经支气管的）
+
+二、常见词根
+
+respir- / spir-      呼吸
+  例：respiratory（呼吸的），spirometry（肺通气功能测定）
+
+ventil-              通气
+  例：ventilation（通气），ventilator（呼吸机）
+
+pulmon- / pulmono-   肺
+  例：pulmonary（肺的）
+
+pneum- / pneumo-     肺；空气；气体
+  例：pneumonia（肺炎），pneumothorax（气胸）
+
+bronch- / broncho-   支气管
+  例：bronchial（支气管的），bronchoscopy（支气管镜检查），bronchitis（支气管炎）
+
+bronchiol-           细支气管
+  例：bronchiolitis（细支气管炎）
+
+trache- / tracheo-   气管
+  例：tracheal（气管的），endotracheal（气管内的）
+
+thorac- / thoraco-   胸；胸腔
+  例：thoracic（胸部的；胸廓的）
+
+pleur- / pleuro-     胸膜
+  例：pleural（胸膜的）
+
+alveol- / alveolo-   肺泡
+  例：alveolar（肺泡的）
+
+rhin- / rhino-       鼻
+  例：rhinitis（鼻炎）
+
+ox- / oxy-           氧
+  例：oxygen（氧），hypoxia（缺氧）
+
+capn- / capno-       二氧化碳
+  例：hypercapnia（高碳酸血症）
+
+hem- / hemo- / hemat-  血
+  例：hemoptysis（咯血），hematology（血液学）
+
+cardi- / cardio-     心
+  例：cardiopulmonary（心肺的）
+
+angi- / angio-       血管
+  例：angiography（血管造影）
+
+arteri- / arterio-   动脉
+  例：arterial（动脉的）
+
+ven- / veno-         静脉
+  例：venous（静脉的）
+
+tubercul-            结核；结核结节
+  例：tuberculosis（结核），tuberculous（结核性的）
+
+carcin- / carcino-   癌
+  例：carcinoma（癌）
+
+onco-                肿瘤
+  例：oncology（肿瘤学）
+
+fibr- / fibro-       纤维
+  例：fibrosis（纤维化）
+
+path- / patho-       疾病
+  例：pathology（病理学），pathological（病理性的）
+
+hist- / histo-       组织
+  例：histology（组织学）
+
+cyt- / cyto-         细胞
+  例：cytology（细胞学），intracellular（细胞内的）
+
+三、常见后缀
+
+-itis       炎症
+  例：bronchitis（支气管炎），rhinitis（鼻炎）
+
+-osis       病态；异常状态；病症
+  例：fibrosis（纤维化），acidosis（酸中毒），alkalosis（碱中毒）
+
+-oma        瘤；肿瘤
+  例：carcinoma（癌），lymphoma（淋巴瘤）
+
+-emia       血症；血液状态
+  例：hypoxemia（低氧血症）
+
+-pnea       呼吸
+  例：apnea（呼吸暂停），dyspnea（呼吸困难），tachypnea（呼吸过速）
+
+-oxia       氧状态
+  例：hypoxia（缺氧），anoxia（无氧）
+
+-scopy      镜检查
+  例：bronchoscopy（支气管镜检查）
+
+-metry      测量；测定法
+  例：spirometry（肺通气功能测定）
+
+-gram / -graphy   图；记录；描记；造影
+  例：angiography（血管造影）
+
+-ectomy     切除术
+  例：lobectomy（肺叶切除术）
+
+-plasty     成形术；修补术
+  例：tracheoplasty（气管成形术）
+
+-stomy      造口术
+  例：tracheostomy（气管造口术）
+
+-centesis   穿刺术
+  例：thoracentesis（胸腔穿刺术）
+
+-lysis      分解；溶解；松解
+  例：fibrinolysis（纤维蛋白溶解）
+
+-genic / -genous   由……引起；来源于
+  例：enterogenic（肠源性的），enterogenous（肠源性的）
+
+-al / -ary / -ory / -ic / -ous / -ive   形容词后缀，表示“……的”
+  例：pulmonary（肺的），respiratory（呼吸的），bronchial（支气管的），invasive（有创的）
+
+-tion / -sion   过程；行为；状态
+  例：ventilation（通气），diffusion（弥散），perfusion（灌注），aspiration（误吸/抽吸）
+
+四、拆词示例
+
+hypoxemia = hypo- + ox + -emia
+含义：血氧低于正常，即“低氧血症”。
+
+bronchoscopy = bronch/o + -scopy
+含义：用镜检查支气管，即“支气管镜检查”。
+
+bronchitis = bronch- + -itis
+含义：支气管的炎症，即“支气管炎”。
+
+pneumothorax = pneum/o + thorax
+含义：空气进入胸腔形成“气胸”。
+
+endotracheal = endo- + trache- + -al
+含义：位于气管内的，即“气管内的”。
+
+carcinoma = carcin/o + -oma
+含义：癌性肿瘤，临床常简译为“癌”。
+
+tuberculous = tubercul- + -ous
+含义：与结核相关的，即“结核性的”。
+
+ventilatory = ventil- + -ory
+含义：与通气有关的，即“通气的”。
+
+五、扩展词根词缀（新增）
+
+一、心血管系统相关词根
+
+cardi- / cardio-     心
+  例：cardiovascular（心血管的）, cardiotonic（强心剂）
+
+angi- / angio-       血管
+  例：angioplasty（血管成形术）, angiography（血管造影）
+
+vas- / vaso-         血管
+  例：vasodilation（血管扩张）, vasoconstriction（血管收缩）
+
+vascul-               血管
+  例：vascular（血管的）, vasculitis（血管炎）
+
+aort- / aorto-        主动脉
+  例：aortic（主动脉的）, aortitis（主动脉炎）
+
+arteri- / arterio-    动脉
+  例：arteriosclerosis（动脉硬化）, arteriolar（小动脉的）
+
+ven- / veno-          静脉
+  例：venous（静脉的）, venospasm（静脉痉挛）
+
+phleb- / phlebo-      静脉
+  例：phlebitis（静脉炎）, phlebectomy（静脉切除术）
+
+thromb- / thrombo-    血栓
+  例：thrombosis（血栓形成）, thrombolysis（溶栓）
+
+embol- / embolo-      栓塞
+  例：embolism（栓塞）, embolectomy（栓子切除术）
+
+ather- / athero-      粥样
+  例：atherosclerosis（动脉粥样硬化）, atheroma（粥样斑块）
+
+sten- / steno-        狭窄
+  例：stenosis（狭窄）, stenocardia（心绞痛）
+
+二、消化系统相关词根
+
+gastr- / gastro-      胃
+  例：gastric（胃的）, gastritis（胃炎）, gastroscopy（胃镜检查）
+
+enter- / entero-      肠
+  例：enteric（肠的）, enteritis（肠炎）, enteropathy（肠病）
+
+duoden-               十二指肠
+  例：duodenal（十二指肠的）, duodenitis（十二指肠炎）
+
+caec- / cec-          盲肠
+  例：cecal（盲肠的）
+
+col- / colo-          结肠
+  例：colic（结肠的）, colitis（结肠炎）, colonoscopy（结肠镜检查）
+
+rect- / recto-        直肠
+  例：rectal（直肠的）, rectitis（直肠炎）
+
+proct- / procto-      直肠/肛门
+  例：proctitis（直肠炎）, proctology（肛肠病学）
+
+an- / ano-            肛门
+  例：anal（肛门的）, anorectal（肛直肠的）
+
+hepat- / hepato-      肝
+  例：hepatic（肝的）, hepatitis（肝炎）, hepatoma（肝癌）
+
+cholangi-             胆管
+  例：cholangiography（胆管造影）, cholangitis（胆管炎）
+
+cholecyst-            胆囊
+  例：cholecystitis（胆囊炎）, cholecystectomy（胆囊切除术）
+
+choledoch-            胆总管
+  例：choledocholithiasis（胆总管结石）
+
+pancreat- / pancreato- 胰腺
+  例：pancreatic（胰腺的）, pancreatitis（胰腺炎）
+
+peritone- / peritoneo- 腹膜
+  例：peritoneal（腹膜的）, peritonitis（腹膜炎）
+
+mesenter-             肠系膜
+  例：mesenteric（肠系膜的）
+
+omentum-              网膜
+  例：omental（网膜的）
+
+splen- / spleno-      脾
+  例：splenic（脾的）, splenomegaly（脾肿大）
+
+三、泌尿生殖系统相关词根
+
+nephr- / nephro-      肾
+  例：nephric（肾的）, nephritis（肾炎）, nephrectomy（肾切除术）
+
+ren- / reno-          肾
+  例：renal（肾的）, renovascular（肾血管的）
+
+ur- / uro-            尿
+  例：urinary（尿的）, urology（泌尿学）
+
+urin- / urine-        尿
+  例：urination（排尿）, urine（尿液）
+
+ureter- / uretero-    输尿管
+  例：ureteral（输尿管的）, ureterolithiasis（输尿管结石）
+
+vesic- / vesico-      膀胱
+  例：vesical（膀胱的）, vesicoureteral（膀胱输尿管的）
+
+cyst- / cysto-        膀胱/囊
+  例：cystitis（膀胱炎）, cystoscopy（膀胱镜检查）, cyst（囊肿）
+
+urethr- / urethro-    尿道
+  例：urethral（尿道的）, urethritis（尿道炎）
+
+prostat- / prostatico- 前列腺
+  例：prostatic（前列腺的）, prostatitis（前列腺炎）
+
+orchi- / orcho- / orchid- 睾丸
+  例：orchitis（睾丸炎）, orchidectomy（睾丸切除术）
+
+test- / testic-       睾丸
+  例：testicular（睾丸的）
+
+epididym-             附睾
+  例：epididymis（附睾）
+
+vas-                  输精管
+  例：vasectomy（输精管切除术）
+
+ovari- / ovario-      卵巢
+  例：ovarian（卵巢的）, ovariectomy（卵巢切除术）
+
+oophor-               卵巢
+  例：oophorectomy（卵巢切除术）
+
+salping- / salpingo-  输卵管
+  例：salpingitis（输卵管炎）, salpingectomy（输卵管切除术）
+
+hyster- / hystero- / metr- / metro- 子宫
+  例：hysterectomy（子宫切除术）, metrorrhagia（子宫出血）
+
+cervic- / cervico-    宫颈
+  例：cervical（宫颈的）, cervicitis（宫颈炎）
+
+vagin- / vagino-      阴道
+  例：vaginal（阴道的）, vaginitis（阴道炎）
+
+vulv- / vulvo-        外阴
+  例：vulvar（外阴的）, vulvitis（外阴炎）
+
+gravida               妊娠
+  例：primigravida（初孕妇）, multigravida（经孕妇）
+
+-parous               产的
+  例：primiparous（初产的）, multiparous（多产的）
+
+四、神经精神系统相关词根
+
+encephal- / encephalo- 脑
+  例：encephalitis（脑炎）, encephalopathy（脑病）
+
+cerebr- / cerebro-    大脑
+  例：cerebral（大脑的）, cerebrovascular（脑血管的）
+
+cran- / cranio-       颅
+  例：cranial（颅的）, craniotomy（颅骨切开术）
+
+mening- / meningi- / meningo- 脑膜
+  例：meningitis（脑膜炎）, meningocele（脑膜膨出）
+
+myel- / myelo-        脊髓/髓
+  例：myelitis（脊髓炎）, myelopathy（脊髓病）, myeloma（骨髓瘤）
+
+spin- / spino-        脊柱
+  例：spinal（脊柱的）, spinous（棘突的）
+
+radicul- / radiculo-  神经根
+  例：radiculitis（神经根炎）, radiculopathy（神经根病）
+
+gangli- / ganglio-    神经节
+  例：ganglion（神经节）, ganglionic（神经节的）
+
+plex- / plexo-        丛
+  例：plexus（丛）
+
+neur- / neuro-        神经
+  例：neural（神经的）, neuropathy（神经病）, neurosurgery（神经外科）
+
+psych- / psycho-      精神/心理
+  例：psychology（心理学）, psychiatry（精神病学）, psychosis（精神病）
+
+phren- / phreno-      精神/膈
+  例：phrenic（膈的）, schizophrenia（精神分裂症）
+
+thym- / thymo-        情绪/胸腺
+  例：dysthymia（心境恶劣）
+
+五、内分泌系统相关词根
+
+endocrin- / endocrino- 内分泌
+  例：endocrine（内分泌的）, endocrinology（内分泌学）
+
+hypophys- / hypophyso- 垂体
+  例：hypophysis（垂体）, hypophysectomy（垂体切除术）
+
+pituit-               垂体
+  例：pituitary（垂体的）
+
+thyroid- / thyro-     甲状腺
+  例：thyroid（甲状腺）, thyrotoxicosis（甲状腺毒症）
+
+parathyroid-          甲状旁腺
+  例：parathyroid（甲状旁腺）
+
+thym-                 胸腺
+  例：thymus（胸腺）, thymectomy（胸腺切除术）
+
+adren- / adreno-      肾上腺
+  例：adrenal（肾上腺的）, adrenalectomy（肾上腺切除术）
+
+supraren-             肾上腺
+  例：suprarenal（肾上腺的）
+
+pancreat-             胰腺
+  例：pancreatic（胰腺的）
+
+insul- / insulo-      胰岛/岛
+  例：insulin（胰岛素）
+
+gonad- / gonado-      性腺
+  例：gonadal（性腺的）, gonadotropin（促性腺激素）
+
+ovari-                卵巢
+  例：ovarian（卵巢的）
+
+testicul-             睾丸
+  例：testicular（睾丸的）
+
+六、血液系统相关词根
+
+hem- / hemo- / hemat- 血
+  例：hemoglobin（血红蛋白）, hematology（血液学）, hemorrhage（出血）
+
+sanguin-              血
+  例：sanguineous（血的）
+
+-serous               血清的
+  例：serous（浆液的）
+
+-plastic              形成的
+  例：plastic（成形的）, hyperplastic（增生的）
+
+-poietic / -poietin   生成的
+  例：erythropoietic（红细胞生成的）, erythropoietin（促红细胞生成素）
+
+cycl-                 细胞/环
+  例：cell cycle（细胞周期）
+
+spher- / sphero-      球
+  例：spherocyte（球形红细胞）
+
+stomat-               口
+  例：stomatocyte（口形红细胞）
+
+echin-                棘
+  例：echinocyte（棘形红细胞）
+
+dacry- / dacrio-      泪
+  例：dacryocyte（泪滴形红细胞）
+
+ellipt- / ellipto-    椭圆
+  例：elliptocyte（椭圆形红细胞）
+
+schist- / schizo-     裂
+  例：schistocyte（裂红细胞）
+
+target                靶
+  例：target cell（靶形细胞）
+
+basophil-             嗜碱性
+  例：basophilia（嗜碱性）
+
+eosin- / eosino-      嗜酸性
+  例：eosinophil（嗜酸性粒细胞）
+
+neutr- / neutro-      中性
+  例：neutrophil（中性粒细胞）
+
+七、肿瘤学相关词根
+
+onc- / onco-          肿瘤
+  例：oncology（肿瘤学）, oncogene（癌基因）
+
+carcin- / carcino-    癌
+  例：carcinoma（癌）, carcinogenic（致癌的）
+
+-sarcoma              肉瘤
+  例：osteosarcoma（骨肉瘤）, liposarcoma（脂肪肉瘤）
+
+-blastoma             母细胞瘤
+  例：neuroblastoma（神经母细胞瘤）, retinoblastoma（视网膜母细胞瘤）
+
+-adenoma              腺瘤
+  例：adenoma（腺瘤）, fibroadenoma（纤维腺瘤）
+
+-papilloma             乳头状瘤
+  例：papilloma（乳头状瘤）
+
+-polyp                 息肉
+  例：polyp（息肉）, polypectomy（息肉切除术）
+
+-nevus                 痣
+  例：nevus（痣）
+
+-melanoma              黑色素瘤
+  例：melanoma（黑色素瘤）
+
+-leuk- / leuko-       白
+  例：leukemia（白血病）, leukocyte（白细胞）
+
+-emia                 血症
+  例：anemia（贫血）, leukemia（白血病）
+
+-philia               倾向/亲和
+  例：hemophilia（血友病）
+
+-phoresis             移动
+  例：electrophoresis（电泳）
+
+八、感染/免疫相关词根
+
+sept- / septo- / septi- 脓毒
+  例：sepsis（脓毒症）, septicemia（败血症）
+
+py- / pyo-            脓
+  例：pyemia（脓血症）, pyogenic（化脓的）
+
+suppur-               化脓
+  例：suppuration（化脓）, suppurative（化脓性的）
+
+infect- / infecti- / infectio- 感染
+  例：infection（感染）, infectious（传染性的）
+
+contagi-              接触传染
+  例：contagious（接触传染的）, contagion（接触传染）
+
+vir- / viro- / virus   病毒
+  例：virus（病毒）, viral（病毒的）, virology（病毒学）
+
+bacteri- / bacterio-   细菌
+  例：bacteria（细菌）, bacterial（细菌的）, bacteriology（细菌学）
+
+microb- / microbio-    微生物
+  例：microbe（微生物）, microbiology（微生物学）
+
+fung- / fungi- / fungo- / mycet- / myceto- / myco- 真菌
+  例：fungus（真菌）, fungal（真菌的）, mycosis（真菌病）
+
+parasit- / parasito-   寄生虫
+  例：parasite（寄生虫）, parasitic（寄生虫的）
+
+helminth-              蠕虫
+  例：helminth（蠕虫）, helminthiasis（蠕虫病）
+
+tox- / toxi- / toxo-   毒
+  例：toxin（毒素）, toxic（有毒的）, toxemia（毒血症）
+
+venom-                 毒液
+  例：venomous（有毒的）
+
+poison                 毒
+  例：poisoning（中毒）
+
+antibi- / antibio- / anti- 抗生/抗
+  例：antibiotic（抗生素）, antibacterial（抗菌的）
+
+immun- / immuno-       免疫
+  例：immune（免疫的）, immunity（免疫力）, immunology（免疫学）
+
+vacc- / vaccin-        疫苗
+  例：vaccine（疫苗）, vaccination（疫苗接种）
+
+ser- / sero-           血清
+  例：serum（血清）, serology（血清学）
+
+lymph- / lympho-       淋巴
+  例：lymph（淋巴）, lymphocyte（淋巴细胞）, lymphoma（淋巴瘤）
+
+splen- / spleno-       脾
+  例：spleen（脾）, splenomegaly（脾肿大）
+
+thym- / thymo-         胸腺
+  例：thymus（胸腺）
+
+tonsill- / tonsillo-   扁桃体
+  例：tonsil（扁桃体）, tonsillitis（扁桃体炎）
+
+九、药理学相关词根
+
+pharmac- / pharmaco-   药
+  例：pharmacy（药学）, pharmacology（药理学）, pharmacokinetics（药代动力学）
+
+drug                   药物
+  例：drug（药物）
+
+medic- / medicina-     药/医学
+  例：medicine（医学/药物）, medicinal（药的）
+
+therapeut- / therapeu- 治疗
+  例：therapeutics（治疗学）, therapeutic（治疗的）
+
+remed-                 治疗
+  例：remedy（治疗/药物）
+
+cur-                   治愈
+  例：cure（治愈）
+
+heal-                  愈合
+  例：healing（愈合）
+
+anti-                  抗/反
+  例：antibiotic（抗生素）, antiviral（抗病毒的）, antipyretic（退热药）
+
+pro-                   前/原/支持
+  例：prodrug（前药）, prophylactic（预防的）
+
+syn-                   协同
+  例：synergism（协同作用）
+
+potent-                效力
+  例：potency（效价）, potentiation（增强作用）
+
+agon-                  激动
+  例：agonist（激动剂）
+
+antagon-               拮抗
+  例：antagonist（拮抗剂）
+
+-lytic                 溶解的
+  例：thrombolytic（溶栓的）, fibrinolytic（纤溶的）
+
+-mimetic               模拟的
+  例：sympathomimetic（拟交感神经的）
+
+-lysin                 溶解素
+  例：fibrinolysin（纤溶酶）
+
+十、其他常用医学词根
+
+tempor- / temporo-     颞/时间
+  例：temporal（颞的/暂时的）
+
+occipit- / occipito-   枕
+  例：occipital（枕的）
+
+front- / fronto-       额
+  例：frontal（额的）
+
+pariet- / parieto-     顶
+  例：parietal（顶的）
+
+ethmoid-               筛
+  例：ethmoid（筛骨）
+
+sphen- / spheno-       蝶
+  例：sphenoid（蝶骨）
+
+zygom- / zygomo-       颧
+  例：zygomatic（颧的）
+
+maxill- / maxillo-     上颌
+  例：maxillary（上颌的）
+
+mandibul- / mandibulo- 下颌
+  例：mandibular（下颌的）
+
+gnath- / gnatho-       颌
+  例：prognathism（凸颌）
+
+cervic- / cervico-     颈
+  例：cervical（颈的）
+
+thorac- / thoraco-     胸
+  例：thoracic（胸的）, thoracotomy（胸廓切开术）
+
+stern- / sterno-       胸骨
+  例：sternal（胸骨的）
+
+cost- / costo-         肋
+  例：costal（肋的）, intercostal（肋间的）
+
+abdomin- / abdomino-   腹
+  例：abdominal（腹的）, abdominoscopy（腹腔镜检查）
+
+cel- / celi- / coel- / coelio- 腹腔
+  例：celiac（腹腔的）, coeliotomy（剖腹术）
+
+lapar- / laparo-       腹
+  例：laparotomy（剖腹术）, laparoscopy（腹腔镜检查）
+
+peritone- / peritoneo- 腹膜
+  例：peritoneal（腹膜的）, peritonitis（腹膜炎）
+
+omphal- / omphalo-     脐
+  例：omphalitis（脐炎）, omphalocele（脐膨出）
+
+umbilic-               脐
+  例：umbilical（脐的）
+
+sacr- / sacro-         骶
+  例：sacral（骶的）
+
+coccyg-                尾骨
+  例：coccygeal（尾骨的）, coccygectomy（尾骨切除术）
+
+pub- / pubo-           耻骨
+  例：pubic（耻骨的）
+
+ili- / ilio-           髂
+  例：iliac（髂的）
+
+ischi- / ischio-       坐骨
+  例：ischial（坐骨的）, ischiorectal（坐骨直肠的）
+
+acromi- / acromio-     肩峰
+  例：acromial（肩峰的）
+
+olecran-               鹰嘴
+  例：olecranon（鹰嘴）
+
+carp- / carpo-         腕
+  例：carpal（腕的）, carpometacarpal（腕掌的）
+
+metacarp- / metacarpo- 掌
+  例：metacarpal（掌的）
+
+phalang- / phalango-   指/趾骨
+  例：phalangeal（指骨的）
+
+tars- / tarso-         跗
+  例：tarsal（跗的）
+
+metatars- / metatarso- 跖
+  例：metatarsal（跖的）
+
+calcane-               跟骨
+  例：calcaneal（跟骨的）

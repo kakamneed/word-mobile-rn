@@ -1,0 +1,46 @@
+{
+  "data": {
+    "normalBooksInfo": [
+      {
+        "id": "CET4_3",
+        "title": "新东方四级词汇",
+        "tags": [
+          "四级",
+          "新东方"
+        ],
+        "wordNum": 2607,
+        "offlinedata": "http://ydschool-online.nos.netease.com/1521164643060_CET4_3.zip"
+      },
+      {
+        "id": "CET6_3",
+        "title": "新东方六级词汇",
+        "tags": [
+          "六级",
+          "新东方"
+        ],
+        "wordNum": 2345,
+        "offlinedata": "http://ydschool-online.nos.netease.com/1521164633851_CET6_3.zip"
+      },
+      {
+        "id": "KaoYan_3",
+        "title": "新东方考研词汇",
+        "tags": [
+          "考研",
+          "新东方"
+        ],
+        "wordNum": 3728,
+        "offlinedata": "http://ydschool-online.nos.netease.com/1521164658897_KaoYan_3.zip"
+      },
+      {
+        "id": "MEDICAL_RESP",
+        "title": "医学英语词汇",
+        "tags": [
+          "医学",
+          "专业"
+        ],
+        "wordNum": 2857,
+        "offlinedata": null
+      }
+    ]
+  }
+}

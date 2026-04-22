@@ -9,7 +9,12 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import type {PlanSummary} from '../../lib/plan-client';
+import {
+  normalizeGrowthRule,
+  normalizePlanGrowth,
+  type PlanSummary,
+} from '../../lib/plan-client';
+import type {GrowthModeKey, GrowthRule} from '../../lib/mobile-bridge';
 import {GrowthRuleSection} from './growth-rule-section';
 import {WordbookSelectorSection} from './wordbook-selector-section';
 
@@ -19,23 +24,47 @@ interface PlanEditorScreenProps {
   onCancel: () => void;
 }
 
+function createDefaultGrowthRules(): Record<GrowthModeKey, GrowthRule> {
+  return {
+    newWord: normalizeGrowthRule(),
+    review: normalizeGrowthRule(),
+    mixedTest: normalizeGrowthRule(),
+    wrongWordReinforcement: normalizeGrowthRule(),
+    rootAffix: normalizeGrowthRule(),
+  };
+}
+
 export function PlanEditorScreen({
   plan,
   onSave,
   onCancel,
 }: PlanEditorScreenProps): React.JSX.Element {
-  const [name, setName] = useState(plan.name);
-  const [newWordsPerDay, setNewWordsPerDay] = useState(plan.newWordsPerDay.toString());
-  const [reviewWordsPerDay, setReviewWordsPerDay] = useState(plan.reviewWordsPerDay.toString());
-  const [mixedTestPerDay, setMixedTestPerDay] = useState(plan.mixedTestPerDay.toString());
+  const normalizedPlan = normalizePlanGrowth(plan);
+  const [name, setName] = useState(normalizedPlan.name);
+  const [newWordsPerDay, setNewWordsPerDay] = useState(
+    normalizedPlan.newWordsPerDay.toString(),
+  );
+  const [reviewWordsPerDay, setReviewWordsPerDay] = useState(
+    normalizedPlan.reviewWordsPerDay.toString(),
+  );
+  const [mixedTestPerDay, setMixedTestPerDay] = useState(
+    normalizedPlan.mixedTestPerDay.toString(),
+  );
   const [wrongWordTestPerDay, setWrongWordTestPerDay] = useState(
-    plan.wrongWordTestPerDay.toString(),
+    normalizedPlan.wrongWordTestPerDay.toString(),
+  );
+  const [growthRuleMode, setGrowthRuleMode] = useState<'shared' | 'perMode'>(
+    normalizedPlan.growthRuleMode ?? 'shared',
   );
   const [growthIntervalDays, setGrowthIntervalDays] = useState(
-    plan.growthIntervalDays.toString(),
+    normalizedPlan.growthIntervalDays.toString(),
   );
   const [growthIncrement, setGrowthIncrement] = useState(
-    plan.growthIncrement.toString(),
+    normalizedPlan.growthIncrement.toString(),
+  );
+  const [growthRulesByMode, setGrowthRulesByMode] = useState<Record<GrowthModeKey, GrowthRule>>(
+    (normalizedPlan.growthRulesByMode as Record<GrowthModeKey, GrowthRule>) ??
+      createDefaultGrowthRules(),
   );
   const [selectedWordbookIds, setSelectedWordbookIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
@@ -50,6 +79,12 @@ export function PlanEditorScreen({
       wrongWordTestPerDay: parseInt(wrongWordTestPerDay, 10) || 0,
       growthIntervalDays: parseInt(growthIntervalDays, 10) || 7,
       growthIncrement: parseInt(growthIncrement, 10) || 5,
+      growthRuleMode,
+      sharedGrowthRule: {
+        intervalDays: parseInt(growthIntervalDays, 10) || 7,
+        increment: parseInt(growthIncrement, 10) || 5,
+      },
+      growthRulesByMode,
     };
 
     if (!updatedPlan.name) {
@@ -117,7 +152,7 @@ export function PlanEditorScreen({
 
         <Section title="每日学习目标">
           <Text style={styles.sectionHint}>
-            主页和答题页统一按题显示进度。新词、复习按每词 4 题换算；混合测试和错词强化直接按题配置。
+            主页和答题页统一按题显示进度。新词、复习按每词 4 题换算；混合测试、错词强化和词根词缀直接按题配置。
           </Text>
 
           <NumberField
@@ -126,7 +161,7 @@ export function PlanEditorScreen({
             description={`每词 4 题，共 ${newWordQuestions} 题`}
             step={5}
             onAdjust={delta =>
-              adjustValue(newWordsPerDay, setNewWordsPerDay, delta, 5, 100)
+              adjustValue(newWordsPerDay, setNewWordsPerDay, delta, 0, 100)
             }
             onChange={setNewWordsPerDay}
           />
@@ -137,7 +172,7 @@ export function PlanEditorScreen({
             description={`每词 4 题，共 ${reviewQuestions} 题`}
             step={10}
             onAdjust={delta =>
-              adjustValue(reviewWordsPerDay, setReviewWordsPerDay, delta, 10, 200)
+              adjustValue(reviewWordsPerDay, setReviewWordsPerDay, delta, 0, 200)
             }
             onChange={setReviewWordsPerDay}
           />
@@ -172,10 +207,23 @@ export function PlanEditorScreen({
         </Section>
 
         <GrowthRuleSection
-          intervalDays={parseInt(growthIntervalDays, 10) || 7}
-          increment={parseInt(growthIncrement, 10) || 5}
-          onChangeInterval={days => setGrowthIntervalDays(days.toString())}
-          onChangeIncrement={inc => setGrowthIncrement(inc.toString())}
+          mode={growthRuleMode}
+          sharedRule={{
+            intervalDays: parseInt(growthIntervalDays, 10) || 7,
+            increment: parseInt(growthIncrement, 10) || 5,
+          }}
+          perModeRules={growthRulesByMode}
+          onChangeMode={setGrowthRuleMode}
+          onChangeSharedRule={(rule: GrowthRule) => {
+            setGrowthIntervalDays(rule.intervalDays.toString());
+            setGrowthIncrement(rule.increment.toString());
+          }}
+          onChangePerModeRule={(modeKey: GrowthModeKey, rule: GrowthRule) =>
+            setGrowthRulesByMode(current => ({
+              ...current,
+              [modeKey]: rule,
+            }))
+          }
         />
 
         <WordbookSelectorSection

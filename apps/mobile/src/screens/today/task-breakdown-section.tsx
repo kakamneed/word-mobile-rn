@@ -1,10 +1,11 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import type {DailySnapshot} from '../../lib/today-client';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import type {DailySnapshot, PlanSummary} from '../../lib/today-client';
 import type {SessionMode} from '../../lib/mobile-bridge';
 
 interface TaskBreakdownSectionProps {
   snapshot: DailySnapshot;
+  activePlan: PlanSummary | null;
   onStartStudy?: (mode: SessionMode) => void;
 }
 
@@ -14,6 +15,7 @@ function TaskItem({
   helper,
   completed,
   target,
+  denominatorLabel,
   color,
   onPress,
 }: {
@@ -22,6 +24,7 @@ function TaskItem({
   helper?: string;
   completed: number;
   target: number;
+  denominatorLabel?: string;
   color: string;
   onPress?: () => void;
 }): React.JSX.Element {
@@ -43,14 +46,17 @@ function TaskItem({
           <View
             style={[
               styles.progressFill,
-              {width: `${Math.min(progress * 100, 100)}%`, backgroundColor: color},
+              {
+                width: `${Math.min(progress * 100, 100)}%`,
+                backgroundColor: color,
+              },
             ]}
           />
         </View>
       </View>
       <View style={styles.taskCount}>
         <Text style={[styles.countText, {color}]}>
-          {completed}/{target} 题
+          {completed}/{denominatorLabel ?? target}
         </Text>
       </View>
     </TouchableOpacity>
@@ -59,6 +65,7 @@ function TaskItem({
 
 export function TaskBreakdownSection({
   snapshot,
+  activePlan,
   onStartStudy,
 }: TaskBreakdownSectionProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(false);
@@ -68,51 +75,57 @@ export function TaskBreakdownSection({
     icon: string;
     label: string;
     helper?: string;
+    denominatorLabel?: string;
     completed: number;
     target: number;
     color: string;
   }> = [
     {
       key: 'newWord' as SessionMode,
-      icon: '新',
+      icon: 'N',
       label: '新词学习',
-      helper: buildHelperText('newWord', snapshot.newWordsTarget),
+      helper: buildHelperText('newWord', snapshot, activePlan),
+      denominatorLabel: buildDenominatorLabel('newWord', snapshot, activePlan),
       completed: snapshot.newWordsCompleted,
       target: snapshot.newWordsTarget,
       color: '#34C759',
     },
     {
       key: 'review' as SessionMode,
-      icon: '复',
+      icon: 'R',
       label: '复习',
-      helper: buildHelperText('review', snapshot.reviewWordsTarget),
+      helper: buildHelperText('review', snapshot, activePlan),
+      denominatorLabel: buildDenominatorLabel('review', snapshot, activePlan),
       completed: snapshot.reviewWordsCompleted,
       target: snapshot.reviewWordsTarget,
       color: '#007AFF',
     },
     {
       key: 'mixedTest' as SessionMode,
-      icon: '测',
+      icon: 'M',
       label: '混合测试',
-      helper: '按题推进',
+      helper: buildHelperText('mixedTest', snapshot, activePlan),
+      denominatorLabel: buildDenominatorLabel('mixedTest', snapshot, activePlan),
       completed: snapshot.mixedTestCompleted,
       target: snapshot.mixedTestTarget,
       color: '#FF9500',
     },
     {
       key: 'wrongWordReinforcement' as SessionMode,
-      icon: '错',
+      icon: 'W',
       label: '错词强化',
-      helper: '按题推进',
+      helper: buildHelperText('wrongWordReinforcement', snapshot, activePlan),
+      denominatorLabel: buildDenominatorLabel('wrongWordReinforcement', snapshot, activePlan),
       completed: snapshot.wrongWordTestCompleted,
       target: snapshot.wrongWordTestTarget,
       color: '#FF3B30',
     },
     {
       key: 'rootAffix' as SessionMode,
-      icon: '根',
+      icon: 'RA',
       label: '词根词缀',
-      helper: buildHelperText('rootAffix', snapshot.rootAffixTarget ?? 0),
+      helper: buildHelperText('rootAffix', snapshot, activePlan),
+      denominatorLabel: buildDenominatorLabel('rootAffix', snapshot, activePlan),
       completed: snapshot.rootAffixCompleted ?? 0,
       target: snapshot.rootAffixTarget ?? 0,
       color: '#8E44AD',
@@ -125,7 +138,7 @@ export function TaskBreakdownSection({
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>今日任务</Text>
       <Text style={styles.sectionHint}>
-        新词/复习会按每词 4 题换算；词根词缀按每项 2 题换算；主页统一按题显示进度。
+        新词和复习按每词 4 题换算；任务说明里会拆出基础计划量和近几天分摊量。
       </Text>
 
       {visibleTasks.map(task => (
@@ -136,13 +149,16 @@ export function TaskBreakdownSection({
           helper={task.helper}
           completed={task.completed}
           target={task.target}
+          denominatorLabel={task.denominatorLabel}
           color={task.color}
           onPress={() => onStartStudy?.(task.key)}
         />
       ))}
 
       {tasks.length > 3 ? (
-        <TouchableOpacity style={styles.expandButton} onPress={() => setExpanded(!expanded)}>
+        <TouchableOpacity
+          style={styles.expandButton}
+          onPress={() => setExpanded(!expanded)}>
           <Text style={styles.expandText}>
             {expanded ? '收起' : `展开其余 ${tasks.length - 3} 项`}
           </Text>
@@ -152,14 +168,55 @@ export function TaskBreakdownSection({
   );
 }
 
-function buildHelperText(mode: SessionMode, targetQuestions: number): string | undefined {
-  if (mode === 'newWord' || mode === 'review') {
-    return `${Math.floor(targetQuestions / 4)} 个计划，共 ${targetQuestions} 题`;
+function buildHelperText(
+  mode: SessionMode,
+  snapshot: DailySnapshot,
+  activePlan: PlanSummary | null,
+): string | undefined {
+  const {base, carryover} = taskBreakdown(mode, snapshot, activePlan);
+  return carryover > 0 ? `计划 ${base} + 分摊 ${carryover}` : `计划 ${base}`;
+}
+
+function buildDenominatorLabel(
+  mode: SessionMode,
+  snapshot: DailySnapshot,
+  activePlan: PlanSummary | null,
+): string {
+  const {base, carryover} = taskBreakdown(mode, snapshot, activePlan);
+  return carryover > 0 ? `${base}+${carryover}` : `${base}`;
+}
+
+function taskBreakdown(
+  mode: SessionMode,
+  snapshot: DailySnapshot,
+  activePlan: PlanSummary | null,
+): {base: number; carryover: number} {
+  switch (mode) {
+    case 'newWord': {
+      const base = snapshot.newWordsBaseTarget ?? ((activePlan?.newWordsPerDay ?? 0) * 4);
+      return {base, carryover: Math.max(snapshot.newWordsTarget - base, 0)};
+    }
+    case 'review': {
+      const base = snapshot.reviewWordsBaseTarget ?? ((activePlan?.reviewWordsPerDay ?? 0) * 4);
+      return {base, carryover: Math.max(snapshot.reviewWordsTarget - base, 0)};
+    }
+    case 'mixedTest': {
+      const base = snapshot.mixedTestBaseTarget ?? (activePlan?.mixedTestPerDay ?? 0);
+      return {base, carryover: Math.max(snapshot.mixedTestTarget - base, 0)};
+    }
+    case 'wrongWordReinforcement': {
+      const base =
+        snapshot.wrongWordTestBaseTarget ?? (activePlan?.wrongWordTestPerDay ?? 0);
+      return {base, carryover: Math.max(snapshot.wrongWordTestTarget - base, 0)};
+    }
+    case 'rootAffix': {
+      const total = snapshot.rootAffixTarget ?? 0;
+      const base = snapshot.rootAffixBaseTarget ?? (activePlan?.rootAffixPerDay ?? total);
+      return {base, carryover: Math.max(total - base, 0)};
+    }
+    default:
+      return {base: 0, carryover: 0};
   }
-  if (mode === 'rootAffix') {
-    return `${Math.floor(targetQuestions / 2)} 项计划，共 ${targetQuestions} 题`;
-  }
-  return undefined;
 }
 
 const styles = StyleSheet.create({
@@ -175,14 +232,15 @@ const styles = StyleSheet.create({
   },
   taskItemComplete: {opacity: 0.6},
   iconContainer: {
-    width: 40,
+    minWidth: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    paddingHorizontal: 6,
   },
-  icon: {fontSize: 14, fontWeight: '700'},
+  icon: {fontSize: 12, fontWeight: '700'},
   taskInfo: {flex: 1},
   taskLabel: {fontSize: 15, fontWeight: '500', marginBottom: 2, color: '#333'},
   taskHelper: {fontSize: 12, color: '#888', marginBottom: 6},

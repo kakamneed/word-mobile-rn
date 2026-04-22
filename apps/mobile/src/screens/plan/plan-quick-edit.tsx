@@ -10,11 +10,15 @@ import {
   Alert,
 } from 'react-native';
 import {
+  normalizeGrowthRule,
+  normalizePlanGrowth,
   type PlanSummary,
   savePlan,
   applyPlanToToday,
   validatePlanInput,
 } from '../../lib/plan-client';
+import type {GrowthModeKey, GrowthRule} from '../../lib/mobile-bridge';
+import {GrowthRuleSection} from './growth-rule-section';
 
 interface PlanQuickEditProps {
   plan: PlanSummary;
@@ -22,17 +26,41 @@ interface PlanQuickEditProps {
   onCancel: () => void;
 }
 
+function createDefaultGrowthRules(): Record<GrowthModeKey, GrowthRule> {
+  return {
+    newWord: normalizeGrowthRule(),
+    review: normalizeGrowthRule(),
+    mixedTest: normalizeGrowthRule(),
+    wrongWordReinforcement: normalizeGrowthRule(),
+    rootAffix: normalizeGrowthRule(),
+  };
+}
+
 export function PlanQuickEdit({
   plan,
   onSave,
   onCancel,
 }: PlanQuickEditProps): React.JSX.Element {
-  const [name, setName] = useState(plan.name);
-  const [newWords, setNewWords] = useState(plan.newWordsPerDay.toString());
-  const [reviewWords, setReviewWords] = useState(plan.reviewWordsPerDay.toString());
-  const [mixedTest, setMixedTest] = useState(plan.mixedTestPerDay.toString());
-  const [wrongWords, setWrongWords] = useState(plan.wrongWordTestPerDay.toString());
-  const [rootAffix, setRootAffix] = useState((plan.rootAffixPerDay ?? 0).toString());
+  const normalizedPlan = normalizePlanGrowth(plan);
+  const [name, setName] = useState(normalizedPlan.name);
+  const [newWords, setNewWords] = useState(normalizedPlan.newWordsPerDay.toString());
+  const [reviewWords, setReviewWords] = useState(normalizedPlan.reviewWordsPerDay.toString());
+  const [mixedTest, setMixedTest] = useState(normalizedPlan.mixedTestPerDay.toString());
+  const [wrongWords, setWrongWords] = useState(normalizedPlan.wrongWordTestPerDay.toString());
+  const [rootAffix, setRootAffix] = useState((normalizedPlan.rootAffixPerDay ?? 0).toString());
+  const [growthRuleMode, setGrowthRuleMode] = useState<'shared' | 'perMode'>(
+    normalizedPlan.growthRuleMode ?? 'shared',
+  );
+  const [growthIntervalDays, setGrowthIntervalDays] = useState(
+    normalizedPlan.growthIntervalDays.toString(),
+  );
+  const [growthIncrement, setGrowthIncrement] = useState(
+    normalizedPlan.growthIncrement.toString(),
+  );
+  const [growthRulesByMode, setGrowthRulesByMode] = useState(
+    (normalizedPlan.growthRulesByMode as Record<GrowthModeKey, GrowthRule>) ??
+      createDefaultGrowthRules(),
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -43,6 +71,14 @@ export function PlanQuickEdit({
       mixedTestPerDay: parseInt(mixedTest, 10) || 0,
       wrongWordTestPerDay: parseInt(wrongWords, 10) || 0,
       rootAffixPerDay: parseInt(rootAffix, 10) || 0,
+      growthIntervalDays: parseInt(growthIntervalDays, 10) || 7,
+      growthIncrement: parseInt(growthIncrement, 10) || 5,
+      growthRuleMode,
+      sharedGrowthRule: {
+        intervalDays: parseInt(growthIntervalDays, 10) || 7,
+        increment: parseInt(growthIncrement, 10) || 5,
+      },
+      growthRulesByMode,
     };
 
     const error = validatePlanInput(input);
@@ -119,7 +155,7 @@ export function PlanQuickEdit({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>每日目标</Text>
           <Text style={styles.sectionHint}>
-            主页统一按题显示进度。新词、复习按每词 4 题换算；词根词缀按每项 2 题换算。
+            主页统一按题显示进度。新词、复习按每词 4 题换算；词根词缀按每项 1 题计算。
           </Text>
 
           <NumberField
@@ -128,7 +164,7 @@ export function PlanQuickEdit({
             value={newWords}
             onChange={setNewWords}
             step={5}
-            onAdjust={delta => setNewWords(adjustValue(newWords, delta, 5, 100))}
+            onAdjust={delta => setNewWords(adjustValue(newWords, delta, 0, 100))}
           />
           <NumberField
             label="复习（个，每词 4 题）"
@@ -137,7 +173,7 @@ export function PlanQuickEdit({
             onChange={setReviewWords}
             step={10}
             onAdjust={delta =>
-              setReviewWords(adjustValue(reviewWords, delta, 10, 200))
+              setReviewWords(adjustValue(reviewWords, delta, 0, 200))
             }
           />
           <NumberField
@@ -157,14 +193,33 @@ export function PlanQuickEdit({
             onAdjust={delta => setWrongWords(adjustValue(wrongWords, delta, 0, 30))}
           />
           <NumberField
-            label="词根词缀（项，每项 2 题）"
-            helper={`${(parseInt(rootAffix, 10) || 0) * 2} 题`}
+            label="词根词缀（项，每项 1 题）"
+            helper={`${parseInt(rootAffix, 10) || 0} 题`}
             value={rootAffix}
             onChange={setRootAffix}
-            step={2}
+            step={1}
             onAdjust={delta => setRootAffix(adjustValue(rootAffix, delta, 0, 50))}
           />
         </View>
+        <GrowthRuleSection
+          mode={growthRuleMode}
+          sharedRule={{
+            intervalDays: parseInt(growthIntervalDays, 10) || 7,
+            increment: parseInt(growthIncrement, 10) || 5,
+          }}
+          perModeRules={growthRulesByMode}
+          onChangeMode={setGrowthRuleMode}
+          onChangeSharedRule={rule => {
+            setGrowthIntervalDays(rule.intervalDays.toString());
+            setGrowthIncrement(rule.increment.toString());
+          }}
+          onChangePerModeRule={(modeKey, rule) =>
+            setGrowthRulesByMode(current => ({
+              ...current,
+              [modeKey]: rule,
+            }))
+          }
+        />
       </ScrollView>
     </SafeAreaView>
   );

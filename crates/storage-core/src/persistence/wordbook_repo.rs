@@ -40,7 +40,8 @@ pub fn get_all_wordbooks(conn: &Connection) -> Result<Vec<Wordbook>, StorageErro
 
     let mut wordbooks = Vec::new();
     for row in rows {
-        wordbooks.push(row.map_err(|e| StorageError::Database(format!("Failed to read row: {e}")))?);
+        wordbooks
+            .push(row.map_err(|e| StorageError::Database(format!("Failed to read row: {e}")))?);
     }
 
     Ok(wordbooks)
@@ -63,7 +64,8 @@ pub fn get_active_wordbooks(conn: &Connection) -> Result<Vec<Wordbook>, StorageE
 
     let mut wordbooks = Vec::new();
     for row in rows {
-        wordbooks.push(row.map_err(|e| StorageError::Database(format!("Failed to read row: {e}")))?);
+        wordbooks
+            .push(row.map_err(|e| StorageError::Database(format!("Failed to read row: {e}")))?);
     }
 
     Ok(wordbooks)
@@ -77,7 +79,10 @@ pub fn deactivate_all_wordbooks(conn: &Connection) -> Result<(), StorageError> {
 }
 
 /// Activate wordbooks by version.
-pub fn activate_wordbooks_by_version(conn: &Connection, version_id: i64) -> Result<(), StorageError> {
+pub fn activate_wordbooks_by_version(
+    conn: &Connection,
+    version_id: i64,
+) -> Result<(), StorageError> {
     conn.execute(
         "UPDATE wordbooks SET is_active = 1 WHERE source_version_id = ?1",
         rusqlite::params![version_id],

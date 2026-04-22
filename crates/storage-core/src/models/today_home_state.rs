@@ -1,8 +1,5 @@
-//! Today home state model.
-
 use serde::{Deserialize, Serialize};
 
-/// Full state for the today home dashboard.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TodayHomeState {
@@ -13,7 +10,6 @@ pub struct TodayHomeState {
     pub daily_progress: DailyProgress,
 }
 
-/// Summary of a plan template.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanSummary {
@@ -23,26 +19,37 @@ pub struct PlanSummary {
     pub review_words_per_day: i64,
     pub mixed_test_per_day: i64,
     pub wrong_word_test_per_day: i64,
+    pub root_affix_per_day: Option<i64>,
     pub growth_interval_days: i64,
     pub growth_increment: i64,
 }
 
-/// Daily snapshot for a plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailySnapshot {
     pub date: String,
     pub new_words_target: u32,
+    pub new_words_base_target: Option<u32>,
+    pub new_words_carryover_target: Option<u32>,
     pub new_words_completed: u32,
     pub review_words_target: u32,
+    pub review_words_base_target: Option<u32>,
+    pub review_words_carryover_target: Option<u32>,
     pub review_words_completed: u32,
     pub mixed_test_target: u32,
+    pub mixed_test_base_target: Option<u32>,
+    pub mixed_test_carryover_target: Option<u32>,
     pub mixed_test_completed: u32,
     pub wrong_word_test_target: u32,
+    pub wrong_word_test_base_target: Option<u32>,
+    pub wrong_word_test_carryover_target: Option<u32>,
     pub wrong_word_test_completed: u32,
+    pub root_affix_target: Option<u32>,
+    pub root_affix_base_target: Option<u32>,
+    pub root_affix_carryover_target: Option<u32>,
+    pub root_affix_completed: Option<u32>,
 }
 
-/// Summary of a wordbook.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WordbookSummary {
@@ -54,11 +61,51 @@ pub struct WordbookSummary {
     pub is_active: bool,
 }
 
-/// Daily progress summary.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyProgress {
     pub total_tasks: u32,
     pub completed_tasks: u32,
     pub next_recommended_action: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TodayHomeStateSeed {
+    pub today_date: String,
+    pub active_plan: Option<PlanSummary>,
+    pub wordbooks: Vec<WordbookSummary>,
+    pub completions: TodayCompletionSeed,
+    #[serde(default)]
+    pub targets: TodayTargetSeed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TodayCompletionSeed {
+    pub new_words_completed: u32,
+    pub review_words_completed: u32,
+    pub mixed_test_completed: u32,
+    pub wrong_word_test_completed: u32,
+    pub root_affix_completed: Option<u32>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TodayTargetSeed {
+    pub new_words_target: Option<u32>,
+    pub new_words_base_target: Option<u32>,
+    pub new_words_carryover_target: Option<u32>,
+    pub review_words_target: Option<u32>,
+    pub review_words_base_target: Option<u32>,
+    pub review_words_carryover_target: Option<u32>,
+    pub mixed_test_target: Option<u32>,
+    pub mixed_test_base_target: Option<u32>,
+    pub mixed_test_carryover_target: Option<u32>,
+    pub wrong_word_test_target: Option<u32>,
+    pub wrong_word_test_base_target: Option<u32>,
+    pub wrong_word_test_carryover_target: Option<u32>,
+    pub root_affix_target: Option<u32>,
+    pub root_affix_base_target: Option<u32>,
+    pub root_affix_carryover_target: Option<u32>,
 }

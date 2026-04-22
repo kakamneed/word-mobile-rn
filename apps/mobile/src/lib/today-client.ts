@@ -16,8 +16,16 @@ export type {
   DailyProgress,
 };
 
+let cachedTodayState: TodayHomeState | null = null;
+
 export async function fetchToday(): Promise<TodayHomeState> {
-  return bridgeGetTodayHomeState();
+  const next = await bridgeGetTodayHomeState();
+  cachedTodayState = next;
+  return next;
+}
+
+export function getCachedToday(): TodayHomeState | null {
+  return cachedTodayState;
 }
 
 export function calculateCompletion(snapshot: DailySnapshot): number {

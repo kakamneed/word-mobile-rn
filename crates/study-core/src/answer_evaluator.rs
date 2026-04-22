@@ -21,11 +21,35 @@ impl AnswerEvaluator {
             (input_outcome, Some(norm))
         };
 
-        let correct_answer = question
-            .accepted_meanings
-            .first()
-            .cloned()
-            .unwrap_or_default();
+        let correct_answer = if question.question_type.is_choice_type() {
+            question
+                .choices
+                .as_ref()
+                .and_then(|choices| {
+                    question
+                        .correct_choice_label
+                        .as_ref()
+                        .and_then(|correct_label| {
+                            choices
+                                .iter()
+                                .find(|choice| &choice.label == correct_label)
+                                .map(|choice| choice.text.clone())
+                        })
+                })
+                .unwrap_or_else(|| {
+                    question
+                        .accepted_meanings
+                        .first()
+                        .cloned()
+                        .unwrap_or_default()
+                })
+        } else {
+            question
+                .accepted_meanings
+                .first()
+                .cloned()
+                .unwrap_or_default()
+        };
 
         StudyResult {
             question_id: question.question_id.clone(),
@@ -57,10 +81,7 @@ impl AnswerEvaluator {
         }
     }
 
-    fn evaluate_input(
-        response: &str,
-        accepted_meanings: &[String],
-    ) -> (AnswerOutcome, String) {
+    fn evaluate_input(response: &str, accepted_meanings: &[String]) -> (AnswerOutcome, String) {
         let trimmed = response.trim();
 
         if trimmed.is_empty() {
@@ -77,7 +98,8 @@ impl AnswerEvaluator {
                 return (AnswerOutcome::Correct, normalized_input);
             }
 
-            if norm_meaning.contains(&normalized_input) || normalized_input.contains(&norm_meaning) {
+            if norm_meaning.contains(&normalized_input) || normalized_input.contains(&norm_meaning)
+            {
                 return (AnswerOutcome::FuzzyCorrect, normalized_input);
             }
         }

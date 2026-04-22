@@ -5,11 +5,12 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 
 use word_storage_core::models::{
-    ChoiceOption, SessionMode, SessionProgress, SessionSummary, StartSessionRequest,
-    StartSessionResponse, StudyQuestion, StudyResult, StudySession, SubmitAnswerRequest,
-    SubmitAnswerResponse, CompleteSessionResponse,
+    CompleteSessionResponse, EntryExample, MeaningZh, SessionProgress, StartSessionEntryPayload,
+    StartSessionRequest, StartSessionResponse, StudyQuestion, StudyResult, StudySession,
+    SubmitAnswerRequest, SubmitAnswerResponse,
 };
 use word_storage_core::persistence;
 
@@ -39,8 +40,26 @@ struct ActiveSession {
     question_map: HashMap<String, usize>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveSessionSnapshot {
+    #[serde(default = "default_question_engine_version")]
+    question_engine_version: i64,
+    session: StudySession,
+    questions: Vec<StudyQuestion>,
+    results: Vec<StudyResult>,
+    current_index: usize,
+}
+
 // Global in-memory session storage
-static ACTIVE_SESSION: Lazy<Mutex<Option<ActiveSession>>> = Lazy::new(|| Mutex::new(None));
+static ACTIVE_SESSIONS: Lazy<Mutex<HashMap<String, ActiveSession>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+const QUESTION_ENGINE_VERSION: i64 = 2;
+
+fn default_question_engine_version() -> i64 {
+    0
+}
 
 /// Start a new study session.
 ///
@@ -54,41 +73,74 @@ static ACTIVE_SESSION: Lazy<Mutex<Option<ActiveSession>>> = Lazy::new(|| Mutex::
 /// })?;
 /// ```
 pub fn start_study_session(
-    _conn: &Connection,
+    conn: &Connection,
     request: StartSessionRequest,
 ) -> Result<StartSessionResponse, StudyError> {
-    // Check for existing session
+    let mode = request.mode.clone();
+    let mode_key = mode_storage_key(&mode);
+    let total_words = request.entry_source_ids.len() as u32;
+
     {
-        let guard = ACTIVE_SESSION.lock().map_err(|_| StudyError::NoActiveSession)?;
-        if guard.is_some() {
-            return Err(StudyError::SessionAlreadyActive);
+        let guard = ACTIVE_SESSIONS
+            .lock()
+            .map_err(|_| StudyError::NoActiveSession)?;
+        if let Some(active) = guard.get(&mode_key) {
+            return Ok(build_start_response(active));
         }
     }
 
-    let mode = request.mode;
-    let total_words = request.entry_source_ids.len() as u32;
+    if let Some(snapshot) = load_persisted_session(conn, &mode)? {
+        let expected_questions = expected_question_count(&mode, total_words as usize);
+        if snapshot.question_engine_version == QUESTION_ENGINE_VERSION
+            && snapshot.questions.len() == expected_questions
+        {
+            let active = active_session_from_snapshot(snapshot);
+            let response = build_start_response(&active);
+            let mut guard = ACTIVE_SESSIONS
+                .lock()
+                .map_err(|_| StudyError::NoActiveSession)?;
+            guard.insert(mode_key, active);
+            return Ok(response);
+        }
+        clear_persisted_session(conn, &mode)?;
+    }
 
     if total_words == 0 {
         return Err(StudyError::NotEnoughWords);
     }
 
     // Create words for question builder
-    let words: Vec<WordForQuestion> = request
-        .entry_source_ids
-        .iter()
-        .map(|id| WordForQuestion {
-            source_id: id.clone(),
-            word: id.clone(), // Placeholder - would fetch from DB
-            meanings: vec![],
-            examples: vec![],
-        })
-        .collect();
+    let words: Vec<WordForQuestion> = if !request.entry_payloads.is_empty() {
+        payloads_to_words(&request.entry_payloads)
+    } else {
+        request
+            .entry_source_ids
+            .iter()
+            .map(|id| WordForQuestion {
+                source_id: id.clone(),
+                word: id.clone(),
+                part_of_speech: None,
+                frequency: 0.0,
+                phonetic_us: None,
+                phonetic_uk: None,
+                meanings: vec![],
+                examples: vec![],
+            })
+            .collect()
+    };
+
+    let distractors: Vec<WordForQuestion> = if !request.distractor_payloads.is_empty() {
+        payloads_to_words(&request.distractor_payloads)
+    } else {
+        words.clone()
+    };
 
     let session_id = format!("sess_{}", chrono::Utc::now().format("%Y%m%d%H%M%S"));
     let started_at = chrono::Utc::now().to_rfc3339();
 
     // Generate questions
-    let questions = QuestionBuilder::build_session_questions(&mode, &words, &words, &session_id);
+    let questions =
+        QuestionBuilder::build_session_questions(&mode, &words, &distractors, &session_id);
 
     if questions.is_empty() {
         return Err(StudyError::NotEnoughWords);
@@ -96,7 +148,7 @@ pub fn start_study_session(
 
     let session = StudySession {
         session_id: session_id.clone(),
-        mode,
+        mode: mode.clone(),
         total_words,
         wordbook_id: request.wordbook_id,
         started_at,
@@ -109,42 +161,90 @@ pub fn start_study_session(
     }
 
     // Store active session
+    let active = ActiveSession {
+        session,
+        questions: questions.clone(),
+        results: Vec::new(),
+        current_index: 0,
+        question_map,
+    };
+    persist_active_session(conn, &active)?;
+
+    let response = build_start_response(&active);
     {
-        let mut guard = ACTIVE_SESSION.lock().map_err(|_| StudyError::NoActiveSession)?;
-        *guard = Some(ActiveSession {
-            session,
-            questions: questions.clone(),
-            results: Vec::new(),
-            current_index: 0,
-            question_map,
-        });
+        let mut guard = ACTIVE_SESSIONS
+            .lock()
+            .map_err(|_| StudyError::NoActiveSession)?;
+        guard.insert(mode_key, active);
     }
 
-    let first_question = questions[0].clone();
+    Ok(response)
+}
 
-    Ok(StartSessionResponse {
-        session: StudySession {
-            session_id: session_id.clone(),
-            mode: request.mode,
-            total_words,
-            wordbook_id: request.wordbook_id,
-            started_at: chrono::Utc::now().to_rfc3339(),
-        },
-        current_question: first_question,
-        progress: SessionProgress {
-            current: 1,
-            total: questions.len() as u32,
-        },
-    })
+fn payloads_to_words(payloads: &[StartSessionEntryPayload]) -> Vec<WordForQuestion> {
+    payloads
+        .iter()
+        .map(|payload| WordForQuestion {
+            source_id: payload.source_id.clone(),
+            word: payload.word.clone(),
+            part_of_speech: payload.part_of_speech.clone(),
+            frequency: payload.frequency,
+            phonetic_us: payload.phonetic_us.clone(),
+            phonetic_uk: payload.phonetic_uk.clone(),
+            meanings: if payload.meaning_details.is_empty() {
+                payload
+                    .meanings
+                    .iter()
+                    .map(|meaning| MeaningZh {
+                        pos: String::new(),
+                        meaning_cn: meaning.clone(),
+                        meaning_en: None,
+                    })
+                    .collect()
+            } else {
+                payload
+                    .meaning_details
+                    .iter()
+                    .map(|meaning| MeaningZh {
+                        pos: meaning.pos.clone(),
+                        meaning_cn: meaning.meaning_cn.clone(),
+                        meaning_en: meaning.meaning_en.clone(),
+                    })
+                    .collect()
+            },
+            examples: payload
+                .example_sentence
+                .iter()
+                .map(|sentence| EntryExample {
+                    sentence_en: sentence.clone(),
+                    sentence_cn: payload.example_translation.clone().unwrap_or_default(),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// Get the currently active study session state without mutating it.
+pub fn get_active_study_session() -> Result<StartSessionResponse, StudyError> {
+    let guard = ACTIVE_SESSIONS
+        .lock()
+        .map_err(|_| StudyError::NoActiveSession)?;
+    let active = guard.values().next().ok_or(StudyError::NoActiveSession)?;
+    Ok(build_start_response(active))
 }
 
 /// Submit an answer for the current question.
 pub fn submit_study_answer(
-    _conn: &Connection,
+    conn: &Connection,
     request: SubmitAnswerRequest,
 ) -> Result<SubmitAnswerResponse, StudyError> {
-    let mut guard = ACTIVE_SESSION.lock().map_err(|_| StudyError::NoActiveSession)?;
-    let active = guard.as_mut().ok_or(StudyError::NoActiveSession)?;
+    let mut guard = ACTIVE_SESSIONS
+        .lock()
+        .map_err(|_| StudyError::NoActiveSession)?;
+    let active = guard
+        .values_mut()
+        .find(|session| session.question_map.contains_key(&request.question_id))
+        .ok_or(StudyError::NoActiveSession)?;
 
     let current_q = &active.questions[active.current_index];
     let answered_at = chrono::Utc::now().to_rfc3339();
@@ -166,11 +266,8 @@ pub fn submit_study_answer(
 
     let (next_question, summary, next_action) = if is_complete {
         let completed_at = chrono::Utc::now().to_rfc3339();
-        let summary = SessionSummaryService::build_summary(
-            &active.session,
-            &active.results,
-            &completed_at,
-        );
+        let summary =
+            SessionSummaryService::build_summary(&active.session, &active.results, &completed_at);
         let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
         (None, Some(summary), Some(next_action))
     } else {
@@ -181,46 +278,64 @@ pub fn submit_study_answer(
         )
     };
 
-    Ok(SubmitAnswerResponse {
+    let response = SubmitAnswerResponse {
         result,
         is_complete,
         current_question: next_question,
         summary,
         next_action,
         progress: SessionProgress {
-            current: active.current_index as u32 + 1,
+            current: if is_complete {
+                active.questions.len() as u32
+            } else {
+                active.current_index as u32 + 1
+            },
             total: active.questions.len() as u32,
         },
-    })
+    };
+
+    if is_complete {
+        clear_persisted_session(conn, &active.session.mode)?;
+    } else {
+        persist_active_session(conn, active)?;
+    }
+
+    Ok(response)
 }
 
 /// Complete the active session and persist results.
 pub fn complete_study_session(
     conn: &Connection,
+    session_id: &str,
 ) -> Result<CompleteSessionResponse, StudyError> {
-    let mut guard = ACTIVE_SESSION.lock().map_err(|_| StudyError::NoActiveSession)?;
-    let active = guard.as_mut().ok_or(StudyError::NoActiveSession)?;
+    let mut guard = ACTIVE_SESSIONS
+        .lock()
+        .map_err(|_| StudyError::NoActiveSession)?;
+    let mode_key = guard
+        .iter()
+        .find(|(_, active)| active.session.session_id == session_id)
+        .map(|(mode, _)| mode.clone())
+        .ok_or(StudyError::NoActiveSession)?;
+    let active = guard.get(&mode_key).ok_or(StudyError::NoActiveSession)?;
 
     let completed_at = chrono::Utc::now().to_rfc3339();
-    let summary = SessionSummaryService::build_summary(
-        &active.session,
-        &active.results,
-        &completed_at,
-    );
+    let summary =
+        SessionSummaryService::build_summary(&active.session, &active.results, &completed_at);
     let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
 
     // Persist to database
-    persistence::study_repo::save_completed_session(
+    if let Err(error) = persistence::study_repo::save_completed_session(
         conn,
         &active.session,
         &summary,
         &active.results,
         &next_action,
-    )
-    .map_err(|e| StudyError::Storage(e.to_string()))?;
+    ) {
+        eprintln!("study persistence failed but session will still complete: {error}");
+    }
 
-    // Clear active session
-    *guard = None;
+    clear_persisted_session(conn, &active.session.mode)?;
+    guard.remove(&mode_key);
 
     Ok(CompleteSessionResponse {
         summary,
@@ -229,8 +344,96 @@ pub fn complete_study_session(
 }
 
 /// Cancel the active session without persisting.
-pub fn cancel_study_session() -> Result<(), StudyError> {
-    let mut guard = ACTIVE_SESSION.lock().map_err(|_| StudyError::NoActiveSession)?;
-    *guard = None;
+pub fn cancel_study_session(conn: &Connection, session_id: &str) -> Result<(), StudyError> {
+    let mut guard = ACTIVE_SESSIONS
+        .lock()
+        .map_err(|_| StudyError::NoActiveSession)?;
+    let mode_key = guard
+        .iter()
+        .find(|(_, active)| active.session.session_id == session_id)
+        .map(|(mode, _)| mode.clone())
+        .ok_or(StudyError::NoActiveSession)?;
+    let mode = guard
+        .get(&mode_key)
+        .map(|active| active.session.mode.clone())
+        .ok_or(StudyError::NoActiveSession)?;
+    guard.remove(&mode_key);
+    clear_persisted_session(conn, &mode)?;
     Ok(())
+}
+
+fn build_start_response(active: &ActiveSession) -> StartSessionResponse {
+    let question = active.questions[active.current_index].clone();
+    StartSessionResponse {
+        session: active.session.clone(),
+        current_question: question,
+        progress: SessionProgress {
+            current: active.current_index as u32 + 1,
+            total: active.questions.len() as u32,
+        },
+    }
+}
+
+fn mode_storage_key(mode: &word_storage_core::models::SessionMode) -> String {
+    serde_json::to_string(mode).unwrap_or_else(|_| "unknown".to_string())
+}
+
+fn active_session_from_snapshot(snapshot: ActiveSessionSnapshot) -> ActiveSession {
+    let mut question_map = HashMap::new();
+    for (i, question) in snapshot.questions.iter().enumerate() {
+        question_map.insert(question.question_id.clone(), i);
+    }
+    ActiveSession {
+        session: snapshot.session,
+        questions: snapshot.questions,
+        results: snapshot.results,
+        current_index: snapshot.current_index,
+        question_map,
+    }
+}
+
+fn load_persisted_session(
+    conn: &Connection,
+    mode: &word_storage_core::models::SessionMode,
+) -> Result<Option<ActiveSessionSnapshot>, StudyError> {
+    let raw = persistence::study_repo::load_active_session_snapshot(conn, mode)
+        .map_err(|e| StudyError::Storage(e.to_string()))?;
+    raw.map(|value| {
+        serde_json::from_str(&value)
+            .map_err(|e| StudyError::Storage(format!("Invalid active session snapshot: {e}")))
+    })
+    .transpose()
+}
+
+fn persist_active_session(conn: &Connection, active: &ActiveSession) -> Result<(), StudyError> {
+    let snapshot = ActiveSessionSnapshot {
+        question_engine_version: QUESTION_ENGINE_VERSION,
+        session: active.session.clone(),
+        questions: active.questions.clone(),
+        results: active.results.clone(),
+        current_index: active.current_index,
+    };
+    let payload = serde_json::to_string(&snapshot)
+        .map_err(|e| StudyError::Storage(format!("Failed to serialize active session: {e}")))?;
+    persistence::study_repo::save_active_session_snapshot(conn, &active.session.mode, &payload)
+        .map_err(|e| StudyError::Storage(e.to_string()))
+}
+
+fn clear_persisted_session(
+    conn: &Connection,
+    mode: &word_storage_core::models::SessionMode,
+) -> Result<(), StudyError> {
+    persistence::study_repo::delete_active_session_snapshot(conn, mode)
+        .map_err(|e| StudyError::Storage(e.to_string()))
+}
+
+fn expected_question_count(
+    mode: &word_storage_core::models::SessionMode,
+    total_words: usize,
+) -> usize {
+    match mode {
+        word_storage_core::models::SessionMode::NewWord
+        | word_storage_core::models::SessionMode::Review => total_words * 4,
+        _ => total_words,
+    }
 }
