@@ -55,10 +55,24 @@ struct ActiveSessionSnapshot {
 static ACTIVE_SESSIONS: Lazy<Mutex<HashMap<String, ActiveSession>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-const QUESTION_ENGINE_VERSION: i64 = 2;
+const QUESTION_ENGINE_VERSION: i64 = 3;
 
 fn default_question_engine_version() -> i64 {
     0
+}
+
+/// Clear all active sessions from memory.
+///
+/// Primarily for test isolation: call before each test to prevent
+/// global state leakage between parallel test runs.
+pub fn clear_all_active_sessions() {
+    let mut guard = ACTIVE_SESSIONS.lock().unwrap_or_else(|e| e.into_inner());
+    guard.clear();
+}
+
+/// Lock ACTIVE_SESSIONS, recovering from mutex poison.
+fn lock_sessions() -> std::sync::MutexGuard<'static, HashMap<String, ActiveSession>> {
+    ACTIVE_SESSIONS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Start a new study session.
@@ -81,9 +95,7 @@ pub fn start_study_session(
     let total_words = request.entry_source_ids.len() as u32;
 
     {
-        let guard = ACTIVE_SESSIONS
-            .lock()
-            .map_err(|_| StudyError::NoActiveSession)?;
+        let guard = lock_sessions();
         if let Some(active) = guard.get(&mode_key) {
             return Ok(build_start_response(active));
         }
@@ -93,12 +105,11 @@ pub fn start_study_session(
         let expected_questions = expected_question_count(&mode, total_words as usize);
         if snapshot.question_engine_version == QUESTION_ENGINE_VERSION
             && snapshot.questions.len() == expected_questions
+            && snapshot.current_index < snapshot.questions.len()
         {
             let active = active_session_from_snapshot(snapshot);
             let response = build_start_response(&active);
-            let mut guard = ACTIVE_SESSIONS
-                .lock()
-                .map_err(|_| StudyError::NoActiveSession)?;
+            let mut guard = lock_sessions();
             guard.insert(mode_key, active);
             return Ok(response);
         }
@@ -132,11 +143,12 @@ pub fn start_study_session(
     let distractors: Vec<WordForQuestion> = if !request.distractor_payloads.is_empty() {
         payloads_to_words(&request.distractor_payloads)
     } else {
-        words.clone()
+        Vec::new()
     };
 
-    let session_id = format!("sess_{}", chrono::Utc::now().format("%Y%m%d%H%M%S"));
-    let started_at = chrono::Utc::now().to_rfc3339();
+    let now = chrono::Utc::now();
+    let session_id = format!("sess_{}", now.format("%Y%m%d%H%M%S%f"));
+    let started_at = now.to_rfc3339();
 
     // Generate questions
     let questions =
@@ -172,9 +184,7 @@ pub fn start_study_session(
 
     let response = build_start_response(&active);
     {
-        let mut guard = ACTIVE_SESSIONS
-            .lock()
-            .map_err(|_| StudyError::NoActiveSession)?;
+        let mut guard = lock_sessions();
         guard.insert(mode_key, active);
     }
 
@@ -226,9 +236,7 @@ fn payloads_to_words(payloads: &[StartSessionEntryPayload]) -> Vec<WordForQuesti
 
 /// Get the currently active study session state without mutating it.
 pub fn get_active_study_session() -> Result<StartSessionResponse, StudyError> {
-    let guard = ACTIVE_SESSIONS
-        .lock()
-        .map_err(|_| StudyError::NoActiveSession)?;
+    let guard = lock_sessions();
     let active = guard.values().next().ok_or(StudyError::NoActiveSession)?;
     Ok(build_start_response(active))
 }
@@ -238,9 +246,7 @@ pub fn submit_study_answer(
     conn: &Connection,
     request: SubmitAnswerRequest,
 ) -> Result<SubmitAnswerResponse, StudyError> {
-    let mut guard = ACTIVE_SESSIONS
-        .lock()
-        .map_err(|_| StudyError::NoActiveSession)?;
+    let mut guard = lock_sessions();
     let active = guard
         .values_mut()
         .find(|session| session.question_map.contains_key(&request.question_id))
@@ -294,10 +300,11 @@ pub fn submit_study_answer(
         },
     };
 
-    if is_complete {
-        clear_persisted_session(conn, &active.session.mode)?;
-    } else {
-        persist_active_session(conn, active)?;
+    persist_active_session(conn, active)?;
+    if let Err(error) =
+        persistence::study_repo::save_session_progress(conn, &active.session, &active.results)
+    {
+        eprintln!("study progress persistence failed but active session was saved: {error}");
     }
 
     Ok(response)
@@ -308,9 +315,7 @@ pub fn complete_study_session(
     conn: &Connection,
     session_id: &str,
 ) -> Result<CompleteSessionResponse, StudyError> {
-    let mut guard = ACTIVE_SESSIONS
-        .lock()
-        .map_err(|_| StudyError::NoActiveSession)?;
+    let mut guard = lock_sessions();
     let mode_key = guard
         .iter()
         .find(|(_, active)| active.session.session_id == session_id)
@@ -345,9 +350,7 @@ pub fn complete_study_session(
 
 /// Cancel the active session without persisting.
 pub fn cancel_study_session(conn: &Connection, session_id: &str) -> Result<(), StudyError> {
-    let mut guard = ACTIVE_SESSIONS
-        .lock()
-        .map_err(|_| StudyError::NoActiveSession)?;
+    let mut guard = lock_sessions();
     let mode_key = guard
         .iter()
         .find(|(_, active)| active.session.session_id == session_id)
@@ -363,12 +366,15 @@ pub fn cancel_study_session(conn: &Connection, session_id: &str) -> Result<(), S
 }
 
 fn build_start_response(active: &ActiveSession) -> StartSessionResponse {
-    let question = active.questions[active.current_index].clone();
+    let index = active
+        .current_index
+        .min(active.questions.len().saturating_sub(1));
+    let question = active.questions[index].clone();
     StartSessionResponse {
         session: active.session.clone(),
         current_question: question,
         progress: SessionProgress {
-            current: active.current_index as u32 + 1,
+            current: index as u32 + 1,
             total: active.questions.len() as u32,
         },
     }

@@ -1,0 +1,11 @@
+{
+  "sampleId": "bootstrap-first-run-ready",
+  "category": "bootstrap",
+  "fixtureTemplate": "empty-runtime",
+  "description": "First run with no local data, database fresh, onboarding not completed",
+  "steps": [
+    {
+      "action": "getBootstrapState"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "assertions": [
+    {
+      "step": 0,
+      "path": "appReady",
+      "equals": false,
+      "reason": "First run without snapshot should block"
+    },
+    {
+      "step": 0,
+      "path": "firstRunRequired",
+      "equals": true,
+      "reason": "Onboarding not yet completed"
+    },
+    {
+      "step": 0,
+      "path": "databaseStatus",
+      "equals": "ready"
+    },
+    {
+      "step": 0,
+      "path": "snapshotStatus",
+      "equals": "missing_required",
+      "reason": "No bundled vocab snapshot in test environment"
+    },
+    {
+      "step": 0,
+      "path": "settingsEntryAvailable",
+      "equals": false
+    }
+  ]
+}

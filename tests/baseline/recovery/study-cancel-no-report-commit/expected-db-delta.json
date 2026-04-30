@@ -1,0 +1,7 @@
+{
+  "tables": [],
+  "invariants": [
+    "no_study_sessions_row_with_completed_at",
+    "no_study_results_rows"
+  ]
+}

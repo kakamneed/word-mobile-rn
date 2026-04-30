@@ -3,12 +3,13 @@ use std::os::raw::c_char;
 
 use crate::bridge::{
     apply_saved_plan_to_today, build_reports_overview, build_today_ai_passage_context,
-    build_today_home_state, build_wrong_word_detail, build_wrong_words,
-    cancel_study_session, complete_study_session, generate_ai_passage, get_active_plan,
+    build_today_home_state, build_wrong_word_detail, build_wrong_words, cancel_study_session,
+    complete_study_session, draw_today_reward, generate_ai_passage, get_active_plan,
     get_ai_passage, get_ai_passage_history, get_ai_provider_config, get_bootstrap_state,
-    get_bridge_status, get_settings, get_today_home_state, get_wordbooks,
-    initialize_mobile_runtime, mark_onboarding_completed, save_ai_passage,
-    save_ai_provider_config, save_plan, start_study_session, submit_study_answer,
+    get_bridge_status, get_reports_overview, get_settings, get_sync_status,
+    get_today_ai_passage_context, get_today_home_state, get_today_reward_state, get_wordbooks,
+    get_wrong_word_detail, get_wrong_words, initialize_mobile_runtime, mark_onboarding_completed,
+    save_ai_passage, save_ai_provider_config, save_plan, start_study_session, submit_study_answer,
     toggle_wordbook,
 };
 
@@ -99,8 +100,28 @@ pub extern "C" fn word_mobile_ios_get_today_home_state() -> *mut c_char {
 }
 
 #[no_mangle]
+pub extern "C" fn word_mobile_ios_get_today_reward_state() -> *mut c_char {
+    encode_string_result(get_today_reward_state())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_draw_today_reward(request_json: *const c_char) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(draw_today_reward);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_resume_session_hint() -> *mut c_char {
+    encode_string_result(get_resume_session_hint())
+}
+#[no_mangle]
 pub extern "C" fn word_mobile_ios_get_settings() -> *mut c_char {
     encode_string_result(get_settings())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_sync_status() -> *mut c_char {
+    encode_string_result(get_sync_status())
 }
 
 #[no_mangle]
@@ -117,13 +138,17 @@ pub extern "C" fn word_mobile_ios_save_ai_provider_config(
 }
 
 #[no_mangle]
-pub extern "C" fn word_mobile_ios_build_today_home_state(request_json: *const c_char) -> *mut c_char {
+pub extern "C" fn word_mobile_ios_build_today_home_state(
+    request_json: *const c_char,
+) -> *mut c_char {
     let result = decode_arg("request_json", request_json).and_then(build_today_home_state);
     encode_string_result(result)
 }
 
 #[no_mangle]
-pub extern "C" fn word_mobile_ios_build_reports_overview(request_json: *const c_char) -> *mut c_char {
+pub extern "C" fn word_mobile_ios_build_reports_overview(
+    request_json: *const c_char,
+) -> *mut c_char {
     let result = decode_arg("request_json", request_json).and_then(build_reports_overview);
     encode_string_result(result)
 }
@@ -135,13 +160,17 @@ pub extern "C" fn word_mobile_ios_build_wrong_words(request_json: *const c_char)
 }
 
 #[no_mangle]
-pub extern "C" fn word_mobile_ios_build_wrong_word_detail(request_json: *const c_char) -> *mut c_char {
+pub extern "C" fn word_mobile_ios_build_wrong_word_detail(
+    request_json: *const c_char,
+) -> *mut c_char {
     let result = decode_arg("request_json", request_json).and_then(build_wrong_word_detail);
     encode_string_result(result)
 }
 
 #[no_mangle]
-pub extern "C" fn word_mobile_ios_build_today_ai_passage_context(request_json: *const c_char) -> *mut c_char {
+pub extern "C" fn word_mobile_ios_build_today_ai_passage_context(
+    request_json: *const c_char,
+) -> *mut c_char {
     let result = decode_arg("request_json", request_json).and_then(build_today_ai_passage_context);
     encode_string_result(result)
 }
@@ -165,6 +194,27 @@ pub extern "C" fn word_mobile_ios_apply_saved_plan_to_today() -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn word_mobile_ios_get_wordbooks() -> *mut c_char {
     encode_string_result(get_wordbooks())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_reports_overview() -> *mut c_char {
+    encode_string_result(get_reports_overview())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_wrong_words(filter: *const c_char) -> *mut c_char {
+    let result = decode_arg("filter", filter).and_then(get_wrong_words);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_wrong_word_detail(entry_id: i64) -> *mut c_char {
+    encode_string_result(get_wrong_word_detail(entry_id))
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_today_ai_passage_context() -> *mut c_char {
+    encode_string_result(get_today_ai_passage_context())
 }
 
 #[no_mangle]

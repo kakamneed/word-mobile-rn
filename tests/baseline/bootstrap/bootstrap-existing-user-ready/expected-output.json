@@ -1,0 +1,21 @@
+{
+  "assertions": [
+    {
+      "step": 0,
+      "path": "firstRunRequired",
+      "equals": false,
+      "reason": "Onboarding already completed"
+    },
+    {
+      "step": 0,
+      "path": "databaseStatus",
+      "equals": "ready"
+    },
+    {
+      "step": 0,
+      "path": "settingsEntryAvailable",
+      "equals": true,
+      "reason": "Database is initialized and app is ready"
+    }
+  ]
+}

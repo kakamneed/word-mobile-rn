@@ -69,7 +69,8 @@ impl MobilePaths {
 
     /// Get the bundled snapshot path.
     pub fn bundled_snapshot_path(&self) -> PathBuf {
-        self.bundle_resource_dir.join("vocab-snapshot/vocab-snapshot.jsonl")
+        self.bundle_resource_dir
+            .join("vocab-snapshot/vocab-snapshot.jsonl")
     }
 }
 

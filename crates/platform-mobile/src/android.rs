@@ -5,11 +5,13 @@ use jni::JNIEnv;
 use crate::bridge::{
     apply_saved_plan_to_today, build_reports_overview, build_today_ai_passage_context,
     build_today_home_state, build_wrong_word_detail, build_wrong_words, cancel_study_session,
-    complete_study_session, generate_ai_passage, get_active_plan, get_ai_passage,
-    get_ai_passage_history, get_ai_provider_config, get_bootstrap_state, get_bridge_status,
-    get_settings, get_wordbooks, initialize_mobile_runtime, mark_onboarding_completed,
-    save_ai_passage, save_ai_provider_config, save_plan, start_study_session,
-    submit_study_answer, toggle_wordbook,
+    complete_study_session, draw_today_reward, generate_ai_passage, get_active_plan,
+    get_ai_passage, get_ai_passage_history, get_ai_provider_config, get_bootstrap_state,
+    get_bridge_status, get_reports_overview, get_resume_session_hint, get_settings,
+    get_sync_status, get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
+    get_wordbooks, get_wrong_word_detail, get_wrong_words, initialize_mobile_runtime,
+    mark_onboarding_completed, save_ai_passage, save_ai_provider_config, save_plan,
+    start_study_session, submit_study_answer, toggle_wordbook,
 };
 
 fn to_java_string(env: &mut JNIEnv, value: &str) -> jstring {
@@ -65,6 +67,40 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetBootstrapState(
     _class: JClass,
 ) -> jstring {
     match get_bootstrap_state() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetTodayHomeState(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_today_home_state() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetTodayRewardState(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_today_reward_state() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeDrawTodayReward(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(draw_today_reward) {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }
@@ -187,11 +223,78 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWordbooks(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetReportsOverview(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_reports_overview() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWrongWords(
+    mut env: JNIEnv,
+    _class: JClass,
+    filter: JString,
+) -> jstring {
+    match string_arg(&mut env, filter).and_then(get_wrong_words) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWrongWordDetail(
+    mut env: JNIEnv,
+    _class: JClass,
+    entry_id: i32,
+) -> jstring {
+    match get_wrong_word_detail(entry_id as i64) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetResumeSessionHint(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_resume_session_hint() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetTodayAiPassageContext(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_today_ai_passage_context() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetSettings(
     mut env: JNIEnv,
     _class: JClass,
 ) -> jstring {
     match get_settings() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetSyncStatus(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_sync_status() {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }

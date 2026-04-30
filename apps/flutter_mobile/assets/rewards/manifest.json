@@ -1,0 +1,3459 @@
+{
+  "version": 2,
+  "rewards": [
+    {
+      "id": "reward-001-com-hihonor-photos-20260329190156-edit-752572937",
+      "title": "Reward 001",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_001.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-002-com-hihonor-photos-20260329190446",
+      "title": "Reward 002",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_002.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-003-com-hihonor-photos-20260330184319",
+      "title": "Reward 003",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_003.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-004-com-hihonor-photos-20260425153605",
+      "title": "Reward 004",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_004.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-005-com-ss-android-ugc-aweme-20250218232037",
+      "title": "Reward 005",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_005.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-006-com-ss-android-ugc-aweme-20250305185523",
+      "title": "Reward 006",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_006.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-007-com-ss-android-ugc-aweme-20250307134729",
+      "title": "Reward 007",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_007.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-008-com-ss-android-ugc-aweme-20250307152244",
+      "title": "Reward 008",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_008.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-009-com-ss-android-ugc-aweme-20250307152314",
+      "title": "Reward 009",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_009.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-010-com-ss-android-ugc-aweme-20250307152330",
+      "title": "Reward 010",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_010.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-011-com-ss-android-ugc-aweme-20250307152339",
+      "title": "Reward 011",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_011.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-012-com-ss-android-ugc-aweme-20250307152847",
+      "title": "Reward 012",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_012.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-013-com-ss-android-ugc-aweme-20250309144354",
+      "title": "Reward 013",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_013.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-014-com-ss-android-ugc-aweme-20250313104635",
+      "title": "Reward 014",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_014.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-015-com-ss-android-ugc-aweme-20250313104658",
+      "title": "Reward 015",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_015.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-016-com-ss-android-ugc-aweme-20250313104705",
+      "title": "Reward 016",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_016.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-017-com-ss-android-ugc-aweme-20250321152632-edit-581",
+      "title": "Reward 017",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_017.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-018-com-ss-android-ugc-aweme-20250323151148",
+      "title": "Reward 018",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_018.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-019-com-ss-android-ugc-aweme-20250324083151",
+      "title": "Reward 019",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_019.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-020-com-ss-android-ugc-aweme-20250324180013",
+      "title": "Reward 020",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_020.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-021-com-ss-android-ugc-aweme-20250324190640",
+      "title": "Reward 021",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_021.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-022-com-ss-android-ugc-aweme-20250326144325",
+      "title": "Reward 022",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_022.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-023-com-ss-android-ugc-aweme-20250326144337-edit-261",
+      "title": "Reward 023",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_023.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-024-com-ss-android-ugc-aweme-20250326172224",
+      "title": "Reward 024",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_024.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-025-com-ss-android-ugc-aweme-20250326210612",
+      "title": "Reward 025",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_025.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-026-com-ss-android-ugc-aweme-20250327192151",
+      "title": "Reward 026",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_026.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-027-com-ss-android-ugc-aweme-20250327192159",
+      "title": "Reward 027",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_027.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-028-com-ss-android-ugc-aweme-20250330180236",
+      "title": "Reward 028",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_028.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-029-com-ss-android-ugc-aweme-20250330180314",
+      "title": "Reward 029",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_029.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-030-com-ss-android-ugc-aweme-20250402094851",
+      "title": "Reward 030",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_030.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-031-com-ss-android-ugc-aweme-20250405170247",
+      "title": "Reward 031",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_031.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-032-com-ss-android-ugc-aweme-20250405215637-edit-897",
+      "title": "Reward 032",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_032.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-033-com-ss-android-ugc-aweme-20250405215650-edit-896",
+      "title": "Reward 033",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_033.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-034-com-ss-android-ugc-aweme-20250407201822",
+      "title": "Reward 034",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_034.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-035-com-ss-android-ugc-aweme-20250408125058",
+      "title": "Reward 035",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_035.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-036-com-ss-android-ugc-aweme-20250409162614",
+      "title": "Reward 036",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_036.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-037-com-ss-android-ugc-aweme-20250412103101",
+      "title": "Reward 037",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_037.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-038-com-ss-android-ugc-aweme-20250414001610",
+      "title": "Reward 038",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_038.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-039-com-ss-android-ugc-aweme-20250420173811",
+      "title": "Reward 039",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_039.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-040-com-ss-android-ugc-aweme-20250420174340",
+      "title": "Reward 040",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_040.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-041-com-ss-android-ugc-aweme-20250421221219",
+      "title": "Reward 041",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_041.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-042-com-ss-android-ugc-aweme-20250422174028",
+      "title": "Reward 042",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_042.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-043-com-ss-android-ugc-aweme-20250422174640",
+      "title": "Reward 043",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_043.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-044-com-ss-android-ugc-aweme-20250426174140",
+      "title": "Reward 044",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_044.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-045-com-ss-android-ugc-aweme-20250428001051",
+      "title": "Reward 045",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_045.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-046-com-ss-android-ugc-aweme-20250428081735",
+      "title": "Reward 046",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_046.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-047-com-ss-android-ugc-aweme-20250429125816",
+      "title": "Reward 047",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_047.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-048-com-ss-android-ugc-aweme-20250430101223",
+      "title": "Reward 048",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_048.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-049-com-ss-android-ugc-aweme-20250503105106",
+      "title": "Reward 049",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_049.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-050-com-ss-android-ugc-aweme-20250506195957",
+      "title": "Reward 050",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_050.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-051-com-ss-android-ugc-aweme-20250507094956",
+      "title": "Reward 051",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_051.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-052-com-ss-android-ugc-aweme-20250520111034",
+      "title": "Reward 052",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_052.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-053-com-ss-android-ugc-aweme-20250521181316",
+      "title": "Reward 053",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_053.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-054-com-ss-android-ugc-aweme-20250531184353",
+      "title": "Reward 054",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_054.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-055-com-ss-android-ugc-aweme-20250601151925",
+      "title": "Reward 055",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_055.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-056-com-ss-android-ugc-aweme-20250605144700",
+      "title": "Reward 056",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_056.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-057-com-ss-android-ugc-aweme-20250608010411-edit-646",
+      "title": "Reward 057",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_057.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-058-com-ss-android-ugc-aweme-20250608205100-edit-646",
+      "title": "Reward 058",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_058.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-059-com-ss-android-ugc-aweme-20250611002612",
+      "title": "Reward 059",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_059.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-060-com-ss-android-ugc-aweme-20250611202150",
+      "title": "Reward 060",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_060.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-061-com-ss-android-ugc-aweme-20250612144941",
+      "title": "Reward 061",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_061.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-062-com-ss-android-ugc-aweme-20250613053504",
+      "title": "Reward 062",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_062.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-063-com-ss-android-ugc-aweme-20250613185422",
+      "title": "Reward 063",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_063.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-064-com-ss-android-ugc-aweme-20250615181219",
+      "title": "Reward 064",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_064.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-065-com-ss-android-ugc-aweme-20250615220951",
+      "title": "Reward 065",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_065.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-066-com-ss-android-ugc-aweme-20250616091044",
+      "title": "Reward 066",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_066.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-067-com-ss-android-ugc-aweme-20250616091813",
+      "title": "Reward 067",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_067.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-068-com-ss-android-ugc-aweme-20250616214226-edit-288",
+      "title": "Reward 068",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_068.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-069-com-ss-android-ugc-aweme-20250619191405",
+      "title": "Reward 069",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_069.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-070-com-ss-android-ugc-aweme-20250619212915",
+      "title": "Reward 070",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_070.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-071-com-ss-android-ugc-aweme-20250619223007",
+      "title": "Reward 071",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_071.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-072-com-ss-android-ugc-aweme-20250621161223",
+      "title": "Reward 072",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_072.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-073-com-ss-android-ugc-aweme-20250621185717",
+      "title": "Reward 073",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_073.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-074-com-ss-android-ugc-aweme-20250622185541",
+      "title": "Reward 074",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_074.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-075-com-ss-android-ugc-aweme-20250622233245",
+      "title": "Reward 075",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_075.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-076-com-ss-android-ugc-aweme-20250623200301",
+      "title": "Reward 076",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_076.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-077-com-ss-android-ugc-aweme-20250625211512",
+      "title": "Reward 077",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_077.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-078-com-ss-android-ugc-aweme-20250626164714",
+      "title": "Reward 078",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_078.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-079-com-ss-android-ugc-aweme-20250626175615",
+      "title": "Reward 079",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_079.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-080-com-ss-android-ugc-aweme-20250626183741",
+      "title": "Reward 080",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_080.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-081-com-ss-android-ugc-aweme-20250627151816",
+      "title": "Reward 081",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_081.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-082-com-ss-android-ugc-aweme-20250627170454",
+      "title": "Reward 082",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_082.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-083-com-ss-android-ugc-aweme-20250628125854",
+      "title": "Reward 083",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_083.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-084-com-ss-android-ugc-aweme-20250629222351",
+      "title": "Reward 084",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_084.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-085-com-ss-android-ugc-aweme-20250630164736",
+      "title": "Reward 085",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_085.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-086-com-ss-android-ugc-aweme-20250630181258",
+      "title": "Reward 086",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_086.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-087-com-ss-android-ugc-aweme-20250630203851",
+      "title": "Reward 087",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_087.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-088-com-ss-android-ugc-aweme-20250701080237",
+      "title": "Reward 088",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_088.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-089-com-ss-android-ugc-aweme-20250701163615",
+      "title": "Reward 089",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_089.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-090-com-ss-android-ugc-aweme-20250702180555",
+      "title": "Reward 090",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_090.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-091-com-ss-android-ugc-aweme-20250703101533",
+      "title": "Reward 091",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_091.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-092-com-ss-android-ugc-aweme-20250704135902",
+      "title": "Reward 092",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_092.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-093-com-ss-android-ugc-aweme-20250704135915",
+      "title": "Reward 093",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_093.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-094-com-ss-android-ugc-aweme-20250704150715",
+      "title": "Reward 094",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_094.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-095-com-ss-android-ugc-aweme-20250705085533",
+      "title": "Reward 095",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_095.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-096-com-ss-android-ugc-aweme-20250705172725",
+      "title": "Reward 096",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_096.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-097-com-ss-android-ugc-aweme-20250706195844",
+      "title": "Reward 097",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_097.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-098-com-ss-android-ugc-aweme-20250708011804",
+      "title": "Reward 098",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_098.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-099-com-ss-android-ugc-aweme-20250708171821",
+      "title": "Reward 099",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_099.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-100-com-ss-android-ugc-aweme-20250708210458",
+      "title": "Reward 100",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_100.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-101-com-ss-android-ugc-aweme-20250708230041",
+      "title": "Reward 101",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_101.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-102-com-ss-android-ugc-aweme-20250708232317",
+      "title": "Reward 102",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_102.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-103-com-ss-android-ugc-aweme-20250710105035",
+      "title": "Reward 103",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_103.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-104-com-ss-android-ugc-aweme-20250710105049",
+      "title": "Reward 104",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_104.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-105-com-ss-android-ugc-aweme-20250710130515",
+      "title": "Reward 105",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_105.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-106-com-ss-android-ugc-aweme-20250711012946",
+      "title": "Reward 106",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_106.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-107-com-ss-android-ugc-aweme-20250711212441-edit-427",
+      "title": "Reward 107",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_107.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-108-com-ss-android-ugc-aweme-20250712133150",
+      "title": "Reward 108",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_108.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-109-com-ss-android-ugc-aweme-20250712133207",
+      "title": "Reward 109",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_109.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-110-com-ss-android-ugc-aweme-20250712213120",
+      "title": "Reward 110",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_110.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-111-com-ss-android-ugc-aweme-20250713104925",
+      "title": "Reward 111",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_111.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-112-com-ss-android-ugc-aweme-20250713130513",
+      "title": "Reward 112",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_112.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-113-com-ss-android-ugc-aweme-20250722010211",
+      "title": "Reward 113",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_113.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-114-com-ss-android-ugc-aweme-20250722162009",
+      "title": "Reward 114",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_114.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-115-com-ss-android-ugc-aweme-20250722171930",
+      "title": "Reward 115",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_115.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-116-com-ss-android-ugc-aweme-20250722200359",
+      "title": "Reward 116",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_116.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-117-com-ss-android-ugc-aweme-20250725174523",
+      "title": "Reward 117",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_117.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-118-com-ss-android-ugc-aweme-20250728015200",
+      "title": "Reward 118",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_118.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-119-com-ss-android-ugc-aweme-20250728015211",
+      "title": "Reward 119",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_119.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-120-com-ss-android-ugc-aweme-20250729001746",
+      "title": "Reward 120",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_120.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-121-com-ss-android-ugc-aweme-20250729143812",
+      "title": "Reward 121",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_121.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-122-com-ss-android-ugc-aweme-20250731210946",
+      "title": "Reward 122",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_122.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-123-com-ss-android-ugc-aweme-20250802201812",
+      "title": "Reward 123",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_123.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-124-com-ss-android-ugc-aweme-20250802230004",
+      "title": "Reward 124",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_124.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-125-com-ss-android-ugc-aweme-20250803161805",
+      "title": "Reward 125",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_125.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-126-com-ss-android-ugc-aweme-20250803165742",
+      "title": "Reward 126",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_126.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-127-com-ss-android-ugc-aweme-20250803201207",
+      "title": "Reward 127",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_127.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-128-com-ss-android-ugc-aweme-20250812001532",
+      "title": "Reward 128",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_128.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-129-com-ss-android-ugc-aweme-20250813090640",
+      "title": "Reward 129",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_129.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-130-com-ss-android-ugc-aweme-20250814002326",
+      "title": "Reward 130",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_130.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-131-com-ss-android-ugc-aweme-20250816194415",
+      "title": "Reward 131",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_131.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-132-com-ss-android-ugc-aweme-20250821082920",
+      "title": "Reward 132",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_132.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-133-com-ss-android-ugc-aweme-20250824103943",
+      "title": "Reward 133",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_133.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-134-com-ss-android-ugc-aweme-20250828190606",
+      "title": "Reward 134",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_134.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-135-com-ss-android-ugc-aweme-20250903143608",
+      "title": "Reward 135",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_135.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-136-com-ss-android-ugc-aweme-20250907124544",
+      "title": "Reward 136",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_136.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-137-com-ss-android-ugc-aweme-20250909191530",
+      "title": "Reward 137",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_137.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-138-com-ss-android-ugc-aweme-20250910104451",
+      "title": "Reward 138",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_138.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-139-com-ss-android-ugc-aweme-20250911111147",
+      "title": "Reward 139",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_139.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-140-com-ss-android-ugc-aweme-20250911201553",
+      "title": "Reward 140",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_140.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-141-com-ss-android-ugc-aweme-20250913164340",
+      "title": "Reward 141",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_141.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-142-com-ss-android-ugc-aweme-20250917083048",
+      "title": "Reward 142",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_142.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-143-com-ss-android-ugc-aweme-20250920095806",
+      "title": "Reward 143",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_143.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-144-com-ss-android-ugc-aweme-20250922084832",
+      "title": "Reward 144",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_144.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-145-com-ss-android-ugc-aweme-20250922234329",
+      "title": "Reward 145",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_145.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-146-com-ss-android-ugc-aweme-20250922235513",
+      "title": "Reward 146",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_146.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-147-com-ss-android-ugc-aweme-20250927134835",
+      "title": "Reward 147",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_147.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-148-com-ss-android-ugc-aweme-20251001200013-edit-100",
+      "title": "Reward 148",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_148.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-149-com-ss-android-ugc-aweme-20251001230358",
+      "title": "Reward 149",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_149.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-150-com-ss-android-ugc-aweme-20251005144845",
+      "title": "Reward 150",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_150.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-151-com-ss-android-ugc-aweme-20251008101438",
+      "title": "Reward 151",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_151.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-152-com-ss-android-ugc-aweme-20251010191330",
+      "title": "Reward 152",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_152.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-153-com-ss-android-ugc-aweme-20251011152139",
+      "title": "Reward 153",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_153.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-154-com-ss-android-ugc-aweme-20251013001553",
+      "title": "Reward 154",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_154.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-155-com-ss-android-ugc-aweme-20251013120336",
+      "title": "Reward 155",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_155.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-156-com-ss-android-ugc-aweme-20251016104902",
+      "title": "Reward 156",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_156.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-157-com-ss-android-ugc-aweme-20251017111709",
+      "title": "Reward 157",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_157.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-158-com-ss-android-ugc-aweme-20251017111741",
+      "title": "Reward 158",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_158.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-159-com-ss-android-ugc-aweme-20251017111810",
+      "title": "Reward 159",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_159.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-160-com-ss-android-ugc-aweme-20251017111851",
+      "title": "Reward 160",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_160.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-161-com-ss-android-ugc-aweme-20251017210107",
+      "title": "Reward 161",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_161.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-162-com-ss-android-ugc-aweme-20251018143743",
+      "title": "Reward 162",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_162.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-163-com-ss-android-ugc-aweme-20251018163758",
+      "title": "Reward 163",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_163.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-164-com-ss-android-ugc-aweme-20251018163803",
+      "title": "Reward 164",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_164.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-165-com-ss-android-ugc-aweme-20251020133330",
+      "title": "Reward 165",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_165.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-166-com-ss-android-ugc-aweme-20251020210437",
+      "title": "Reward 166",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_166.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-167-com-ss-android-ugc-aweme-20251020210654",
+      "title": "Reward 167",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_167.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-168-com-ss-android-ugc-aweme-20251024160022",
+      "title": "Reward 168",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_168.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-169-com-ss-android-ugc-aweme-20251025133856",
+      "title": "Reward 169",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_169.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-170-com-ss-android-ugc-aweme-20251025224427",
+      "title": "Reward 170",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_170.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-171-com-ss-android-ugc-aweme-20251027110429",
+      "title": "Reward 171",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_171.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-172-com-ss-android-ugc-aweme-20251104094321",
+      "title": "Reward 172",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_172.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-173-com-ss-android-ugc-aweme-20251104190635",
+      "title": "Reward 173",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_173.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-174-com-ss-android-ugc-aweme-20251105173251",
+      "title": "Reward 174",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_174.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-175-com-ss-android-ugc-aweme-20251106180319",
+      "title": "Reward 175",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_175.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-176-com-ss-android-ugc-aweme-20251110121218",
+      "title": "Reward 176",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_176.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-177-com-ss-android-ugc-aweme-20251112080309",
+      "title": "Reward 177",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_177.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-178-com-ss-android-ugc-aweme-20251112103724",
+      "title": "Reward 178",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_178.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-179-com-ss-android-ugc-aweme-20251112141244",
+      "title": "Reward 179",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_179.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-180-com-ss-android-ugc-aweme-20251113172335",
+      "title": "Reward 180",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_180.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-181-com-ss-android-ugc-aweme-20251118154725",
+      "title": "Reward 181",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_181.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-182-com-ss-android-ugc-aweme-20251121223409",
+      "title": "Reward 182",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_182.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-183-com-ss-android-ugc-aweme-20251124002026",
+      "title": "Reward 183",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_183.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-184-com-ss-android-ugc-aweme-20251125133551",
+      "title": "Reward 184",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_184.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-185-com-ss-android-ugc-aweme-20251126163851",
+      "title": "Reward 185",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_185.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-186-com-ss-android-ugc-aweme-20251126204715",
+      "title": "Reward 186",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_186.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-187-com-ss-android-ugc-aweme-20251127231634",
+      "title": "Reward 187",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_187.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-188-com-ss-android-ugc-aweme-20251127233258",
+      "title": "Reward 188",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_188.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-189-com-ss-android-ugc-aweme-20251127233326",
+      "title": "Reward 189",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_189.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-190-com-ss-android-ugc-aweme-20251204001801",
+      "title": "Reward 190",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_190.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-191-com-ss-android-ugc-aweme-20251216121656",
+      "title": "Reward 191",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_191.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-192-com-ss-android-ugc-aweme-20251218181620",
+      "title": "Reward 192",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_192.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-193-com-ss-android-ugc-aweme-20251219150134",
+      "title": "Reward 193",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_193.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-194-com-ss-android-ugc-aweme-20251219191920",
+      "title": "Reward 194",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_194.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-195-com-ss-android-ugc-aweme-20251219192450",
+      "title": "Reward 195",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_195.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-196-com-ss-android-ugc-aweme-20251220123747",
+      "title": "Reward 196",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_196.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-197-com-ss-android-ugc-aweme-20251221133146",
+      "title": "Reward 197",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_197.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-198-com-ss-android-ugc-aweme-20251221214607",
+      "title": "Reward 198",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_198.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-199-com-ss-android-ugc-aweme-20251222085000",
+      "title": "Reward 199",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_199.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-200-com-ss-android-ugc-aweme-20251222085007",
+      "title": "Reward 200",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_200.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-201-com-ss-android-ugc-aweme-20251223153353",
+      "title": "Reward 201",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_201.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-202-com-ss-android-ugc-aweme-20251223235715",
+      "title": "Reward 202",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_202.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-203-com-ss-android-ugc-aweme-20251229082629",
+      "title": "Reward 203",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_203.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-204-com-ss-android-ugc-aweme-20251229164417",
+      "title": "Reward 204",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_204.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-205-com-ss-android-ugc-aweme-20251229164426",
+      "title": "Reward 205",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_205.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-206-com-ss-android-ugc-aweme-20251229232934",
+      "title": "Reward 206",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_206.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-207-com-ss-android-ugc-aweme-20260101154638",
+      "title": "Reward 207",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_207.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-208-com-ss-android-ugc-aweme-20260101214707",
+      "title": "Reward 208",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_208.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-209-com-ss-android-ugc-aweme-20260101225112",
+      "title": "Reward 209",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_209.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-210-com-ss-android-ugc-aweme-20260108115016",
+      "title": "Reward 210",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_210.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-211-com-ss-android-ugc-aweme-20260109230637",
+      "title": "Reward 211",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_211.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-212-com-ss-android-ugc-aweme-20260112194404",
+      "title": "Reward 212",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_212.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-213-com-ss-android-ugc-aweme-20260116194532",
+      "title": "Reward 213",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_213.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-214-com-ss-android-ugc-aweme-20260116222856",
+      "title": "Reward 214",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_214.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-215-com-ss-android-ugc-aweme-20260117105604",
+      "title": "Reward 215",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_215.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-216-com-ss-android-ugc-aweme-20260118130832",
+      "title": "Reward 216",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_216.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-217-com-ss-android-ugc-aweme-20260118214326",
+      "title": "Reward 217",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_217.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-218-com-ss-android-ugc-aweme-20260119201759",
+      "title": "Reward 218",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_218.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-219-com-ss-android-ugc-aweme-20260121083400",
+      "title": "Reward 219",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_219.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-220-com-ss-android-ugc-aweme-20260130003030",
+      "title": "Reward 220",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_220.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-221-com-ss-android-ugc-aweme-20260130003945",
+      "title": "Reward 221",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_221.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-222-com-ss-android-ugc-aweme-20260130010809",
+      "title": "Reward 222",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_222.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-223-com-ss-android-ugc-aweme-20260201120326",
+      "title": "Reward 223",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_223.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-224-com-ss-android-ugc-aweme-20260203103748",
+      "title": "Reward 224",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_224.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-225-com-ss-android-ugc-aweme-20260204103348",
+      "title": "Reward 225",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_225.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-226-com-ss-android-ugc-aweme-20260206183030",
+      "title": "Reward 226",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_226.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-227-com-ss-android-ugc-aweme-20260206221525",
+      "title": "Reward 227",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_227.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-228-com-ss-android-ugc-aweme-20260210170328",
+      "title": "Reward 228",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_228.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-229-com-ss-android-ugc-aweme-20260210210658",
+      "title": "Reward 229",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_229.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-230-com-ss-android-ugc-aweme-20260211105910",
+      "title": "Reward 230",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_230.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-231-com-ss-android-ugc-aweme-20260213161723",
+      "title": "Reward 231",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_231.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-232-com-ss-android-ugc-aweme-20260214125100",
+      "title": "Reward 232",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_232.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-233-com-ss-android-ugc-aweme-20260217101607",
+      "title": "Reward 233",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_233.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-234-com-ss-android-ugc-aweme-20260218074112",
+      "title": "Reward 234",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_234.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-235-com-ss-android-ugc-aweme-20260218180148",
+      "title": "Reward 235",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_235.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-236-com-ss-android-ugc-aweme-20260218215209",
+      "title": "Reward 236",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_236.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-237-com-ss-android-ugc-aweme-20260219162848",
+      "title": "Reward 237",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_237.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-238-com-ss-android-ugc-aweme-20260219204853",
+      "title": "Reward 238",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_238.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-239-com-ss-android-ugc-aweme-20260219204900",
+      "title": "Reward 239",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_239.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-240-com-ss-android-ugc-aweme-20260221003337",
+      "title": "Reward 240",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_240.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-241-com-ss-android-ugc-aweme-20260221215239",
+      "title": "Reward 241",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_241.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-242-com-ss-android-ugc-aweme-20260223005447",
+      "title": "Reward 242",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_242.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-243-com-ss-android-ugc-aweme-20260223104428",
+      "title": "Reward 243",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_243.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-244-com-ss-android-ugc-aweme-20260224212344",
+      "title": "Reward 244",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_244.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-245-com-ss-android-ugc-aweme-20260225133456",
+      "title": "Reward 245",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_245.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-246-com-ss-android-ugc-aweme-20260225133507",
+      "title": "Reward 246",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_246.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-247-com-ss-android-ugc-aweme-20260226003933",
+      "title": "Reward 247",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_247.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-248-com-ss-android-ugc-aweme-20260227133922",
+      "title": "Reward 248",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_248.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-249-com-ss-android-ugc-aweme-20260227184027",
+      "title": "Reward 249",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_249.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-250-com-ss-android-ugc-aweme-20260227210330",
+      "title": "Reward 250",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_250.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-251-com-ss-android-ugc-aweme-20260227214043",
+      "title": "Reward 251",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_251.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-252-com-ss-android-ugc-aweme-20260302120508",
+      "title": "Reward 252",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_252.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-253-com-ss-android-ugc-aweme-20260302142103",
+      "title": "Reward 253",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_253.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-254-com-ss-android-ugc-aweme-20260303083951",
+      "title": "Reward 254",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_254.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-255-com-ss-android-ugc-aweme-20260307152106",
+      "title": "Reward 255",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_255.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-256-com-ss-android-ugc-aweme-20260307235934",
+      "title": "Reward 256",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_256.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-257-com-ss-android-ugc-aweme-20260308150932",
+      "title": "Reward 257",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_257.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-258-com-ss-android-ugc-aweme-20260308162542",
+      "title": "Reward 258",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_258.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-259-com-ss-android-ugc-aweme-20260310230420",
+      "title": "Reward 259",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_259.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-260-com-ss-android-ugc-aweme-20260310231045",
+      "title": "Reward 260",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_260.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-261-com-ss-android-ugc-aweme-20260310231055",
+      "title": "Reward 261",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_261.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-262-com-ss-android-ugc-aweme-20260312153905",
+      "title": "Reward 262",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_262.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-263-com-ss-android-ugc-aweme-20260312185234",
+      "title": "Reward 263",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_263.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-264-com-ss-android-ugc-aweme-20260313131327",
+      "title": "Reward 264",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_264.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-265-com-ss-android-ugc-aweme-20260315001937",
+      "title": "Reward 265",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_265.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-266-com-ss-android-ugc-aweme-20260316225352",
+      "title": "Reward 266",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_266.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-267-com-ss-android-ugc-aweme-20260319205303",
+      "title": "Reward 267",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_267.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-268-com-ss-android-ugc-aweme-20260319205311",
+      "title": "Reward 268",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_268.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-269-com-ss-android-ugc-aweme-20260319205319",
+      "title": "Reward 269",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_269.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-270-com-ss-android-ugc-aweme-20260321104828",
+      "title": "Reward 270",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_270.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-271-com-ss-android-ugc-aweme-20260324222135",
+      "title": "Reward 271",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_271.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-272-com-ss-android-ugc-aweme-20260325121651",
+      "title": "Reward 272",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_272.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-273-com-ss-android-ugc-aweme-20260325182310",
+      "title": "Reward 273",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_273.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-274-com-ss-android-ugc-aweme-20260326233111",
+      "title": "Reward 274",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_274.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-275-com-ss-android-ugc-aweme-20260326234037",
+      "title": "Reward 275",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_275.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-276-com-ss-android-ugc-aweme-20260327000229",
+      "title": "Reward 276",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_276.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-277-com-ss-android-ugc-aweme-20260327113816",
+      "title": "Reward 277",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_277.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-278-com-ss-android-ugc-aweme-20260328014721",
+      "title": "Reward 278",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_278.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-279-com-ss-android-ugc-aweme-20260328214850",
+      "title": "Reward 279",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_279.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-280-com-ss-android-ugc-aweme-20260328215426",
+      "title": "Reward 280",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_280.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-281-com-ss-android-ugc-aweme-20260330212934",
+      "title": "Reward 281",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_281.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-282-com-ss-android-ugc-aweme-20260401112328",
+      "title": "Reward 282",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_282.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-283-com-ss-android-ugc-aweme-20260401112346",
+      "title": "Reward 283",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_283.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-284-com-ss-android-ugc-aweme-20260401213321",
+      "title": "Reward 284",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_284.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-285-com-ss-android-ugc-aweme-20260402100314",
+      "title": "Reward 285",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_285.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-286-com-ss-android-ugc-aweme-20260404122139",
+      "title": "Reward 286",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_286.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-287-com-ss-android-ugc-aweme-20260404133942",
+      "title": "Reward 287",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_287.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-288-com-ss-android-ugc-aweme-20260405102635",
+      "title": "Reward 288",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_288.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-289-com-ss-android-ugc-aweme-20260406122100",
+      "title": "Reward 289",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_289.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-290-com-ss-android-ugc-aweme-20260408174630",
+      "title": "Reward 290",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_290.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-291-com-ss-android-ugc-aweme-20260411002725",
+      "title": "Reward 291",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_291.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-292-com-ss-android-ugc-aweme-20260411101954",
+      "title": "Reward 292",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_292.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-293-com-ss-android-ugc-aweme-20260411143759",
+      "title": "Reward 293",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_293.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-294-com-ss-android-ugc-aweme-20260412032049",
+      "title": "Reward 294",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_294.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-295-com-ss-android-ugc-aweme-20260412113004",
+      "title": "Reward 295",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_295.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-296-com-ss-android-ugc-aweme-20260412185957",
+      "title": "Reward 296",
+      "rarity": "legendary",
+      "assetPath": "assets/rewards/webp_q60_540/reward_296.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-297-com-ss-android-ugc-aweme-20260413175104",
+      "title": "Reward 297",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_297.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-298-com-ss-android-ugc-aweme-20260414213344",
+      "title": "Reward 298",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_298.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-299-com-ss-android-ugc-aweme-20260416101145",
+      "title": "Reward 299",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_299.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-300-com-ss-android-ugc-aweme-20260416110504",
+      "title": "Reward 300",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_300.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-301-com-ss-android-ugc-aweme-20260417093732",
+      "title": "Reward 301",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_301.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-302-com-ss-android-ugc-aweme-20260418181554",
+      "title": "Reward 302",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_302.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-303-com-ss-android-ugc-aweme-20260419115700",
+      "title": "Reward 303",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_303.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-304-com-ss-android-ugc-aweme-20260419204853",
+      "title": "Reward 304",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_304.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-305-com-ss-android-ugc-aweme-20260420193748",
+      "title": "Reward 305",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_305.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-306-com-ss-android-ugc-aweme-20260420193757",
+      "title": "Reward 306",
+      "rarity": "rare",
+      "assetPath": "assets/rewards/webp_q60_540/reward_306.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-307-com-ss-android-ugc-aweme-20260420235554",
+      "title": "Reward 307",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_307.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-308-com-ss-android-ugc-aweme-20260422110340",
+      "title": "Reward 308",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_308.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    },
+    {
+      "id": "reward-309-com-ss-android-ugc-aweme-20260423235556",
+      "title": "Reward 309",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_309.webp",
+      "palette": [
+        "#E6F2D9",
+        "#6BAA75",
+        "#B85C38"
+      ]
+    },
+    {
+      "id": "reward-310-com-ss-android-ugc-aweme-20260425134925",
+      "title": "Reward 310",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_310.webp",
+      "palette": [
+        "#FFF1D6",
+        "#D9813F",
+        "#315C72"
+      ]
+    },
+    {
+      "id": "reward-311-com-ss-android-ugc-aweme-20260426224418",
+      "title": "Reward 311",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_311.webp",
+      "palette": [
+        "#F4E9F7",
+        "#8B5E83",
+        "#4A9B78"
+      ]
+    },
+    {
+      "id": "reward-312-com-ss-android-ugc-aweme-20260427085225",
+      "title": "Reward 312",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_312.webp",
+      "palette": [
+        "#E8EEF7",
+        "#3D6EA8",
+        "#E56B6F"
+      ]
+    },
+    {
+      "id": "reward-313-com-ss-android-ugc-aweme-20260427235009",
+      "title": "Reward 313",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_313.webp",
+      "palette": [
+        "#EAF4F2",
+        "#4A9B78",
+        "#F4C95D"
+      ]
+    },
+    {
+      "id": "reward-314-img-20251019-000634",
+      "title": "Reward 314",
+      "rarity": "common",
+      "assetPath": "assets/rewards/webp_q60_540/reward_314.webp",
+      "palette": [
+        "#223843",
+        "#2F6C8F",
+        "#F2D492"
+      ]
+    }
+  ]
+}

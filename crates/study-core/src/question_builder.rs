@@ -247,7 +247,10 @@ impl QuestionBuilder {
                 }
             }
             QuestionType::CnToEnChoice => {
-                let prompt = accepted_meanings.first().cloned().unwrap_or_default();
+                let prompt = accepted_meanings
+                    .first()
+                    .map(|meaning| Self::sanitize_choice_text(meaning))
+                    .unwrap_or_default();
                 let (choices, correct_label) =
                     Self::build_en_choices(word, distractors, question_index);
                 StudyQuestion {
@@ -357,12 +360,16 @@ impl QuestionBuilder {
         target_pos: Option<&str>,
         question_index: u32,
     ) -> (Vec<ChoiceOption>, String) {
-        let mut excluded_meanings: HashSet<String> = accepted_meanings.iter().cloned().collect();
+        let correct_text = Self::sanitize_choice_text(correct_text);
+        let mut excluded_meanings: HashSet<String> = accepted_meanings
+            .iter()
+            .map(|meaning| Self::sanitize_choice_text(meaning))
+            .collect();
         let mut distractor_texts = if target_pos.is_some() {
             Self::collect_distractor_texts(
                 distractors,
                 question_index,
-                correct_text,
+                &correct_text,
                 |candidate| Self::choice_meanings_for_distractor(candidate, target_pos),
                 |text| !excluded_meanings.contains(text),
             )
@@ -378,7 +385,7 @@ impl QuestionBuilder {
             let fallback_texts = Self::collect_distractor_texts(
                 distractors,
                 question_index,
-                correct_text,
+                &correct_text,
                 Self::all_meanings_for_word,
                 |text| !excluded_meanings.contains(text),
             );
@@ -405,7 +412,7 @@ impl QuestionBuilder {
         options.insert(
             correct_pos,
             ChoiceOption {
-                text: correct_text.to_string(),
+                text: correct_text,
                 label: String::new(),
             },
         );
@@ -425,13 +432,39 @@ impl QuestionBuilder {
     ) -> (Vec<ChoiceOption>, String) {
         let correct_text = word.word.clone();
         let labels = ["A", "B", "C", "D"];
-        let distractor_texts = Self::collect_distractor_texts(
+        let mut distractor_texts = Self::collect_distractor_texts(
             distractors,
             question_index,
             &word.source_id,
-            |candidate| vec![candidate.word.clone()],
+            |candidate| {
+                if same_part_of_speech(
+                    word.part_of_speech.as_deref(),
+                    candidate.part_of_speech.as_deref(),
+                ) {
+                    vec![candidate.word.clone()]
+                } else {
+                    Vec::new()
+                }
+            },
             |text| text != &correct_text,
         );
+        if distractor_texts.len() < 3 {
+            let mut seen: HashSet<String> = distractor_texts.iter().cloned().collect();
+            for text in Self::collect_distractor_texts(
+                distractors,
+                question_index,
+                &word.source_id,
+                |candidate| vec![candidate.word.clone()],
+                |text| text != &correct_text,
+            ) {
+                if seen.insert(text.clone()) {
+                    distractor_texts.push(text);
+                }
+                if distractor_texts.len() >= 3 {
+                    break;
+                }
+            }
+        }
 
         let choice_count = distractor_texts.len() + 1;
         let mut options: Vec<ChoiceOption> = distractor_texts
@@ -506,12 +539,12 @@ impl QuestionBuilder {
         if preferred.is_empty() {
             word.meanings
                 .iter()
-                .map(|meaning| meaning.meaning_cn.clone())
+                .map(|meaning| Self::sanitize_choice_text(&meaning.meaning_cn))
                 .collect()
         } else {
             preferred
                 .iter()
-                .map(|meaning| meaning.meaning_cn.clone())
+                .map(|meaning| Self::sanitize_choice_text(&meaning.meaning_cn))
                 .collect()
         }
     }
@@ -522,15 +555,67 @@ impl QuestionBuilder {
     ) -> Vec<String> {
         Self::meanings_matching_target_pos(word, target_pos)
             .iter()
-            .map(|meaning| meaning.meaning_cn.clone())
+            .map(|meaning| Self::sanitize_choice_text(&meaning.meaning_cn))
             .collect()
     }
 
     fn all_meanings_for_word(word: &WordForQuestion) -> Vec<String> {
         word.meanings
             .iter()
-            .map(|meaning| meaning.meaning_cn.clone())
+            .map(|meaning| Self::sanitize_choice_text(&meaning.meaning_cn))
             .collect()
+    }
+
+    fn sanitize_choice_text(value: &str) -> String {
+        let chars = value.trim().chars().collect::<Vec<_>>();
+        let mut cleaned = String::new();
+        let mut index = 0;
+        while index < chars.len() {
+            let ch = chars[index];
+            if matches!(ch, 'A' | 'B' | 'C' | 'D') {
+                let mut next = index + 1;
+                while next < chars.len() && chars[next].is_whitespace() {
+                    next += 1;
+                }
+                let has_option_separator = next < chars.len()
+                    && matches!(chars[next], ';' | '；' | ':' | '：' | '.' | '．');
+                let previous_is_boundary = cleaned
+                    .chars()
+                    .last()
+                    .map(|last| last.is_whitespace() || matches!(last, ';' | '；' | ',' | '，'))
+                    .unwrap_or(true);
+                if has_option_separator && previous_is_boundary {
+                    if !cleaned.ends_with('；') {
+                        cleaned.push('；');
+                    }
+                    index = next + 1;
+                    while index < chars.len() && chars[index].is_whitespace() {
+                        index += 1;
+                    }
+                    continue;
+                }
+            }
+
+            let normalized = match ch {
+                '\u{fffd}' => None,
+                '<' | '>' => None,
+                '\u{00a0}' | '\t' | '\r' | '\n' => Some(' '),
+                '；' | ';' => Some('；'),
+                '，' | ',' => Some('，'),
+                _ if ch.is_control() => None,
+                _ => Some(ch),
+            };
+            if let Some(ch) = normalized {
+                cleaned.push(ch);
+            }
+            index += 1;
+        }
+        let mut cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+        for separator in ['；', '，'] {
+            cleaned = cleaned.replace(&format!(" {separator}"), &separator.to_string());
+            cleaned = cleaned.replace(&format!("{separator} "), &separator.to_string());
+        }
+        cleaned
     }
 
     fn primary_meaning_for_question(
@@ -626,6 +711,16 @@ fn normalize_part_of_speech_tag(value: &str) -> Option<&'static str> {
     None
 }
 
+fn same_part_of_speech(left: Option<&str>, right: Option<&str>) -> bool {
+    match (
+        left.and_then(normalize_part_of_speech_tag),
+        right.and_then(normalize_part_of_speech_tag),
+    ) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
+}
+
 fn normalize_context_text(value: &str) -> String {
     value
         .chars()
@@ -685,9 +780,21 @@ mod tests {
 
     #[test]
     fn en_to_cn_choices_prefer_same_part_of_speech_distractors() {
-        let target = build_word("target", "mutter", Some("v."), &[("v.", "咕哝；抱怨")], None);
+        let target = build_word(
+            "target",
+            "mutter",
+            Some("v."),
+            &[("v.", "咕哝；抱怨")],
+            None,
+        );
         let distractors = vec![
-            build_word("d1", "known", Some("adj."), &[("adj.", "认知的；认识的")], None),
+            build_word(
+                "d1",
+                "known",
+                Some("adj."),
+                &[("adj.", "认知的；认识的")],
+                None,
+            ),
             build_word("d2", "remark", Some("v."), &[("v.", "评论；说起")], None),
             build_word("d3", "grumble", Some("v."), &[("v.", "抱怨；发牢骚")], None),
             build_word("d4", "chant", Some("v."), &[("v.", "反复呼喊；吟唱")], None),
@@ -717,6 +824,117 @@ mod tests {
     }
 
     #[test]
+    fn cn_to_en_choices_prefer_same_part_of_speech_distractors() {
+        let target = build_word("target", "adapt", Some("v."), &[("v.", "adapt")], None);
+        let distractors = vec![
+            build_word("n1", "method", Some("n."), &[("n.", "method")], None),
+            build_word("v1", "clarify", Some("v."), &[("v.", "clarify")], None),
+            build_word("v2", "retain", Some("v."), &[("v.", "retain")], None),
+            build_word("v3", "modify", Some("v."), &[("v.", "modify")], None),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::CnToEnChoice,
+            &distractors,
+            "sess",
+            0,
+            1,
+        );
+
+        let texts: Vec<String> = question
+            .choices
+            .expect("choices should exist")
+            .into_iter()
+            .map(|choice| choice.text)
+            .collect();
+        assert!(texts.contains(&"adapt".to_string()));
+        assert!(!texts.contains(&"method".to_string()));
+        for text in texts.iter().filter(|text| *text != "adapt") {
+            assert!(["clarify", "retain", "modify"].contains(&text.as_str()));
+        }
+    }
+
+    #[test]
+    fn cn_choice_text_strips_embedded_option_labels_from_source_meanings() {
+        let target = build_word(
+            "target",
+            "abrupt",
+            Some("adj."),
+            &[("adj.", "sudden; unexpected")],
+            None,
+        );
+        let distractors = vec![
+            build_word(
+                "d1",
+                "circular",
+                Some("adj."),
+                &[("adj.", "round; circular A; cyclic C；looping <\u{fffd}")],
+                None,
+            ),
+            build_word(
+                "d2",
+                "capable",
+                Some("adj."),
+                &[("adj.", "capable; competent")],
+                None,
+            ),
+            build_word(
+                "d3",
+                "narrative",
+                Some("adj."),
+                &[("adj.", "narrative; story-like")],
+                None,
+            ),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::EnToCnChoice,
+            &distractors,
+            "sess",
+            0,
+            1,
+        );
+
+        let texts: Vec<String> = question
+            .choices
+            .expect("choices should exist")
+            .into_iter()
+            .map(|choice| choice.text)
+            .collect();
+        assert!(!texts.iter().any(|text| text.contains(" A;")));
+        assert!(!texts.iter().any(|text| text.contains(" C；")));
+        assert!(!texts.iter().any(|text| text.contains('<')));
+        assert!(!texts.iter().any(|text| text.contains('\u{fffd}')));
+        assert!(texts
+            .iter()
+            .any(|text| text == "round；circular；cyclic；looping"));
+    }
+
+    #[test]
+    fn cn_to_en_prompt_strips_embedded_option_labels() {
+        let target = build_word(
+            "target",
+            "surgeon",
+            Some("n."),
+            &[("n.", "doctor B; surgeon C：operator")],
+            None,
+        );
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::CnToEnChoice,
+            &[],
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(question.prompt, "doctor；surgeon；operator");
+    }
+
+    #[test]
     fn example_questions_prefer_meanings_matching_displayed_part_of_speech() {
         let rally = build_word(
             "rally",
@@ -735,7 +953,10 @@ mod tests {
             1,
         );
 
-        assert_eq!(question.accepted_meanings, vec!["集合支持；重新振作".to_string()]);
+        assert_eq!(
+            question.accepted_meanings,
+            vec!["集合支持；重新振作".to_string()]
+        );
         let correct_label = question
             .correct_choice_label
             .expect("correct choice label should exist");
@@ -763,8 +984,12 @@ mod tests {
             })
             .collect();
 
-        let questions =
-            QuestionBuilder::build_session_questions(&SessionMode::MixedTest, &words, &words, "sess");
+        let questions = QuestionBuilder::build_session_questions(
+            &SessionMode::MixedTest,
+            &words,
+            &words,
+            "sess",
+        );
 
         let en_to_cn_choice = questions
             .iter()

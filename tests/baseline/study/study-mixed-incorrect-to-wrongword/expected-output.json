@@ -1,0 +1,33 @@
+{
+  "assertions": [
+    {
+      "step": "startStudySession",
+      "path": "response.session.mode",
+      "equals": "mixedTest"
+    },
+    {
+      "step": "startStudySession",
+      "path": "response.session.totalWords",
+      "equals": 3
+    },
+    {
+      "step": "submitStudyAnswer",
+      "path": "response.result.outcome",
+      "equals": "incorrect",
+      "stepIndex": 0,
+      "reason": "First answer is intentionally wrong"
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.summary.incorrectCount",
+      "greaterThanOrEqual": 1,
+      "reason": "At least the first wrong answer"
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.summary.totalQuestions",
+      "equals": 3,
+      "reason": "mixedTest generates 1 question per word"
+    }
+  ]
+}

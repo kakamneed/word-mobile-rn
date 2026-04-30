@@ -1,0 +1,84 @@
+{
+  "assertions": [
+    {
+      "step": 0,
+      "path": "todayDate",
+      "equals": "2026-04-22"
+    },
+    {
+      "step": 0,
+      "path": "activePlan",
+      "notNull": true,
+      "reason": "Plan exists in DB"
+    },
+    {
+      "step": 0,
+      "path": "activePlan.newWordsPerDay",
+      "equals": 20
+    },
+    {
+      "step": 0,
+      "path": "activePlan.reviewWordsPerDay",
+      "equals": 30
+    },
+    {
+      "step": 0,
+      "path": "activePlan.mixedTestPerDay",
+      "equals": 10
+    },
+    {
+      "step": 0,
+      "path": "activePlan.wrongWordTestPerDay",
+      "equals": 5
+    },
+    {
+      "step": 0,
+      "path": "todaySnapshot",
+      "notNull": true,
+      "reason": "Snapshot generated from active plan"
+    },
+    {
+      "step": 0,
+      "path": "todaySnapshot.date",
+      "equals": "2026-04-22"
+    },
+    {
+      "step": 0,
+      "path": "todaySnapshot.newWordsTarget",
+      "equals": 20,
+      "reason": "Target matches plan newWordsPerDay"
+    },
+    {
+      "step": 0,
+      "path": "todaySnapshot.reviewWordsTarget",
+      "equals": 30
+    },
+    {
+      "step": 0,
+      "path": "todaySnapshot.newWordsCompleted",
+      "equals": 0,
+      "reason": "No sessions completed yet today"
+    },
+    {
+      "step": 0,
+      "path": "dailyProgress.totalTasks",
+      "greaterThan": 0
+    },
+    {
+      "step": 0,
+      "path": "dailyProgress.completedTasks",
+      "equals": 0
+    },
+    {
+      "step": 0,
+      "path": "dailyProgress.nextRecommendedAction",
+      "equals": "Start new words"
+    },
+    {
+      "step": 0,
+      "path": "wordbooks",
+      "type": "array",
+      "minLength": 1
+    }
+  ]
+}

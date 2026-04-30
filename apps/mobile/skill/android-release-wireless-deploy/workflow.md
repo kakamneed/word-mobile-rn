@@ -1,5 +1,10 @@
 # Android Release Wireless Deploy
 
+> Deprecated for current delivery path.
+> The forward install chain is now the Flutter workflow under
+> [apps/flutter_mobile/README.md](/d:/projects/word-mobile-rn/apps/flutter_mobile/README.md)
+> and [android-release-wireless-deploy.ps1](/d:/projects/word-mobile-rn/apps/flutter_mobile/scripts/android-release-wireless-deploy.ps1).
+
 ## Purpose
 
 Use this workflow when a React Native mobile project has already built

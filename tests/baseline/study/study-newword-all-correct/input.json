@@ -1,0 +1,24 @@
+{
+  "sampleId": "study-newword-all-correct",
+  "category": "study",
+  "fixtureTemplate": "existing-user-runtime",
+  "clock": { "todayDate": "2026-04-22" },
+  "preconditions": {
+    "onboardingCompleted": true,
+    "hasActivePlan": true,
+    "seedEntries": 5,
+    "entryPayloads": [
+      { "sourceId": "w1", "word": "abandon", "meanings": ["放弃"], "exampleSentence": "He abandoned the project." },
+      { "sourceId": "w2", "word": "abstract", "meanings": ["抽象的"], "exampleSentence": "Abstract thinking is important." },
+      { "sourceId": "w3", "word": "academic", "meanings": ["学术的"], "exampleSentence": "She has an academic background." },
+      { "sourceId": "w4", "word": "accelerate", "meanings": ["加速"], "exampleSentence": "We need to accelerate the process." },
+      { "sourceId": "w5", "word": "accept", "meanings": ["接受"], "exampleSentence": "Please accept my apology." }
+    ]
+  },
+  "steps": [
+    { "action": "startStudySession", "request": { "mode": "newWord", "entrySourceIds": ["w1","w2","w3","w4","w5"] } },
+    { "action": "submitStudyAnswer", "request": { "questionId": "$currentQuestion.questionId", "response": "$correctAnswer", "responseTimeMs": 1500 }, "repeat": "until_complete" },
+    { "action": "completeStudySession" },
+    { "action": "getReportsOverview" }
+  ]
+}

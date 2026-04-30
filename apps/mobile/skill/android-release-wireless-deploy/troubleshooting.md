@@ -1,5 +1,9 @@
 # Android Release Wireless Deploy Troubleshooting
 
+> Deprecated for current delivery path.
+> Keep this only as legacy React Native reference. Do not use it as the
+> default install chain for the Flutter mobile app.
+
 ## `adb pair` succeeded but `adb devices` is empty
 
 Pairing only creates trust. It does not connect the device automatically.

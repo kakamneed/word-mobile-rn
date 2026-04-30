@@ -1,0 +1,19 @@
+{
+  "tables": [
+    {
+      "name": "study_sessions",
+      "change": "insert",
+      "minimumRowsChanged": 1
+    },
+    {
+      "name": "study_results",
+      "change": "insert",
+      "minimumRowsChanged": 20,
+      "reason": "One result per question in newWord mode with 5 words"
+    }
+  ],
+  "invariants": [
+    "all_results_have_outcome_correct",
+    "session_has_completed_at"
+  ]
+}

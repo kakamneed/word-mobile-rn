@@ -1,0 +1,6 @@
+{
+  "tables": [],
+  "invariants": [
+    "no_mutation_outside_schema_init"
+  ]
+}

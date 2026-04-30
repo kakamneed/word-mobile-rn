@@ -1,0 +1,70 @@
+{
+  "assertions": [
+    {
+      "step": "startStudySession",
+      "path": "response.session.mode",
+      "equals": "newWord"
+    },
+    {
+      "step": "startStudySession",
+      "path": "response.session.totalWords",
+      "equals": 5
+    },
+    {
+      "step": "startStudySession",
+      "path": "response.currentQuestion.questionType",
+      "notNull": true,
+      "reason": "First question must be generated"
+    },
+    {
+      "step": "startStudySession",
+      "path": "response.progress.current",
+      "equals": 1
+    },
+    {
+      "step": "startStudySession",
+      "path": "response.progress.total",
+      "equals": 20,
+      "reason": "newWord mode generates 4 questions per word: 5 * 4 = 20"
+    },
+    {
+      "step": "submitStudyAnswer",
+      "path": "response.result.outcome",
+      "equals": "correct",
+      "reason": "All answers are correct in this sample"
+    },
+    {
+      "step": "submitStudyAnswer",
+      "path": "response.isComplete",
+      "equals": false,
+      "repeatCheck": "lastAnswerIsComplete_true",
+      "reason": "Only the last answer should have isComplete=true"
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.summary.correctCount",
+      "equals": 20,
+      "reason": "All 20 questions answered correctly"
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.summary.incorrectCount",
+      "equals": 0
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.summary.accuracyPercent",
+      "equals": 100.0
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.summary.totalQuestions",
+      "equals": 20
+    },
+    {
+      "step": "completeStudySession",
+      "path": "response.nextAction",
+      "notNull": true
+    }
+  ]
+}

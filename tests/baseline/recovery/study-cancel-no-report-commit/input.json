@@ -1,0 +1,20 @@
+{
+  "sampleId": "study-cancel-no-report-commit",
+  "category": "recovery",
+  "fixtureTemplate": "existing-user-runtime",
+  "clock": { "todayDate": "2026-04-22" },
+  "preconditions": {
+    "onboardingCompleted": true,
+    "hasActivePlan": true,
+    "entryPayloads": [
+      { "sourceId": "w1", "word": "abandon", "meanings": ["放弃"] },
+      { "sourceId": "w2", "word": "abstract", "meanings": ["抽象的"] },
+      { "sourceId": "w3", "word": "academic", "meanings": ["学术的"] }
+    ]
+  },
+  "steps": [
+    { "action": "startStudySession", "request": { "mode": "mixedTest", "entrySourceIds": ["w1","w2","w3"] } },
+    { "action": "submitStudyAnswer", "request": { "questionId": "$currentQuestion.questionId", "response": "$correctAnswer", "responseTimeMs": 1000 } },
+    { "action": "cancelStudySession" }
+  ]
+}

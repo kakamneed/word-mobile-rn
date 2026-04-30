@@ -1,0 +1,18 @@
+{
+  "tables": [
+    {
+      "name": "study_sessions",
+      "change": "insert",
+      "minimumRowsChanged": 1
+    },
+    {
+      "name": "study_results",
+      "change": "insert",
+      "minimumRowsChanged": 3,
+      "reason": "One result per question in mixedTest mode"
+    }
+  ],
+  "invariants": [
+    "at_least_one_result_has_outcome_incorrect"
+  ]
+}

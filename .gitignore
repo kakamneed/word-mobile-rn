@@ -1,5 +1,6 @@
 .android-home/
 .claude/
+.gradle-home/
 .npm-cache/
 .vico/
 target/

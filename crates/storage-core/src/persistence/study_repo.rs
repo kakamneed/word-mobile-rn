@@ -13,11 +13,35 @@ pub fn save_completed_session(
     results: &[StudyResult],
     next_action: &str,
 ) -> Result<(), StorageError> {
-    // Insert session
+    save_session_results(conn, session, Some(&summary.completed_at), results)?;
+    let _ = next_action;
+    Ok(())
+}
+
+/// Save the current answered results for an unfinished active session.
+///
+/// This keeps wrong-word and AI-context surfaces in sync even when the user
+/// leaves a session before the final summary screen.
+pub fn save_session_progress(
+    conn: &Connection,
+    session: &StudySession,
+    results: &[StudyResult],
+) -> Result<(), StorageError> {
+    save_session_results(conn, session, None, results)
+}
+
+fn save_session_results(
+    conn: &Connection,
+    session: &StudySession,
+    completed_at: Option<&str>,
+    results: &[StudyResult],
+) -> Result<(), StorageError> {
     conn.execute(
         "INSERT INTO study_sessions (session_id, mode, total_words, wordbook_id, started_at, completed_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(session_id) DO UPDATE SET
+            total_words = excluded.total_words,
+            wordbook_id = excluded.wordbook_id,
             completed_at = excluded.completed_at",
         rusqlite::params![
             session.session_id,
@@ -25,13 +49,22 @@ pub fn save_completed_session(
             session.total_words,
             session.wordbook_id,
             session.started_at,
-            summary.completed_at,
+            completed_at,
         ],
     )
     .map_err(|e| StorageError::Database(format!("Failed to save session: {e}")))?;
 
+    conn.execute(
+        "DELETE FROM study_results WHERE session_id = ?1",
+        rusqlite::params![session.session_id],
+    )
+    .map_err(|e| StorageError::Database(format!("Failed to replace session results: {e}")))?;
+
     // Insert results
     for result in results {
+        let Some(entry_id) = resolve_result_entry_id(conn, &result.entry_source_id)? else {
+            continue;
+        };
         conn.execute(
             "INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response,
                                        normalized_response, correct_answer, outcome, response_time_ms, answered_at)
@@ -39,7 +72,7 @@ pub fn save_completed_session(
             rusqlite::params![
                 session.session_id,
                 result.question_id,
-                result.entry_source_id, // Using source_id as entry_id placeholder
+                entry_id,
                 serde_json::to_string(&result.question_type).unwrap_or_default(),
                 result.user_response,
                 result.normalized_response,
@@ -52,8 +85,35 @@ pub fn save_completed_session(
         .map_err(|e| StorageError::Database(format!("Failed to save result: {e}")))?;
     }
 
-    let _ = next_action;
     Ok(())
+}
+
+fn resolve_result_entry_id(
+    conn: &Connection,
+    source_entry_id: &str,
+) -> Result<Option<i64>, StorageError> {
+    if let Ok(entry_id) = source_entry_id.parse::<i64>() {
+        let exists = conn
+            .query_row(
+                "SELECT 1 FROM entries WHERE id = ?1 LIMIT 1",
+                [entry_id],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(|e| {
+                StorageError::Database(format!("Failed to verify result entry id: {e}"))
+            })?;
+        return Ok(exists.map(|_| entry_id));
+    }
+    let id = conn
+        .query_row(
+            "SELECT id FROM entries WHERE source_entry_key = ?1 ORDER BY id ASC LIMIT 1",
+            [source_entry_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(|e| StorageError::Database(format!("Failed to resolve result entry id: {e}")))?;
+    Ok(id)
 }
 
 /// Get recent study sessions.

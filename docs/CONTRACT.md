@@ -1,7 +1,7 @@
 # Word Mobile Cross-Platform Contract
 
-**Version:** 0.1.0  
-**Status:** Draft  
+**Version:** 0.1.0
+**Status:** Draft
 **Owner:** Rust shared core (`word-storage-core`, `word-app-core`)
 
 This document defines the cross-platform contract between the Rust backend and TypeScript frontend clients (desktop and mobile).

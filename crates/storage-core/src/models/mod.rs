@@ -11,6 +11,7 @@ pub mod study_question;
 pub mod study_requests;
 pub mod study_result;
 pub mod study_session;
+pub mod sync_state;
 pub mod today_home_state;
 pub mod wordbook;
 pub mod wordbook_entry;
@@ -23,11 +24,15 @@ pub use standardized_entry::{EntryExample, MeaningZh, StandardizedEntry};
 pub use study_answer::{AnswerOutcome, StudyAnswer};
 pub use study_question::{ChoiceOption, QuestionType, StudyQuestion};
 pub use study_requests::{
-    CompleteSessionResponse, SessionProgress, StartSessionEntryPayload, StartSessionRequest,
-    StartSessionResponse, SubmitAnswerRequest, SubmitAnswerResponse,
+    CompleteSessionResponse, SessionProgress, StartSessionEntryPayload, StartSessionMeaningPayload,
+    StartSessionRequest, StartSessionResponse, SubmitAnswerRequest, SubmitAnswerResponse,
 };
 pub use study_result::{SessionSummary, StudyResult};
 pub use study_session::{SessionMode, StudySession};
+pub use sync_state::{
+    SyncCursorState, SyncDeadLetter, SyncDomainPendingCount, SyncOutboxItem, SyncOutboxStatus,
+    SyncStatus,
+};
 pub use today_home_state::{
     DailyProgress, DailySnapshot, PlanSummary, TodayCompletionSeed, TodayHomeState,
     TodayHomeStateSeed, TodayTargetSeed, WordbookSummary,

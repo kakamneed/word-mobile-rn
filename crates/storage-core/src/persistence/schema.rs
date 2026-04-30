@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 /// Current schema version. Increment when structural changes are needed.
-pub const SCHEMA_VERSION: i64 = 7;
+pub const SCHEMA_VERSION: i64 = 8;
 
 /// Applies all idempotent schema migrations to the database.
 ///
@@ -188,6 +188,49 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
     )
     .map_err(|e| crate::StorageError::Schema(format!("Failed to create study_results: {e}")))?;
 
+    // Sync outbox
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sync_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            domain TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_attempt_at TEXT,
+            status TEXT NOT NULL DEFAULT 'pending'
+        );",
+    )
+    .map_err(|e| crate::StorageError::Schema(format!("Failed to create sync_outbox: {e}")))?;
+
+    // Sync cursor state
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sync_cursor_state (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            device_id TEXT NOT NULL,
+            last_pushed_at TEXT,
+            last_pulled_cursor TEXT,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );",
+    )
+    .map_err(|e| crate::StorageError::Schema(format!("Failed to create sync_cursor_state: {e}")))?;
+
+    // Sync dead letter
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sync_dead_letter (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            domain TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL,
+            failure_code TEXT NOT NULL,
+            failure_message TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            last_attempt_at TEXT
+        );",
+    )
+    .map_err(|e| crate::StorageError::Schema(format!("Failed to create sync_dead_letter: {e}")))?;
+
     // Indexes
     conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_entries_source_version ON entries(source_version_id);
@@ -203,7 +246,11 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
          CREATE INDEX IF NOT EXISTS idx_source_versions_status ON source_versions(status);
          CREATE INDEX IF NOT EXISTS idx_source_versions_commit ON source_versions(source_commit);
          CREATE INDEX IF NOT EXISTS idx_study_sessions_session_id ON study_sessions(session_id);
-         CREATE INDEX IF NOT EXISTS idx_study_results_session ON study_results(session_id);",
+         CREATE INDEX IF NOT EXISTS idx_study_results_session ON study_results(session_id);
+         CREATE INDEX IF NOT EXISTS idx_sync_outbox_domain ON sync_outbox(domain);
+         CREATE INDEX IF NOT EXISTS idx_sync_outbox_status ON sync_outbox(status);
+         CREATE INDEX IF NOT EXISTS idx_sync_dead_letter_domain ON sync_dead_letter(domain);
+         CREATE INDEX IF NOT EXISTS idx_sync_cursor_device ON sync_cursor_state(device_id);",
     )
     .map_err(|e| crate::StorageError::Schema(format!("Failed to create indexes: {e}")))?;
 

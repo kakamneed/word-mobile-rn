@@ -1,0 +1,16 @@
+{
+  "sampleId": "bootstrap-existing-user-ready",
+  "category": "bootstrap",
+  "fixtureTemplate": "existing-user-runtime",
+  "description": "Existing user who completed onboarding, database has plan and settings",
+  "preconditions": {
+    "onboardingCompleted": true,
+    "hasActivePlan": true,
+    "hasSettings": true
+  },
+  "steps": [
+    {
+      "action": "getBootstrapState"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "seed": 42,
+  "description": "Deterministic seed for question selection and shuffling in baseline tests"
+}

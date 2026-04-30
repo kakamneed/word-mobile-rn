@@ -1,0 +1,25 @@
+{
+  "assertions": [
+    {
+      "step": "startStudySession",
+      "path": "response.session.mode",
+      "equals": "mixedTest"
+    },
+    {
+      "step": "submitStudyAnswer",
+      "path": "response.result.outcome",
+      "equals": "correct"
+    },
+    {
+      "step": "cancelStudySession",
+      "path": "response",
+      "equals": "ok",
+      "reason": "Cancel should succeed"
+    }
+  ],
+  "postConditions": {
+    "noCompletedSessionInDB": true,
+    "noStudyResultsInDB": true,
+    "reason": "Cancelled session must not persist any study results"
+  }
+}

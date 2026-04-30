@@ -1,0 +1,27 @@
+{
+  "sampleId": "today-plan-stable-baseline",
+  "category": "today",
+  "fixtureTemplate": "existing-user-runtime",
+  "clock": {
+    "todayDate": "2026-04-22"
+  },
+  "preconditions": {
+    "onboardingCompleted": true,
+    "hasActivePlan": true,
+    "planConfig": {
+      "name": "Default Plan",
+      "newWordsPerDay": 20,
+      "reviewWordsPerDay": 30,
+      "mixedTestPerDay": 10,
+      "wrongWordTestPerDay": 5,
+      "growthIntervalDays": 7,
+      "growthIncrement": 5
+    },
+    "activeWordbooks": 1
+  },
+  "steps": [
+    {
+      "action": "getTodayHomeState"
+    }
+  ]
+}
