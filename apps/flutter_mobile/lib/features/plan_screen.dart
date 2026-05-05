@@ -3,20 +3,32 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 
 class PlanScreen extends StatefulWidget {
-  const PlanScreen({super.key, required this.sdk});
+  const PlanScreen({
+    super.key,
+    required this.sdk,
+    this.onTodayPlanApplied,
+    this.onDirtyChanged,
+  });
 
   final WordSdk sdk;
+  final VoidCallback? onTodayPlanApplied;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
 }
 
 class _PlanScreenState extends State<PlanScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   bool _loading = true;
   bool _saving = false;
   bool _applying = false;
+  bool _suppressDirtyNotifications = false;
+  bool _lastDirtyState = false;
   PlanSummary? _plan;
   List<WordbookSummary> _wordbooks = const [];
+  int? _pendingWordbookId;
   String? _error;
 
   late final TextEditingController _nameController;
@@ -55,11 +67,15 @@ class _PlanScreenState extends State<PlanScreen> {
       _perModeIntervalControllers[mode] = TextEditingController();
       _perModeIncrementControllers[mode] = TextEditingController();
     }
+    for (final controller in _dirtyTrackedControllers) {
+      controller.addListener(_notifyDirtyChanged);
+    }
     _load();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _newWordsController.dispose();
     _reviewWordsController.dispose();
@@ -77,6 +93,19 @@ class _PlanScreenState extends State<PlanScreen> {
     super.dispose();
   }
 
+  List<TextEditingController> get _dirtyTrackedControllers => [
+        _nameController,
+        _newWordsController,
+        _reviewWordsController,
+        _mixedController,
+        _wrongWordsController,
+        _rootAffixController,
+        _growthIntervalController,
+        _growthIncrementController,
+        ..._perModeIntervalControllers.values,
+        ..._perModeIncrementControllers.values,
+      ];
+
   bool get _hasUnsavedChanges {
     final plan = _plan;
     if (plan == null) return false;
@@ -87,6 +116,7 @@ class _PlanScreenState extends State<PlanScreen> {
     if (_wrongWordsController.text != '${plan.wrongWordTestPerDay}') return true;
     if (_rootAffixController.text != '${plan.rootAffixPerDay ?? 0}') return true;
     if (_growthRuleMode != plan.growthRuleMode) return true;
+    if (_hasWordbookChange) return true;
     if (_growthIntervalController.text != '${plan.growthIntervalDays}') return true;
     if (_growthIncrementController.text != '${plan.growthIncrement}') return true;
 
@@ -102,6 +132,26 @@ class _PlanScreenState extends State<PlanScreen> {
     return false;
   }
 
+  int? get _savedWordbookId {
+    for (final wordbook in _wordbooks) {
+      if (wordbook.isActive) return wordbook.id;
+    }
+    return null;
+  }
+
+  bool get _hasWordbookChange => _pendingWordbookId != _savedWordbookId;
+
+  void _notifyDirtyChanged() {
+    if (_suppressDirtyNotifications) return;
+    final dirty = _hasUnsavedChanges;
+    if (dirty == _lastDirtyState) return;
+    _lastDirtyState = dirty;
+    if (mounted) {
+      setState(() {});
+    }
+    widget.onDirtyChanged?.call(dirty);
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -111,13 +161,17 @@ class _PlanScreenState extends State<PlanScreen> {
       final plan = await widget.sdk.plan.getActivePlan();
       final wordbooks = await widget.sdk.plan.getWordbooks();
       if (!mounted) return;
+      _suppressDirtyNotifications = true;
       setState(() {
         _plan = plan;
         _wordbooks = wordbooks;
+        _pendingWordbookId = _activeWordbookId(wordbooks);
       });
       if (plan != null) {
         _hydrateControllers(plan);
       }
+      _suppressDirtyNotifications = false;
+      _notifyDirtyChanged();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -166,6 +220,17 @@ class _PlanScreenState extends State<PlanScreen> {
 
   int _clamp(int value, int min, int max) => value < min ? min : (value > max ? max : value);
 
+  int? get _selectedWordbookId {
+    return _pendingWordbookId ?? _savedWordbookId;
+  }
+
+  int? _activeWordbookId(List<WordbookSummary> wordbooks) {
+    for (final wordbook in wordbooks) {
+      if (wordbook.isActive) return wordbook.id;
+    }
+    return null;
+  }
+
   Map<String, dynamic> _buildPlanInput(PlanSummary plan) {
     final sharedInterval = _parseController(_growthIntervalController, plan.growthIntervalDays, 1, 365);
     final sharedIncrement = _parseController(_growthIncrementController, plan.growthIncrement, 0, 100);
@@ -194,6 +259,29 @@ class _PlanScreenState extends State<PlanScreen> {
     };
   }
 
+  Future<PlanSummary> _persistPlanAndWordbook(PlanSummary plan) async {
+    final selectedWordbookId = _selectedWordbookId;
+    if (selectedWordbookId != null && selectedWordbookId != _savedWordbookId) {
+      await widget.sdk.plan.toggleWordbook(
+        wordbookId: selectedWordbookId,
+        isActive: true,
+      );
+    }
+    return widget.sdk.plan.savePlan(
+      planId: plan.id,
+      input: _buildPlanInput(plan),
+    );
+  }
+
+  Future<void> _reloadWordbooksAfterPersist() async {
+    final wordbooks = await widget.sdk.plan.getWordbooks();
+    if (!mounted) return;
+    setState(() {
+      _wordbooks = wordbooks;
+      _pendingWordbookId = _activeWordbookId(wordbooks);
+    });
+  }
+
   Future<void> _save() async {
     final plan = _plan;
     if (plan == null) return;
@@ -202,15 +290,20 @@ class _PlanScreenState extends State<PlanScreen> {
       _error = null;
     });
     try {
-      final saved = await widget.sdk.plan.savePlan(
-        planId: plan.id,
-        input: _buildPlanInput(plan),
-      );
+      final saved = await _persistPlanAndWordbook(plan);
       if (!mounted) return;
+      _suppressDirtyNotifications = true;
       _hydrateControllers(saved);
       setState(() {
         _plan = saved;
       });
+      await _reloadWordbooksAfterPersist();
+      if (!mounted) return;
+      _suppressDirtyNotifications = false;
+      _notifyDirtyChanged();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('计划已保存，默认从明天开始生效')),
+      );
       final applyToday = await _showTodayApplyDialog(
         title: '计划已保存',
         message: '这份计划要立刻应用到今天，还是从明天开始生效？',
@@ -240,17 +333,26 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   Future<void> _applyToToday({bool showToast = true}) async {
+    final plan = _plan;
+    if (plan == null) return;
     setState(() {
       _applying = true;
       _error = null;
     });
     try {
+      await _persistPlanAndWordbook(plan);
       final applied = await widget.sdk.plan.applySavedPlanToToday();
       if (!mounted) return;
+      _suppressDirtyNotifications = true;
       setState(() {
         _plan = applied;
       });
       _hydrateControllers(applied);
+      await _reloadWordbooksAfterPersist();
+      if (!mounted) return;
+      _suppressDirtyNotifications = false;
+      _notifyDirtyChanged();
+      widget.onTodayPlanApplied?.call();
       if (showToast) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已同步计划到 Today')),
@@ -271,16 +373,32 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   Future<void> _toggleWordbook(WordbookSummary wordbook, bool nextValue) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final offset = _scrollController.hasClients ? _scrollController.offset : null;
     setState(() {
       _error = null;
+      _pendingWordbookId = nextValue ? wordbook.id : _savedWordbookId;
     });
-    try {
-      await widget.sdk.plan.toggleWordbook(wordbookId: wordbook.id, isActive: nextValue);
-      await _load();
-      if (!mounted) return;
+    _notifyDirtyChanged();
+    if (offset != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        final position = _scrollController.position;
+        final restored = offset.clamp(position.minScrollExtent, position.maxScrollExtent);
+        _scrollController.jumpTo(restored);
+      });
+    }
+    if (wordbook.id < 0) {
+      try {
+        await widget.sdk.plan.toggleWordbook(wordbookId: wordbook.id, isActive: nextValue);
+        await _load();
+        if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('词书选择已保存，默认从明天开始生效')),
+      );
       final applyToday = await _showTodayApplyDialog(
         title: '词书选择已保存',
-        message: '要把新的词书选择应用到今天吗？应用到今天会从当前计划重新生成 Today 任务。',
+        message: '要把新的词书选择应用到今天吗？应用到今天会从当前计划重新生成今日任务。',
         confirmLabel: '应用到今天',
         cancelLabel: '明天生效',
       );
@@ -293,6 +411,7 @@ class _PlanScreenState extends State<PlanScreen> {
         _error = error.toString();
       });
     }
+    }
   }
 
   Future<bool?> _showTodayApplyDialog({
@@ -301,23 +420,7 @@ class _PlanScreenState extends State<PlanScreen> {
     required String confirmLabel,
     required String cancelLabel,
   }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(cancelLabel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
-    );
+    return Future<bool?>.value(false);
   }
 
   int _questionCountFromWords(int words) => words * 4;
@@ -327,16 +430,20 @@ class _PlanScreenState extends State<PlanScreen> {
     final plan = _plan;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Plan')),
+      appBar: AppBar(title: const Text('计划')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _PlanMessage(message: _error!, onRetry: _load)
               : plan == null
                   ? _PlanMessage(message: '当前没有可编辑的计划。', onRetry: _load)
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        children: [
                         _PlanHeroCard(plan: plan, wordbooks: _wordbooks),
                         if (_hasUnsavedChanges)
                           const Padding(
@@ -345,7 +452,7 @@ class _PlanScreenState extends State<PlanScreen> {
                           ),
                         _SectionCard(
                           title: '计划名称',
-                          subtitle: '计划会同时影响 Today、Study 和 Reports 的展示口径。',
+                          subtitle: '计划会同时影响今日、学习和报告的展示口径。',
                           child: TextField(
                             controller: _nameController,
                             maxLength: 50,
@@ -415,12 +522,18 @@ class _PlanScreenState extends State<PlanScreen> {
                                   _ModeToggleChip(
                                     label: '全部共享',
                                     selected: _growthRuleMode == 'shared',
-                                    onTap: () => setState(() => _growthRuleMode = 'shared'),
+                                    onTap: () {
+                                      setState(() => _growthRuleMode = 'shared');
+                                      _notifyDirtyChanged();
+                                    },
                                   ),
                                   _ModeToggleChip(
                                     label: '分别设置',
                                     selected: _growthRuleMode == 'perMode',
-                                    onTap: () => setState(() => _growthRuleMode = 'perMode'),
+                                    onTap: () {
+                                      setState(() => _growthRuleMode = 'perMode');
+                                      _notifyDirtyChanged();
+                                    },
                                   ),
                                 ],
                               ),
@@ -452,12 +565,19 @@ class _PlanScreenState extends State<PlanScreen> {
                           child: Column(
                             children: _wordbooks
                                 .map(
-                                  (wordbook) => SwitchListTile(
+                                  (wordbook) => ListTile(
                                     contentPadding: EdgeInsets.zero,
                                     title: Text(wordbook.name),
                                     subtitle: Text('${wordbook.totalEntries} 词 · ${wordbook.category}'),
-                                    value: wordbook.isActive,
-                                    onChanged: (nextValue) => _toggleWordbook(wordbook, nextValue),
+                                    // ignore: deprecated_member_use
+                                    leading: Radio<int>(
+                                      value: wordbook.id,
+                                      // ignore: deprecated_member_use
+                                      groupValue: _selectedWordbookId,
+                                      // ignore: deprecated_member_use
+                                      onChanged: (_) => _toggleWordbook(wordbook, true),
+                                    ),
+                                    onTap: () => _toggleWordbook(wordbook, true),
                                   ),
                                 )
                                 .toList(growable: false),
@@ -475,12 +595,13 @@ class _PlanScreenState extends State<PlanScreen> {
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: _applying ? null : _applyToToday,
-                                child: Text(_applying ? '同步中...' : '同步到 Today'),
+                                child: Text(_applying ? '同步中...' : '同步到今日'),
                               ),
                             ),
                           ],
                         ),
-                      ],
+                        ],
+                      ),
                     ),
     );
   }
@@ -533,7 +654,7 @@ class _PlanHeroCard extends StatelessWidget {
     final activeWordbooks = wordbooks.where((wordbook) => wordbook.isActive).toList();
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: const Color(0xFF1F6F5E),
+      color: Theme.of(context).colorScheme.primary,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

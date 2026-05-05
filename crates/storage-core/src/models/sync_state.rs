@@ -63,4 +63,5 @@ pub struct SyncStatus {
     pub last_sync_succeeded_at: Option<String>,
     pub last_sync_error_code: Option<String>,
     pub domains_pending: Vec<SyncDomainPendingCount>,
+    pub pending_items: Vec<SyncOutboxItem>,
 }

@@ -28,7 +28,8 @@ Current known-good environment for this flow:
 What it does:
 
 1. `flutter pub get`
-2. `flutter build apk --release`
+2. `flutter build apk --release` with Supabase `dart-define` values when
+   `.env.supabase.local` exists
 3. verify APK contains `lib/arm64-v8a/libword_platform_mobile.so`
 4. `adb devices`
 5. `adb install -r`
@@ -80,3 +81,19 @@ flutter run `
 
 Without these values, the Account screen will stay in a safe "not configured"
 state instead of pretending auth is available.
+
+For release builds, use the deploy script or the repo-root helper so those
+values are compiled into the APK:
+
+```powershell
+D:\projects\word-mobile-rn\apps\flutter_mobile\scripts\android-release-wireless-deploy.ps1
+```
+
+or:
+
+```powershell
+D:\projects\word-mobile-rn\scripts\flutter-build-release-supabase-cloud.cmd
+```
+
+Both read `D:\projects\word-mobile-rn\.env.supabase.local`, which is ignored by
+git.

@@ -10,6 +10,7 @@ pub mod plan_repo;
 pub mod schema;
 pub mod study_repo;
 pub mod sync_repo;
+pub mod word_hint_repo;
 pub mod wordbook_repo;
 pub use rusqlite::Connection;
 

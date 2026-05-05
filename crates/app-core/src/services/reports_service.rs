@@ -34,20 +34,13 @@ pub fn build_reports_overview(today_date: &str, history: &[Value], learned_count
         let Some(summary) = item.get("summary").and_then(|v| v.as_object()) else {
             continue;
         };
-        study_days.insert(date.clone());
-        total_questions += summary
-            .get("totalQuestions")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-        total_correct += summary
-            .get("correctCount")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-
         let total_q = summary
             .get("totalQuestions")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
+        if date.is_empty() || total_q == 0 {
+            continue;
+        }
         let correct = summary
             .get("correctCount")
             .and_then(|v| v.as_u64())
@@ -56,6 +49,9 @@ pub fn build_reports_overview(today_date: &str, history: &[Value], learned_count
             .get("totalTimeMs")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
+        study_days.insert(date.clone());
+        total_questions += total_q as f64;
+        total_correct += correct as f64;
 
         // Aggregate by date
         let day = by_date.entry(date.clone()).or_insert_with(|| {
@@ -391,5 +387,37 @@ mod tests {
         assert_eq!(mixed["totalQuestions"], 10);
         assert_eq!(mixed["correctCount"], 7);
         assert_eq!(result["modeSeries"]["mixedTest"][0]["totalQuestions"], 10);
+    }
+
+    #[test]
+    fn test_reports_overview_ignores_zero_answer_days_in_series() {
+        let history = vec![
+            json!({
+                "date": "2026-04-24",
+                "mode": "review",
+                "summary": {
+                    "totalQuestions": 0,
+                    "correctCount": 0,
+                    "totalTimeMs": 0
+                }
+            }),
+            json!({
+                "date": "2026-05-01",
+                "mode": "review",
+                "summary": {
+                    "totalQuestions": 6,
+                    "correctCount": 4,
+                    "totalTimeMs": 9000
+                }
+            }),
+        ];
+
+        let result = build_reports_overview("2026-05-01", &history, 0);
+        let review_series = result["modeSeries"]["review"].as_array().unwrap();
+
+        assert_eq!(result["totalStudyDays"], 1);
+        assert_eq!(review_series.len(), 1);
+        assert_eq!(review_series[0]["date"], "2026-05-01");
+        assert_eq!(review_series[0]["totalQuestions"], 6);
     }
 }

@@ -25,7 +25,13 @@ class AppState extends ChangeNotifier {
   bool _isInitializing = false;
 
   AppState(this._sdk, {AuthSessionManager? authSessionManager})
-      : _authSessionManager = authSessionManager ?? AuthSessionManager();
+      : _authSessionManager =
+            authSessionManager ??
+            AuthSessionManager(
+              localDataOwner: RustLocalDataOwnerGateway(_sdk.localDataOwner),
+              restoreCloudData: _sdk.sync.restoreCloudDataToLocal,
+              backfillLocalLearning: _sdk.sync.backfillLocalLearningToCloud,
+            );
 
   AppPhase get phase => _phase;
   AuthAccountPhase get authPhase => _authState.phase;

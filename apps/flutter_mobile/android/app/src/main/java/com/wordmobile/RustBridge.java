@@ -169,12 +169,44 @@ public final class RustBridge {
     return requirePayload(nativeGetSyncStatus(), "getSyncStatus");
   }
 
+  public static String recordSyncResult(String requestJson) {
+    return requirePayload(nativeRecordSyncResult(requestJson), "recordSyncResult");
+  }
+
+  public static String recordCloudRestoreAttempt(String requestJson) {
+    return requirePayload(nativeRecordCloudRestoreAttempt(requestJson), "recordCloudRestoreAttempt");
+  }
+
+  public static String enqueueCloudBackfill(String requestJson) {
+    return requirePayload(nativeEnqueueCloudBackfill(requestJson), "enqueueCloudBackfill");
+  }
+
+  public static String preserveGuestLocalData() {
+    return requirePayload(nativePreserveGuestLocalData(), "preserveGuestLocalData");
+  }
+
+  public static String reconcileLocalDataOwner(String requestJson) {
+    return requirePayload(nativeReconcileLocalDataOwner(requestJson), "reconcileLocalDataOwner");
+  }
+
+  public static String restoreCloudDataSnapshot(String requestJson) {
+    return requirePayload(nativeRestoreCloudDataSnapshot(requestJson), "restoreCloudDataSnapshot");
+  }
+
   public static String getWrongWords(String filter) {
     return requirePayload(nativeGetWrongWords(filter), "getWrongWords");
   }
 
   public static String getWrongWordDetail(int entryId) {
     return requirePayload(nativeGetWrongWordDetail(entryId), "getWrongWordDetail");
+  }
+
+  public static String saveWordHint(String requestJson) {
+    return requirePayload(nativeSaveWordHint(requestJson), "saveWordHint");
+  }
+
+  public static String getWordHintSuggestions(int entryId) {
+    return requirePayload(nativeGetWordHintSuggestions(entryId), "getWordHintSuggestions");
   }
 
   public static String getTodayAiPassageContext() {
@@ -191,6 +223,14 @@ public final class RustBridge {
 
   public static String generateAiPassage(String requestJson) {
     return requirePayload(nativeGenerateAiPassage(requestJson), "generateAiPassage");
+  }
+
+  public static String analyzeWrongWordImport(String requestJson) {
+    return requirePayload(nativeAnalyzeWrongWordImport(requestJson), "analyzeWrongWordImport");
+  }
+
+  public static String commitWrongWordImport(String requestJson) {
+    return requirePayload(nativeCommitWrongWordImport(requestJson), "commitWrongWordImport");
   }
 
   public static void toggleWordbook(int wordbookId, boolean isActive) {
@@ -263,9 +303,25 @@ public final class RustBridge {
 
   private static native String nativeGetSyncStatus();
 
+  private static native String nativeRecordSyncResult(String requestJson);
+
+  private static native String nativeRecordCloudRestoreAttempt(String requestJson);
+
+  private static native String nativeEnqueueCloudBackfill(String requestJson);
+
+  private static native String nativePreserveGuestLocalData();
+
+  private static native String nativeReconcileLocalDataOwner(String requestJson);
+
+  private static native String nativeRestoreCloudDataSnapshot(String requestJson);
+
   private static native String nativeGetWrongWords(String filter);
 
   private static native String nativeGetWrongWordDetail(int entryId);
+
+  private static native String nativeSaveWordHint(String requestJson);
+
+  private static native String nativeGetWordHintSuggestions(int entryId);
 
   private static native String nativeGetTodayAiPassageContext();
 
@@ -274,6 +330,10 @@ public final class RustBridge {
   private static native String nativeGetAiPassage(String passageId);
 
   private static native String nativeGenerateAiPassage(String requestJson);
+
+  private static native String nativeAnalyzeWrongWordImport(String requestJson);
+
+  private static native String nativeCommitWrongWordImport(String requestJson);
 
   private static native String nativeStartStudySession(String requestJson);
 

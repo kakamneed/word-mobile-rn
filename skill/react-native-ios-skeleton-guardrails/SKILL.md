@@ -1,3 +1,8 @@
+---
+name: react-native-ios-skeleton-guardrails
+description: Guard React Native iOS scaffold boundaries in apps/mobile/ios. Use when work touches the legacy React Native iOS project scaffold, native bridge surface, Pod wiring, bundle resource layout, or remote iOS build workflow docs.
+---
+
 # RN iOS Skeleton Guardrails
 
 ## Purpose

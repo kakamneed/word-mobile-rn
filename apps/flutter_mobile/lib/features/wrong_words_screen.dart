@@ -183,6 +183,98 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     await _loadAll();
   }
 
+  Future<void> _editHint(
+    WrongWordDetail detail, {
+    int? effectiveErrorCount,
+  }) async {
+    final unlockedErrorCount = effectiveErrorCount ?? detail.errorCount;
+    if (!detail.hasHint && unlockedErrorCount < 5) return;
+    final controller = TextEditingController(text: detail.userHint ?? '');
+    var selectedSource = detail.hintSource ?? 'user';
+    final saved = await showDialog<WordHintState?>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('编辑提示词'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(detail.word, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                if (detail.hintSuggestions.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: detail.hintSuggestions
+                        .map(
+                          (suggestion) => ActionChip(
+                            avatar: const Icon(Icons.auto_awesome, size: 16),
+                            label: Text(suggestion.label),
+                            onPressed: () {
+                              controller.text = suggestion.text;
+                              selectedSource = 'aiSuggestion';
+                              setDialogState(() {});
+                            },
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '提示词',
+                    hintText: '输入这个词的私人记忆提示',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                controller.clear();
+                selectedSource = 'user';
+                setDialogState(() {});
+              },
+              child: const Text('清空'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final saved = await widget.sdk.wrongWords.saveWordHint(
+                  entryId: detail.entryId,
+                  hintText: controller.text,
+                  source: selectedSource,
+                );
+                if (context.mounted) Navigator.of(context).pop(saved);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (saved == null || !mounted) return;
+    await _loadAll();
+    if (!mounted) return;
+    final refreshed = await widget.sdk.wrongWords.getWrongWordDetail(detail.entryId);
+    if (!mounted) return;
+    setState(() {
+      _detail = refreshed;
+    });
+  }
+
   String _primaryMeaning(List<dynamic> meanings) {
     if (meanings.isEmpty) return '暂无释义';
     final first = meanings.first;
@@ -245,9 +337,70 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     return cleaned.length > 19 ? cleaned.substring(0, 19) : cleaned;
   }
 
+  Widget _highlightedExampleSentence(String sentence, String word) {
+    final baseStyle = Theme.of(context).textTheme.bodyMedium;
+    final colorScheme = Theme.of(context).colorScheme;
+    final highlightStyle = baseStyle?.copyWith(
+      color: colorScheme.primary,
+      fontWeight: FontWeight.w700,
+      backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+    );
+    final spans = _highlightWordSpans(sentence, word, baseStyle, highlightStyle);
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
+  }
+
+  List<TextSpan> _highlightWordSpans(
+    String sentence,
+    String word,
+    TextStyle? baseStyle,
+    TextStyle? highlightStyle,
+  ) {
+    final target = word.trim();
+    if (sentence.isEmpty || target.isEmpty) {
+      return [TextSpan(text: sentence, style: baseStyle)];
+    }
+
+    final pattern = RegExp(
+      r'(?<![A-Za-z])' + RegExp.escape(target) + r'(?![A-Za-z])',
+      caseSensitive: false,
+    );
+    final matches = pattern.allMatches(sentence).toList(growable: false);
+    if (matches.isEmpty) return [TextSpan(text: sentence, style: baseStyle)];
+
+    final spans = <TextSpan>[];
+    var cursor = 0;
+    for (final match in matches) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: sentence.substring(cursor, match.start), style: baseStyle));
+      }
+      spans.add(TextSpan(text: sentence.substring(match.start, match.end), style: highlightStyle));
+      cursor = match.end;
+    }
+    if (cursor < sentence.length) {
+      spans.add(TextSpan(text: sentence.substring(cursor), style: baseStyle));
+    }
+    return spans;
+  }
+
+  WrongWordEntry? _selectedEntry() {
+    final selectedId = _selectedId;
+    if (selectedId == null) return null;
+    for (final entry in _words) {
+      if (entry.entryId == selectedId) return entry;
+    }
+    return null;
+  }
+
   Widget _buildDetailSection() {
+    final selectedEntry = _selectedEntry();
+    final detailErrorCount = _detail?.errorCount ?? 0;
+    final listErrorCount = selectedEntry?.errorCount ?? 0;
+    final effectiveErrorCount =
+        detailErrorCount > listErrorCount ? detailErrorCount : listErrorCount;
+    final detailCanEditHint =
+        _detail != null && (_detail!.hasHint || effectiveErrorCount >= 5);
     return _SectionCard(
-      title: '词条详情',
+      title: selectedEntry?.isRootAffix == true ? '词根词缀详情' : '词条详情',
       subtitle: '查看释义、题型风险、错误历史和例句。',
       child: _loadingDetail
           ? const Padding(
@@ -284,6 +437,17 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
                     const SizedBox(height: 16),
                     Text('题型情况', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 8),
+                    if (detailCanEditHint) ...[
+                      _HintDetailBox(
+                        hint: _detail!.userHint,
+                        hasSuggestions: _detail!.hintSuggestions.isNotEmpty,
+                        onEdit: () => _editHint(
+                          _detail!,
+                          effectiveErrorCount: effectiveErrorCount,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     if (_detail!.riskBreakdown.isEmpty)
                       const Text('暂无分题型数据')
                     else
@@ -320,7 +484,10 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('${item['sentenceEn'] ?? ''}'),
+                                _highlightedExampleSentence(
+                                  '${item['sentenceEn'] ?? ''}',
+                                  _detail!.word,
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '${item['sentenceCn'] ?? ''}',
@@ -346,27 +513,64 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     );
   }
 
+  Widget _buildWrongEntrySection({
+    required String title,
+    required String subtitle,
+    required List<WrongWordEntry> entries,
+  }) {
+    return _SectionCard(
+      title: title,
+      subtitle: subtitle,
+      child: Column(
+        children: entries
+            .expand<Widget>(
+              (entry) => [
+                KeyedSubtree(
+                  key: _keyForEntry(entry.entryId),
+                  child: _WrongWordTile(
+                    entry: entry,
+                    selected: _selectedId == entry.entryId,
+                    primaryMeaning: _primaryMeaning(entry.meanings),
+                    onTap: () => _selectWord(entry),
+                  ),
+                ),
+                if (_selectedId == entry.entryId) ...[
+                  SizedBox(key: _detailAnchorKey, height: 1),
+                  _buildDetailSection(),
+                ],
+              ],
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalErrors = _words.fold<int>(0, (sum, item) => sum + item.errorCount);
+    final wordEntries = _words.where((entry) => !entry.isRootAffix).toList(growable: false);
+    final rootAffixEntries = _words.where((entry) => entry.isRootAffix).toList(growable: false);
     final averagePriority = _words.isEmpty
         ? '0.0'
         : (_words.fold<double>(0, (sum, item) => sum + item.priorityScore) / _words.length)
             .toStringAsFixed(1);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Wrong Words')),
+      appBar: AppBar(title: const Text('错词本')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _WrongWordsMessage(message: _error!, onRetry: _loadAll)
-              : ListView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  children: [
+              : RefreshIndicator(
+                  onRefresh: _loadAll,
+                  child: ListView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    children: [
                     Card(
                       margin: const EdgeInsets.only(bottom: 16),
-                      color: const Color(0xFF1F6F5E),
+                      color: Theme.of(context).colorScheme.primary,
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
@@ -391,7 +595,8 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
                               spacing: 12,
                               runSpacing: 12,
                               children: [
-                                _StatPill(label: '错词数', value: '${_words.length}'),
+                                _StatPill(label: '错词数', value: '${wordEntries.length}'),
+                                _StatPill(label: '词根词缀', value: '${rootAffixEntries.length}'),
                                 _StatPill(label: '累计错误', value: '$totalErrors'),
                                 _StatPill(label: '平均优先级', value: averagePriority),
                               ],
@@ -435,35 +640,22 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
                       const _SectionCard(
                         title: '当前为空',
                         subtitle: '错词会在学习过程中逐步累积到这里。',
-                        child: Text('还没有错词，先去 Today 开始学习。'),
+                        child: Text('还没有错词，先去今日页开始学习。'),
                       ),
-                    if (_words.isNotEmpty)
-                      _SectionCard(
+                    if (wordEntries.isNotEmpty)
+                      _buildWrongEntrySection(
                         title: '错词列表',
-                        subtitle: '点击某个词条展开详情；再次点击可收起。',
-                        child: Column(
-                          children: _words
-                              .expand<Widget>(
-                                (entry) => [
-                                  KeyedSubtree(
-                                    key: _keyForEntry(entry.entryId),
-                                    child: _WrongWordTile(
-                                      entry: entry,
-                                      selected: _selectedId == entry.entryId,
-                                      primaryMeaning: _primaryMeaning(entry.meanings),
-                                      onTap: () => _selectWord(entry),
-                                    ),
-                                  ),
-                                  if (_selectedId == entry.entryId) ...[
-                                    SizedBox(key: _detailAnchorKey, height: 1),
-                                    _buildDetailSection(),
-                                  ],
-                                ],
-                              )
-                              .toList(growable: false),
-                        ),
+                        subtitle: '普通单词的错误记录；点击某个词条展开详情，再次点击可收起。',
+                        entries: wordEntries,
                       ),
-                  ],
+                    if (rootAffixEntries.isNotEmpty)
+                      _buildWrongEntrySection(
+                        title: '词根词缀错题',
+                        subtitle: '词根、前缀、后缀和词缀题的错误记录单独归档。',
+                        entries: rootAffixEntries,
+                      ),
+                    ],
+                  ),
                 ),
     );
   }
@@ -490,10 +682,20 @@ class _WrongWordTile extends StatelessWidget {
             ? const Color(0xFFE69229)
             : const Color(0xFF2F8F6A);
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final needsHint = entry.errorCount >= 5 && !entry.hasHint;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: selected ? const Color(0xFFEAF4F2) : null,
-      child: ListTile(
+      color: selected ? colorScheme.primary.withValues(alpha: 0.10) : null,
+      child: Stack(
+        children: [
+          ListTile(
+        contentPadding: EdgeInsetsDirectional.fromSTEB(
+          needsHint ? 36 : 16,
+          8,
+          16,
+          8,
+        ),
         onTap: onTap,
         title: Text(entry.word),
         subtitle: Column(
@@ -502,6 +704,8 @@ class _WrongWordTile extends StatelessWidget {
             if ((entry.phoneticUs ?? entry.phoneticUk) != null)
               Text(entry.phoneticUs ?? entry.phoneticUk ?? ''),
             Text(primaryMeaning),
+            if (entry.hasHint)
+              const Text('提示词  •••'),
             Text('错误 ${entry.errorCount} 次 · 优先级 ${entry.priorityScore.toStringAsFixed(1)}'),
           ],
         ),
@@ -515,6 +719,95 @@ class _WrongWordTile extends StatelessWidget {
             entry.priorityScore.toStringAsFixed(1),
             style: TextStyle(color: priorityColor, fontWeight: FontWeight.w700),
           ),
+        ),
+          ),
+          if (needsHint)
+            const PositionedDirectional(
+              start: 16,
+              top: 16,
+              child: _HintReminderDot(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HintReminderDot extends StatelessWidget {
+  const _HintReminderDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0xFFD64545),
+        shape: BoxShape.circle,
+      ),
+      child: SizedBox(width: 8, height: 8),
+    );
+  }
+}
+
+class _HintDetailBox extends StatefulWidget {
+  const _HintDetailBox({
+    required this.hint,
+    required this.hasSuggestions,
+    required this.onEdit,
+  });
+
+  final String? hint;
+  final bool hasSuggestions;
+  final VoidCallback onEdit;
+
+  @override
+  State<_HintDetailBox> createState() => _HintDetailBoxState();
+}
+
+class _HintDetailBoxState extends State<_HintDetailBox> {
+  bool _revealed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = widget.hint?.trim();
+    final hasHint = hint != null && hint.isNotEmpty;
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('提示词', style: Theme.of(context).textTheme.titleMedium),
+                ),
+                TextButton(
+                  onPressed: widget.onEdit,
+                  child: Text(hasHint ? '修改' : '添加'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (hasHint)
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _revealed = !_revealed;
+                  });
+                },
+                child: Text(_revealed ? hint : '•••••• 点击查看'),
+              )
+            else
+              Text(widget.hasSuggestions ? '有 AI 推荐提示可选' : '还没有提示词'),
+          ],
         ),
       ),
     );

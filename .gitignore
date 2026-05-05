@@ -2,6 +2,7 @@
 .claude/
 .gradle-home/
 .npm-cache/
+.tools/
 .vico/
 target/
 
@@ -17,3 +18,5 @@ apps/mobile/android_build*/
 *.log
 *.tmp
 Thumbs.db
+supabase/.temp/
+.env.supabase.local

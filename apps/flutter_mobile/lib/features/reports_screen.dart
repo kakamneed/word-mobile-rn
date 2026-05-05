@@ -66,14 +66,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
     };
   }
 
-  Color _modeColor(String mode) {
+  Color _modeColor(BuildContext context, String mode) {
     return switch (mode) {
       'newWord' => const Color(0xFF34C759),
       'review' => const Color(0xFF007AFF),
       'mixedTest' => const Color(0xFFFF9500),
       'wrongWordReinforcement' => const Color(0xFFFF3B30),
       'rootAffix' => const Color(0xFF8E44AD),
-      _ => const Color(0xFF1F6F5E),
+      _ => Theme.of(context).colorScheme.primary,
     };
   }
 
@@ -82,7 +82,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final reports = _reports;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reports')),
+      appBar: AppBar(title: const Text('报告')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -105,7 +105,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 _DailyLineChart(
                                   data: reports.dailySeries.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false),
                                   selectedDate: _selectedDay?['date'] as String?,
-                                  lineColor: const Color(0xFF007AFF),
+                                  lineColor: Theme.of(context).colorScheme.primary,
                                   onSelect: (item) => setState(() => _selectedDay = item),
                                 ),
                                 const SizedBox(height: 12),
@@ -126,7 +126,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       child: _ModeBreakdownCard(
                                         entry: entry,
                                         label: _modeLabel('${entry['mode'] ?? ''}'),
-                                        color: _modeColor('${entry['mode'] ?? ''}'),
+                                        color: _modeColor(
+                                          context,
+                                          '${entry['mode'] ?? ''}',
+                                        ),
                                         selected: _selectedMode == '${entry['mode'] ?? ''}',
                                         series: ((reports.modeSeries['${entry['mode'] ?? ''}'] as List?) ?? const [])
                                             .whereType<Map>()
@@ -162,7 +165,7 @@ class _StreakHero extends StatelessWidget {
     final longestStreak = reports.streakInfo['longestStreak'] ?? 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: const Color(0xFF1F6F5E),
+      color: Theme.of(context).colorScheme.primary,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -217,8 +220,9 @@ class _MetricGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         final highlight = index == 3;
+        final colorScheme = Theme.of(context).colorScheme;
         return Card(
-          color: highlight ? const Color(0xFFEAF4FF) : null,
+          color: highlight ? colorScheme.primary.withValues(alpha: 0.10) : null,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -228,7 +232,7 @@ class _MetricGrid extends StatelessWidget {
                 Text(
                   item.$2,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: highlight ? const Color(0xFF007AFF) : null,
+                        color: highlight ? colorScheme.primary : null,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -455,8 +459,11 @@ class _ModeBreakdownCard extends StatelessWidget {
     final correct = entry['correctCount'] ?? 0;
     final missed = (total as num).toInt() - (correct as num).toInt();
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
-      color: selected ? const Color(0xFFF4F9FF) : const Color(0xFFF8F8F8),
+      color: selected
+          ? colorScheme.primary.withValues(alpha: 0.08)
+          : const Color(0xFFF8F8F8),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,

@@ -2,6 +2,7 @@
 library;
 
 import '../bridge/bridge.dart';
+import 'wrong_words_client.dart';
 
 /// Study session info.
 class StudySession {
@@ -85,6 +86,9 @@ class StudyQuestion {
   final String? correctChoiceLabel;
   final int questionIndex;
   final int totalQuestions;
+  final String? userHint;
+  final bool hasHint;
+  final List<WordHintSuggestion> hintSuggestions;
 
   const StudyQuestion({
     required this.questionId,
@@ -102,24 +106,33 @@ class StudyQuestion {
     this.correctChoiceLabel,
     required this.questionIndex,
     required this.totalQuestions,
+    this.userHint,
+    this.hasHint = false,
+    this.hintSuggestions = const [],
   });
 
   factory StudyQuestion.fromJson(Map<String, dynamic> json) => StudyQuestion(
-        questionId: json['questionId'] as String,
-        questionType: json['questionType'] as String,
-        entrySourceId: json['entrySourceId'] as String,
-        word: json['word'] as String,
-        prompt: json['prompt'] as String,
-        partOfSpeech: json['partOfSpeech'] as String?,
-        phoneticUs: json['phoneticUs'] as String?,
-        phoneticUk: json['phoneticUk'] as String?,
-        exampleSentence: json['exampleSentence'] as String?,
-        exampleTranslation: json['exampleTranslation'] as String?,
-        acceptedMeanings: (json['acceptedMeanings'] as List<dynamic>).cast<String>(),
-        choices: (json['choices'] as List<dynamic>?)?.cast<Map<String, dynamic>>(),
-        correctChoiceLabel: json['correctChoiceLabel'] as String?,
-        questionIndex: json['questionIndex'] as int,
-        totalQuestions: json['totalQuestions'] as int,
+        questionId: _jsonString(json['questionId']),
+        questionType: _jsonString(json['questionType'], fallback: 'unknown'),
+        entrySourceId: _jsonString(json['entrySourceId']),
+        word: _jsonString(json['word']),
+        prompt: _jsonString(json['prompt']),
+        partOfSpeech: _jsonNullableString(json['partOfSpeech']),
+        phoneticUs: _jsonNullableString(json['phoneticUs']),
+        phoneticUk: _jsonNullableString(json['phoneticUk']),
+        exampleSentence: _jsonNullableString(json['exampleSentence']),
+        exampleTranslation: _jsonNullableString(json['exampleTranslation']),
+        acceptedMeanings: _jsonStringList(json['acceptedMeanings']),
+        choices: _jsonMapListOrNull(json['choices']),
+        correctChoiceLabel: _jsonNullableString(json['correctChoiceLabel']),
+        questionIndex: _jsonInt(json['questionIndex']),
+        totalQuestions: _jsonInt(json['totalQuestions']),
+        userHint: _jsonNullableString(json['userHint']),
+        hasHint: _jsonBool(json['hasHint']),
+        hintSuggestions: (json['hintSuggestions'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(WordHintSuggestion.fromJson)
+            .toList(growable: false),
       );
 
   /// Whether this is a choice-type question.
@@ -127,6 +140,59 @@ class StudyQuestion {
       questionType == 'enToCnChoice' ||
       questionType == 'exampleToCnChoice' ||
       questionType == 'cnToEnChoice';
+
+  StudyQuestion copyWith({
+    String? userHint,
+    bool? hasHint,
+    List<WordHintSuggestion>? hintSuggestions,
+  }) =>
+      StudyQuestion(
+        questionId: questionId,
+        questionType: questionType,
+        entrySourceId: entrySourceId,
+        word: word,
+        prompt: prompt,
+        partOfSpeech: partOfSpeech,
+        phoneticUs: phoneticUs,
+        phoneticUk: phoneticUk,
+        exampleSentence: exampleSentence,
+        exampleTranslation: exampleTranslation,
+        acceptedMeanings: acceptedMeanings,
+        choices: choices,
+        correctChoiceLabel: correctChoiceLabel,
+        questionIndex: questionIndex,
+        totalQuestions: totalQuestions,
+        userHint: userHint ?? this.userHint,
+        hasHint: hasHint ?? this.hasHint,
+        hintSuggestions: hintSuggestions ?? this.hintSuggestions,
+      );
+}
+
+class HintPrompt {
+  final int entryId;
+  final String word;
+  final int errorCount;
+  final String triggerOutcome;
+  final List<WordHintSuggestion> suggestions;
+
+  const HintPrompt({
+    required this.entryId,
+    required this.word,
+    required this.errorCount,
+    required this.triggerOutcome,
+    required this.suggestions,
+  });
+
+  factory HintPrompt.fromJson(Map<String, dynamic> json) => HintPrompt(
+        entryId: _jsonInt(json['entryId']),
+        word: _jsonString(json['word']),
+        errorCount: _jsonInt(json['errorCount']),
+        triggerOutcome: _jsonString(json['triggerOutcome']),
+        suggestions: (json['suggestions'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(WordHintSuggestion.fromJson)
+            .toList(growable: false),
+      );
 }
 
 /// Session progress.
@@ -137,8 +203,8 @@ class SessionProgress {
   const SessionProgress({required this.current, required this.total});
 
   factory SessionProgress.fromJson(Map<String, dynamic> json) => SessionProgress(
-        current: json['current'] as int,
-        total: json['total'] as int,
+        current: _jsonInt(json['current']),
+        total: _jsonInt(json['total']),
       );
 }
 
@@ -194,16 +260,76 @@ class StudyResult {
   });
 
   factory StudyResult.fromJson(Map<String, dynamic> json) => StudyResult(
-        questionId: json['questionId'] as String,
-        entrySourceId: json['entrySourceId'] as String,
-        questionType: json['questionType'] as String,
-        userResponse: json['userResponse'] as String,
+        questionId: _jsonString(json['questionId']),
+        entrySourceId: _jsonString(json['entrySourceId']),
+        questionType: _jsonString(json['questionType'], fallback: 'unknown'),
+        userResponse: _jsonString(json['userResponse']),
         normalizedResponse: json['normalizedResponse'] as String?,
-        correctAnswer: json['correctAnswer'] as String,
-        outcome: _parseOutcome(json['outcome'] as String),
-        responseTimeMs: json['responseTimeMs'] as int,
-        answeredAt: json['answeredAt'] as String,
+        correctAnswer: _jsonString(json['correctAnswer']),
+        outcome: _parseOutcome(_jsonString(json['outcome'])),
+        responseTimeMs: _jsonInt(json['responseTimeMs']),
+        answeredAt: _jsonString(
+          json['answeredAt'],
+          fallback: DateTime.now().toIso8601String(),
+        ),
       );
+}
+
+String _jsonString(Object? value, {String fallback = ''}) {
+  if (value == null) return fallback;
+  if (value is String) return value;
+  return value.toString();
+}
+
+String? _jsonNullableString(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  return value.toString();
+}
+
+int _jsonInt(Object? value, {int fallback = 0}) {
+  if (value == null) return fallback;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString()) ?? fallback;
+}
+
+double _jsonDouble(Object? value, {double fallback = 0}) {
+  if (value == null) return fallback;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString()) ?? fallback;
+}
+
+bool _jsonBool(Object? value, {bool fallback = false}) {
+  if (value == null) return fallback;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final normalized = value.toString().toLowerCase();
+  if (normalized == 'true' || normalized == '1') return true;
+  if (normalized == 'false' || normalized == '0') return false;
+  return fallback;
+}
+
+List<String> _jsonStringList(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .map(_jsonString)
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<Map<String, dynamic>>? _jsonMapListOrNull(Object? value) {
+  if (value is! List) return null;
+  return value
+      .whereType<Map<String, dynamic>>()
+      .toList(growable: false);
+}
+
+bool _hasCompleteStudyQuestion(Object? value) {
+  if (value is! Map<String, dynamic>) return false;
+  return _jsonString(value['questionId']).isNotEmpty &&
+      _jsonString(value['questionType']).isNotEmpty &&
+      _jsonString(value['entrySourceId']).isNotEmpty;
 }
 
 AnswerOutcome _parseOutcome(String s) => switch (s) {
@@ -243,17 +369,20 @@ class SessionSummary {
   });
 
   factory SessionSummary.fromJson(Map<String, dynamic> json) => SessionSummary(
-        sessionId: json['sessionId'] as String,
-        totalQuestions: json['totalQuestions'] as int,
-        correctCount: json['correctCount'] as int,
-        fuzzyCorrectCount: json['fuzzyCorrectCount'] as int,
-        incorrectCount: json['incorrectCount'] as int,
-        skippedCount: json['skippedCount'] as int,
-        totalWords: json['totalWords'] as int,
-        wrongWordCount: json['wrongWordCount'] as int,
-        accuracyPercent: (json['accuracyPercent'] as num).toDouble(),
-        totalTimeMs: json['totalTimeMs'] as int,
-        completedAt: json['completedAt'] as String,
+        sessionId: _jsonString(json['sessionId']),
+        totalQuestions: _jsonInt(json['totalQuestions']),
+        correctCount: _jsonInt(json['correctCount']),
+        fuzzyCorrectCount: _jsonInt(json['fuzzyCorrectCount']),
+        incorrectCount: _jsonInt(json['incorrectCount']),
+        skippedCount: _jsonInt(json['skippedCount']),
+        totalWords: _jsonInt(json['totalWords']),
+        wrongWordCount: _jsonInt(json['wrongWordCount']),
+        accuracyPercent: _jsonDouble(json['accuracyPercent']),
+        totalTimeMs: _jsonInt(json['totalTimeMs']),
+        completedAt: _jsonString(
+          json['completedAt'],
+          fallback: DateTime.now().toIso8601String(),
+        ),
       );
 }
 
@@ -287,6 +416,7 @@ class SubmitAnswerResponse {
   final SessionSummary? summary;
   final String? nextAction;
   final SessionProgress progress;
+  final HintPrompt? hintPrompt;
 
   const SubmitAnswerResponse({
     required this.result,
@@ -295,21 +425,27 @@ class SubmitAnswerResponse {
     this.summary,
     this.nextAction,
     required this.progress,
+    this.hintPrompt,
   });
 
   factory SubmitAnswerResponse.fromJson(Map<String, dynamic> json) =>
       SubmitAnswerResponse(
         result: StudyResult.fromJson(json['result'] as Map<String, dynamic>),
-        isComplete: json['isComplete'] as bool,
-        currentQuestion: json['currentQuestion'] != null
+        isComplete: _jsonBool(json['isComplete']),
+        currentQuestion: _hasCompleteStudyQuestion(json['currentQuestion'])
             ? StudyQuestion.fromJson(json['currentQuestion'] as Map<String, dynamic>)
             : null,
-        summary: json['summary'] != null
+        summary: json['summary'] is Map<String, dynamic>
             ? SessionSummary.fromJson(json['summary'] as Map<String, dynamic>)
             : null,
-        nextAction: json['nextAction'] as String?,
+        nextAction: json['nextAction'] == null
+            ? null
+            : _jsonString(json['nextAction']),
         progress:
             SessionProgress.fromJson(json['progress'] as Map<String, dynamic>),
+        hintPrompt: json['hintPrompt'] is Map<String, dynamic>
+            ? HintPrompt.fromJson(json['hintPrompt'] as Map<String, dynamic>)
+            : null,
       );
 }
 
@@ -323,7 +459,7 @@ class CompleteSessionResponse {
   factory CompleteSessionResponse.fromJson(Map<String, dynamic> json) =>
       CompleteSessionResponse(
         summary: SessionSummary.fromJson(json['summary'] as Map<String, dynamic>),
-        nextAction: json['nextAction'] as String,
+        nextAction: _jsonString(json['nextAction'], fallback: 'Return to today'),
       );
 }
 

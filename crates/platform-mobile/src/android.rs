@@ -3,15 +3,18 @@ use jni::sys::jstring;
 use jni::JNIEnv;
 
 use crate::bridge::{
-    apply_saved_plan_to_today, build_reports_overview, build_today_ai_passage_context,
-    build_today_home_state, build_wrong_word_detail, build_wrong_words, cancel_study_session,
-    complete_study_session, draw_today_reward, generate_ai_passage, get_active_plan,
+    analyze_wrong_word_import, apply_saved_plan_to_today, build_reports_overview,
+    build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
+    build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
+    draw_today_reward, enqueue_cloud_backfill, generate_ai_passage, get_active_plan,
     get_ai_passage, get_ai_passage_history, get_ai_provider_config, get_bootstrap_state,
     get_bridge_status, get_reports_overview, get_resume_session_hint, get_settings,
     get_sync_status, get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
-    get_wordbooks, get_wrong_word_detail, get_wrong_words, initialize_mobile_runtime,
-    mark_onboarding_completed, save_ai_passage, save_ai_provider_config, save_plan,
-    start_study_session, submit_study_answer, toggle_wordbook,
+    get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail, get_wrong_words,
+    initialize_mobile_runtime, mark_onboarding_completed, reconcile_local_data_owner,
+    record_cloud_restore_attempt, record_sync_result, restore_cloud_data_snapshot, save_ai_passage,
+    save_ai_provider_config, save_plan, save_word_hint, start_study_session, submit_study_answer,
+    switch_to_guest_local_data, toggle_wordbook,
 };
 
 fn to_java_string(env: &mut JNIEnv, value: &str) -> jstring {
@@ -258,6 +261,30 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWrongWordDetail(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSaveWordHint(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(save_word_hint) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWordHintSuggestions(
+    mut env: JNIEnv,
+    _class: JClass,
+    entry_id: i32,
+) -> jstring {
+    match get_word_hint_suggestions(entry_id as i64) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetResumeSessionHint(
     mut env: JNIEnv,
     _class: JClass,
@@ -295,6 +322,77 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetSyncStatus(
     _class: JClass,
 ) -> jstring {
     match get_sync_status() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRecordSyncResult(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(record_sync_result) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRecordCloudRestoreAttempt(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(record_cloud_restore_attempt) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeEnqueueCloudBackfill(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(enqueue_cloud_backfill) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativePreserveGuestLocalData(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match switch_to_guest_local_data() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeReconcileLocalDataOwner(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(reconcile_local_data_owner) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRestoreCloudDataSnapshot(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(restore_cloud_data_snapshot) {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }
@@ -378,6 +476,30 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGenerateAiPassage(
     request_json: JString,
 ) -> jstring {
     match string_arg(&mut env, request_json).and_then(generate_ai_passage) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeAnalyzeWrongWordImport(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(analyze_wrong_word_import) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeCommitWrongWordImport(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(commit_wrong_word_import) {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }

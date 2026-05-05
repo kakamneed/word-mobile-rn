@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 /// Current schema version. Increment when structural changes are needed.
-pub const SCHEMA_VERSION: i64 = 8;
+pub const SCHEMA_VERSION: i64 = 10;
 
 /// Applies all idempotent schema migrations to the database.
 ///
@@ -188,6 +188,43 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
     )
     .map_err(|e| crate::StorageError::Schema(format!("Failed to create study_results: {e}")))?;
 
+    // Imported wrong words from AI/OCR-assisted external sources.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS imported_wrong_words (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id TEXT NOT NULL,
+            candidate_id TEXT NOT NULL,
+            source_type TEXT NOT NULL DEFAULT '',
+            source_name TEXT NOT NULL DEFAULT '',
+            entry_id INTEGER,
+            word TEXT NOT NULL,
+            meaning TEXT DEFAULT '',
+            occurrence_count INTEGER NOT NULL DEFAULT 1,
+            confidence REAL NOT NULL DEFAULT 0.0,
+            evidence TEXT NOT NULL DEFAULT '',
+            is_high_frequency INTEGER NOT NULL DEFAULT 0,
+            imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(batch_id, candidate_id),
+            FOREIGN KEY (entry_id) REFERENCES entries(id)
+        );",
+    )
+    .map_err(|e| {
+        crate::StorageError::Schema(format!("Failed to create imported_wrong_words: {e}"))
+    })?;
+
+    // User-authored memory hints for difficult words.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS word_hints (
+            entry_id INTEGER NOT NULL PRIMARY KEY,
+            hint_text TEXT NOT NULL DEFAULT '',
+            source TEXT NOT NULL DEFAULT 'user',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+        );",
+    )
+    .map_err(|e| crate::StorageError::Schema(format!("Failed to create word_hints: {e}")))?;
+
     // Sync outbox
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS sync_outbox (
@@ -247,6 +284,9 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
          CREATE INDEX IF NOT EXISTS idx_source_versions_commit ON source_versions(source_commit);
          CREATE INDEX IF NOT EXISTS idx_study_sessions_session_id ON study_sessions(session_id);
          CREATE INDEX IF NOT EXISTS idx_study_results_session ON study_results(session_id);
+         CREATE INDEX IF NOT EXISTS idx_imported_wrong_words_entry ON imported_wrong_words(entry_id);
+         CREATE INDEX IF NOT EXISTS idx_imported_wrong_words_word ON imported_wrong_words(word);
+         CREATE INDEX IF NOT EXISTS idx_word_hints_updated ON word_hints(updated_at);
          CREATE INDEX IF NOT EXISTS idx_sync_outbox_domain ON sync_outbox(domain);
          CREATE INDEX IF NOT EXISTS idx_sync_outbox_status ON sync_outbox(status);
          CREATE INDEX IF NOT EXISTS idx_sync_dead_letter_domain ON sync_dead_letter(domain);
@@ -290,9 +330,43 @@ fn record_schema_version(conn: &Connection) -> Result<(), crate::StorageError> {
 }
 
 fn run_migrations(conn: &Connection, from_version: i64) -> Result<(), crate::StorageError> {
-    // Add migrations here as needed
-    // Example: if from_version < 2 { ... }
-    let _ = conn;
-    let _ = from_version;
+    if from_version < 9 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS imported_wrong_words (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id TEXT NOT NULL,
+                candidate_id TEXT NOT NULL,
+                source_type TEXT NOT NULL DEFAULT '',
+                source_name TEXT NOT NULL DEFAULT '',
+                entry_id INTEGER,
+                word TEXT NOT NULL,
+                meaning TEXT DEFAULT '',
+                occurrence_count INTEGER NOT NULL DEFAULT 1,
+                confidence REAL NOT NULL DEFAULT 0.0,
+                evidence TEXT NOT NULL DEFAULT '',
+                is_high_frequency INTEGER NOT NULL DEFAULT 0,
+                imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(batch_id, candidate_id),
+                FOREIGN KEY (entry_id) REFERENCES entries(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_imported_wrong_words_entry ON imported_wrong_words(entry_id);
+            CREATE INDEX IF NOT EXISTS idx_imported_wrong_words_word ON imported_wrong_words(word);",
+        )
+        .map_err(|e| crate::StorageError::Schema(format!("Failed to migrate imported wrong words: {e}")))?;
+    }
+    if from_version < 10 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS word_hints (
+                entry_id INTEGER NOT NULL PRIMARY KEY,
+                hint_text TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT 'user',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_word_hints_updated ON word_hints(updated_at);",
+        )
+        .map_err(|e| crate::StorageError::Schema(format!("Failed to migrate word hints: {e}")))?;
+    }
     Ok(())
 }

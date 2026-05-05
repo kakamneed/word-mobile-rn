@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 
 import 'features/mobile_root_shell.dart';
+import 'features/onboarding_flow.dart';
+import 'features/theme_settings.dart';
 import 'sdk/sdk.dart';
 import 'state/app_state.dart';
 
@@ -15,21 +17,61 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Word Mobile Flutter',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F6F5E)),
-        useMaterial3: true,
+    return _ThemeRoot(
+      childBuilder: (themeController) => MaterialApp(
+        title: '单词移动端',
+        theme: themeController.theme,
+        home: AppRoot(
+          sdk: sdk ?? WordSdk(),
+          themeController: themeController,
+        ),
       ),
-      home: AppRoot(sdk: sdk ?? WordSdk()),
+    );
+  }
+}
+
+class _ThemeRoot extends StatefulWidget {
+  const _ThemeRoot({required this.childBuilder});
+
+  final Widget Function(ThemeSettingsController themeController) childBuilder;
+
+  @override
+  State<_ThemeRoot> createState() => _ThemeRootState();
+}
+
+class _ThemeRootState extends State<_ThemeRoot> {
+  final _themeController = ThemeSettingsController();
+
+  @override
+  void initState() {
+    super.initState();
+    _themeController.load();
+  }
+
+  @override
+  void dispose() {
+    _themeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _themeController,
+      builder: (context, _) => widget.childBuilder(_themeController),
     );
   }
 }
 
 class AppRoot extends StatefulWidget {
-  const AppRoot({super.key, required this.sdk});
+  const AppRoot({
+    super.key,
+    required this.sdk,
+    required this.themeController,
+  });
 
   final WordSdk sdk;
+  final ThemeSettingsController themeController;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -63,9 +105,12 @@ class _AppRootState extends State<AppRoot> {
           case AppPhase.initializing:
             return const _BootstrapLoadingScreen();
           case AppPhase.onboarding:
-            return _OnboardingScreen(appState: _appState);
+            return OnboardingFlow(appState: _appState);
           case AppPhase.ready:
-            return MobileRootShell(appState: _appState);
+            return MobileRootShell(
+              appState: _appState,
+              themeController: widget.themeController,
+            );
           case AppPhase.error:
             return _StartupErrorScreen(appState: _appState);
         }
@@ -86,41 +131,7 @@ class _BootstrapLoadingScreen extends StatelessWidget {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Initializing Rust runtime...'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OnboardingScreen extends StatelessWidget {
-  const _OnboardingScreen({required this.appState});
-
-  final AppState appState;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Welcome')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'First launch setup',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'This route is driven by authoritative bootstrap state, not local page defaults.',
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => appState.completeOnboarding(),
-              child: const Text('Complete onboarding'),
-            ),
+            Text('正在初始化学习引擎...'),
           ],
         ),
       ),
@@ -137,24 +148,24 @@ class _StartupErrorScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final error = appState.lastError;
     return Scaffold(
-      appBar: AppBar(title: const Text('Startup error')),
+      appBar: AppBar(title: const Text('启动异常')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Flutter shell could not complete bootstrap.',
+              '应用启动流程未能完成。',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 12),
-            Text(error?.userMessage ?? 'Unknown startup error'),
+            Text(error?.userMessage ?? '未知启动错误'),
             const SizedBox(height: 8),
-            Text('Code: ${error?.code ?? 'UNKNOWN'}'),
+            Text('错误代码：${error?.code ?? 'UNKNOWN'}'),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () => appState.retryInitialize(),
-              child: const Text('Retry'),
+              child: const Text('重试'),
             ),
           ],
         ),

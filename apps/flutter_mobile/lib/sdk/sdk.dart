@@ -6,6 +6,7 @@ library;
 import '../bridge/bridge.dart';
 import 'ai_client.dart';
 import 'bootstrap_client.dart';
+import 'local_data_owner_client.dart';
 import 'plan_client.dart';
 import 'reports_client.dart';
 import 'reward_client.dart';
@@ -16,6 +17,7 @@ import 'wrong_words_client.dart';
 
 export 'ai_client.dart';
 export 'bootstrap_client.dart';
+export 'local_data_owner_client.dart';
 export 'plan_client.dart';
 export 'reports_client.dart';
 export 'reward_client.dart';
@@ -28,6 +30,7 @@ export 'wrong_words_client.dart';
 class WordSdk {
   final AiClient ai;
   final BootstrapClient bootstrap;
+  final LocalDataOwnerClient localDataOwner;
   final TodayClient today;
   final PlanClient plan;
   final ReportsClient reports;
@@ -39,6 +42,7 @@ class WordSdk {
   const WordSdk._({
     required this.ai,
     required this.bootstrap,
+    required this.localDataOwner,
     required this.today,
     required this.plan,
     required this.reports,
@@ -55,6 +59,7 @@ class WordSdk {
     return WordSdk._(
       ai: AiClient(bridge, codec),
       bootstrap: BootstrapClient(bridge, codec),
+      localDataOwner: LocalDataOwnerClient(bridge, codec),
       today: TodayClient(bridge, codec),
       plan: PlanClient(bridge, codec),
       reports: ReportsClient(bridge, codec),

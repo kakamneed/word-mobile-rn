@@ -7,6 +7,7 @@
 //! - Mobile-specific path resolution
 //! - SQLite initialization in mobile sandbox
 
+pub mod ai_agent;
 pub mod bridge;
 pub mod paths;
 pub mod runtime;

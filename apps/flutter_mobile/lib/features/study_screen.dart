@@ -24,6 +24,8 @@ class StudyScreen extends StatefulWidget {
 
 class _StudyScreenState extends State<StudyScreen> {
   final TextEditingController _answerController = TextEditingController();
+  final FocusNode _answerFocusNode = FocusNode();
+  final ValueNotifier<bool> _hasTypedAnswer = ValueNotifier(false);
   final Stopwatch _responseStopwatch = Stopwatch();
   String? _selectedChoice;
 
@@ -33,6 +35,7 @@ class _StudyScreenState extends State<StudyScreen> {
   String? _error;
   bool _loading = true;
   bool _submitting = false;
+  bool _showingHintPrompt = false;
 
   @override
   void initState() {
@@ -56,13 +59,16 @@ class _StudyScreenState extends State<StudyScreen> {
   @override
   void dispose() {
     _answerController.removeListener(_handleAnswerChanged);
+    _hasTypedAnswer.dispose();
+    _answerFocusNode.dispose();
     _answerController.dispose();
     super.dispose();
   }
 
   void _handleAnswerChanged() {
-    if (mounted) {
-      setState(() {});
+    final hasAnswer = _answerController.text.trim().isNotEmpty;
+    if (_hasTypedAnswer.value != hasAnswer) {
+      _hasTypedAnswer.value = hasAnswer;
     }
   }
 
@@ -112,6 +118,7 @@ class _StudyScreenState extends State<StudyScreen> {
 
     final responseText = (_selectedChoice ?? _answerController.text).trim();
     if (responseText.isEmpty && !allowEmpty) return;
+    _settleAnswerInputBeforeSubmit();
     setState(() {
       _submitting = true;
       _error = null;
@@ -127,6 +134,7 @@ class _StudyScreenState extends State<StudyScreen> {
         _latestResponse = response;
         _selectedChoice = null;
       });
+      await _maybeShowHintPrompt(response);
     } catch (error) {
       setState(() {
         _error = error.toString();
@@ -168,11 +176,137 @@ class _StudyScreenState extends State<StudyScreen> {
   }
 
   Future<void> _skip() async {
-    _answerController.text = '';
-    setState(() {
-      _selectedChoice = null;
-    });
+    _answerController.clear();
+    _selectedChoice = null;
     await _submit(allowEmpty: true);
+  }
+
+  Future<void> _maybeShowHintPrompt(SubmitAnswerResponse response) async {
+    final prompt = response.hintPrompt;
+    if (prompt == null || _showingHintPrompt || !mounted) return;
+    _showingHintPrompt = true;
+    try {
+      final saved = await _showHintEditor(
+        entryId: prompt.entryId,
+        word: prompt.word,
+        suggestions: prompt.suggestions,
+        title: '添加提示词',
+      );
+      if (saved != null && mounted) {
+        _applySavedHintToCurrentQuestion(saved);
+      }
+    } finally {
+      _showingHintPrompt = false;
+    }
+  }
+
+  void _applySavedHintToCurrentQuestion(WordHintState hint) {
+    final session = _session;
+    if (session == null) return;
+    final currentQuestion = session.currentQuestion;
+    if (currentQuestion.entrySourceId != '${hint.entryId}') return;
+    setState(() {
+      _session = StartSessionResponse(
+        session: session.session,
+        currentQuestion: currentQuestion.copyWith(
+          userHint: hint.userHint,
+          hasHint: hint.hasHint,
+        ),
+        progress: session.progress,
+      );
+    });
+  }
+
+  Future<WordHintState?> _showHintEditor({
+    required int entryId,
+    required String word,
+    required List<WordHintSuggestion> suggestions,
+    required String title,
+    String? initialText,
+  }) async {
+    final controller = TextEditingController(text: initialText ?? '');
+    var selectedSource = 'user';
+    final result = await showDialog<WordHintState?>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(word, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                if (suggestions.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: suggestions
+                        .map(
+                          (suggestion) => ActionChip(
+                            avatar: const Icon(Icons.auto_awesome, size: 16),
+                            label: Text(suggestion.label),
+                            onPressed: () {
+                              controller.text = suggestion.text;
+                              selectedSource = 'aiSuggestion';
+                              setDialogState(() {});
+                            },
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '提示词',
+                    hintText: '写一个只有你看得懂的记忆提示',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                controller.clear();
+                selectedSource = 'user';
+                setDialogState(() {});
+              },
+              child: const Text('清空'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('稍后再说'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final text = controller.text.trim();
+                final saved = await widget.sdk.wrongWords.saveWordHint(
+                  entryId: entryId,
+                  hintText: text,
+                  source: selectedSource,
+                );
+                if (context.mounted) Navigator.of(context).pop(saved);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  void _settleAnswerInputBeforeSubmit() {
+    if (!_answerFocusNode.hasFocus) return;
+    _answerFocusNode.unfocus();
   }
 
   Future<void> _complete({bool closeAfter = false}) async {
@@ -248,7 +382,7 @@ class _StudyScreenState extends State<StudyScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('today'),
-            child: const Text('返回 Today'),
+            child: const Text('返回今日'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('end'),
@@ -282,7 +416,9 @@ class _StudyScreenState extends State<StudyScreen> {
       }
       return;
     }
-    await _complete();
+    if (_completion == null) {
+      await _complete();
+    }
     if (!mounted) return;
     if (widget.onOpenStudyMode != null) {
       await widget.onOpenStudyMode!.call(nextMode);
@@ -320,22 +456,21 @@ class _StudyScreenState extends State<StudyScreen> {
         currentQuestion != null;
     final showFeedback = _latestResponse != null && _completion == null;
     final isChoiceQuestion = currentQuestion?.isChoiceType ?? false;
-    final canSubmit = isChoiceQuestion
-        ? _selectedChoice != null
-        : _answerController.text.trim().isNotEmpty;
+    final canSubmit = isChoiceQuestion ? _selectedChoice != null : false;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: const Text('Study'),
+        title: const Text('学习'),
         leading: IconButton(
           onPressed: _returnToTodayKeepingProgress,
-          tooltip: 'Return to today',
+          tooltip: '返回今日',
           icon: const Icon(Icons.home_outlined),
         ),
         actions: [
           IconButton(
             onPressed: _showExitOptions,
-            tooltip: 'Exit options',
+            tooltip: '退出选项',
             icon: const Icon(Icons.close),
           ),
         ],
@@ -344,24 +479,24 @@ class _StudyScreenState extends State<StudyScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? _StudyMessage(
-              title: 'Study error',
+              title: '学习出错',
               message: _error!,
-              actionLabel: 'Restart session',
+              actionLabel: '重新开始',
               onAction: _start,
             )
           : _completion != null
           ? _StudyCompletion(
               completion: _completion!,
               onRestart: _start,
-              onClose: () => _complete(closeAfter: true),
+              onClose: _closeToToday,
               nextMode: _nextModeFrom(widget.mode),
               onContinueNextRound: () => _startNextRound(),
             )
           : _currentQuestion == null
           ? _StudyMessage(
-              title: 'No question',
-              message: 'Session did not return a current question.',
-              actionLabel: 'Restart session',
+              title: '暂无题目',
+              message: '本轮学习没有返回当前题目。',
+              actionLabel: '重新开始',
               onAction: _start,
             )
           : Column(
@@ -373,11 +508,26 @@ class _StudyScreenState extends State<StudyScreen> {
                       _SessionHero(
                         question: currentQuestion!,
                         progress: _session!.progress,
+                        onEditHint: () async {
+                          final entryId = int.tryParse(currentQuestion.entrySourceId);
+                          if (entryId == null) return;
+                          final saved = await _showHintEditor(
+                            entryId: entryId,
+                            word: currentQuestion.word,
+                            suggestions: currentQuestion.hintSuggestions,
+                            title: currentQuestion.hasHint ? '修改提示词' : '添加提示词',
+                            initialText: currentQuestion.userHint,
+                          );
+                          if (saved != null && mounted) {
+                            _applySavedHintToCurrentQuestion(saved);
+                          }
+                        },
                       ),
                       if (_latestResponse == null)
                         _QuestionComposer(
                           question: currentQuestion,
                           answerController: _answerController,
+                          answerFocusNode: _answerFocusNode,
                           selectedChoice: _selectedChoice,
                           onChoiceSelected: (choice) {
                             setState(() {
@@ -398,24 +548,36 @@ class _StudyScreenState extends State<StudyScreen> {
               ],
             ),
       bottomNavigationBar: showFeedback
-          ? SafeArea(
-              top: false,
+          ? _KeyboardAwareBottomBar(
               child: _FeedbackBottomBar(
                 onNext: _advance,
                 summaryReady: _latestResponse?.summary != null,
               ),
             )
           : showQuestion
-          ? SafeArea(
-              top: false,
-              child: _StudyBottomBar(
-                showSkip: !isChoiceQuestion,
-                canSubmit: canSubmit && !_submitting,
-                submitting: _submitting,
-                onSubmit: _submit,
-                onSkip: _skip,
-                onReturnHome: _returnToTodayKeepingProgress,
-              ),
+          ? _KeyboardAwareBottomBar(
+              child: isChoiceQuestion
+                  ? _StudyBottomBar(
+                      showSkip: false,
+                      canSubmit: canSubmit && !_submitting,
+                      submitting: _submitting,
+                      onSubmit: _submit,
+                      onSkip: _skip,
+                      onReturnHome: _returnToTodayKeepingProgress,
+                    )
+                  : ValueListenableBuilder<bool>(
+                      valueListenable: _hasTypedAnswer,
+                      builder: (context, hasTypedAnswer, _) {
+                        return _StudyBottomBar(
+                          showSkip: true,
+                          canSubmit: hasTypedAnswer && !_submitting,
+                          submitting: _submitting,
+                          onSubmit: _submit,
+                          onSkip: _skip,
+                          onReturnHome: _returnToTodayKeepingProgress,
+                        );
+                      },
+                    ),
             )
           : null,
     );
@@ -444,10 +606,15 @@ String? _nextModeFrom(String mode) {
 ) => _studyHeroDisplay(question);
 
 class _SessionHero extends StatelessWidget {
-  const _SessionHero({required this.question, required this.progress});
+  const _SessionHero({
+    required this.question,
+    required this.progress,
+    required this.onEditHint,
+  });
 
   final StudyQuestion question;
   final SessionProgress progress;
+  final VoidCallback onEditHint;
 
   @override
   Widget build(BuildContext context) {
@@ -467,20 +634,35 @@ class _SessionHero extends StatelessWidget {
               fontWeight: FontWeight.w700,
               height: compactCnToEnHero ? 1.12 : null,
             );
+    final hasHintSurface =
+        question.hasHint || question.hintSuggestions.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: const Color(0xFF1F6F5E),
+      color: Theme.of(context).colorScheme.primary,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${question.questionIndex}/${question.totalQuestions}',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    '${question.questionIndex}/${question.totalQuestions}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: Colors.white70),
+                  ),
+                ),
+                if (hasHintSurface)
+                  _MaskedHintChip(
+                    hint: question.userHint,
+                    hasAiSuggestion: question.hintSuggestions.isNotEmpty,
+                    onEdit: onEditHint,
+                  ),
+              ],
             ),
             const SizedBox(height: 6),
             Text(
@@ -522,10 +704,84 @@ class _SessionHero extends StatelessWidget {
   }
 }
 
+class _MaskedHintChip extends StatefulWidget {
+  const _MaskedHintChip({
+    required this.hint,
+    required this.hasAiSuggestion,
+    required this.onEdit,
+  });
+
+  final String? hint;
+  final bool hasAiSuggestion;
+  final VoidCallback onEdit;
+
+  @override
+  State<_MaskedHintChip> createState() => _MaskedHintChipState();
+}
+
+class _MaskedHintChipState extends State<_MaskedHintChip> {
+  bool _revealed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.hint?.trim();
+    final hasHint = text != null && text.isNotEmpty;
+    final label = hasHint
+        ? (_revealed ? text : '提示  •••')
+        : (widget.hasAiSuggestion ? 'AI提示' : '提示');
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 190),
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: hasHint
+              ? () {
+                  setState(() {
+                    _revealed = !_revealed;
+                  });
+                }
+              : widget.onEdit,
+          onLongPress: widget.onEdit,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  widget.hasAiSuggestion && !hasHint
+                      ? Icons.auto_awesome
+                      : Icons.lightbulb_outline,
+                  size: 15,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _QuestionComposer extends StatelessWidget {
   const _QuestionComposer({
     required this.question,
     required this.answerController,
+    required this.answerFocusNode,
     required this.selectedChoice,
     required this.onChoiceSelected,
     required this.onSubmit,
@@ -534,6 +790,7 @@ class _QuestionComposer extends StatelessWidget {
 
   final StudyQuestion question;
   final TextEditingController answerController;
+  final FocusNode answerFocusNode;
   final String? selectedChoice;
   final ValueChanged<String> onChoiceSelected;
   final Future<void> Function() onSubmit;
@@ -549,7 +806,6 @@ class _QuestionComposer extends StatelessWidget {
     final isExampleChoice =
         question.questionType == 'exampleToCnChoice' &&
         question.exampleSentence != null;
-    final displayWord = isCnToEnChoice ? question.prompt : question.word;
     final displayPrompt = isRootAffix || isExampleChoice || isCnToEnChoice
         ? null
         : question.prompt;
@@ -560,15 +816,8 @@ class _QuestionComposer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              displayWord,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
             if ((question.phoneticUs ?? question.phoneticUk) != null ||
                 question.partOfSpeech != null) ...[
-              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 children: [
@@ -585,11 +834,11 @@ class _QuestionComposer extends StatelessWidget {
                       style: Theme.of(
                         context,
                       ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-                    ),
+                  ),
                 ],
               ),
+              const SizedBox(height: 10),
             ],
-            const SizedBox(height: 10),
             Text(
               _questionLabel(question.questionType),
               style: Theme.of(context).textTheme.titleMedium,
@@ -600,7 +849,10 @@ class _QuestionComposer extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             if (isExampleChoice) ...[
-              Text(question.exampleSentence!),
+              _HighlightedExampleSentence(
+                sentence: question.exampleSentence!,
+                word: question.word,
+              ),
               if (question.exampleTranslation != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -637,11 +889,13 @@ class _QuestionComposer extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: selected
-                              ? const Color(0xFF1F6F5E)
+                              ? Theme.of(context).colorScheme.primary
                               : const Color(0xFFD8DDE3),
                         ),
                         color: selected
-                            ? const Color(0xFF1F6F5E).withValues(alpha: 0.08)
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.08)
                             : Colors.white,
                       ),
                       child: Padding(
@@ -657,7 +911,7 @@ class _QuestionComposer extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: selected
-                                        ? const Color(0xFF1F6F5E)
+                                        ? Theme.of(context).colorScheme.primary
                                         : Colors.black87,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -674,6 +928,7 @@ class _QuestionComposer extends StatelessWidget {
             if (!isChoice)
               TextField(
                 controller: answerController,
+                focusNode: answerFocusNode,
                 onSubmitted: (_) {
                   if (!submitting && answerController.text.trim().isNotEmpty) {
                     onSubmit();
@@ -691,6 +946,154 @@ class _QuestionComposer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _HighlightedExampleSentence extends StatelessWidget {
+  const _HighlightedExampleSentence({
+    required this.sentence,
+    required this.word,
+  });
+
+  final String sentence;
+  final String word;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: Colors.black87,
+      height: 1.35,
+    );
+    final highlightStyle = baseStyle?.copyWith(
+      color: Theme.of(context).colorScheme.primary,
+      fontWeight: FontWeight.w800,
+      backgroundColor: Theme.of(
+        context,
+      ).colorScheme.primary.withValues(alpha: 0.12),
+    );
+    final spans = _highlightWordSpans(
+      sentence: sentence,
+      word: word,
+      baseStyle: baseStyle,
+      highlightStyle: highlightStyle,
+    );
+
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
+  }
+
+  List<TextSpan> _highlightWordSpans({
+    required String sentence,
+    required String word,
+    required TextStyle? baseStyle,
+    required TextStyle? highlightStyle,
+  }) {
+    final target = word.trim().toLowerCase();
+    if (target.isEmpty) {
+      return [TextSpan(text: sentence, style: baseStyle)];
+    }
+
+    final candidates = _wordForms(target);
+    final spans = <TextSpan>[];
+    var scanCursor = 0;
+    var emittedCursor = 0;
+    var matched = false;
+
+    while (scanCursor < sentence.length) {
+      final start = _nextWordStart(sentence, scanCursor);
+      if (start < 0) break;
+      final end = _wordEnd(sentence, start);
+      final token = sentence.substring(start, end).toLowerCase();
+      if (!_matchesWord(token, target, candidates)) {
+        scanCursor = end;
+        continue;
+      }
+      if (start > emittedCursor) {
+        spans.add(TextSpan(text: sentence.substring(emittedCursor, start)));
+      }
+      spans.add(
+        TextSpan(text: sentence.substring(start, end), style: highlightStyle),
+      );
+      scanCursor = end;
+      emittedCursor = end;
+      matched = true;
+    }
+
+    if (!matched) {
+      return [TextSpan(text: sentence, style: baseStyle)];
+    }
+    if (emittedCursor < sentence.length) {
+      spans.add(TextSpan(text: sentence.substring(emittedCursor)));
+    }
+    return spans;
+  }
+
+  Set<String> _wordForms(String target) {
+    final forms = <String>{target};
+    if (target.endsWith('y') && target.length > 1) {
+      forms.add('${target.substring(0, target.length - 1)}ies');
+      forms.add('${target.substring(0, target.length - 1)}ied');
+    }
+    if (target.endsWith('e') && target.length > 1) {
+      forms.add('${target}s');
+      forms.add('${target}d');
+      forms.add('${target.substring(0, target.length - 1)}ing');
+    } else {
+      forms.add('${target}s');
+      forms.add('${target}es');
+      forms.add('${target}ed');
+      forms.add('${target}ing');
+    }
+    return forms;
+  }
+
+  bool _matchesWord(String token, String target, Set<String> forms) {
+    final normalized = token.endsWith("'s")
+        ? token.substring(0, token.length - 2)
+        : token;
+    if (forms.contains(normalized)) return true;
+    return _roughStem(normalized) == target;
+  }
+
+  String _roughStem(String token) {
+    for (final suffix in const ['ing', 'ed', 'es', 's', 'd']) {
+      if (token.length <= suffix.length + 2 || !token.endsWith(suffix)) {
+        continue;
+      }
+      var stem = token.substring(0, token.length - suffix.length);
+      if (stem.length >= 2 &&
+          stem.codeUnitAt(stem.length - 1) ==
+              stem.codeUnitAt(stem.length - 2)) {
+        stem = stem.substring(0, stem.length - 1);
+      }
+      if (suffix == 'ing' || suffix == 'd') {
+        return '${stem}e';
+      }
+      return stem;
+    }
+    return token;
+  }
+
+  int _nextWordStart(String value, int from) {
+    for (var i = from; i < value.length; i++) {
+      if (_isWordChar(value.codeUnitAt(i))) return i;
+    }
+    return -1;
+  }
+
+  int _wordEnd(String value, int from) {
+    var index = from;
+    while (index < value.length) {
+      final code = value.codeUnitAt(index);
+      if (!_isWordChar(code) && code != 39) break;
+      index++;
+    }
+    return index;
+  }
+
+  bool _isWordChar(int code) {
+    return (code >= 65 && code <= 90) ||
+        (code >= 97 && code <= 122) ||
+        (code >= 48 && code <= 57);
   }
 }
 
@@ -728,7 +1131,7 @@ class _RootAffixRelatedWords extends StatelessWidget {
             Text(
               '相关词',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: const Color(0xFF1F6F5E),
+                color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -787,9 +1190,11 @@ class _HighlightedAffixWord extends StatelessWidget {
       color: Colors.black87,
     );
     final highlightStyle = baseStyle?.copyWith(
-      color: const Color(0xFF1F6F5E),
+      color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.w800,
-      backgroundColor: const Color(0xFFE1F1EA),
+      backgroundColor: Theme.of(
+        context,
+      ).colorScheme.primary.withValues(alpha: 0.12),
     );
     final normalizedAffix = affix.replaceAll('-', '').toLowerCase();
     final normalizedWord = word.toLowerCase();
@@ -850,7 +1255,7 @@ class _StudyBottomBar extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: submitting ? null : onSkip,
-                  child: const Text('Skip'),
+                  child: const Text('跳过'),
                 ),
               ),
             ],
@@ -859,12 +1264,31 @@ class _StudyBottomBar extends StatelessWidget {
               flex: 2,
               child: FilledButton(
                 onPressed: canSubmit ? onSubmit : null,
-                child: Text(submitting ? 'Submitting...' : '提交答案'),
+                child: Text(submitting ? '提交中...' : '提交答案'),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _KeyboardAwareBottomBar extends StatelessWidget {
+  const _KeyboardAwareBottomBar({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final bottomPadding = bottomInset > 0 ? bottomInset : safeBottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: child,
     );
   }
 }
@@ -970,7 +1394,7 @@ class _StudyCompletion extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Card(
-          color: const Color(0xFF1F6F5E),
+          color: Theme.of(context).colorScheme.primary,
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -1002,7 +1426,7 @@ class _StudyCompletion extends StatelessWidget {
             Expanded(
               child: FilledButton(
                 onPressed: onClose,
-                child: const Text('返回 Today'),
+                child: const Text('返回今日'),
               ),
             ),
             const SizedBox(width: 12),

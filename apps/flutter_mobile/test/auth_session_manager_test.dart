@@ -1,21 +1,25 @@
 import 'package:flutter_mobile/supabase/auth_session_manager.dart';
+import 'package:flutter_mobile/sdk/local_data_owner_client.dart';
 import 'package:flutter_mobile/supabase/supabase_auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  test('reports notConfigured before touching Supabase when env is absent', () async {
-    final manager = AuthSessionManager(
-      auth: _FakeAuthGateway(),
-      isConfigured: () => false,
-    );
+  test(
+    'reports notConfigured before touching Supabase when env is absent',
+    () async {
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(),
+        isConfigured: () => false,
+      );
 
-    final state = await manager.resolveStartupState();
+      final state = await manager.resolveStartupState();
 
-    expect(state.phase, AuthAccountPhase.notConfigured);
-    expect(state.allowsCloudWork, isFalse);
-    expect(state.allowsLocalStudy, isTrue);
-  });
+      expect(state.phase, AuthAccountPhase.notConfigured);
+      expect(state.allowsCloudWork, isFalse);
+      expect(state.allowsLocalStudy, isTrue);
+    },
+  );
 
   test('resolves empty secure session as guest local-only', () async {
     final manager = AuthSessionManager(
@@ -30,52 +34,219 @@ void main() {
     expect(state.allowsLocalStudy, isTrue);
   });
 
-  test('logout publishes retained-local instead of generic signed-out', () async {
+  test(
+    'logout publishes retained-local instead of generic signed-out',
+    () async {
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(),
+        isConfigured: () => true,
+      );
+
+      final state = await manager.signOutRetainingLocalData();
+
+      expect(state.phase, AuthAccountPhase.signedOutRetainedLocal);
+      expect(state.message, contains('local learning data is retained'));
+      expect(state.allowsCloudWork, isFalse);
+    },
+  );
+
+  test(
+    'signup without immediate session keeps user in local-only mode',
+    () async {
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(signUpResponse: AuthResponse()),
+        isConfigured: () => true,
+      );
+
+      final state = await manager.signUp(
+        email: 'new@example.com',
+        password: 'secret',
+      );
+
+      expect(state.phase, AuthAccountPhase.guestLocalOnly);
+      expect(state.message, contains('email confirmation'));
+    },
+  );
+
+  test('valid restored session waits for bind before cloud work', () async {
     final manager = AuthSessionManager(
-      auth: _FakeAuthGateway(),
+      auth: _FakeAuthGateway(restoredSession: _validSession()),
       isConfigured: () => true,
     );
 
-    final state = await manager.signOutRetainingLocalData();
+    final state = await manager.resolveStartupState();
 
-    expect(state.phase, AuthAccountPhase.signedOutRetainedLocal);
-    expect(state.message, contains('local learning data is retained'));
+    expect(state.phase, AuthAccountPhase.signedInNeedsBind);
+    expect(state.isSignedIn, isTrue);
+    expect(state.allowsLocalStudy, isTrue);
     expect(state.allowsCloudWork, isFalse);
   });
 
-  test('signup without immediate session keeps user in local-only mode', () async {
+  test('valid restored session becomes active after cloud access check', () async {
     final manager = AuthSessionManager(
-      auth: _FakeAuthGateway(signUpResponse: AuthResponse()),
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: _FakeLocalDataOwnerGateway(),
       isConfigured: () => true,
     );
 
-    final state = await manager.signUp(
-      email: 'new@example.com',
-      password: 'secret',
+    final state = await manager.resolveStartupState();
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(state.isSignedIn, isTrue);
+    expect(state.allowsCloudWork, isTrue);
+  });
+
+  test('active session reconciles local data owner', () async {
+    final localDataOwner = _FakeLocalDataOwnerGateway();
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: localDataOwner,
+      isConfigured: () => true,
     );
 
-    expect(state.phase, AuthAccountPhase.guestLocalOnly);
-    expect(state.message, contains('email confirmation'));
+    final state = await manager.resolveStartupState();
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(localDataOwner.reconciledUserIds, ['user-1']);
+  });
+
+  test('active session restores cloud data when no local snapshot exists', () async {
+    final restoredUserIds = <String>[];
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: _FakeLocalDataOwnerGateway(
+        result: const LocalDataOwnerResult(
+          ownerUserId: 'user-1',
+          resetPerformed: true,
+          restoredSnapshot: false,
+          hasLocalLearningData: false,
+        ),
+      ),
+      restoreCloudData: (userId) async {
+        restoredUserIds.add(userId);
+      },
+      isConfigured: () => true,
+    );
+
+    final state = await manager.resolveStartupState();
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(restoredUserIds, ['user-1']);
+  });
+
+  test('active session keeps restored local snapshot without cloud pull', () async {
+    final restoredUserIds = <String>[];
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: _FakeLocalDataOwnerGateway(
+        result: const LocalDataOwnerResult(
+          ownerUserId: 'user-1',
+          resetPerformed: true,
+          restoredSnapshot: true,
+          hasLocalLearningData: true,
+        ),
+      ),
+      restoreCloudData: (userId) async {
+        restoredUserIds.add(userId);
+      },
+      isConfigured: () => true,
+    );
+
+    final state = await manager.resolveStartupState();
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(restoredUserIds, isEmpty);
+  });
+
+  test('active session restores cloud data when local learning data is empty', () async {
+    final restoredUserIds = <String>[];
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: _FakeLocalDataOwnerGateway(
+        result: const LocalDataOwnerResult(
+          ownerUserId: 'user-1',
+          resetPerformed: false,
+          restoredSnapshot: false,
+          hasLocalLearningData: false,
+        ),
+      ),
+      restoreCloudData: (userId) async {
+        restoredUserIds.add(userId);
+      },
+      isConfigured: () => true,
+    );
+
+    final state = await manager.resolveStartupState();
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(restoredUserIds, ['user-1']);
+  });
+
+  test('active session backfills local learning data when present', () async {
+    var backfillCount = 0;
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: _FakeLocalDataOwnerGateway(
+        result: const LocalDataOwnerResult(
+          ownerUserId: 'user-1',
+          resetPerformed: false,
+          restoredSnapshot: false,
+          hasLocalLearningData: true,
+        ),
+      ),
+      backfillLocalLearning: () async {
+        backfillCount += 1;
+      },
+      isConfigured: () => true,
+    );
+
+    final state = await manager.resolveStartupState();
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(backfillCount, 1);
   });
 }
 
 class _FakeAuthGateway implements SupabaseAuthGateway {
-  _FakeAuthGateway({this.signUpResponse});
+  _FakeAuthGateway({
+    this.signUpResponse,
+    this.restoredSession,
+    this.cloudDataAccessAvailable = false,
+  });
 
   final AuthResponse? signUpResponse;
+  final Session? restoredSession;
+  final bool cloudDataAccessAvailable;
 
   @override
   Future<AuthResponse> refreshSession() async => AuthResponse();
 
   @override
-  Future<Session?> restoreSession() async => null;
+  Future<Session?> restoreSession() async => restoredSession;
 
   @override
   Future<AuthResponse> signIn({
     required String email,
     required String password,
-  }) async =>
-      AuthResponse();
+  }) async => AuthResponse();
 
   @override
   Future<void> signOut() async {}
@@ -84,6 +255,49 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
-  }) async =>
-      signUpResponse ?? AuthResponse();
+  }) async => signUpResponse ?? AuthResponse();
+
+  @override
+  Future<void> verifyCloudDataAccess(String userId) async {
+    if (!cloudDataAccessAvailable) {
+      throw StateError('cloud data not bound yet');
+    }
+  }
+}
+
+class _FakeLocalDataOwnerGateway implements LocalDataOwnerGateway {
+  _FakeLocalDataOwnerGateway({this.result});
+
+  final LocalDataOwnerResult? result;
+  final reconciledUserIds = <String>[];
+
+  @override
+  Future<LocalDataOwnerResult> reconcile(String userId) async {
+    reconciledUserIds.add(userId);
+    return result ??
+        LocalDataOwnerResult(
+          ownerUserId: userId,
+          resetPerformed: false,
+          restoredSnapshot: false,
+          hasLocalLearningData: true,
+        );
+  }
+
+  @override
+  Future<void> preserveGuestLocalData() async {}
+}
+
+Session _validSession() {
+  return Session(
+    accessToken: 'not-a-real-jwt',
+    tokenType: 'bearer',
+    user: const User(
+      id: 'user-1',
+      appMetadata: {},
+      userMetadata: {},
+      aud: 'authenticated',
+      email: 'user@example.com',
+      createdAt: '2026-04-30T00:00:00Z',
+    ),
+  );
 }

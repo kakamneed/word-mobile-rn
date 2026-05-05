@@ -113,7 +113,58 @@ fn resolve_result_entry_id(
         )
         .optional()
         .map_err(|e| StorageError::Database(format!("Failed to resolve result entry id: {e}")))?;
-    Ok(id)
+    if id.is_some() {
+        return Ok(id);
+    }
+    if source_entry_id.starts_with("root_affix_") {
+        return ensure_virtual_root_affix_entry_id(conn, source_entry_id);
+    }
+    Ok(None)
+}
+
+fn ensure_virtual_root_affix_entry_id(
+    conn: &Connection,
+    source_entry_id: &str,
+) -> Result<Option<i64>, StorageError> {
+    conn.execute(
+        "INSERT OR IGNORE INTO source_versions (source_name, source_commit, status, notes)
+         VALUES ('word-mobile/root-affix', 'root-affix-virtual-v1', 'ready', 'Internal root/affix study cards')",
+        [],
+    )
+    .map_err(|e| {
+        StorageError::Database(format!("Failed to ensure root/affix source version: {e}"))
+    })?;
+
+    let source_version_id = conn
+        .query_row(
+            "SELECT id FROM source_versions WHERE source_commit = 'root-affix-virtual-v1'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|e| {
+            StorageError::Database(format!("Failed to load root/affix source version: {e}"))
+        })?;
+
+    let display_word = source_entry_id
+        .strip_prefix("root_affix_shared_")
+        .or_else(|| source_entry_id.strip_prefix("root_affix_medical_"))
+        .unwrap_or(source_entry_id)
+        .replace('_', "-");
+
+    conn.execute(
+        "INSERT OR IGNORE INTO entries (source_version_id, source_entry_key, word, lemma, part_of_speech)
+         VALUES (?1, ?2, ?3, ?3, 'root')",
+        rusqlite::params![source_version_id, source_entry_id, display_word],
+    )
+    .map_err(|e| StorageError::Database(format!("Failed to save root/affix entry: {e}")))?;
+
+    conn.query_row(
+        "SELECT id FROM entries WHERE source_version_id = ?1 AND source_entry_key = ?2",
+        rusqlite::params![source_version_id, source_entry_id],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .map_err(|e| StorageError::Database(format!("Failed to resolve root/affix entry: {e}")))
 }
 
 /// Get recent study sessions.

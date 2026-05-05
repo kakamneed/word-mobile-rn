@@ -1,11 +1,15 @@
 ﻿import Flutter
 import Photos
 import UIKit
+import UniformTypeIdentifiers
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UIDocumentPickerDelegate {
   private let channelName = "com.wordmobile/rust_bridge"
   private let errorPrefix = "__WORDMOBILE_ERROR__:"
+  private let maxWrongWordImportBytes = 8 * 1024 * 1024
+  private var pendingWrongWordImportResult: FlutterResult?
+  private var pendingWrongWordImportSourceType = "text"
 
   override func application(
     _ application: UIApplication,
@@ -51,6 +55,8 @@ import UIKit
       }
     case "saveImageToGallery":
       handleSaveImageToGallery(call: call, result: result)
+    case "pickWrongWordImportSource":
+      handlePickWrongWordImportSource(call: call, result: result)
     case "getActivePlan":
       handleString(result: result) { word_mobile_ios_get_active_plan() }
     case "savePlan":
@@ -71,6 +77,48 @@ import UIKit
       handleString(result: result) { word_mobile_ios_get_resume_session_hint() }
     case "getSyncStatus":
       handleString(result: result) { word_mobile_ios_get_sync_status() }
+    case "recordSyncResult":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "recordSyncResult requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_record_sync_result(pointer) }
+      }
+    case "recordCloudRestoreAttempt":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "recordCloudRestoreAttempt requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_record_cloud_restore_attempt(pointer) }
+      }
+    case "enqueueCloudBackfill":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "enqueueCloudBackfill requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_enqueue_cloud_backfill(pointer) }
+      }
+    case "preserveGuestLocalData":
+      handleString(result: result) { word_mobile_ios_preserve_guest_local_data() }
+    case "reconcileLocalDataOwner":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "reconcileLocalDataOwner requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_reconcile_local_data_owner(pointer) }
+      }
+    case "restoreCloudDataSnapshot":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "restoreCloudDataSnapshot requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_restore_cloud_data_snapshot(pointer) }
+      }
     case "getWrongWords":
       let filter = (call.arguments as? String) ?? "all"
       filter.withCString { pointer in
@@ -82,6 +130,20 @@ import UIKit
         return
       }
       handleString(result: result) { word_mobile_ios_get_wrong_word_detail(entryId) }
+    case "saveWordHint":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "saveWordHint requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_save_word_hint(pointer) }
+      }
+    case "getWordHintSuggestions":
+      guard let entryId = Int64((call.arguments as? String) ?? "") else {
+        result(FlutterError(code: "INVALID_ARGS", message: "getWordHintSuggestions requires entry id", details: nil))
+        return
+      }
+      handleString(result: result) { word_mobile_ios_get_word_hint_suggestions(entryId) }
     case "getTodayAiPassageContext":
       handleString(result: result) { word_mobile_ios_get_today_ai_passage_context() }
     case "getAiPassageHistory":
@@ -101,6 +163,22 @@ import UIKit
       }
       request.withCString { pointer in
         handleString(result: result) { word_mobile_ios_generate_ai_passage(pointer) }
+      }
+    case "analyzeWrongWordImport":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "analyzeWrongWordImport requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_analyze_wrong_word_import(pointer) }
+      }
+    case "commitWrongWordImport":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "commitWrongWordImport requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_commit_wrong_word_import(pointer) }
       }
     case "toggleWordbook":
       guard
@@ -207,6 +285,76 @@ import UIKit
         }
       }
     }
+  }
+
+  private func handlePickWrongWordImportSource(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard pendingWrongWordImportResult == nil else {
+      result(FlutterError(code: "IMPORT_PICK_ACTIVE", message: "Another import picker is already open", details: nil))
+      return
+    }
+    let raw = (call.arguments as? String) ?? "{}"
+    let object = raw.data(using: .utf8).flatMap {
+      try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+    }
+    let sourceType = (object?["sourceType"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "text"
+    pendingWrongWordImportSourceType = sourceType
+    pendingWrongWordImportResult = result
+    let types: [UTType] = sourceType == "image"
+      ? [.image]
+      : [.plainText, .text, .commaSeparatedText, .json]
+    let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+    picker.delegate = self
+    picker.allowsMultipleSelection = false
+    window?.rootViewController?.present(picker, animated: true)
+  }
+
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    pendingWrongWordImportResult?("{\"cancelled\":true}")
+    pendingWrongWordImportResult = nil
+  }
+
+  func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    guard let result = pendingWrongWordImportResult else { return }
+    pendingWrongWordImportResult = nil
+    guard let url = urls.first else {
+      result("{\"cancelled\":true}")
+      return
+    }
+    do {
+      let data = try Data(contentsOf: url)
+      guard data.count <= maxWrongWordImportBytes else {
+        result(
+          FlutterError(
+            code: "IMPORT_FILE_TOO_LARGE",
+            message: "Selected file is too large. Please choose a file under 8 MB.",
+            details: nil
+          )
+        )
+        return
+      }
+      var response: [String: Any] = [
+        "sourceType": pendingWrongWordImportSourceType,
+        "sourceName": url.lastPathComponent,
+        "mimeType": mimeType(for: url, sourceType: pendingWrongWordImportSourceType),
+      ]
+      if pendingWrongWordImportSourceType == "image" {
+        response["bytesBase64"] = data.base64EncodedString()
+      } else {
+        response["textContent"] = String(data: data, encoding: .utf8) ?? ""
+      }
+      let responseData = try JSONSerialization.data(withJSONObject: response)
+      result(String(data: responseData, encoding: .utf8) ?? "{\"cancelled\":true}")
+    } catch {
+      result(FlutterError(code: "IMPORT_PICK_FAILED", message: error.localizedDescription, details: nil))
+    }
+  }
+
+  private func mimeType(for url: URL, sourceType: String) -> String {
+    if let type = UTType(filenameExtension: url.pathExtension),
+       let mimeType = type.preferredMIMEType {
+      return mimeType
+    }
+    return sourceType == "image" ? "image/*" : "text/plain"
   }
 
   private func handleString(

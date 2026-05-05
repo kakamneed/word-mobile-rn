@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection};
 
-use crate::models::{SyncDomainPendingCount, SyncStatus};
+use crate::models::{SyncDomainPendingCount, SyncOutboxItem, SyncOutboxStatus, SyncStatus};
 use crate::StorageError;
 
 pub fn enqueue_latest_outbox_item(
@@ -108,6 +108,8 @@ pub fn get_sync_status(conn: &Connection) -> Result<SyncStatus, StorageError> {
             StorageError::Database(format!("Failed to decode sync domain pending counts: {e}"))
         })?;
 
+    let pending_items = list_pending_outbox_items(conn)?;
+
     Ok(SyncStatus {
         sync_enabled: false,
         transport_configured: false,
@@ -120,7 +122,111 @@ pub fn get_sync_status(conn: &Connection) -> Result<SyncStatus, StorageError> {
         last_sync_succeeded_at,
         last_sync_error_code: last_dead_letter_error.or(retryable_error),
         domains_pending,
+        pending_items,
     })
+}
+
+pub fn list_pending_outbox_items(conn: &Connection) -> Result<Vec<SyncOutboxItem>, StorageError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, domain, payload_json, idempotency_key, created_at,
+                    attempt_count, last_attempt_at, status
+             FROM sync_outbox
+             WHERE status IN ('pending', 'retryable_failure')
+             ORDER BY datetime(created_at) ASC, id ASC
+             LIMIT 20",
+        )
+        .map_err(|e| {
+            StorageError::Database(format!("Failed to prepare pending sync item query: {e}"))
+        })?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            let status: String = row.get(7)?;
+            Ok(SyncOutboxItem {
+                id: row.get(0)?,
+                domain: row.get(1)?,
+                payload_json: row.get(2)?,
+                idempotency_key: row.get(3)?,
+                created_at: row.get(4)?,
+                attempt_count: row.get(5)?,
+                last_attempt_at: row.get(6)?,
+                status: sync_status_from_str(&status),
+            })
+        })
+        .map_err(|e| StorageError::Database(format!("Failed to query pending sync items: {e}")))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| StorageError::Database(format!("Failed to decode pending sync items: {e}")))
+}
+
+pub fn mark_outbox_item_succeeded(conn: &Connection, id: i64) -> Result<(), StorageError> {
+    conn.execute(
+        "UPDATE sync_outbox
+         SET status = 'succeeded',
+             attempt_count = attempt_count + 1,
+             last_attempt_at = datetime('now')
+         WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| StorageError::Database(format!("Failed to mark sync item succeeded: {e}")))?;
+    Ok(())
+}
+
+pub fn mark_outbox_item_retryable_failure(
+    conn: &Connection,
+    id: i64,
+    failure_code: &str,
+    failure_message: &str,
+) -> Result<(), StorageError> {
+    let item = conn
+        .query_row(
+            "SELECT domain, payload_json, idempotency_key
+             FROM sync_outbox
+             WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        )
+        .ok();
+
+    conn.execute(
+        "UPDATE sync_outbox
+         SET status = 'retryable_failure',
+             attempt_count = attempt_count + 1,
+             last_attempt_at = datetime('now')
+         WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| {
+        StorageError::Database(format!("Failed to mark sync item retryable failure: {e}"))
+    })?;
+
+    if let Some((domain, payload_json, idempotency_key)) = item {
+        let _ = record_dead_letter(
+            conn,
+            &domain,
+            &payload_json,
+            &idempotency_key,
+            failure_code,
+            failure_message,
+        );
+    }
+    Ok(())
+}
+
+fn sync_status_from_str(value: &str) -> SyncOutboxStatus {
+    match value {
+        "in_flight" => SyncOutboxStatus::InFlight,
+        "succeeded" => SyncOutboxStatus::Succeeded,
+        "retryable_failure" => SyncOutboxStatus::RetryableFailure,
+        "dead_lettered" => SyncOutboxStatus::DeadLettered,
+        _ => SyncOutboxStatus::Pending,
+    }
 }
 
 pub fn record_dead_letter(
@@ -183,6 +289,7 @@ mod tests {
         assert!(!status.transport_configured);
         assert_eq!(status.account_sync_state, "local_queue_pending");
         assert_eq!(status.pending_count, 1);
+        assert_eq!(status.pending_items.len(), 1);
         assert_eq!(status.domains_pending.len(), 1);
         assert_eq!(status.domains_pending[0].domain, "plan_config");
         assert_eq!(status.domains_pending[0].pending_count, 1);

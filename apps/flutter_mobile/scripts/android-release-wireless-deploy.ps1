@@ -9,7 +9,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = Split-Path -Parent (Split-Path -Parent $projectRoot)
 $apkPath = Join-Path $projectRoot "build\app\outputs\flutter-apk\app-release.apk"
+$supabaseEnvPath = Join-Path $repoRoot ".env.supabase.local"
 $env:GRADLE_USER_HOME = "D:\projects\word-mobile-rn\apps\mobile\.gradle-home"
 
 $env:JAVA_HOME = $JavaHome
@@ -41,12 +43,32 @@ if (-not (Test-Path (Join-Path $AndroidSdkRoot 'build-tools\35.0.0\aapt2.exe')))
   throw "Expected Android Build-Tools 35.0.0 at $AndroidSdkRoot\build-tools\35.0.0"
 }
 
+$dartDefines = @()
+if (Test-Path $supabaseEnvPath) {
+  Get-Content -LiteralPath $supabaseEnvPath | ForEach-Object {
+    $line = $_.Trim()
+    if ($line.Length -eq 0 -or $line.StartsWith("#")) {
+      return
+    }
+    $parts = $line.Split("=", 2)
+    if ($parts.Count -eq 2 -and $parts[0] -in @("SUPABASE_URL", "SUPABASE_ANON_KEY")) {
+      $dartDefines += "--dart-define=$($parts[0])=$($parts[1])"
+    }
+  }
+}
+
+if ($dartDefines.Count -lt 2) {
+  Write-Warning "Supabase dart-defines were not found in $supabaseEnvPath. Account login will show not configured."
+} else {
+  Write-Host "[env] Supabase dart-defines loaded from $supabaseEnvPath"
+}
+
 Write-Host "[1/6] flutter pub get"
 Set-Location $projectRoot
 & "$FlutterRoot\bin\flutter.bat" pub get
 
 Write-Host "[2/6] flutter build apk --release"
-& "$FlutterRoot\bin\flutter.bat" build apk --release
+& "$FlutterRoot\bin\flutter.bat" build apk --release @dartDefines
 
 if (-not (Test-Path $apkPath)) {
   throw "Release APK not found at $apkPath"

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../sdk/sdk.dart';
 import '../state/app_state.dart';
 import '../supabase/auth_session_manager.dart';
+import '../supabase/supabase_config.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
 import 'plan_screen.dart';
@@ -18,6 +19,7 @@ class TodayShellScreen extends StatefulWidget {
   const TodayShellScreen({
     super.key,
     required this.appState,
+    this.refreshSeed = 0,
     this.onOpenPlan,
     this.onOpenStudy,
     this.onOpenReports,
@@ -27,6 +29,7 @@ class TodayShellScreen extends StatefulWidget {
   });
 
   final AppState appState;
+  final int refreshSeed;
   final Future<void> Function()? onOpenPlan;
   final Future<void> Function(String mode, ResumeSessionHint? hint)?
   onOpenStudy;
@@ -41,38 +44,51 @@ class TodayShellScreen extends StatefulWidget {
 }
 
 class _TodayShellScreenState extends State<TodayShellScreen> {
-  int _reloadToken = 0;
+  _TodayHomeBundle? _cachedBundle;
+  Object? _loadError;
+  int _loadGeneration = 0;
+  bool _loading = true;
   bool _aiGenerating = false;
   String? _aiMessage;
 
+  @override
+  void initState() {
+    super.initState();
+    _refreshHomeBundle(showFullLoading: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant TodayShellScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSeed != widget.refreshSeed) {
+      _refreshHomeBundle(showFullLoading: _cachedBundle == null);
+    }
+  }
+
   Future<_TodayHomeBundle> _loadHomeBundle() async {
-    var today = await widget.appState.sdk.today.getTodayHomeState();
+    final todayFuture = widget.appState.sdk.today.getTodayHomeState();
+    final activePlanFuture = _optionalLoad(
+      widget.appState.sdk.plan.getActivePlan,
+    );
+    final aiContextFuture = _optionalLoad(
+      widget.appState.sdk.ai.getTodayAiPassageContext,
+    );
+    final aiHistoryFuture = _optionalLoad(
+      widget.appState.sdk.ai.getAiPassageHistory,
+      fallback: const <AiPassageHistoryItem>[],
+    );
+    final rewardStateFuture = _optionalLoad(
+      widget.appState.sdk.rewards.getTodayRewardState,
+    );
+    final syncStatusFuture = _optionalLoad(() async {
+      if (widget.appState.authState.allowsCloudWork) {
+        return widget.appState.sdk.sync.flushPendingToCloud();
+      }
+      return widget.appState.sdk.sync.getSyncStatus();
+    });
 
-    PlanSummary? activePlan;
-    TodayAiPassageContext? aiContext;
-    List<AiPassageHistoryItem> aiHistory = const [];
-    TodayRewardState? rewardState;
-    SyncStatus? syncStatus;
-
-    try {
-      activePlan = await widget.appState.sdk.plan.getActivePlan();
-    } catch (_) {}
-
-    try {
-      aiContext = await widget.appState.sdk.ai.getTodayAiPassageContext();
-    } catch (_) {}
-
-    try {
-      aiHistory = await widget.appState.sdk.ai.getAiPassageHistory();
-    } catch (_) {}
-
-    try {
-      rewardState = await widget.appState.sdk.rewards.getTodayRewardState();
-    } catch (_) {}
-
-    try {
-      syncStatus = await widget.appState.sdk.sync.getSyncStatus();
-    } catch (_) {}
+    var today = await todayFuture;
+    var activePlan = _activePlanFromToday(today) ?? await activePlanFuture;
 
     final needsTodaySnapshot = !_hasUsableSnapshot(
       today.todaySnapshot ?? const <String, dynamic>{},
@@ -81,8 +97,15 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       try {
         await widget.appState.sdk.plan.applySavedPlanToToday();
         today = await widget.appState.sdk.today.getTodayHomeState();
+        activePlan = _activePlanFromToday(today) ?? activePlan;
       } catch (_) {}
     }
+
+    final aiContext = await aiContextFuture;
+    final aiHistory =
+        await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
+    final rewardState = await rewardStateFuture;
+    final syncStatus = await syncStatusFuture;
 
     return _TodayHomeBundle(
       today: today,
@@ -94,15 +117,55 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     );
   }
 
+  Future<T?> _optionalLoad<T>(
+    Future<T> Function() loader, {
+    T? fallback,
+  }) async {
+    try {
+      return await loader();
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  Future<void> _refreshHomeBundle({bool showFullLoading = false}) async {
+    final generation = ++_loadGeneration;
+    if (showFullLoading && mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+
+    try {
+      final bundle = await _loadHomeBundle();
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _cachedBundle = bundle;
+        _loadError = null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _loadError = error;
+        _loading = false;
+      });
+    }
+  }
+
   Future<void> _generateAiPassage(TodayAiPassageContext? aiContext) async {
+    if (!widget.appState.isSignedIn) {
+      setState(() {
+        _aiMessage = '请先登录账号，再生成 AI 短文。';
+      });
+      return;
+    }
+
     if (aiContext == null || _aiGenerating) return;
 
-    final wrongWords = aiContext.generationWrongWords
-        .take(6)
-        .toList(growable: false);
-    final targetWords = aiContext.generationTargetWords
-        .take(6)
-        .toList(growable: false);
+    final wrongWords = aiContext.generationWrongWords.toList(growable: false);
+    final targetWords = aiContext.generationTargetWords.toList(growable: false);
 
     if (!aiContext.tasksComplete) {
       setState(() {
@@ -130,7 +193,11 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
         wrongWords: wrongWords,
         targetWords: targetWords,
         level: 'intermediate',
+        date: aiContext.date,
       );
+      if (widget.appState.authState.allowsCloudWork) {
+        await widget.appState.sdk.sync.flushPendingToCloud();
+      }
       _triggerReload();
     } catch (error) {
       if (!mounted) return;
@@ -218,6 +285,7 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       MaterialPageRoute(
         builder: (_) => AiScreen(
           sdk: widget.appState.sdk,
+          isSignedIn: widget.appState.isSignedIn,
           generateOnOpen: generateOnOpen,
           showPassageFirst: showPassageFirst,
         ),
@@ -234,7 +302,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
-            AuthScreen(onAuthChanged: widget.appState.applyAuthState),
+            AuthScreen(
+              sdk: widget.appState.sdk,
+              onAuthChanged: widget.appState.applyAuthState,
+            ),
       ),
     );
     _triggerReload();
@@ -260,48 +331,62 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
 
   void _triggerReload() {
     if (!mounted) return;
-    setState(() {
-      _reloadToken++;
-    });
+    _refreshHomeBundle(showFullLoading: _cachedBundle == null);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Today'),
+        title: const Text('今日'),
         actions: [
           IconButton(
             onPressed: () => widget.appState.retryInitialize(),
-            tooltip: 'Refresh bootstrap',
+            tooltip: '刷新启动状态',
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: FutureBuilder<_TodayHomeBundle>(
-        key: ValueKey(_reloadToken),
-        future: _loadHomeBundle(),
-        builder: (context, snapshot) {
+      body: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final cachedBundle = _cachedBundle;
+    if (cachedBundle == null) {
+      if (_loading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (_loadError != null) {
+        final message = _loadError is Exception
+            ? _loadError.toString()
+            : '${_loadError ?? ''}';
+        return _SectionCard(title: 'Today load failed', child: Text(message));
+      }
+      return const _SectionCard(
+        title: 'No today payload',
+        child: Text('Bridge returned no Today payload.'),
+      );
+    }
+    final snapshot = AsyncSnapshot<_TodayHomeBundle>.withData(
+      ConnectionState.done,
+      cachedBundle,
+    );
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
             final error = snapshot.error;
-            final message = error is Exception
-                ? error.toString()
-                : 'Unknown today error';
-            return _SectionCard(
-              title: 'Today load failed',
-              child: Text(message),
-            );
+            final message = error is Exception ? error.toString() : '未知今日页错误';
+            return _SectionCard(title: '今日页加载失败', child: Text(message));
           }
 
           final bundle = snapshot.data;
           if (bundle == null) {
             return const _SectionCard(
-              title: 'No today payload',
-              child: Text('Bridge returned no Today payload.'),
+              title: '暂无今日数据',
+              child: Text('学习引擎没有返回今日页数据。'),
             );
           }
 
@@ -329,6 +414,9 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
                 return;
               case 'syncToday':
                 await _applyPlanToToday();
+                if (widget.appState.authState.allowsCloudWork) {
+                  await widget.appState.sdk.sync.flushPendingToCloud();
+                }
                 return;
               case 'done':
                 await _openAi();
@@ -339,9 +427,12 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
             }
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+          return RefreshIndicator(
+            onRefresh: () => _refreshHomeBundle(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: [
               _PrimaryActionCard(
                 action: primaryAction,
                 completion: completion,
@@ -360,54 +451,71 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
                 sdk: widget.appState.sdk,
                 context: bundle.aiContext,
                 history: bundle.aiHistory,
+                isSignedIn: widget.appState.isSignedIn,
                 isGenerating: _aiGenerating,
                 message: _aiMessage,
                 onGenerate: () => _generateAiPassage(bundle.aiContext),
               ),
               _RewardSlotMachineCard(
                 sdk: widget.appState.sdk,
+                isSignedIn: widget.appState.isSignedIn,
                 tasksComplete: tasksComplete,
                 rewardState: bundle.rewardState,
               ),
               _SectionCard(
-                title: 'Developer diagnostics',
+                title: '开发诊断',
                 child: ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: EdgeInsets.zero,
-                  title: const Text('Show bootstrap / account / sync details'),
+                  title: const Text('查看启动、账号与同步详情'),
                   children: [
-                    Text('Today date: ${bundle.today.todayDate}'),
+                    Text('今日日期：${bundle.today.todayDate}'),
                     Text(
-                      'App ready: ${widget.appState.bootstrapState?.appReady ?? false}',
+                      '应用就绪：${widget.appState.bootstrapState?.appReady ?? false}',
                     ),
                     Text(
-                      'First run required: '
+                      '需要首次初始化：'
                       '${widget.appState.bootstrapState?.firstRunRequired ?? false}',
                     ),
                     Text(
-                      'Account: ${_accountPhaseLabel(widget.appState.authPhase, widget.appState.authState.userEmail)}',
+                      '账号：${_accountPhaseLabel(widget.appState.authPhase, widget.appState.authState.userEmail)}',
                     ),
                     Text(
-                      'Local study allowed: ${widget.appState.authState.allowsLocalStudy}',
+                      '允许本地学习：${widget.appState.authState.allowsLocalStudy}',
                     ),
-                    Text(
-                      'Cloud sync eligible: ${widget.appState.authState.allowsCloudWork}',
-                    ),
+                    Text('可用云同步：${widget.appState.authState.allowsCloudWork}'),
                     if (widget.appState.authMessage != null)
-                      Text('Account note: ${widget.appState.authMessage}'),
+                      Text('账号提示：${widget.appState.authMessage}'),
                     const SizedBox(height: 12),
                     if (bundle.syncStatus != null)
-                      _SyncStatusSummary(status: bundle.syncStatus!),
-                    if (bundle.syncStatus == null)
-                      const Text('Sync status unavailable in this build.'),
+                      _SyncStatusSummary(
+                        status: bundle.syncStatus!,
+                        transportConfigured: SupabaseConfig.isConfigured,
+                        syncEnabled: widget.appState.authState.allowsCloudWork,
+                        onSyncNow: () async {
+                          await widget.appState.sdk.sync.flushPendingToCloud();
+                          if (context.mounted) {
+                            await _refreshHomeBundle();
+                          }
+                        },
+                      ),
+                    if (bundle.syncStatus == null) const Text('当前版本无法读取同步状态。'),
                   ],
                 ),
               ),
-            ],
+              ],
+            ),
           );
-        },
-      ),
-    );
+  }
+}
+
+PlanSummary? _activePlanFromToday(TodayHomeState today) {
+  final raw = today.activePlan;
+  if (raw == null || raw.isEmpty) return null;
+  try {
+    return PlanSummary.fromJson(raw);
+  } catch (_) {
+    return null;
   }
 }
 
@@ -453,6 +561,7 @@ class _TaskItemViewModel {
     required this.helper,
     required this.completed,
     required this.target,
+    required this.plannedTarget,
     required this.color,
     required this.mode,
   });
@@ -461,8 +570,11 @@ class _TaskItemViewModel {
   final String helper;
   final int completed;
   final int target;
+  final int plannedTarget;
   final Color color;
   final String mode;
+
+  bool get canStart => target > 0 && completed < target;
 }
 
 bool _hasUsableSnapshot(Map<String, dynamic> snapshot) {
@@ -518,7 +630,7 @@ _PrimaryAction _buildPrimaryAction(
         count: 0,
         mode: 'syncToday',
         isDone: false,
-        buttonLabel: '同步到 Today',
+        buttonLabel: '同步到今日',
         description: '当前已有计划，但今天的任务快照还没有生成。',
       );
     }
@@ -656,6 +768,7 @@ List<_TaskItemViewModel> _buildTaskItems(
         'newWordsCompleted',
         _displayTarget(snapshot, 'newWord', activePlan),
       ),
+      plannedTarget: _planTarget('newWord', activePlan),
       color: const Color(0xFF2F8F6A),
       mode: 'newWord',
     ),
@@ -668,6 +781,7 @@ List<_TaskItemViewModel> _buildTaskItems(
         'reviewWordsCompleted',
         _displayTarget(snapshot, 'review', activePlan),
       ),
+      plannedTarget: _planTarget('review', activePlan),
       color: const Color(0xFF2F6C8F),
       mode: 'review',
     ),
@@ -680,6 +794,7 @@ List<_TaskItemViewModel> _buildTaskItems(
         'mixedTestCompleted',
         _displayTarget(snapshot, 'mixedTest', activePlan),
       ),
+      plannedTarget: _planTarget('mixedTest', activePlan),
       color: const Color(0xFF8F5A2F),
       mode: 'mixedTest',
     ),
@@ -692,6 +807,7 @@ List<_TaskItemViewModel> _buildTaskItems(
         'wrongWordTestCompleted',
         _displayTarget(snapshot, 'wrongWordReinforcement', activePlan),
       ),
+      plannedTarget: _planTarget('wrongWordReinforcement', activePlan),
       color: const Color(0xFF8F3B4D),
       mode: 'wrongWordReinforcement',
     ),
@@ -704,10 +820,11 @@ List<_TaskItemViewModel> _buildTaskItems(
         'rootAffixCompleted',
         _displayTarget(snapshot, 'rootAffix', activePlan),
       ),
+      plannedTarget: _planTarget('rootAffix', activePlan),
       color: const Color(0xFF7C52A1),
       mode: 'rootAffix',
     ),
-  ].where((item) => item.target > 0).toList(growable: false);
+  ].where((item) => item.target > 0 || item.plannedTarget > 0).toList(growable: false);
 }
 
 int _displayTarget(
@@ -723,9 +840,29 @@ int _displayTarget(
     'rootAffix' => _intValue(snapshot, 'rootAffixTarget'),
     _ => 0,
   };
-  if (snapshotTarget > 0 || activePlan == null) {
+  final hasSnapshotTarget = switch (mode) {
+    'newWord' => snapshot.containsKey('newWordsTarget'),
+    'review' => snapshot.containsKey('reviewWordsTarget'),
+    'mixedTest' => snapshot.containsKey('mixedTestTarget'),
+    'wrongWordReinforcement' => snapshot.containsKey('wrongWordTestTarget'),
+    'rootAffix' => snapshot.containsKey('rootAffixTarget'),
+    _ => false,
+  };
+  if (hasSnapshotTarget || activePlan == null) {
     return snapshotTarget;
   }
+  return switch (mode) {
+    'newWord' => activePlan.newWordsPerDay * 4,
+    'review' => activePlan.reviewWordsPerDay * 4,
+    'mixedTest' => activePlan.mixedTestPerDay,
+    'wrongWordReinforcement' => activePlan.wrongWordTestPerDay,
+    'rootAffix' => activePlan.rootAffixPerDay ?? 0,
+    _ => 0,
+  };
+}
+
+int _planTarget(String mode, PlanSummary? activePlan) {
+  if (activePlan == null) return 0;
   return switch (mode) {
     'newWord' => activePlan.newWordsPerDay * 4,
     'review' => activePlan.reviewWordsPerDay * 4,
@@ -775,6 +912,7 @@ String _accountPhaseLabel(AuthAccountPhase phase, String? userEmail) {
     AuthAccountPhase.checking => 'checking session',
     AuthAccountPhase.notConfigured => 'not configured',
     AuthAccountPhase.guestLocalOnly => 'guest local-only',
+    AuthAccountPhase.signedInNeedsBind => 'signed in, checking data',
     AuthAccountPhase.signedInActive => userEmail ?? 'signed in',
     AuthAccountPhase.signedInExpired => 'signed in expired',
     AuthAccountPhase.signedOutRetainedLocal => 'signed out, local retained',
@@ -798,9 +936,7 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = action.isDone
-        ? const Color(0xFF2F8F6A)
-        : const Color(0xFF1F6F5E);
+    final color = Theme.of(context).colorScheme.primary;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       color: color,
@@ -916,7 +1052,7 @@ class _TaskBreakdownCard extends StatelessWidget {
                     Expanded(
                       child: FilledButton(
                         onPressed: hasActivePlan ? onSyncToday : onOpenPlan,
-                        child: Text(hasActivePlan ? '同步到 Today' : '前往计划页'),
+                        child: Text(hasActivePlan ? '同步到今日' : '前往计划页'),
                       ),
                     ),
                   ],
@@ -947,9 +1083,9 @@ class _TaskProgressRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = item.target <= 0 ? 0.0 : item.completed / item.target;
-    final done = item.completed >= item.target;
+    final done = item.target > 0 && item.completed >= item.target;
     return InkWell(
-      onTap: done ? null : onTap,
+      onTap: item.canStart ? onTap : null,
       borderRadius: BorderRadius.circular(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1001,8 +1137,12 @@ class _TaskProgressRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Icon(
-            done ? Icons.check_circle : Icons.chevron_right,
-            color: item.color,
+            done
+                ? Icons.check_circle
+                : item.canStart
+                ? Icons.chevron_right
+                : Icons.lock_outline,
+            color: item.canStart || done ? item.color : Colors.black38,
           ),
         ],
       ),
@@ -1015,6 +1155,7 @@ class _AiShortcutCard extends StatefulWidget {
     required this.sdk,
     required this.context,
     required this.history,
+    required this.isSignedIn,
     required this.isGenerating,
     required this.message,
     required this.onGenerate,
@@ -1023,6 +1164,7 @@ class _AiShortcutCard extends StatefulWidget {
   final WordSdk sdk;
   final TodayAiPassageContext? context;
   final List<AiPassageHistoryItem> history;
+  final bool isSignedIn;
   final bool isGenerating;
   final String? message;
   final Future<void> Function() onGenerate;
@@ -1045,12 +1187,11 @@ class _AiShortcutCardState extends State<_AiShortcutCard> {
   @override
   void didUpdateWidget(covariant _AiShortcutCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldId = oldWidget.history.isEmpty
-        ? null
-        : oldWidget.history.first.passageId;
-    final nextId = widget.history.isEmpty
-        ? null
-        : widget.history.first.passageId;
+    final oldId = _todayHistoryItem(
+      oldWidget.context,
+      oldWidget.history,
+    )?.passageId;
+    final nextId = _todayHistoryItem(widget.context, widget.history)?.passageId;
     if (oldId != nextId) {
       _passage = null;
       _loadedPassageId = null;
@@ -1059,8 +1200,9 @@ class _AiShortcutCardState extends State<_AiShortcutCard> {
   }
 
   Future<void> _loadLatestPassage() async {
-    if (widget.history.isEmpty) return;
-    final passageId = widget.history.first.passageId;
+    final todayItem = _todayHistoryItem(widget.context, widget.history);
+    if (todayItem == null) return;
+    final passageId = todayItem.passageId;
     if (_loadedPassageId == passageId || _loadingPassage) return;
 
     setState(() {
@@ -1092,7 +1234,8 @@ class _AiShortcutCardState extends State<_AiShortcutCard> {
   Widget build(BuildContext context) {
     final wrongWordCount = widget.context?.wrongWords.length ?? 0;
     final ready = widget.context?.tasksComplete ?? false;
-    final latest = widget.history.isEmpty ? null : widget.history.first;
+    final canGenerate = widget.isSignedIn && ready && !widget.isGenerating;
+    final latest = _todayHistoryItem(widget.context, widget.history);
     final hasPassage = _passage != null;
 
     return _SectionCard(
@@ -1101,7 +1244,9 @@ class _AiShortcutCardState extends State<_AiShortcutCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            ready
+            !widget.isSignedIn
+                ? '登录后可以生成 AI 短文。'
+                : ready
                 ? hasPassage
                       ? '\u6700\u8fd1\u4e00\u7bc7 AI \u77ed\u6587\u5df2\u751f\u6210\uff0c\u53ef\u4ee5\u76f4\u63a5\u9605\u8bfb\u3002'
                       : '\u4eca\u65e5\u4efb\u52a1\u5df2\u5b8c\u6210\uff0c\u53ef\u4ee5\u751f\u6210 AI \u77ed\u6587\u3002'
@@ -1120,9 +1265,7 @@ class _AiShortcutCardState extends State<_AiShortcutCard> {
             const LinearProgressIndicator(minHeight: 2)
           else
             FilledButton.tonal(
-              onPressed: widget.isGenerating || !ready
-                  ? null
-                  : widget.onGenerate,
+              onPressed: canGenerate ? widget.onGenerate : null,
               child: Text(
                 widget.isGenerating
                     ? '\u751f\u6210\u4e2d...'
@@ -1142,6 +1285,20 @@ class _AiShortcutCardState extends State<_AiShortcutCard> {
   }
 }
 
+AiPassageHistoryItem? _todayHistoryItem(
+  TodayAiPassageContext? context,
+  List<AiPassageHistoryItem> history,
+) {
+  final today = context?.date;
+  if (today == null || today.isEmpty) return null;
+  for (final item in history) {
+    if (item.date == today || item.generatedAt.startsWith(today)) {
+      return item;
+    }
+  }
+  return null;
+}
+
 class _TodayAiPassagePreview extends StatelessWidget {
   const _TodayAiPassagePreview({required this.passage});
 
@@ -1159,7 +1316,7 @@ class _TodayAiPassagePreview extends StatelessWidget {
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 6),
-        Text('Status: ${passage.validationStatus}'),
+        Text('状态：${passage.validationStatus}'),
         if (passage.failureReason != null) ...[
           const SizedBox(height: 6),
           Text(
@@ -1212,18 +1369,19 @@ class _TodayAiBlockView extends StatelessWidget {
                     return TextSpan(text: text);
                   }
 
+                  final colorScheme = Theme.of(context).colorScheme;
                   return TextSpan(
                     children: [
                       TextSpan(
                         text: text,
-                        style: const TextStyle(
-                          color: Color(0xFF1F6F5E),
+                        style: TextStyle(
+                          color: colorScheme.primary,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       if (gloss.isNotEmpty)
                         TextSpan(
-                          text: '\uff08$gloss\uff09',
+                          text: '（$gloss）',
                           style: const TextStyle(
                             color: Color(0xFFB64A4A),
                             fontWeight: FontWeight.w600,
@@ -1247,11 +1405,13 @@ class _TodayAiBlockView extends StatelessWidget {
 class _RewardSlotMachineCard extends StatefulWidget {
   const _RewardSlotMachineCard({
     required this.sdk,
+    required this.isSignedIn,
     required this.tasksComplete,
     required this.rewardState,
   });
 
   final WordSdk sdk;
+  final bool isSignedIn;
   final bool tasksComplete;
   final TodayRewardState? rewardState;
 
@@ -1283,6 +1443,12 @@ class _RewardSlotMachineCardState extends State<_RewardSlotMachineCard> {
   }
 
   Future<void> _pullLever(List<_RewardItem> rewards) async {
+    if (!widget.isSignedIn) {
+      setState(() {
+        _message = '请先登录账号，再抽取奖励。';
+      });
+      return;
+    }
     if (!widget.tasksComplete || _spinning || rewards.isEmpty) return;
     if (_rewardState?.hasReward ?? false) return;
 
@@ -1309,6 +1475,13 @@ class _RewardSlotMachineCardState extends State<_RewardSlotMachineCard> {
   }
 
   Future<void> _saveReward() async {
+    if (!widget.isSignedIn) {
+      setState(() {
+        _message = '请先登录账号，再保存奖励。';
+      });
+      return;
+    }
+
     final reward = _previewReward;
     if (reward == null || (_rewardState?.hasReward ?? false)) {
       return;
@@ -1356,11 +1529,13 @@ class _RewardSlotMachineCardState extends State<_RewardSlotMachineCard> {
         final claimedReward =
             _findReward(rewards, _rewardState?.rewardId) ?? _previewReward;
         final hasClaim = _rewardState?.hasReward ?? false;
-        final ready = widget.tasksComplete && !hasClaim;
-        final locked = !widget.tasksComplete;
+        final ready = widget.isSignedIn && widget.tasksComplete && !hasClaim;
+        final locked = !widget.isSignedIn || !widget.tasksComplete;
         final canSave =
             ready && !_spinning && !_saving && _previewReward != null;
-        final title = hasClaim
+        final title = !widget.isSignedIn
+            ? '登录后可抽取今日奖励'
+            : hasClaim
             ? '今日奖励已领取'
             : locked
             ? '完成任务后领取奖励'
@@ -1440,9 +1615,10 @@ class _RewardLever extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = enabled || spinning || claimed;
-    final metalColor = active ? const Color(0xFF3E4A45) : Colors.black26;
     final knobColor = active ? const Color(0xFFE0565B) : Colors.black26;
-    final cabinetColor = active ? const Color(0xFFEAF4F2) : Colors.black12;
+    final cabinetColor = active
+        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
+        : Colors.black12;
     return Semantics(
       button: true,
       enabled: enabled,
@@ -1505,27 +1681,6 @@ class _RewardLever extends StatelessWidget {
                           const SizedBox(width: 14),
                           _LeverScrew(active: active),
                         ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 48,
-                top: 58,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: metalColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white70, width: 3),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
                       ),
                     ],
                   ),
@@ -1708,25 +1863,55 @@ Color _parseHexColor(String value) {
 }
 
 class _SyncStatusSummary extends StatelessWidget {
-  const _SyncStatusSummary({required this.status});
+  const _SyncStatusSummary({
+    required this.status,
+    required this.transportConfigured,
+    required this.syncEnabled,
+    required this.onSyncNow,
+  });
 
   final SyncStatus status;
+  final bool transportConfigured;
+  final bool syncEnabled;
+  final Future<void> Function() onSyncNow;
+
+  String _formatCloudRestore(Map<String, dynamic> restore) {
+    final succeeded = restore['succeeded'] == true;
+    final studyPointRows = restore['studyPointRows'] ?? 0;
+    final restoredStudyPoints = restore['restoredStudyPoints'] ?? 0;
+    final reportRows = restore['reportSnapshotRows'] ?? 0;
+    final restoredReports = restore['restoredReportSnapshots'] ?? 0;
+    final error = restore['error'];
+    if (!succeeded) {
+      return '失败 ${error ?? ''}'.trim();
+    }
+    return '成功 学习点 $studyPointRows/$restoredStudyPoints · 报告 $reportRows/$restoredReports';
+  }
 
   @override
   Widget build(BuildContext context) {
     final domains = status.domainsPending
         .map((item) => '${item.domain}: ${item.pendingCount}')
         .join(', ');
+    final canSyncNow =
+        transportConfigured && syncEnabled && status.pendingCount > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Transport configured: ${status.transportConfigured}'),
-        Text('Sync enabled: ${status.syncEnabled}'),
-        Text('Account sync state: ${status.accountSyncState}'),
-        Text('Pending queue items: ${status.pendingCount}'),
-        Text('Domains pending: ${domains.isEmpty ? 'none' : domains}'),
-        Text('Last success: ${status.lastSyncSucceededAt ?? 'never'}'),
-        Text('Last error: ${status.lastSyncErrorCode ?? 'none'}'),
+        Text('传输已配置：$transportConfigured'),
+        Text('同步已启用：$syncEnabled'),
+        Text('账号同步状态：${status.accountSyncState}'),
+        Text('待同步队列：${status.pendingCount}'),
+        Text('待同步领域：${domains.isEmpty ? '无' : domains}'),
+        Text('上次成功：${status.lastSyncSucceededAt ?? '从未'}'),
+        Text('上次错误：${status.lastSyncErrorCode ?? '无'}'),
+        if (status.lastCloudRestore != null)
+          Text('云端恢复：${_formatCloudRestore(status.lastCloudRestore!)}'),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: canSyncNow ? onSyncNow : null,
+          child: const Text('立即同步'),
+        ),
       ],
     );
   }

@@ -1,8 +1,14 @@
 ﻿package com.wordmobile
 
 import android.content.ContentValues
+import android.content.Intent
+import android.database.Cursor
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.provider.OpenableColumns
 import android.provider.MediaStore
 import android.util.Base64
 import com.wordmobile.RustBridge
@@ -10,9 +16,16 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.wordmobile/rust_bridge"
+    private val wrongWordImportPickRequest = 4207
+    private val maxWrongWordImportBytes = 8 * 1024 * 1024
+    private val bridgeExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingWrongWordImportResult: MethodChannel.Result? = null
+    private var pendingWrongWordImportSourceType: String = "text"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -22,79 +35,186 @@ class MainActivity : FlutterActivity() {
                 try {
                     when (call.method) {
                         "initialize" -> {
-                            val initResult = RustBridge.initialize(applicationContext)
-                            if (initResult.isEmpty()) {
-                                result.success(null)
-                            } else {
-                                result.error("INIT_FAILED", initResult, null)
+                            bridgeExecutor.execute {
+                                try {
+                                    val initResult = RustBridge.initialize(applicationContext)
+                                    mainHandler.post {
+                                        if (initResult.isEmpty()) {
+                                            result.success(null)
+                                        } else {
+                                            result.error("INIT_FAILED", initResult, null)
+                                        }
+                                    }
+                                } catch (error: Throwable) {
+                                    mainHandler.post {
+                                        result.error("INIT_FAILED", error.message ?: "Unknown init error", null)
+                                    }
+                                }
                             }
                         }
                         "getBridgeStatus" -> {
-                            result.success(RustBridge.getBridgeStatus().toString())
+                            runBridgeCall(result) {
+                                RustBridge.getBridgeStatus().toString()
+                            }
                         }
                         "getBootstrapState" -> {
-                            result.success(RustBridge.getBootstrapState())
+                            runBridgeCall(result) {
+                                RustBridge.getBootstrapState()
+                            }
                         }
                         "markOnboardingCompleted" -> {
-                            RustBridge.markOnboardingCompleted()
-                            result.success(null)
+                            runBridgeVoid(result) {
+                                RustBridge.markOnboardingCompleted()
+                            }
                         }
                         "getTodayHomeState" -> {
-                            result.success(RustBridge.getTodayHomeState())
+                            runBridgeCall(result) {
+                                RustBridge.getTodayHomeState()
+                            }
                         }
                         "getTodayRewardState" -> {
-                            result.success(RustBridge.getTodayRewardState())
+                            runBridgeCall(result) {
+                                RustBridge.getTodayRewardState()
+                            }
                         }
                         "drawTodayReward" -> {
-                            result.success(RustBridge.drawTodayReward(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.drawTodayReward(call.arguments as? String ?: "")
+                            }
                         }
                         "saveImageToGallery" -> {
-                            saveImageToGallery(call.arguments as? String ?: "")
-                            result.success("""{"saved":true}""")
+                            runBridgeCall(result) {
+                                saveImageToGallery(call.arguments as? String ?: "")
+                                """{"saved":true}"""
+                            }
+                        }
+                        "pickWrongWordImportSource" -> {
+                            pickWrongWordImportSource(call.arguments as? String ?: "", result)
                         }
                         "getActivePlan" -> {
-                            result.success(RustBridge.getActivePlan())
+                            runBridgeCall(result) {
+                                RustBridge.getActivePlan()
+                            }
                         }
                         "savePlan" -> {
-                            result.success(RustBridge.savePlan(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.savePlan(call.arguments as? String ?: "")
+                            }
                         }
                         "applySavedPlanToToday" -> {
-                            result.success(RustBridge.applySavedPlanToToday())
+                            runBridgeCall(result) {
+                                RustBridge.applySavedPlanToToday()
+                            }
                         }
                         "getWordbooks" -> {
-                            result.success(RustBridge.getWordbooks())
+                            runBridgeCall(result) {
+                                RustBridge.getWordbooks()
+                            }
                         }
                         "getReportsOverview" -> {
-                            result.success(RustBridge.getReportsOverview())
+                            runBridgeCall(result) {
+                                RustBridge.getReportsOverview()
+                            }
                         }
                         "getResumeSessionHint" -> {
-                            result.success(RustBridge.getResumeSessionHint())
+                            runBridgeCall(result) {
+                                RustBridge.getResumeSessionHint()
+                            }
                         }
                         "getSyncStatus" -> {
-                            result.success(RustBridge.getSyncStatus())
+                            runBridgeCall(result) {
+                                RustBridge.getSyncStatus()
+                            }
+                        }
+                        "recordSyncResult" -> {
+                            runBridgeCall(result) {
+                                RustBridge.recordSyncResult(call.arguments as? String ?: "")
+                            }
+                        }
+                        "recordCloudRestoreAttempt" -> {
+                            runBridgeCall(result) {
+                                RustBridge.recordCloudRestoreAttempt(call.arguments as? String ?: "")
+                            }
+                        }
+                        "enqueueCloudBackfill" -> {
+                            runBridgeCall(result) {
+                                RustBridge.enqueueCloudBackfill(call.arguments as? String ?: "")
+                            }
+                        }
+                        "preserveGuestLocalData" -> {
+                            runBridgeCall(result) {
+                                RustBridge.preserveGuestLocalData()
+                            }
+                        }
+                        "reconcileLocalDataOwner" -> {
+                            runBridgeCall(result) {
+                                RustBridge.reconcileLocalDataOwner(call.arguments as? String ?: "")
+                            }
+                        }
+                        "restoreCloudDataSnapshot" -> {
+                            runBridgeCall(result) {
+                                RustBridge.restoreCloudDataSnapshot(call.arguments as? String ?: "")
+                            }
                         }
                         "getWrongWords" -> {
-                            result.success(RustBridge.getWrongWords(call.arguments as? String ?: "all"))
+                            runBridgeCall(result) {
+                                RustBridge.getWrongWords(call.arguments as? String ?: "all")
+                            }
                         }
                         "getWrongWordDetail" -> {
                             val entryId = (call.arguments as? String)?.toIntOrNull()
                             if (entryId == null) {
                                 result.error("INVALID_ARGS", "getWrongWordDetail requires entry id", null)
                             } else {
-                                result.success(RustBridge.getWrongWordDetail(entryId))
+                                runBridgeCall(result) {
+                                    RustBridge.getWrongWordDetail(entryId)
+                                }
+                            }
+                        }
+                        "saveWordHint" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveWordHint(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getWordHintSuggestions" -> {
+                            val entryId = (call.arguments as? String)?.toIntOrNull()
+                            if (entryId == null) {
+                                result.error("INVALID_ARGS", "getWordHintSuggestions requires entry id", null)
+                            } else {
+                                runBridgeCall(result) {
+                                    RustBridge.getWordHintSuggestions(entryId)
+                                }
                             }
                         }
                         "getTodayAiPassageContext" -> {
-                            result.success(RustBridge.getTodayAiPassageContext())
+                            runBridgeCall(result) {
+                                RustBridge.getTodayAiPassageContext()
+                            }
                         }
                         "getAiPassageHistory" -> {
-                            result.success(RustBridge.getAiPassageHistory())
+                            runBridgeCall(result) {
+                                RustBridge.getAiPassageHistory()
+                            }
                         }
                         "getAiPassage" -> {
-                            result.success(RustBridge.getAiPassage(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.getAiPassage(call.arguments as? String ?: "")
+                            }
                         }
                         "generateAiPassage" -> {
-                            result.success(RustBridge.generateAiPassage(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.generateAiPassage(call.arguments as? String ?: "")
+                            }
+                        }
+                        "analyzeWrongWordImport" -> {
+                            runBridgeCall(result) {
+                                RustBridge.analyzeWrongWordImport(call.arguments as? String ?: "")
+                            }
+                        }
+                        "commitWrongWordImport" -> {
+                            runBridgeCall(result) {
+                                RustBridge.commitWrongWordImport(call.arguments as? String ?: "")
+                            }
                         }
                         "toggleWordbook" -> {
                             val raw = call.arguments as? String ?: ""
@@ -104,22 +224,30 @@ class MainActivity : FlutterActivity() {
                             if (wordbookId == Int.MIN_VALUE || isActive == null) {
                                 result.error("INVALID_ARGS", "toggleWordbook requires wordbookId and isActive", null)
                             } else {
-                                RustBridge.toggleWordbook(wordbookId, isActive)
-                                result.success(null)
+                                runBridgeVoid(result) {
+                                    RustBridge.toggleWordbook(wordbookId, isActive)
+                                }
                             }
                         }
                         "startStudySession" -> {
-                            result.success(RustBridge.startStudySession(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.startStudySession(call.arguments as? String ?: "")
+                            }
                         }
                         "submitStudyAnswer" -> {
-                            result.success(RustBridge.submitStudyAnswer(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.submitStudyAnswer(call.arguments as? String ?: "")
+                            }
                         }
                         "completeStudySession" -> {
-                            result.success(RustBridge.completeStudySession(call.arguments as? String ?: ""))
+                            runBridgeCall(result) {
+                                RustBridge.completeStudySession(call.arguments as? String ?: "")
+                            }
                         }
                         "cancelStudySession" -> {
-                            RustBridge.cancelStudySession(call.arguments as? String ?: "")
-                            result.success(null)
+                            runBridgeVoid(result) {
+                                RustBridge.cancelStudySession(call.arguments as? String ?: "")
+                            }
                         }
                         else -> result.notImplemented()
                     }
@@ -127,6 +255,120 @@ class MainActivity : FlutterActivity() {
                     result.error("RUST_BRIDGE_ERROR", error.message ?: "Unknown bridge error", null)
                 }
             }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != wrongWordImportPickRequest) return
+        val pendingResult = pendingWrongWordImportResult ?: return
+        pendingWrongWordImportResult = null
+        if (resultCode != RESULT_OK || data?.data == null) {
+            pendingResult.success("""{"cancelled":true}""")
+            return
+        }
+        val uri = data.data!!
+        val sourceType = pendingWrongWordImportSourceType
+        bridgeExecutor.execute {
+            try {
+                val payload = readWrongWordImportSource(uri, sourceType)
+                mainHandler.post {
+                    pendingResult.success(payload)
+                }
+            } catch (error: Throwable) {
+                mainHandler.post {
+                    pendingResult.error("IMPORT_PICK_FAILED", error.message ?: "Unable to read selected file", null)
+                }
+            }
+        }
+    }
+
+    private fun runBridgeCall(result: MethodChannel.Result, block: () -> String) {
+        bridgeExecutor.execute {
+            try {
+                val payload = block()
+                mainHandler.post {
+                    result.success(payload)
+                }
+            } catch (error: Throwable) {
+                mainHandler.post {
+                    result.error("RUST_BRIDGE_ERROR", error.message ?: "Unknown bridge error", null)
+                }
+            }
+        }
+    }
+
+    private fun runBridgeVoid(result: MethodChannel.Result, block: () -> Unit) {
+        bridgeExecutor.execute {
+            try {
+                block()
+                mainHandler.post {
+                    result.success(null)
+                }
+            } catch (error: Throwable) {
+                mainHandler.post {
+                    result.error("RUST_BRIDGE_ERROR", error.message ?: "Unknown bridge error", null)
+                }
+            }
+        }
+    }
+
+    private fun pickWrongWordImportSource(raw: String, result: MethodChannel.Result) {
+        if (pendingWrongWordImportResult != null) {
+            result.error("IMPORT_PICK_ACTIVE", "Another import picker is already open", null)
+            return
+        }
+        val args = JSONObject(raw.ifBlank { "{}" })
+        val sourceType = args.optString("sourceType", "text").ifBlank { "text" }
+        pendingWrongWordImportSourceType = sourceType
+        pendingWrongWordImportResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = if (sourceType == "image") "image/*" else "text/*"
+            if (sourceType != "image") {
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/*", "text/csv", "application/json"))
+            }
+        }
+        try {
+            startActivityForResult(intent, wrongWordImportPickRequest)
+        } catch (error: Throwable) {
+            pendingWrongWordImportResult = null
+            throw error
+        }
+    }
+
+    private fun readWrongWordImportSource(uri: Uri, sourceType: String): String {
+        val resolver = applicationContext.contentResolver
+        val mimeType = resolver.getType(uri) ?: if (sourceType == "image") "image/*" else "text/plain"
+        val bytes = resolver.openInputStream(uri)?.use { stream -> stream.readBytes() }
+            ?: error("Unable to open selected file")
+        require(bytes.size <= maxWrongWordImportBytes) {
+            "Selected file is too large. Please choose a file under 8 MB."
+        }
+        val response = JSONObject()
+            .put("sourceType", sourceType)
+            .put("sourceName", getDisplayName(uri).ifBlank { uri.lastPathSegment ?: "wrong-word-import" })
+            .put("mimeType", mimeType)
+        if (sourceType == "image") {
+            response.put("bytesBase64", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        } else {
+            response.put("textContent", bytes.toString(Charsets.UTF_8))
+        }
+        return response.toString()
+    }
+
+    private fun getDisplayName(uri: Uri): String {
+        var cursor: Cursor? = null
+        return try {
+            cursor = applicationContext.contentResolver.query(uri, null, null, null, null)
+            if (cursor != null && cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) cursor.getString(index) ?: "" else ""
+            } else {
+                ""
+            }
+        } finally {
+            cursor?.close()
+        }
     }
 
     private fun saveImageToGallery(raw: String) {

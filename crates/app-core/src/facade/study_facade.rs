@@ -55,7 +55,7 @@ struct ActiveSessionSnapshot {
 static ACTIVE_SESSIONS: Lazy<Mutex<HashMap<String, ActiveSession>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-const QUESTION_ENGINE_VERSION: i64 = 3;
+const QUESTION_ENGINE_VERSION: i64 = 4;
 
 fn default_question_engine_version() -> i64 {
     0
@@ -97,15 +97,25 @@ pub fn start_study_session(
     {
         let guard = lock_sessions();
         if let Some(active) = guard.get(&mode_key) {
-            return Ok(build_start_response(active));
+            if active_session_matches_request_sources(active, &request) {
+                return Ok(build_start_response(active));
+            }
         }
     }
 
     if let Some(snapshot) = load_persisted_session(conn, &mode)? {
-        let expected_questions = expected_question_count(&mode, total_words as usize);
+        let expected_questions =
+            if request.entry_source_ids.is_empty() && request.entry_payloads.is_empty() {
+                snapshot.questions.len()
+            } else {
+                expected_question_count(&mode, total_words as usize)
+            };
         if snapshot.question_engine_version == QUESTION_ENGINE_VERSION
             && snapshot.questions.len() == expected_questions
             && snapshot.current_index < snapshot.questions.len()
+            && snapshot_started_today(&snapshot)
+            && !snapshot_contains_restore_placeholders(&snapshot)
+            && snapshot_matches_request_sources(&snapshot, &request)
         {
             let active = active_session_from_snapshot(snapshot);
             let response = build_start_response(&active);
@@ -380,6 +390,60 @@ fn build_start_response(active: &ActiveSession) -> StartSessionResponse {
     }
 }
 
+fn snapshot_started_today(snapshot: &ActiveSessionSnapshot) -> bool {
+    chrono::DateTime::parse_from_rfc3339(&snapshot.session.started_at)
+        .ok()
+        .map(|started_at| {
+            started_at.with_timezone(&chrono::Local).date_naive()
+                == chrono::Local::now().date_naive()
+        })
+        .unwrap_or(false)
+}
+
+fn snapshot_contains_restore_placeholders(snapshot: &ActiveSessionSnapshot) -> bool {
+    snapshot.questions.iter().any(|question| {
+        question
+            .entry_source_id
+            .starts_with("active_session_restore_")
+            || question.word.starts_with("active_session_restore_")
+            || question.prompt.starts_with("active_session_restore_")
+    })
+}
+
+fn snapshot_matches_request_sources(
+    snapshot: &ActiveSessionSnapshot,
+    request: &StartSessionRequest,
+) -> bool {
+    if request.entry_source_ids.is_empty() {
+        return true;
+    }
+    let requested = request
+        .entry_source_ids
+        .iter()
+        .collect::<std::collections::HashSet<_>>();
+    snapshot
+        .questions
+        .iter()
+        .all(|question| requested.contains(&question.entry_source_id))
+}
+
+fn active_session_matches_request_sources(
+    active: &ActiveSession,
+    request: &StartSessionRequest,
+) -> bool {
+    if request.entry_source_ids.is_empty() {
+        return true;
+    }
+    let requested = request
+        .entry_source_ids
+        .iter()
+        .collect::<std::collections::HashSet<_>>();
+    active
+        .questions
+        .iter()
+        .all(|question| requested.contains(&question.entry_source_id))
+}
+
 fn mode_storage_key(mode: &word_storage_core::models::SessionMode) -> String {
     serde_json::to_string(mode).unwrap_or_else(|_| "unknown".to_string())
 }
@@ -441,5 +505,303 @@ fn expected_question_count(
         word_storage_core::models::SessionMode::NewWord
         | word_storage_core::models::SessionMode::Review => total_words * 4,
         _ => total_words,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{clear_all_active_sessions, start_study_session};
+    use word_storage_core::models::{
+        ChoiceOption, QuestionType, SessionMode, StartSessionEntryPayload,
+        StartSessionMeaningPayload, StartSessionRequest, StudyQuestion,
+    };
+
+    #[test]
+    fn start_session_discards_restore_placeholder_snapshot_and_rebuilds_from_payloads() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = chrono::Local::now().to_rfc3339();
+
+        let snapshot = serde_json::json!({
+            "questionEngineVersion": 4,
+            "session": {
+                "sessionId": "sess_restore_old",
+                "mode": "rootAffix",
+                "totalWords": 1,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "questions": [serde_json::to_value(StudyQuestion {
+                question_id: "sess_restore_old_0".to_string(),
+                question_type: QuestionType::RootToGlossInput,
+                entry_source_id: "active_session_restore_0".to_string(),
+                word: "active_session_restore_0".to_string(),
+                part_of_speech: None,
+                phonetic_us: None,
+                phonetic_uk: None,
+                prompt: "active_session_restore_0".to_string(),
+                accepted_meanings: vec!["placeholder".to_string()],
+                example_sentence: None,
+                example_translation: None,
+                choices: Some(vec![ChoiceOption {
+                    text: "placeholder".to_string(),
+                    label: "A".to_string(),
+                }]),
+                correct_choice_label: Some("A".to_string()),
+                question_index: 0,
+                total_questions: 1,
+            }).expect("serialize question")],
+            "results": [],
+            "currentIndex": 0
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_rootAffix", snapshot.to_string()),
+        )
+        .expect("insert placeholder snapshot");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::RootAffix,
+                wordbook_id: None,
+                entry_source_ids: vec!["root_affix_re".to_string()],
+                entry_payloads: vec![StartSessionEntryPayload {
+                    source_id: "root_affix_re".to_string(),
+                    word: "re-".to_string(),
+                    part_of_speech: None,
+                    frequency: 0.0,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    meaning_details: vec![StartSessionMeaningPayload {
+                        pos: "root".to_string(),
+                        meaning_cn: "again".to_string(),
+                        meaning_en: None,
+                    }],
+                    meanings: vec!["again".to_string()],
+                    example_sentence: None,
+                    example_translation: None,
+                }],
+                distractor_payloads: Vec::new(),
+            },
+        )
+        .expect("start session should rebuild");
+
+        assert_eq!(response.current_question.entry_source_id, "root_affix_re");
+        assert_eq!(response.current_question.word, "re-");
+        assert_ne!(response.session.session_id, "sess_restore_old");
+    }
+
+    #[test]
+    fn start_session_discards_same_day_snapshot_when_sources_changed() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = chrono::Local::now().to_rfc3339();
+
+        let snapshot = serde_json::json!({
+            "questionEngineVersion": 4,
+            "session": {
+                "sessionId": "sess_root_old_order",
+                "mode": "rootAffix",
+                "totalWords": 1,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "questions": [serde_json::to_value(StudyQuestion {
+                question_id: "sess_root_old_order_0".to_string(),
+                question_type: QuestionType::RootToGlossInput,
+                entry_source_id: "root_affix_shared_ab".to_string(),
+                word: "ab-".to_string(),
+                part_of_speech: None,
+                phonetic_us: None,
+                phonetic_uk: None,
+                prompt: "ab-".to_string(),
+                accepted_meanings: vec!["old".to_string()],
+                example_sentence: None,
+                example_translation: None,
+                choices: None,
+                correct_choice_label: None,
+                question_index: 0,
+                total_questions: 1,
+            }).expect("serialize question")],
+            "results": [],
+            "currentIndex": 0
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_rootAffix", snapshot.to_string()),
+        )
+        .expect("insert stale same-day snapshot");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::RootAffix,
+                wordbook_id: None,
+                entry_source_ids: vec!["root_affix_shared_trans".to_string()],
+                entry_payloads: vec![StartSessionEntryPayload {
+                    source_id: "root_affix_shared_trans".to_string(),
+                    word: "trans-".to_string(),
+                    part_of_speech: None,
+                    frequency: 0.0,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    meaning_details: vec![StartSessionMeaningPayload {
+                        pos: "root".to_string(),
+                        meaning_cn: "across".to_string(),
+                        meaning_en: None,
+                    }],
+                    meanings: vec!["across".to_string()],
+                    example_sentence: None,
+                    example_translation: None,
+                }],
+                distractor_payloads: Vec::new(),
+            },
+        )
+        .expect("start session should rebuild from changed sources");
+
+        assert_eq!(
+            response.current_question.entry_source_id,
+            "root_affix_shared_trans"
+        );
+        assert_eq!(response.current_question.word, "trans-");
+        assert_ne!(response.session.session_id, "sess_root_old_order");
+    }
+
+    #[test]
+    fn start_session_rebuilds_in_memory_session_when_sources_changed() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let first = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::NewWord,
+                wordbook_id: Some(1),
+                entry_source_ids: vec!["book_one_word".to_string()],
+                entry_payloads: vec![StartSessionEntryPayload {
+                    source_id: "book_one_word".to_string(),
+                    word: "alpha".to_string(),
+                    part_of_speech: None,
+                    frequency: 1.0,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    meaning_details: vec![StartSessionMeaningPayload {
+                        pos: "n.".to_string(),
+                        meaning_cn: "alpha meaning".to_string(),
+                        meaning_en: None,
+                    }],
+                    meanings: vec!["alpha meaning".to_string()],
+                    example_sentence: None,
+                    example_translation: None,
+                }],
+                distractor_payloads: Vec::new(),
+            },
+        )
+        .expect("start first session");
+
+        let second = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::NewWord,
+                wordbook_id: Some(2),
+                entry_source_ids: vec!["book_two_word".to_string()],
+                entry_payloads: vec![StartSessionEntryPayload {
+                    source_id: "book_two_word".to_string(),
+                    word: "beta".to_string(),
+                    part_of_speech: None,
+                    frequency: 1.0,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    meaning_details: vec![StartSessionMeaningPayload {
+                        pos: "n.".to_string(),
+                        meaning_cn: "beta meaning".to_string(),
+                        meaning_en: None,
+                    }],
+                    meanings: vec!["beta meaning".to_string()],
+                    example_sentence: None,
+                    example_translation: None,
+                }],
+                distractor_payloads: Vec::new(),
+            },
+        )
+        .expect("start second session from changed sources");
+
+        assert_eq!(first.current_question.entry_source_id, "book_one_word");
+        assert_eq!(second.current_question.entry_source_id, "book_two_word");
+        assert_eq!(second.session.wordbook_id, Some(2));
+        assert_ne!(first.session.session_id, second.session.session_id);
+    }
+
+    #[test]
+    fn start_session_restores_same_day_snapshot_for_empty_resume_request() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = chrono::Local::now().to_rfc3339();
+        let questions = (0..32)
+            .map(|index| {
+                serde_json::to_value(StudyQuestion {
+                    question_id: format!("sess_resume_{index}"),
+                    question_type: QuestionType::EnToCnChoice,
+                    entry_source_id: format!("entry_{}", index / 4),
+                    word: format!("word_{}", index / 4),
+                    part_of_speech: None,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    prompt: format!("word_{}", index / 4),
+                    accepted_meanings: vec![format!("meaning_{}", index / 4)],
+                    example_sentence: None,
+                    example_translation: None,
+                    choices: Some(vec![ChoiceOption {
+                        text: format!("meaning_{}", index / 4),
+                        label: "A".to_string(),
+                    }]),
+                    correct_choice_label: Some("A".to_string()),
+                    question_index: index as u32,
+                    total_questions: 32,
+                })
+                .expect("serialize question")
+            })
+            .collect::<Vec<_>>();
+
+        let snapshot = serde_json::json!({
+            "questionEngineVersion": 4,
+            "session": {
+                "sessionId": "sess_resume",
+                "mode": "newWord",
+                "totalWords": 8,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "questions": questions,
+            "results": [],
+            "currentIndex": 8
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_newWord", snapshot.to_string()),
+        )
+        .expect("insert active snapshot");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::NewWord,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+            },
+        )
+        .expect("empty start request should restore saved progress");
+
+        assert_eq!(response.session.session_id, "sess_resume");
+        assert_eq!(response.progress.current, 9);
+        assert_eq!(response.progress.total, 32);
+        assert_eq!(response.current_question.question_id, "sess_resume_8");
     }
 }

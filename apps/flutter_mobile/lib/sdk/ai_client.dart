@@ -52,6 +52,7 @@ class AiPassageHistoryItem {
   final String title;
   final String preview;
   final String generatedAt;
+  final String? date;
   final String validationStatus;
 
   const AiPassageHistoryItem({
@@ -59,14 +60,17 @@ class AiPassageHistoryItem {
     required this.title,
     required this.preview,
     required this.generatedAt,
+    this.date,
     required this.validationStatus,
   });
 
-  factory AiPassageHistoryItem.fromJson(Map<String, dynamic> json) => AiPassageHistoryItem(
+  factory AiPassageHistoryItem.fromJson(Map<String, dynamic> json) =>
+      AiPassageHistoryItem(
         passageId: json['passageId'] as String,
         title: json['title'] as String,
         preview: json['preview'] as String,
         generatedAt: json['generatedAt'] as String,
+        date: json['date'] as String?,
         validationStatus: json['validationStatus'] as String,
       );
 }
@@ -77,6 +81,7 @@ class AiPassage {
   final List<dynamic> blocks;
   final String validationStatus;
   final String? failureReason;
+  final String? date;
 
   const AiPassage({
     required this.passageId,
@@ -84,15 +89,163 @@ class AiPassage {
     required this.blocks,
     required this.validationStatus,
     this.failureReason,
+    this.date,
   });
 
   factory AiPassage.fromJson(Map<String, dynamic> json) => AiPassage(
-        passageId: json['passageId'] as String,
-        title: json['title'] as String,
-        blocks: json['blocks'] as List<dynamic>? ?? const [],
-        validationStatus: json['validationStatus'] as String,
-        failureReason: json['failureReason'] as String?,
-      );
+    passageId: json['passageId'] as String,
+    title: json['title'] as String,
+    blocks: json['blocks'] as List<dynamic>? ?? const [],
+    validationStatus: json['validationStatus'] as String,
+    failureReason: json['failureReason'] as String?,
+    date: json['date'] as String?,
+  );
+}
+
+class AiWrongWordImportCandidate {
+  final String candidateId;
+  final String word;
+  final String? meaning;
+  final int occurrenceCount;
+  final double confidence;
+  final bool isDuplicate;
+  final bool isHighFrequency;
+  final String evidence;
+
+  const AiWrongWordImportCandidate({
+    required this.candidateId,
+    required this.word,
+    this.meaning,
+    required this.occurrenceCount,
+    required this.confidence,
+    required this.isDuplicate,
+    required this.isHighFrequency,
+    required this.evidence,
+  });
+
+  factory AiWrongWordImportCandidate.fromJson(Map<String, dynamic> json) {
+    final word = '${json['word'] ?? ''}'.trim();
+    final occurrenceCount = (json['occurrenceCount'] as num?)?.toInt() ?? 1;
+    return AiWrongWordImportCandidate(
+      candidateId: '${json['candidateId'] ?? word.toLowerCase()}',
+      word: word,
+      meaning: json['meaning'] as String?,
+      occurrenceCount: occurrenceCount,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      isDuplicate: json['isDuplicate'] as bool? ?? false,
+      isHighFrequency: json['isHighFrequency'] as bool? ?? occurrenceCount >= 3,
+      evidence: '${json['evidence'] ?? 'Imported evidence'}',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'candidateId': candidateId,
+    'word': word,
+    if (meaning != null) 'meaning': meaning,
+    'occurrenceCount': occurrenceCount,
+    'confidence': confidence,
+    'isDuplicate': isDuplicate,
+    'isHighFrequency': isHighFrequency,
+    'evidence': evidence,
+  };
+}
+
+class AiWrongWordImportSource {
+  final String sourceType;
+  final String sourceName;
+  final String? textContent;
+  final String? bytesBase64;
+  final String? mimeType;
+
+  const AiWrongWordImportSource({
+    required this.sourceType,
+    required this.sourceName,
+    this.textContent,
+    this.bytesBase64,
+    this.mimeType,
+  });
+
+  factory AiWrongWordImportSource.fromJson(Map<String, dynamic> json) {
+    return AiWrongWordImportSource(
+      sourceType: json['sourceType'] as String? ?? 'text',
+      sourceName: json['sourceName'] as String? ?? 'imported-source',
+      textContent: json['textContent'] as String?,
+      bytesBase64: json['bytesBase64'] as String?,
+      mimeType: json['mimeType'] as String?,
+    );
+  }
+}
+
+class AiWrongWordImportAnalysis {
+  final String batchId;
+  final String sourceType;
+  final String sourceName;
+  final List<AiWrongWordImportCandidate> candidates;
+  final List<String> warnings;
+
+  const AiWrongWordImportAnalysis({
+    required this.batchId,
+    required this.sourceType,
+    required this.sourceName,
+    required this.candidates,
+    required this.warnings,
+  });
+
+  factory AiWrongWordImportAnalysis.fromJson(Map<String, dynamic> json) {
+    final decodedCandidates = json['candidates'] as List<dynamic>? ?? const [];
+    return AiWrongWordImportAnalysis(
+      batchId: json['batchId'] as String? ?? 'preview-import',
+      sourceType: json['sourceType'] as String? ?? 'text',
+      sourceName:
+          json['sourceName'] as String? ??
+          json['sourceType'] as String? ??
+          'imported-source',
+      candidates: decodedCandidates
+          .whereType<Map<String, dynamic>>()
+          .map(AiWrongWordImportCandidate.fromJson)
+          .where((candidate) => candidate.word.isNotEmpty)
+          .toList(growable: false),
+      warnings: (json['warnings'] as List<dynamic>? ?? const [])
+          .map((item) => '$item')
+          .where((item) => item.trim().isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+}
+
+class AiWrongWordImportCommitResult {
+  final bool persisted;
+  final List<AiWrongWordImportCandidate> added;
+  final List<AiWrongWordImportCandidate> skipped;
+  final List<AiWrongWordImportCandidate> highFrequency;
+
+  const AiWrongWordImportCommitResult({
+    required this.persisted,
+    required this.added,
+    required this.skipped,
+    required this.highFrequency,
+  });
+
+  factory AiWrongWordImportCommitResult.fromJson(Map<String, dynamic> json) {
+    List<AiWrongWordImportCandidate> candidatesFrom(String key) {
+      final raw = json[key] as List<dynamic>? ?? const [];
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map(AiWrongWordImportCandidate.fromJson)
+          .toList(growable: false);
+    }
+
+    final added = candidatesFrom('added');
+    final highFrequency = candidatesFrom('highFrequency');
+    return AiWrongWordImportCommitResult(
+      persisted: json['persisted'] as bool? ?? false,
+      added: added,
+      skipped: candidatesFrom('skipped'),
+      highFrequency: highFrequency.isEmpty
+          ? added.where((candidate) => candidate.isHighFrequency).toList()
+          : highFrequency,
+    );
+  }
 }
 
 class AiClient {
@@ -130,16 +283,156 @@ class AiClient {
     required List<dynamic> wrongWords,
     List<String> targetWords = const [],
     required String level,
+    String? date,
   }) async {
+    final request = <String, dynamic>{
+      'wrongWords': wrongWords,
+      'targetWords': targetWords,
+      'level': level,
+    };
+    if (date != null) {
+      request['date'] = date;
+    }
     final raw = await _bridge.call(
       'generateAiPassage',
-      _codec.encodeRequest({
-        'wrongWords': wrongWords,
-        'targetWords': targetWords,
-        'level': level,
-      }),
+      _codec.encodeRequest(request),
     );
     final json = _codec.decodeResponse(raw);
     return AiPassage.fromJson(json);
   }
+
+  Future<AiWrongWordImportAnalysis> analyzeWrongWordImport({
+    required String sourceType,
+    required String sourceName,
+    String? textContent,
+    String? bytesBase64,
+    String? mimeType,
+  }) async {
+    final request = <String, dynamic>{
+      'sourceType': sourceType,
+      'sourceName': sourceName,
+    };
+    if (textContent != null) {
+      request['textContent'] = textContent;
+    }
+    if (bytesBase64 != null) {
+      request['bytesBase64'] = bytesBase64;
+    }
+    if (mimeType != null) {
+      request['mimeType'] = mimeType;
+    }
+    try {
+      final raw = await _bridge.call(
+        'analyzeWrongWordImport',
+        _codec.encodeRequest(request),
+      );
+      return AiWrongWordImportAnalysis.fromJson(_codec.decodeResponse(raw));
+    } on BridgeError catch (error) {
+      if (sourceType == 'image' || error.code != 'METHOD_MISSING') {
+        rethrow;
+      }
+      return AiWrongWordImportAnalysis.fromJson(
+        _previewWrongWordImportAnalysis(request),
+      );
+    }
+  }
+
+  Future<AiWrongWordImportSource?> pickWrongWordImportSource({
+    required String sourceType,
+  }) async {
+    final request = _codec.encodeRequest({'sourceType': sourceType});
+    final raw = await _bridge.call('pickWrongWordImportSource', request);
+    final decoded = _codec.decodeDynamicResponse(raw);
+    if (decoded is! Map<String, dynamic>) return null;
+    if (decoded['cancelled'] == true) return null;
+    return AiWrongWordImportSource.fromJson(decoded);
+  }
+
+  Future<AiWrongWordImportCommitResult> commitWrongWordImport({
+    required AiWrongWordImportAnalysis analysis,
+    required Set<String> acceptedCandidateIds,
+  }) async {
+    final request = {
+      'batchId': analysis.batchId,
+      'sourceType': analysis.sourceType,
+      'sourceName': analysis.sourceName,
+      'acceptedCandidateIds': acceptedCandidateIds.toList(growable: false),
+      'candidates': analysis.candidates
+          .map((candidate) => candidate.toJson())
+          .toList(growable: false),
+    };
+    try {
+      final raw = await _bridge.call(
+        'commitWrongWordImport',
+        _codec.encodeRequest(request),
+      );
+      return AiWrongWordImportCommitResult.fromJson(_codec.decodeResponse(raw));
+    } on BridgeError catch (error) {
+      if (error.code != 'METHOD_MISSING') {
+        rethrow;
+      }
+      final accepted = analysis.candidates
+          .where(
+            (candidate) => acceptedCandidateIds.contains(candidate.candidateId),
+          )
+          .toList(growable: false);
+      return AiWrongWordImportCommitResult(
+        persisted: false,
+        added: accepted.where((candidate) => !candidate.isDuplicate).toList(),
+        skipped: accepted.where((candidate) => candidate.isDuplicate).toList(),
+        highFrequency: accepted
+            .where((candidate) => candidate.isHighFrequency)
+            .toList(),
+      );
+    }
+  }
+}
+
+Map<String, dynamic> _previewWrongWordImportAnalysis(
+  Map<String, dynamic> request,
+) {
+  final text = '${request['textContent'] ?? ''}';
+  final sourceType = '${request['sourceType'] ?? 'text'}';
+  final sampleWords = _extractPreviewWords(text);
+  final counts = <String, int>{};
+  for (final word in sampleWords) {
+    counts[word] = (counts[word] ?? 0) + 1;
+  }
+  return {
+    'batchId': 'preview-${DateTime.now().millisecondsSinceEpoch}',
+    'sourceType': sourceType,
+    'sourceName': '${request['sourceName'] ?? sourceType}',
+    'warnings': counts.isEmpty
+        ? [
+            sourceType == 'image'
+                ? 'AI did not find any wrong-word candidates in this image. Try a clearer photo or crop closer to the notebook content.'
+                : 'No candidate words were found in the imported source.',
+          ]
+        : const [],
+    'candidates': counts.entries
+        .map(
+          (entry) => {
+            'candidateId': entry.key,
+            'word': entry.key,
+            'meaning': null,
+            'occurrenceCount': entry.value,
+            'confidence': sourceType == 'image' ? 0.72 : 0.86,
+            'isDuplicate': false,
+            'isHighFrequency': entry.value >= 2,
+            'evidence': entry.value >= 2
+                ? 'Appears ${entry.value} times in the imported source'
+                : 'Appears once in the imported source',
+          },
+        )
+        .toList(growable: false),
+  };
+}
+
+List<String> _extractPreviewWords(String text) {
+  final matches = RegExp(r'[A-Za-z][A-Za-z-]{2,}').allMatches(text);
+  return matches
+      .map((match) => match.group(0)!.toLowerCase())
+      .where((word) => word.length >= 3)
+      .take(24)
+      .toList(growable: false);
 }

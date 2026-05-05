@@ -16,38 +16,35 @@ void main() {
     growthRuleMode: 'shared',
   );
 
-  test(
-    'task breakdown displays all plan-backed modes even when pools are empty',
-    () {
-      final snapshot = <String, dynamic>{
-        'newWordsTarget': 8,
-        'newWordsCompleted': 2,
-        'reviewWordsTarget': 0,
-        'reviewWordsCompleted': 0,
-        'mixedTestTarget': 4,
-        'mixedTestCompleted': 1,
-        'wrongWordTestTarget': 0,
-        'wrongWordTestCompleted': 0,
-        'rootAffixTarget': 2,
-        'rootAffixCompleted': 0,
-      };
+  test('task breakdown keeps plan-backed modes even when pools are empty', () {
+    final snapshot = <String, dynamic>{
+      'newWordsTarget': 8,
+      'newWordsCompleted': 2,
+      'reviewWordsTarget': 0,
+      'reviewWordsCompleted': 0,
+      'mixedTestTarget': 4,
+      'mixedTestCompleted': 1,
+      'wrongWordTestTarget': 0,
+      'wrongWordTestCompleted': 0,
+      'rootAffixTarget': 2,
+      'rootAffixCompleted': 0,
+    };
 
-      expect(todayTaskBreakdownModesForTest(snapshot, plan), [
-        'newWord',
-        'review',
-        'mixedTest',
-        'wrongWordReinforcement',
-        'rootAffix',
-      ]);
-      expect(todayTaskBreakdownRowsForTest(snapshot, plan), [
-        'newWord:2/8',
-        'review:0/12',
-        'mixedTest:1/4',
-        'wrongWordReinforcement:0/5',
-        'rootAffix:0/2',
-      ]);
-    },
-  );
+    expect(todayTaskBreakdownModesForTest(snapshot, plan), [
+      'newWord',
+      'review',
+      'mixedTest',
+      'wrongWordReinforcement',
+      'rootAffix',
+    ]);
+    expect(todayTaskBreakdownRowsForTest(snapshot, plan), [
+      'newWord:2/8',
+      'review:0/0',
+      'mixedTest:1/4',
+      'wrongWordReinforcement:0/0',
+      'rootAffix:0/2',
+    ]);
+  });
 
   test('completion uses the same display targets as task breakdown', () {
     final snapshot = <String, dynamic>{
@@ -63,7 +60,7 @@ void main() {
       'rootAffixCompleted': 0,
     };
 
-    expect(todayCompletionForTest(snapshot, plan), 39);
+    expect(todayCompletionForTest(snapshot, plan), 86);
   });
 
   test('task rows cap displayed completion at the displayed target', () {
@@ -84,5 +81,23 @@ void main() {
       todayTaskBreakdownRowsForTest(snapshot, plan),
       contains('mixedTest:3/3'),
     );
+  });
+
+  test('review row remains visible from today plan when review pool target is zero', () {
+    final snapshot = <String, dynamic>{
+      'newWordsTarget': 0,
+      'newWordsCompleted': 0,
+      'reviewWordsTarget': 0,
+      'reviewWordsCompleted': 0,
+      'mixedTestTarget': 0,
+      'mixedTestCompleted': 0,
+      'wrongWordTestTarget': 0,
+      'wrongWordTestCompleted': 0,
+      'rootAffixTarget': 0,
+      'rootAffixCompleted': 0,
+    };
+
+    expect(todayTaskBreakdownModesForTest(snapshot, plan), contains('review'));
+    expect(todayTaskBreakdownRowsForTest(snapshot, plan), contains('review:0/0'));
   });
 }

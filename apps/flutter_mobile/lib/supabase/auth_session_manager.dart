@@ -2,6 +2,7 @@ library;
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../sdk/local_data_owner_client.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_config.dart';
 
@@ -10,6 +11,7 @@ enum AuthAccountPhase {
   checking,
   notConfigured,
   guestLocalOnly,
+  signedInNeedsBind,
   signedInActive,
   signedInExpired,
   signedOutRetainedLocal,
@@ -29,52 +31,54 @@ class AuthAccountState {
   }) : _session = session;
 
   const AuthAccountState.uninitialized()
-      : this._(phase: AuthAccountPhase.uninitialized);
+    : this._(phase: AuthAccountPhase.uninitialized);
 
-  const AuthAccountState.checking()
-      : this._(phase: AuthAccountPhase.checking);
+  const AuthAccountState.checking() : this._(phase: AuthAccountPhase.checking);
 
   const AuthAccountState.notConfigured()
-      : this._(
-          phase: AuthAccountPhase.notConfigured,
-          message: 'Supabase not configured',
-        );
+    : this._(
+        phase: AuthAccountPhase.notConfigured,
+        message: 'Supabase not configured',
+      );
 
   const AuthAccountState.guestLocalOnly([
     String message = 'Guest local-only mode',
-  ])
-      : this._(
-          phase: AuthAccountPhase.guestLocalOnly,
-          message: message,
-        );
+  ]) : this._(phase: AuthAccountPhase.guestLocalOnly, message: message);
 
   const AuthAccountState.signedOutRetainedLocal()
-      : this._(
-          phase: AuthAccountPhase.signedOutRetainedLocal,
-          message: 'Signed out; local learning data is retained',
-        );
+    : this._(
+        phase: AuthAccountPhase.signedOutRetainedLocal,
+        message: 'Signed out; local learning data is retained',
+      );
 
   const AuthAccountState.accountDeletedOrRevoked(String message)
-      : this._(
-          phase: AuthAccountPhase.accountDeletedOrRevoked,
-          message: message,
-        );
+    : this._(phase: AuthAccountPhase.accountDeletedOrRevoked, message: message);
 
   const AuthAccountState.error(String message)
-      : this._(phase: AuthAccountPhase.error, message: message);
+    : this._(phase: AuthAccountPhase.error, message: message);
 
   AuthAccountState.signedInActive(Session session)
-      : this._(phase: AuthAccountPhase.signedInActive, session: session);
+    : this._(phase: AuthAccountPhase.signedInActive, session: session);
+
+  AuthAccountState.signedInNeedsBind(Session session)
+    : this._(
+        phase: AuthAccountPhase.signedInNeedsBind,
+        session: session,
+        message:
+            'Signed in. Cloud sync is paused until local and cloud data are checked.',
+      );
 
   AuthAccountState.signedInExpired(String message, {Session? session})
-      : this._(
-          phase: AuthAccountPhase.signedInExpired,
-          session: session,
-          message: message,
-        );
+    : this._(
+        phase: AuthAccountPhase.signedInExpired,
+        session: session,
+        message: message,
+      );
 
   bool get isSignedIn =>
-      phase == AuthAccountPhase.signedInActive && _session != null;
+      (phase == AuthAccountPhase.signedInActive ||
+          phase == AuthAccountPhase.signedInNeedsBind) &&
+      _session != null;
 
   bool get allowsLocalStudy =>
       phase != AuthAccountPhase.uninitialized &&
@@ -92,12 +96,22 @@ class AuthAccountState {
 class AuthSessionManager {
   final SupabaseAuthGateway _auth;
   final bool Function() _isConfigured;
+  final LocalDataOwnerGateway? _localDataOwner;
+  final Future<void> Function(String userId)? _restoreCloudData;
+  final Future<void> Function()? _backfillLocalLearning;
 
   AuthSessionManager({
     SupabaseAuthGateway? auth,
     bool Function()? isConfigured,
-  })  : _auth = auth ?? SupabaseAuthService(),
-        _isConfigured = isConfigured ?? (() => SupabaseConfig.isConfigured);
+    LocalDataOwnerGateway? localDataOwner,
+    Future<void> Function(String userId)? restoreCloudData,
+    Future<void> Function()? backfillLocalLearning,
+  })
+    : _auth = auth ?? SupabaseAuthService(),
+      _isConfigured = isConfigured ?? (() => SupabaseConfig.isConfigured),
+      _localDataOwner = localDataOwner,
+      _restoreCloudData = restoreCloudData,
+      _backfillLocalLearning = backfillLocalLearning;
 
   Future<AuthAccountState> resolveStartupState() async {
     if (!_isConfigured()) {
@@ -144,6 +158,7 @@ class AuthSessionManager {
 
   Future<AuthAccountState> signOutRetainingLocalData() async {
     try {
+      await _localDataOwner?.preserveGuestLocalData();
       await _auth.signOut();
       return const AuthAccountState.signedOutRetainedLocal();
     } catch (error) {
@@ -156,20 +171,22 @@ class AuthSessionManager {
     String? emptyMessage,
   }) async {
     if (session == null) {
+      await _localDataOwner?.preserveGuestLocalData();
       return emptyMessage == null
           ? const AuthAccountState.guestLocalOnly()
           : AuthAccountState.guestLocalOnly(emptyMessage);
     }
 
     if (!session.isExpired) {
-      return AuthAccountState.signedInActive(session);
+      return _stateFromVerifiedSession(session);
     }
 
     try {
       final refreshed = await _auth.refreshSession();
-      final refreshedSession = refreshed.session ?? await _auth.restoreSession();
+      final refreshedSession =
+          refreshed.session ?? await _auth.restoreSession();
       if (refreshedSession != null && !refreshedSession.isExpired) {
-        return AuthAccountState.signedInActive(refreshedSession);
+        return _stateFromVerifiedSession(refreshedSession);
       }
     } catch (error) {
       return _stateFromAuthFailure(error, expiredSession: session);
@@ -179,6 +196,23 @@ class AuthSessionManager {
       'Supabase session is expired; local study remains available.',
       session: session,
     );
+  }
+
+  Future<AuthAccountState> _stateFromVerifiedSession(Session session) async {
+    try {
+      await _auth.verifyCloudDataAccess(session.user.id);
+      final ownerResult = await _localDataOwner?.reconcile(session.user.id);
+      if (ownerResult != null &&
+          !ownerResult.restoredSnapshot &&
+          (ownerResult.resetPerformed || !ownerResult.hasLocalLearningData)) {
+        await _restoreCloudData?.call(session.user.id);
+      } else if (ownerResult != null && ownerResult.hasLocalLearningData) {
+        await _backfillLocalLearning?.call();
+      }
+      return AuthAccountState.signedInActive(session);
+    } catch (_) {
+      return AuthAccountState.signedInNeedsBind(session);
+    }
   }
 
   AuthAccountState _stateFromAuthFailure(

@@ -29,7 +29,7 @@ pub fn build_wrong_words(entries: &mut [Value], filter: &str) -> Vec<Value> {
         }
     }
 
-    let mut merged_by_word = BTreeMap::<String, Value>::new();
+    let mut merged_by_entry_key = BTreeMap::<(String, String), Value>::new();
     for entry in entries.iter().filter(|entry| {
         entry
             .get("errorCount")
@@ -46,9 +46,15 @@ pub fn build_wrong_words(entries: &mut [Value], filter: &str) -> Vec<Value> {
         if word_key.is_empty() {
             continue;
         }
+        let entry_kind = entry
+            .get("entryKind")
+            .and_then(|v| v.as_str())
+            .unwrap_or("word")
+            .to_string();
+        let entry_key = (entry_kind, word_key);
 
-        let Some(existing) = merged_by_word.get_mut(&word_key) else {
-            merged_by_word.insert(word_key, entry.clone());
+        let Some(existing) = merged_by_entry_key.get_mut(&entry_key) else {
+            merged_by_entry_key.insert(entry_key, entry.clone());
             continue;
         };
 
@@ -85,7 +91,7 @@ pub fn build_wrong_words(entries: &mut [Value], filter: &str) -> Vec<Value> {
         merge_meanings(existing, entry);
     }
 
-    let mut result: Vec<Value> = merged_by_word.into_values().collect();
+    let mut result: Vec<Value> = merged_by_entry_key.into_values().collect();
     result.sort_by(|left, right| compare_wrong_word_entries(left, right, filter));
 
     if filter == "highPriority" {
@@ -302,5 +308,33 @@ mod tests {
         assert_eq!(result[0]["errorCount"], 6);
         assert_eq!(result[0]["lastWrongAt"], "2026-04-29T03:06:00Z");
         assert_eq!(result[0]["meanings"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_word_and_root_affix_entries_with_same_text_stay_separate() {
+        let mut entries = vec![
+            json!({
+                "entryId": 1,
+                "word": "abs",
+                "entryKind": "rootAffix",
+                "meanings": [],
+                "errorCount": 1,
+                "lastWrongAt": "2026-04-29T03:00:00Z",
+            }),
+            json!({
+                "entryId": 2,
+                "word": "Abs",
+                "entryKind": "word",
+                "meanings": ["abs meaning"],
+                "errorCount": 1,
+                "lastWrongAt": "2026-04-29T03:06:00Z",
+            }),
+        ];
+
+        let result = build_wrong_words(&mut entries, "all");
+
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().any(|entry| entry["entryKind"] == "rootAffix"));
+        assert!(result.iter().any(|entry| entry["entryKind"] == "word"));
     }
 }

@@ -20,6 +20,8 @@ abstract class SupabaseAuthGateway {
   Future<AuthResponse> refreshSession();
 
   Future<void> signOut();
+
+  Future<void> verifyCloudDataAccess(String userId);
 }
 
 class SupabaseAuthService implements SupabaseAuthGateway {
@@ -75,5 +77,12 @@ class SupabaseAuthService implements SupabaseAuthGateway {
   Future<void> signOut() async {
     await ensureInitialized();
     await client.auth.signOut();
+  }
+
+  @override
+  Future<void> verifyCloudDataAccess(String userId) async {
+    await ensureInitialized();
+    await client.from('profiles').select('user_id').eq('user_id', userId).limit(1);
+    await client.from('plan_configs').select('plan_id').eq('user_id', userId).limit(1);
   }
 }

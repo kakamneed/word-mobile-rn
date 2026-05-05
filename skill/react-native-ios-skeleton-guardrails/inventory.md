@@ -130,9 +130,9 @@ The Rust iOS FFI surface now exists for the full current bridge area, but these 
 
 ## Delivery entrypoints
 
-- Pod install entry: `apps/mobile/skill/rn-ios-skeleton-guardrails/workflow.md`
-- Baseline simulator build entry: `apps/mobile/skill/rn-ios-skeleton-guardrails/workflow.md`
-- Baseline archive entry for `ios-builder`: `apps/mobile/skill/rn-ios-skeleton-guardrails/workflow.md`
+- Pod install entry: `skill/react-native-ios-skeleton-guardrails/workflow.md`
+- Baseline simulator build entry: `skill/react-native-ios-skeleton-guardrails/workflow.md`
+- Baseline archive entry for `ios-builder`: `skill/react-native-ios-skeleton-guardrails/workflow.md`
 
 ## Next implementation order
 

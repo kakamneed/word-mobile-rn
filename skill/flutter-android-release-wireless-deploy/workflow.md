@@ -90,7 +90,25 @@ Finished `release` profile
 
 ### 4. Build Flutter Release APK
 
-Build through the Flutter project:
+Preferred path: use the repo deploy script so Supabase compile-time config,
+release environment, APK inspection, install, and launch stay together:
+
+```powershell
+Set-Location D:\projects\word-mobile-rn
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps\flutter_mobile\scripts\android-release-wireless-deploy.ps1
+```
+
+Expected Supabase env output:
+
+```text
+[env] Supabase dart-defines loaded from D:\projects\word-mobile-rn\.env.supabase.local
+```
+
+If the script warns that Supabase dart-defines were not found, do not use the APK
+for account/auth/cloud validation. Fix `D:\projects\word-mobile-rn\.env.supabase.local`
+first.
+
+Manual fallback, only when the deploy script cannot be used:
 
 ```powershell
 Set-Location D:\projects\word-mobile-rn\apps\flutter_mobile
@@ -99,8 +117,20 @@ $env:ANDROID_HOME='D:\Android\Sdk'
 $env:ANDROID_SDK_ROOT='D:\Android\Sdk'
 $env:GRADLE_USER_HOME='D:\projects\word-mobile-rn\apps\mobile\android_build2\.gradle-home'
 $env:ANDROID_USER_HOME='D:\projects\word-mobile-rn\.android-home'
-flutter build apk --release --no-pub
+$env:SUPABASE_URL='<load from D:\projects\word-mobile-rn\.env.supabase.local>'
+$env:SUPABASE_ANON_KEY='<load from D:\projects\word-mobile-rn\.env.supabase.local>'
+flutter build apk --release --no-pub `
+  --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
+  --dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY
 ```
+
+The repo script `apps/flutter_mobile/scripts/android-release-wireless-deploy.ps1`
+loads these values from `D:\projects\word-mobile-rn\.env.supabase.local` when it
+exists. If the values are missing, the Account drawer will show Supabase as not
+configured in the release APK.
+
+Never use bare `flutter build apk --release` for releases that need account,
+auth, cloud sync, or Supabase validation.
 
 Expected APK path:
 
@@ -231,7 +261,7 @@ package instead of failing with a signature mismatch.
 Do not use the old React Native cached-build workflow under:
 
 ```text
-apps/mobile/skill/android-release-wireless-deploy/
+skill/legacy-react-native-android-release-wireless-deploy/
 ```
 
 except as historical reference.

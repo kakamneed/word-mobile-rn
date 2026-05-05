@@ -193,6 +193,7 @@ tasks.register<Exec>("buildRustDebugArm64") {
 }
 
 tasks.register<Copy>("copyRustDebugArm64") {
+    dependsOn("buildRustDebugArm64")
     val sourceSo = file("${rustTargetDir.absolutePath}/${rustTargetTriple}/debug/lib${rustLibraryName}.so")
     onlyIf { sourceSo.exists() }
     from(sourceSo)
@@ -220,6 +221,7 @@ tasks.register<Exec>("buildRustReleaseArm64") {
 }
 
 tasks.register<Copy>("copyRustReleaseArm64") {
+    dependsOn("buildRustReleaseArm64")
     val sourceSo = file("${rustTargetDir.absolutePath}/${rustTargetTriple}/release/lib${rustLibraryName}.so")
     onlyIf { sourceSo.exists() }
     from(sourceSo)

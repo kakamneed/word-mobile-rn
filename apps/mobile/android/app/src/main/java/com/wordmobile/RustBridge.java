@@ -1,8 +1,12 @@
 package com.wordmobile;
 
 import android.content.Context;
+import android.content.res.AssetManager;
 import android.util.Log;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -41,18 +45,57 @@ public final class RustBridge {
     File filesDir = context.getFilesDir();
     File cacheDir = context.getCacheDir();
     File noBackupDir = context.getNoBackupFilesDir();
+    File bundledResourcesDir = new File(filesDir, "bundled_resources");
+    copyBundledAssetDirectory(context.getAssets(), "seed-vocab", new File(bundledResourcesDir, "seed-vocab"));
+    copyBundledAssetDirectory(context.getAssets(), "seed-medical", new File(bundledResourcesDir, "seed-medical"));
     String result =
         nativeInit(
             filesDir.getAbsolutePath(),
             noBackupDir.getAbsolutePath(),
             cacheDir.getAbsolutePath(),
-            context.getApplicationInfo().sourceDir);
+            bundledResourcesDir.getAbsolutePath());
 
     if (result == null || result.isEmpty()) {
       initialized = true;
       return "";
     }
     return result;
+  }
+
+  private static void copyBundledAssetDirectory(AssetManager assets, String assetPath, File targetDir) {
+    try {
+      String[] children = assets.list(assetPath);
+      if (children == null || children.length == 0) {
+        copyBundledAssetFile(assets, assetPath, targetDir);
+        return;
+      }
+      if (!targetDir.exists() && !targetDir.mkdirs()) {
+        Log.w(TAG, "Failed to create asset target dir: " + targetDir.getAbsolutePath());
+        return;
+      }
+      for (String child : children) {
+        copyBundledAssetDirectory(assets, assetPath + "/" + child, new File(targetDir, child));
+      }
+    } catch (IOException error) {
+      Log.w(TAG, "Failed to copy asset directory: " + assetPath, error);
+    }
+  }
+
+  private static void copyBundledAssetFile(AssetManager assets, String assetPath, File targetFile) {
+    File parent = targetFile.getParentFile();
+    if (parent != null && !parent.exists() && !parent.mkdirs()) {
+      Log.w(TAG, "Failed to create asset file parent: " + parent.getAbsolutePath());
+      return;
+    }
+    try (InputStream input = assets.open(assetPath); FileOutputStream output = new FileOutputStream(targetFile)) {
+      byte[] buffer = new byte[8192];
+      int read;
+      while ((read = input.read(buffer)) != -1) {
+        output.write(buffer, 0, read);
+      }
+    } catch (IOException error) {
+      Log.w(TAG, "Failed to copy asset file: " + assetPath, error);
+    }
   }
 
   public static JSONObject getBridgeStatus() {

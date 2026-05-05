@@ -101,6 +101,9 @@ create table public.wrong_word_entries (
   error_count integer not null default 0 check (error_count >= 0),
   last_wrong_at timestamptz not null,
   priority_score numeric not null default 0,
+  hint_text text not null default '',
+  hint_source text not null default '',
+  hint_updated_at timestamptz,
   projection_version bigint not null default 1,
   updated_at timestamptz not null default now(),
   primary key (user_id, entry_id)
@@ -142,6 +145,10 @@ for each row execute function public.set_updated_at();
 
 create trigger plan_configs_set_updated_at
 before update on public.plan_configs
+for each row execute function public.set_updated_at();
+
+create trigger wrong_word_entries_set_updated_at
+before update on public.wrong_word_entries
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user_profile()

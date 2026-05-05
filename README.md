@@ -36,7 +36,7 @@ apps/flutter_mobile/build/app/outputs/flutter-apk/app-release.apk
 ```
 
 The old React Native cached-build workflow under
-`apps/mobile/skill/android-release-wireless-deploy/` is deprecated for current
+`skill/legacy-react-native-android-release-wireless-deploy/` is deprecated for current
 delivery and should be used only as historical reference.
 
 ## Data Continuity

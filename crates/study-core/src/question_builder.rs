@@ -54,16 +54,18 @@ impl QuestionBuilder {
         let total_questions = (words.len() as u32) * (types.len() as u32);
         let mut questions = Vec::with_capacity(total_questions as usize);
         let mut question_index = 0u32;
+        let mut used_distractors = HashSet::new();
 
         for (type_round, qt) in types.iter().enumerate() {
             for word in Self::ordered_words_for_round(words, session_id, type_round) {
-                let question = Self::build_single_question(
+                let question = Self::build_single_question_with_used(
                     word,
                     qt,
                     distractors,
                     session_id,
                     question_index,
                     total_questions,
+                    &mut used_distractors,
                 );
                 questions.push(question);
                 question_index += 1;
@@ -113,16 +115,18 @@ impl QuestionBuilder {
         let total_questions = wrong_words.len() as u32;
         let mut questions = Vec::with_capacity(total_questions as usize);
         let mut question_index = 0u32;
+        let mut used_distractors = HashSet::new();
 
         for word in wrong_words {
             let qt = &types[(question_index as usize) % types.len()];
-            let question = Self::build_single_question(
+            let question = Self::build_single_question_with_used(
                 word,
                 qt,
                 distractors,
                 session_id,
                 question_index,
                 total_questions,
+                &mut used_distractors,
             );
             questions.push(question);
             question_index += 1;
@@ -149,16 +153,18 @@ impl QuestionBuilder {
         let total_questions = words.len() as u32;
         let mut questions = Vec::with_capacity(total_questions as usize);
         let mut question_index = 0u32;
+        let mut used_distractors = HashSet::new();
 
         for word in words {
             let qt = &types[(question_index as usize) % types.len()];
-            let question = Self::build_single_question(
+            let question = Self::build_single_question_with_used(
                 word,
                 qt,
                 distractors,
                 session_id,
                 question_index,
                 total_questions,
+                &mut used_distractors,
             );
             questions.push(question);
             question_index += 1;
@@ -167,6 +173,7 @@ impl QuestionBuilder {
         questions
     }
 
+    #[cfg(test)]
     fn build_single_question(
         word: &WordForQuestion,
         question_type: &QuestionType,
@@ -174,6 +181,27 @@ impl QuestionBuilder {
         session_id: &str,
         question_index: u32,
         total_questions: u32,
+    ) -> StudyQuestion {
+        let mut used_distractors = HashSet::new();
+        Self::build_single_question_with_used(
+            word,
+            question_type,
+            distractors,
+            session_id,
+            question_index,
+            total_questions,
+            &mut used_distractors,
+        )
+    }
+
+    fn build_single_question_with_used(
+        word: &WordForQuestion,
+        question_type: &QuestionType,
+        distractors: &[WordForQuestion],
+        session_id: &str,
+        question_index: u32,
+        total_questions: u32,
+        used_distractors: &mut HashSet<String>,
     ) -> StudyQuestion {
         let accepted_meanings: Vec<String> =
             word.meanings.iter().map(|m| m.meaning_cn.clone()).collect();
@@ -195,6 +223,7 @@ impl QuestionBuilder {
                     &accepted_meanings,
                     word.part_of_speech.as_deref(),
                     question_index,
+                    used_distractors,
                 );
                 StudyQuestion {
                     question_id,
@@ -227,6 +256,7 @@ impl QuestionBuilder {
                     &accepted_meanings,
                     word.part_of_speech.as_deref(),
                     question_index,
+                    used_distractors,
                 );
                 StudyQuestion {
                     question_id,
@@ -252,7 +282,7 @@ impl QuestionBuilder {
                     .map(|meaning| Self::sanitize_choice_text(meaning))
                     .unwrap_or_default();
                 let (choices, correct_label) =
-                    Self::build_en_choices(word, distractors, question_index);
+                    Self::build_en_choices(word, distractors, question_index, used_distractors);
                 StudyQuestion {
                     question_id,
                     question_type: QuestionType::CnToEnChoice,
@@ -359,6 +389,7 @@ impl QuestionBuilder {
         accepted_meanings: &[String],
         target_pos: Option<&str>,
         question_index: u32,
+        used_distractors: &mut HashSet<String>,
     ) -> (Vec<ChoiceOption>, String) {
         let correct_text = Self::sanitize_choice_text(correct_text);
         let mut excluded_meanings: HashSet<String> = accepted_meanings
@@ -366,12 +397,13 @@ impl QuestionBuilder {
             .map(|meaning| Self::sanitize_choice_text(meaning))
             .collect();
         let mut distractor_texts = if target_pos.is_some() {
-            Self::collect_distractor_texts(
+            Self::collect_ranked_distractor_texts(
                 distractors,
                 question_index,
                 &correct_text,
+                &correct_text,
                 |candidate| Self::choice_meanings_for_distractor(candidate, target_pos),
-                |text| !excluded_meanings.contains(text),
+                |text| !excluded_meanings.contains(text) && !used_distractors.contains(text),
             )
         } else {
             Vec::new()
@@ -382,12 +414,13 @@ impl QuestionBuilder {
         }
 
         if distractor_texts.len() < 3 {
-            let fallback_texts = Self::collect_distractor_texts(
+            let fallback_texts = Self::collect_ranked_distractor_texts(
                 distractors,
                 question_index,
                 &correct_text,
+                &correct_text,
                 Self::all_meanings_for_word,
-                |text| !excluded_meanings.contains(text),
+                |text| !excluded_meanings.contains(text) && !used_distractors.contains(text),
             );
             for text in fallback_texts {
                 if distractor_texts.len() >= 3 {
@@ -396,6 +429,29 @@ impl QuestionBuilder {
                 excluded_meanings.insert(text.clone());
                 distractor_texts.push(text);
             }
+        }
+
+        if distractor_texts.len() < 3 {
+            let relaxed_texts = Self::collect_ranked_distractor_texts(
+                distractors,
+                question_index,
+                &correct_text,
+                &correct_text,
+                Self::all_meanings_for_word,
+                |text| !excluded_meanings.contains(text),
+            );
+            for text in relaxed_texts {
+                if distractor_texts.len() >= 3 {
+                    break;
+                }
+                if !distractor_texts.contains(&text) {
+                    excluded_meanings.insert(text.clone());
+                    distractor_texts.push(text);
+                }
+            }
+        }
+        for text in &distractor_texts {
+            used_distractors.insert(text.clone());
         }
 
         let choice_count = distractor_texts.len() + 1;
@@ -429,13 +485,20 @@ impl QuestionBuilder {
         word: &WordForQuestion,
         distractors: &[WordForQuestion],
         question_index: u32,
+        used_distractors: &mut HashSet<String>,
     ) -> (Vec<ChoiceOption>, String) {
         let correct_text = word.word.clone();
         let labels = ["A", "B", "C", "D"];
-        let mut distractor_texts = Self::collect_distractor_texts(
+        let correct_meaning = word
+            .meanings
+            .first()
+            .map(|meaning| meaning.meaning_cn.as_str())
+            .unwrap_or("");
+        let mut distractor_texts = Self::collect_ranked_distractor_texts(
             distractors,
             question_index,
             &word.source_id,
+            correct_meaning,
             |candidate| {
                 if same_part_of_speech(
                     word.part_of_speech.as_deref(),
@@ -446,14 +509,33 @@ impl QuestionBuilder {
                     Vec::new()
                 }
             },
-            |text| text != &correct_text,
+            |text| text != &correct_text && !used_distractors.contains(text),
         );
         if distractor_texts.len() < 3 {
             let mut seen: HashSet<String> = distractor_texts.iter().cloned().collect();
-            for text in Self::collect_distractor_texts(
+            for text in Self::collect_ranked_distractor_texts(
                 distractors,
                 question_index,
                 &word.source_id,
+                correct_meaning,
+                |candidate| vec![candidate.word.clone()],
+                |text| text != &correct_text && !used_distractors.contains(text),
+            ) {
+                if seen.insert(text.clone()) {
+                    distractor_texts.push(text);
+                }
+                if distractor_texts.len() >= 3 {
+                    break;
+                }
+            }
+        }
+        if distractor_texts.len() < 3 {
+            let mut seen: HashSet<String> = distractor_texts.iter().cloned().collect();
+            for text in Self::collect_ranked_distractor_texts(
+                distractors,
+                question_index,
+                &word.source_id,
+                correct_meaning,
                 |candidate| vec![candidate.word.clone()],
                 |text| text != &correct_text,
             ) {
@@ -464,6 +546,9 @@ impl QuestionBuilder {
                     break;
                 }
             }
+        }
+        for text in &distractor_texts {
+            used_distractors.insert(text.clone());
         }
 
         let choice_count = distractor_texts.len() + 1;
@@ -492,10 +577,11 @@ impl QuestionBuilder {
         (options, correct_label)
     }
 
-    fn collect_distractor_texts<FMap, FFilter>(
+    fn collect_ranked_distractor_texts<FMap, FFilter>(
         distractors: &[WordForQuestion],
         question_index: u32,
         source_id: &str,
+        correct_hint: &str,
         values_for_word: FMap,
         should_keep: FFilter,
     ) -> Vec<String>
@@ -503,34 +589,81 @@ impl QuestionBuilder {
         FMap: Fn(&WordForQuestion) -> Vec<String>,
         FFilter: Fn(&String) -> bool,
     {
-        if distractors.is_empty() {
-            return Vec::new();
-        }
-
-        let start_offset = (Self::stable_seed(source_id).wrapping_add(question_index as usize))
-            % distractors.len();
-        let mut collected = Vec::new();
+        let mut candidates = Vec::<(usize, String)>::new();
         let mut seen = HashSet::new();
+        let correct_norm = normalize_context_text(correct_hint);
 
-        for step in 0..distractors.len() {
-            let index = (start_offset + step) % distractors.len();
-            for text in values_for_word(&distractors[index]) {
+        for candidate in distractors {
+            for text in values_for_word(candidate) {
                 if !should_keep(&text) || !seen.insert(text.clone()) {
                     continue;
                 }
-                collected.push(text);
-                if collected.len() >= 3 {
-                    return collected;
-                }
+                let text_norm = normalize_context_text(&text);
+                let semantic_score = distractor_similarity_score(&correct_norm, &text_norm);
+                candidates.push((semantic_score, text));
             }
         }
 
-        collected
+        candidates.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
+        let quality_window = Self::distractor_quality_window(&candidates);
+        let mut pool = candidates
+            .into_iter()
+            .take(quality_window)
+            .collect::<Vec<_>>();
+        pool.sort_by(|left, right| {
+            let left_key = Self::stable_distractor_seed(&format!(
+                "{source_id}:{question_index}:{correct_hint}:{}",
+                left.1
+            ));
+            let right_key = Self::stable_distractor_seed(&format!(
+                "{source_id}:{question_index}:{correct_hint}:{}",
+                right.1
+            ));
+            left_key.cmp(&right_key).then_with(|| left.1.cmp(&right.1))
+        });
+        pool.into_iter().take(3).map(|(_, text)| text).collect()
+    }
+
+    fn distractor_quality_window(candidates: &[(usize, String)]) -> usize {
+        if candidates.is_empty() {
+            return 0;
+        }
+
+        if candidates.len() <= 8 {
+            let mut window = candidates.len().min(3);
+            while window < candidates.len() {
+                let previous_score = candidates[window - 1].0;
+                let next_score = candidates[window].0;
+                if previous_score != next_score {
+                    break;
+                }
+                window += 1;
+            }
+            return window;
+        }
+
+        let minimum_window = candidates.len().min(16);
+        let mut window = candidates.len().min(3);
+        while window < candidates.len() && window < 64 {
+            let previous_score = candidates[window - 1].0;
+            let next_score = candidates[window].0;
+            if window >= minimum_window && previous_score != next_score {
+                break;
+            }
+            window += 1;
+        }
+        window
     }
 
     fn stable_seed(text: &str) -> usize {
         text.bytes().fold(0usize, |acc, byte| {
             acc.wrapping_mul(33).wrapping_add(byte as usize)
+        })
+    }
+
+    fn stable_distractor_seed(text: &str) -> usize {
+        text.bytes().fold(0xcbf29ce484222325usize, |acc, byte| {
+            (acc ^ byte as usize).wrapping_mul(0x100000001b3usize)
         })
     }
 
@@ -741,9 +874,23 @@ fn context_overlap_score(translation: &str, meaning: &str) -> usize {
         .count()
 }
 
+fn distractor_similarity_score(correct: &str, candidate: &str) -> usize {
+    if correct.is_empty() || candidate.is_empty() {
+        return 0;
+    }
+    let overlap = candidate
+        .chars()
+        .filter(|ch| correct.contains(*ch))
+        .count()
+        .saturating_mul(8);
+    let len_gap = correct.chars().count().abs_diff(candidate.chars().count());
+    overlap.saturating_sub(len_gap)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{QuestionBuilder, WordForQuestion};
+    use std::collections::HashSet;
     use word_storage_core::models::{EntryExample, MeaningZh, QuestionType, SessionMode};
 
     fn build_word(
@@ -821,6 +968,178 @@ mod tests {
         for text in texts.iter().filter(|text| *text != "咕哝；抱怨") {
             assert!(allowed.contains(&text.as_str()));
         }
+    }
+
+    #[test]
+    fn en_to_cn_choices_rank_same_pos_distractors_by_meaning_similarity() {
+        let target = build_word(
+            "foundation",
+            "foundation",
+            Some("n"),
+            &[("n", "基础，根本；建立，创立；地基；基金，基金会")],
+            None,
+        );
+        let distractors = vec![
+            build_word(
+                "scratch",
+                "scratch",
+                Some("n"),
+                &[("n", "抓，搔；抓痕；起跑线")],
+                None,
+            ),
+            build_word(
+                "investment",
+                "investment",
+                Some("n"),
+                &[("n", "投资，投资额；基金")],
+                None,
+            ),
+            build_word(
+                "basis",
+                "basis",
+                Some("n"),
+                &[("n", "基础，基准；根据")],
+                None,
+            ),
+            build_word(
+                "establishment",
+                "establishment",
+                Some("n"),
+                &[("n", "建立，创立；机构")],
+                None,
+            ),
+            build_word(
+                "narrative",
+                "narrative",
+                Some("n"),
+                &[("n", "叙述；记叙文")],
+                None,
+            ),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::EnToCnChoice,
+            &distractors,
+            "sess",
+            0,
+            1,
+        );
+
+        let texts: Vec<String> = question
+            .choices
+            .expect("choices should exist")
+            .into_iter()
+            .map(|choice| choice.text)
+            .collect();
+        assert!(texts.contains(&"基础，基准；根据".to_string()));
+        assert!(texts.contains(&"投资，投资额；基金".to_string()));
+        assert!(texts.contains(&"建立，创立；机构".to_string()));
+        assert!(!texts.contains(&"抓，搔；抓痕；起跑线".to_string()));
+        assert!(!texts.contains(&"叙述；记叙文".to_string()));
+    }
+
+    #[test]
+    fn session_choice_distractors_avoid_repeating_across_words() {
+        let words = vec![
+            build_word("w1", "basis", Some("n"), &[("n", "基础，基准")], None),
+            build_word("w2", "fund", Some("n"), &[("n", "基金，资金")], None),
+            build_word("w3", "building", Some("n"), &[("n", "建筑物，楼房")], None),
+        ];
+        let distractors = vec![
+            build_word("d1", "foundation", Some("n"), &[("n", "基础，地基")], None),
+            build_word("d2", "capital", Some("n"), &[("n", "资金，资本")], None),
+            build_word("d3", "structure", Some("n"), &[("n", "建筑物，结构")], None),
+            build_word("d4", "support", Some("n"), &[("n", "支撑，支持")], None),
+            build_word("d5", "grant", Some("n"), &[("n", "补助金，拨款")], None),
+            build_word("d6", "house", Some("n"), &[("n", "房屋，住宅")], None),
+            build_word("d7", "principle", Some("n"), &[("n", "原则，根本")], None),
+            build_word("d8", "budget", Some("n"), &[("n", "预算，经费")], None),
+            build_word("d9", "tower", Some("n"), &[("n", "塔，塔楼")], None),
+        ];
+
+        let questions = QuestionBuilder::build_session_questions(
+            &SessionMode::MixedTest,
+            &words,
+            &distractors,
+            "sess_no_repeat",
+        );
+
+        let mut seen = HashSet::new();
+        for question in questions
+            .iter()
+            .filter(|question| question.question_type == QuestionType::EnToCnChoice)
+        {
+            let correct_label = question.correct_choice_label.as_deref().unwrap_or("");
+            for choice in question.choices.as_ref().expect("choices should exist") {
+                if choice.label != correct_label {
+                    assert!(
+                        seen.insert(choice.text.clone()),
+                        "distractor repeated in one session: {}",
+                        choice.text
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn session_choice_distractors_vary_across_large_candidate_pool() {
+        let words: Vec<WordForQuestion> = (0..32)
+            .map(|index| {
+                build_word(
+                    &format!("w{index}"),
+                    &format!("target{index}"),
+                    Some("n."),
+                    &[("n.", "core shared meaning")],
+                    None,
+                )
+            })
+            .collect();
+        let distractors: Vec<WordForQuestion> = (0..96)
+            .map(|index| {
+                build_word(
+                    &format!("d{index}"),
+                    &format!("distractor{index}"),
+                    Some("n."),
+                    &[("n.", &format!("core shared nearby meaning {index}"))],
+                    None,
+                )
+            })
+            .collect();
+
+        let questions = QuestionBuilder::build_session_questions(
+            &SessionMode::MixedTest,
+            &words,
+            &distractors,
+            "sess_variety",
+        );
+
+        let mut choice_sets = HashSet::new();
+        for question in questions.iter().filter(|question| {
+            matches!(
+                question.question_type,
+                QuestionType::EnToCnChoice | QuestionType::ExampleToCnChoice
+            )
+        }) {
+            let correct_label = question.correct_choice_label.as_deref().unwrap_or("");
+            let mut distractor_texts = question
+                .choices
+                .as_ref()
+                .expect("choices should exist")
+                .iter()
+                .filter(|choice| choice.label != correct_label)
+                .map(|choice| choice.text.clone())
+                .collect::<Vec<_>>();
+            distractor_texts.sort();
+            choice_sets.insert(distractor_texts.join("|"));
+        }
+
+        assert!(
+            choice_sets.len() >= 15,
+            "choice distractors should vary across a large candidate pool, got {} sets",
+            choice_sets.len()
+        );
     }
 
     #[test]
