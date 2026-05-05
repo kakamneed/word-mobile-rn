@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
+import '../widgets/crocodile_frame_animation.dart';
 
 class AiScreen extends StatefulWidget {
   const AiScreen({
@@ -43,9 +44,9 @@ class _AiScreenState extends State<AiScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool showFullLoading = true}) async {
     setState(() {
-      _loading = true;
+      if (showFullLoading) _loading = true;
       _message = null;
     });
     try {
@@ -540,9 +541,9 @@ class _AiScreenState extends State<AiScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('AI 短文')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
+          ? const CrocodileLoadingAnimation(label: '加载中...')
+          : CrocodileRefreshIndicator(
+              onRefresh: () => _load(showFullLoading: false),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),

@@ -5,6 +5,7 @@ import 'features/onboarding_flow.dart';
 import 'features/theme_settings.dart';
 import 'sdk/sdk.dart';
 import 'state/app_state.dart';
+import 'widgets/crocodile_frame_animation.dart';
 
 void main() {
   runApp(const MyApp());
@@ -129,9 +130,15 @@ class _BootstrapLoadingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
+            CrocodileFrameAnimation(
+              frames: CrocodileFrameAnimation.rollFrames,
+              width: 172,
+              height: 132,
+              frameDuration: Duration(milliseconds: 130),
+              semanticLabel: 'Loading',
+            ),
             SizedBox(height: 16),
-            Text('正在初始化学习引擎...'),
+            Text('Loading study engine...'),
           ],
         ),
       ),

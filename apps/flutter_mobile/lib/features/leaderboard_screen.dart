@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 import '../supabase/leaderboard_service.dart';
 import '../supabase/supabase_config.dart';
+import '../widgets/crocodile_frame_animation.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   LeaderboardScreen({
@@ -32,9 +33,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     _load(refreshSummary: true);
   }
 
-  Future<void> _load({bool refreshSummary = false}) async {
+  Future<void> _load({
+    bool refreshSummary = false,
+    bool showFullLoading = true,
+  }) async {
     setState(() {
-      _loading = true;
+      if (showFullLoading) _loading = true;
       _message = null;
     });
     try {
@@ -146,11 +150,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           if (_refreshingSummary) const LinearProgressIndicator(),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const CrocodileLoadingAnimation(label: '加载中...')
                 : _entries.isEmpty
                     ? _EmptyLeaderboard(message: _message)
-                    : RefreshIndicator(
-                        onRefresh: () => _load(refreshSummary: true),
+                    : CrocodileRefreshIndicator(
+                        onRefresh: () => _load(
+                          refreshSummary: true,
+                          showFullLoading: false,
+                        ),
                         child: ListView.separated(
                           padding: const EdgeInsets.all(16),
                           itemBuilder: (context, index) {

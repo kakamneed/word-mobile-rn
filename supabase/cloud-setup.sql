@@ -142,6 +142,29 @@ create table public.report_snapshots (
   primary key (user_id, snapshot_date)
 );
 
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(trim(title)) > 0),
+  body text not null check (char_length(trim(body)) > 0),
+  level text not null default 'info',
+  priority integer not null default 0,
+  is_active boolean not null default false,
+  published_at timestamptz not null default now(),
+  starts_at timestamptz,
+  ends_at timestamptz,
+  target_platform text not null default 'all',
+  min_app_version text,
+  max_app_version text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint announcements_level_check
+    check (level in ('info', 'success', 'warning', 'critical')),
+  constraint announcements_target_platform_check
+    check (target_platform in ('all', 'android', 'ios')),
+  constraint announcements_time_window_check
+    check (ends_at is null or starts_at is null or ends_at > starts_at)
+);
+
 create index devices_user_id_idx on public.devices(user_id);
 create index devices_user_active_idx on public.devices(user_id, revoked_at);
 create index plan_configs_user_id_idx on public.plan_configs(user_id);
@@ -151,6 +174,16 @@ create index study_events_device_time_idx on public.study_events(device_id, occu
 create index study_word_points_user_date_idx on public.study_word_points(user_id, point_date);
 create index sync_dead_letters_user_created_idx on public.sync_dead_letters(user_id, created_at);
 create index ai_passages_user_generated_idx on public.ai_passages(user_id, generated_at);
+create index if not exists announcements_active_lookup_idx
+  on public.announcements (
+    is_active,
+    target_platform,
+    priority desc,
+    published_at desc
+  );
+create index if not exists announcements_active_window_idx
+  on public.announcements (published_at, starts_at, ends_at)
+  where is_active = true;
 
 create trigger profiles_set_updated_at
 before update on public.profiles
@@ -170,6 +203,10 @@ for each row execute function public.set_updated_at();
 
 create trigger wrong_word_entries_set_updated_at
 before update on public.wrong_word_entries
+for each row execute function public.set_updated_at();
+
+create trigger announcements_set_updated_at
+before update on public.announcements
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user_profile()
@@ -287,6 +324,7 @@ alter table public.sync_dead_letters enable row level security;
 alter table public.wrong_word_entries enable row level security;
 alter table public.ai_passages enable row level security;
 alter table public.report_snapshots enable row level security;
+alter table public.announcements enable row level security;
 
 create policy profiles_owner_select on public.profiles
 for select using (auth.uid() = user_id);
@@ -396,6 +434,14 @@ for insert with check (auth.uid() = user_id);
 create policy report_snapshots_owner_update on public.report_snapshots
 for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+create policy announcements_public_active_select on public.announcements
+for select using (
+  is_active = true
+  and published_at <= now()
+  and (starts_at is null or starts_at <= now())
+  and (ends_at is null or ends_at > now())
+);
+
 insert into storage.buckets (id, name, public)
 values ('ai-passages', 'ai-passages', false)
 on conflict (id) do nothing;
@@ -426,3 +472,5 @@ for delete using (
   bucket_id = 'ai-passages'
   and auth.uid()::text = (storage.foldername(name))[1]
 );
+
+notify pgrst, 'reload schema';

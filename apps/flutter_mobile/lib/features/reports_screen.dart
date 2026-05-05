@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
+import '../widgets/crocodile_frame_animation.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key, required this.sdk});
@@ -26,9 +27,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool showFullLoading = true}) async {
     setState(() {
-      _loading = true;
+      if (showFullLoading) _loading = true;
       _error = null;
     });
     try {
@@ -84,13 +85,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('报告')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
               ? _ReportsMessage(message: _error!, onRetry: _load)
               : reports == null
                   ? _ReportsMessage(message: '还没有可展示的学习报告。', onRetry: _load)
-                  : RefreshIndicator(
-                      onRefresh: _load,
+                  : CrocodileRefreshIndicator(
+                      onRefresh: () => _load(showFullLoading: false),
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [

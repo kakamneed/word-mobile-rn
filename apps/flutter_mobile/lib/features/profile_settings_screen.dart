@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../widgets/crocodile_frame_animation.dart';
+
 import '../state/app_state.dart';
 
 const _displayNameKey = 'account.profile.display_name';
@@ -240,7 +242,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('个人信息')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CrocodileLoadingAnimation(label: '加载中...')
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [

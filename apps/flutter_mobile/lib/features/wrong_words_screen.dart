@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
+import '../widgets/crocodile_frame_animation.dart';
 import 'study_screen.dart';
 
 class WrongWordsScreen extends StatefulWidget {
@@ -98,9 +99,9 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     });
   }
 
-  Future<void> _loadAll() async {
+  Future<void> _loadAll({bool showFullLoading = true}) async {
     setState(() {
-      _loading = true;
+      if (showFullLoading) _loading = true;
       _error = null;
     });
     try {
@@ -405,7 +406,11 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       child: _loadingDetail
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+              child: CrocodileLoadingAnimation(
+                label: '加载中...',
+                width: 120,
+                height: 92,
+              ),
             )
           : _detail == null
               ? const Text('暂无详情')
@@ -558,11 +563,11 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('错词本')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
               ? _WrongWordsMessage(message: _error!, onRetry: _loadAll)
-              : RefreshIndicator(
-                  onRefresh: _loadAll,
+              : CrocodileRefreshIndicator(
+                  onRefresh: () => _loadAll(showFullLoading: false),
                   child: ListView(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),

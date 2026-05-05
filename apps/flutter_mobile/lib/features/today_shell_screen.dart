@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 
 import '../sdk/sdk.dart';
 import '../state/app_state.dart';
+import '../supabase/announcement_service.dart';
 import '../supabase/auth_session_manager.dart';
 import '../supabase/supabase_config.dart';
+import '../widgets/crocodile_frame_animation.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
 import 'plan_screen.dart';
@@ -44,6 +46,7 @@ class TodayShellScreen extends StatefulWidget {
 }
 
 class _TodayShellScreenState extends State<TodayShellScreen> {
+  final _announcementService = AnnouncementService();
   _TodayHomeBundle? _cachedBundle;
   Object? _loadError;
   int _loadGeneration = 0;
@@ -80,6 +83,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     final rewardStateFuture = _optionalLoad(
       widget.appState.sdk.rewards.getTodayRewardState,
     );
+    final announcementsFuture = _optionalLoad(
+      _announcementService.fetchVisibleAnnouncements,
+      fallback: const <CloudAnnouncement>[],
+    );
     final syncStatusFuture = _optionalLoad(() async {
       if (widget.appState.authState.allowsCloudWork) {
         return widget.appState.sdk.sync.flushPendingToCloud();
@@ -102,9 +109,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     }
 
     final aiContext = await aiContextFuture;
-    final aiHistory =
-        await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
+    final aiHistory = await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
     final rewardState = await rewardStateFuture;
+    final announcements =
+        await announcementsFuture ?? const <CloudAnnouncement>[];
     final syncStatus = await syncStatusFuture;
 
     return _TodayHomeBundle(
@@ -113,8 +121,23 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       aiContext: aiContext,
       aiHistory: aiHistory,
       rewardState: rewardState,
+      announcements: announcements,
       syncStatus: syncStatus,
     );
+  }
+
+  Future<void> _dismissAnnouncement(CloudAnnouncement announcement) async {
+    await _announcementService.dismiss(announcement.id);
+    if (!mounted) return;
+    final current = _cachedBundle;
+    if (current == null) return;
+    setState(() {
+      _cachedBundle = current.copyWith(
+        announcements: current.announcements
+            .where((item) => item.id != announcement.id)
+            .toList(growable: false),
+      );
+    });
   }
 
   Future<T?> _optionalLoad<T>(
@@ -301,11 +324,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     }
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            AuthScreen(
-              sdk: widget.appState.sdk,
-              onAuthChanged: widget.appState.applyAuthState,
-            ),
+        builder: (_) => AuthScreen(
+          sdk: widget.appState.sdk,
+          onAuthChanged: widget.appState.applyAuthState,
+        ),
       ),
     );
     _triggerReload();
@@ -355,7 +377,7 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     final cachedBundle = _cachedBundle;
     if (cachedBundle == null) {
       if (_loading) {
-        return const Center(child: CircularProgressIndicator());
+        return const CrocodileLoadingAnimation(label: '加载中...');
       }
       if (_loadError != null) {
         final message = _loadError is Exception
@@ -372,140 +394,140 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       ConnectionState.done,
       cachedBundle,
     );
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const CrocodileLoadingAnimation(label: '加载中...');
+    }
 
-          if (snapshot.hasError) {
-            final error = snapshot.error;
-            final message = error is Exception ? error.toString() : '未知今日页错误';
-            return _SectionCard(title: '今日页加载失败', child: Text(message));
-          }
+    if (snapshot.hasError) {
+      final error = snapshot.error;
+      final message = error is Exception ? error.toString() : '未知今日页错误';
+      return _SectionCard(title: '今日页加载失败', child: Text(message));
+    }
 
-          final bundle = snapshot.data;
-          if (bundle == null) {
-            return const _SectionCard(
-              title: '暂无今日数据',
-              child: Text('学习引擎没有返回今日页数据。'),
-            );
-          }
+    final bundle = snapshot.data;
+    if (bundle == null) {
+      return const _SectionCard(title: '暂无今日数据', child: Text('学习引擎没有返回今日页数据。'));
+    }
 
-          final snapshotMap = _snapshotOrPlanFallback(
-            bundle.today.todaySnapshot,
-            bundle.activePlan,
-          );
-          final hasSnapshot = _hasUsableSnapshot(snapshotMap);
-          final primaryAction = _buildPrimaryAction(
-            snapshotMap,
+    final snapshotMap = _snapshotOrPlanFallback(
+      bundle.today.todaySnapshot,
+      bundle.activePlan,
+    );
+    final hasSnapshot = _hasUsableSnapshot(snapshotMap);
+    final primaryAction = _buildPrimaryAction(
+      snapshotMap,
+      hasSnapshot: hasSnapshot,
+      hasActivePlan: bundle.activePlan != null,
+    );
+    final completion = hasSnapshot
+        ? _calculateCompletion(snapshotMap, bundle.activePlan)
+        : null;
+    final taskItems = _buildTaskItems(snapshotMap, bundle.activePlan);
+    final tasksComplete =
+        bundle.aiContext?.tasksComplete ?? ((completion ?? 0) >= 100);
+
+    Future<void> handlePrimaryAction() async {
+      switch (primaryAction.mode) {
+        case 'planSetup':
+          await _openPlan();
+          return;
+        case 'syncToday':
+          await _applyPlanToToday();
+          if (widget.appState.authState.allowsCloudWork) {
+            await widget.appState.sdk.sync.flushPendingToCloud();
+          }
+          return;
+        case 'done':
+          await _openAi();
+          return;
+        default:
+          await _openStudy(primaryAction.mode);
+          return;
+      }
+    }
+
+    return CrocodileRefreshIndicator(
+      onRefresh: () => _refreshHomeBundle(),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (bundle.announcements.isNotEmpty)
+            _AnnouncementBanner(
+              announcement: bundle.announcements.first,
+              onDismiss: () => _dismissAnnouncement(bundle.announcements.first),
+            ),
+          _PrimaryActionCard(
+            action: primaryAction,
+            completion: completion,
+            todayDate: bundle.today.todayDate,
+            onStart: handlePrimaryAction,
+          ),
+          _TaskBreakdownCard(
+            items: taskItems,
+            onStartStudy: _openStudy,
             hasSnapshot: hasSnapshot,
+            onOpenPlan: _openPlan,
+            onSyncToday: _applyPlanToToday,
             hasActivePlan: bundle.activePlan != null,
-          );
-          final completion = hasSnapshot
-              ? _calculateCompletion(snapshotMap, bundle.activePlan)
-              : null;
-          final taskItems = _buildTaskItems(snapshotMap, bundle.activePlan);
-          final tasksComplete =
-              bundle.aiContext?.tasksComplete ?? ((completion ?? 0) >= 100);
-
-          Future<void> handlePrimaryAction() async {
-            switch (primaryAction.mode) {
-              case 'planSetup':
-                await _openPlan();
-                return;
-              case 'syncToday':
-                await _applyPlanToToday();
-                if (widget.appState.authState.allowsCloudWork) {
-                  await widget.appState.sdk.sync.flushPendingToCloud();
-                }
-                return;
-              case 'done':
-                await _openAi();
-                return;
-              default:
-                await _openStudy(primaryAction.mode);
-                return;
-            }
-          }
-
-          return RefreshIndicator(
-            onRefresh: () => _refreshHomeBundle(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+          ),
+          _AiShortcutCard(
+            sdk: widget.appState.sdk,
+            context: bundle.aiContext,
+            history: bundle.aiHistory,
+            isSignedIn: widget.appState.isSignedIn,
+            isGenerating: _aiGenerating,
+            message: _aiMessage,
+            onGenerate: () => _generateAiPassage(bundle.aiContext),
+          ),
+          _RewardSlotMachineCard(
+            sdk: widget.appState.sdk,
+            isSignedIn: widget.appState.isSignedIn,
+            tasksComplete: tasksComplete,
+            rewardState: bundle.rewardState,
+          ),
+          _SectionCard(
+            title: '开发诊断',
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text('查看启动、账号与同步详情'),
               children: [
-              _PrimaryActionCard(
-                action: primaryAction,
-                completion: completion,
-                todayDate: bundle.today.todayDate,
-                onStart: handlePrimaryAction,
-              ),
-              _TaskBreakdownCard(
-                items: taskItems,
-                onStartStudy: _openStudy,
-                hasSnapshot: hasSnapshot,
-                onOpenPlan: _openPlan,
-                onSyncToday: _applyPlanToToday,
-                hasActivePlan: bundle.activePlan != null,
-              ),
-              _AiShortcutCard(
-                sdk: widget.appState.sdk,
-                context: bundle.aiContext,
-                history: bundle.aiHistory,
-                isSignedIn: widget.appState.isSignedIn,
-                isGenerating: _aiGenerating,
-                message: _aiMessage,
-                onGenerate: () => _generateAiPassage(bundle.aiContext),
-              ),
-              _RewardSlotMachineCard(
-                sdk: widget.appState.sdk,
-                isSignedIn: widget.appState.isSignedIn,
-                tasksComplete: tasksComplete,
-                rewardState: bundle.rewardState,
-              ),
-              _SectionCard(
-                title: '开发诊断',
-                child: ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: EdgeInsets.zero,
-                  title: const Text('查看启动、账号与同步详情'),
-                  children: [
-                    Text('今日日期：${bundle.today.todayDate}'),
-                    Text(
-                      '应用就绪：${widget.appState.bootstrapState?.appReady ?? false}',
-                    ),
-                    Text(
-                      '需要首次初始化：'
-                      '${widget.appState.bootstrapState?.firstRunRequired ?? false}',
-                    ),
-                    Text(
-                      '账号：${_accountPhaseLabel(widget.appState.authPhase, widget.appState.authState.userEmail)}',
-                    ),
-                    Text(
-                      '允许本地学习：${widget.appState.authState.allowsLocalStudy}',
-                    ),
-                    Text('可用云同步：${widget.appState.authState.allowsCloudWork}'),
-                    if (widget.appState.authMessage != null)
-                      Text('账号提示：${widget.appState.authMessage}'),
-                    const SizedBox(height: 12),
-                    if (bundle.syncStatus != null)
-                      _SyncStatusSummary(
-                        status: bundle.syncStatus!,
-                        transportConfigured: SupabaseConfig.isConfigured,
-                        syncEnabled: widget.appState.authState.allowsCloudWork,
-                        onSyncNow: () async {
-                          await widget.appState.sdk.sync.flushPendingToCloud();
-                          if (context.mounted) {
-                            await _refreshHomeBundle();
-                          }
-                        },
-                      ),
-                    if (bundle.syncStatus == null) const Text('当前版本无法读取同步状态。'),
-                  ],
+                Text('今日日期：${bundle.today.todayDate}'),
+                Text(
+                  '应用就绪：${widget.appState.bootstrapState?.appReady ?? false}',
                 ),
-              ),
+                Text(
+                  '需要首次初始化：'
+                  '${widget.appState.bootstrapState?.firstRunRequired ?? false}',
+                ),
+                Text(
+                  '账号：${_accountPhaseLabel(widget.appState.authPhase, widget.appState.authState.userEmail)}',
+                ),
+                Text('允许本地学习：${widget.appState.authState.allowsLocalStudy}'),
+                Text('可用云同步：${widget.appState.authState.allowsCloudWork}'),
+                if (widget.appState.authMessage != null)
+                  Text('账号提示：${widget.appState.authMessage}'),
+                const SizedBox(height: 12),
+                if (bundle.syncStatus != null)
+                  _SyncStatusSummary(
+                    status: bundle.syncStatus!,
+                    transportConfigured: SupabaseConfig.isConfigured,
+                    syncEnabled: widget.appState.authState.allowsCloudWork,
+                    onSyncNow: () async {
+                      await widget.appState.sdk.sync.flushPendingToCloud();
+                      if (context.mounted) {
+                        await _refreshHomeBundle();
+                      }
+                    },
+                  ),
+                if (bundle.syncStatus == null) const Text('当前版本无法读取同步状态。'),
               ],
             ),
-          );
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -526,6 +548,7 @@ class _TodayHomeBundle {
     required this.aiContext,
     required this.aiHistory,
     required this.rewardState,
+    required this.announcements,
     required this.syncStatus,
   });
 
@@ -534,7 +557,20 @@ class _TodayHomeBundle {
   final TodayAiPassageContext? aiContext;
   final List<AiPassageHistoryItem> aiHistory;
   final TodayRewardState? rewardState;
+  final List<CloudAnnouncement> announcements;
   final SyncStatus? syncStatus;
+
+  _TodayHomeBundle copyWith({List<CloudAnnouncement>? announcements}) {
+    return _TodayHomeBundle(
+      today: today,
+      activePlan: activePlan,
+      aiContext: aiContext,
+      aiHistory: aiHistory,
+      rewardState: rewardState,
+      announcements: announcements ?? this.announcements,
+      syncStatus: syncStatus,
+    );
+  }
 }
 
 class _PrimaryAction {
@@ -759,72 +795,78 @@ List<_TaskItemViewModel> _buildTaskItems(
   PlanSummary? activePlan,
 ) {
   return [
-    _TaskItemViewModel(
-      label: '新词学习',
-      helper: '建立今日新词基础',
-      target: _displayTarget(snapshot, 'newWord', activePlan),
-      completed: _cappedCompleted(
-        snapshot,
-        'newWordsCompleted',
-        _displayTarget(snapshot, 'newWord', activePlan),
-      ),
-      plannedTarget: _planTarget('newWord', activePlan),
-      color: const Color(0xFF2F8F6A),
-      mode: 'newWord',
-    ),
-    _TaskItemViewModel(
-      label: '复习',
-      helper: '回顾旧词，巩固记忆',
-      target: _displayTarget(snapshot, 'review', activePlan),
-      completed: _cappedCompleted(
-        snapshot,
-        'reviewWordsCompleted',
-        _displayTarget(snapshot, 'review', activePlan),
-      ),
-      plannedTarget: _planTarget('review', activePlan),
-      color: const Color(0xFF2F6C8F),
-      mode: 'review',
-    ),
-    _TaskItemViewModel(
-      label: '混合测试',
-      helper: '综合检验今日状态',
-      target: _displayTarget(snapshot, 'mixedTest', activePlan),
-      completed: _cappedCompleted(
-        snapshot,
-        'mixedTestCompleted',
-        _displayTarget(snapshot, 'mixedTest', activePlan),
-      ),
-      plannedTarget: _planTarget('mixedTest', activePlan),
-      color: const Color(0xFF8F5A2F),
-      mode: 'mixedTest',
-    ),
-    _TaskItemViewModel(
-      label: '错词强化',
-      helper: '回收今天的薄弱点',
-      target: _displayTarget(snapshot, 'wrongWordReinforcement', activePlan),
-      completed: _cappedCompleted(
-        snapshot,
-        'wrongWordTestCompleted',
-        _displayTarget(snapshot, 'wrongWordReinforcement', activePlan),
-      ),
-      plannedTarget: _planTarget('wrongWordReinforcement', activePlan),
-      color: const Color(0xFF8F3B4D),
-      mode: 'wrongWordReinforcement',
-    ),
-    _TaskItemViewModel(
-      label: '词根词缀',
-      helper: '补充结构化记忆',
-      target: _displayTarget(snapshot, 'rootAffix', activePlan),
-      completed: _cappedCompleted(
-        snapshot,
-        'rootAffixCompleted',
-        _displayTarget(snapshot, 'rootAffix', activePlan),
-      ),
-      plannedTarget: _planTarget('rootAffix', activePlan),
-      color: const Color(0xFF7C52A1),
-      mode: 'rootAffix',
-    ),
-  ].where((item) => item.target > 0 || item.plannedTarget > 0).toList(growable: false);
+        _TaskItemViewModel(
+          label: '新词学习',
+          helper: '建立今日新词基础',
+          target: _displayTarget(snapshot, 'newWord', activePlan),
+          completed: _cappedCompleted(
+            snapshot,
+            'newWordsCompleted',
+            _displayTarget(snapshot, 'newWord', activePlan),
+          ),
+          plannedTarget: _planTarget('newWord', activePlan),
+          color: const Color(0xFF2F8F6A),
+          mode: 'newWord',
+        ),
+        _TaskItemViewModel(
+          label: '复习',
+          helper: '回顾旧词，巩固记忆',
+          target: _displayTarget(snapshot, 'review', activePlan),
+          completed: _cappedCompleted(
+            snapshot,
+            'reviewWordsCompleted',
+            _displayTarget(snapshot, 'review', activePlan),
+          ),
+          plannedTarget: _planTarget('review', activePlan),
+          color: const Color(0xFF2F6C8F),
+          mode: 'review',
+        ),
+        _TaskItemViewModel(
+          label: '混合测试',
+          helper: '综合检验今日状态',
+          target: _displayTarget(snapshot, 'mixedTest', activePlan),
+          completed: _cappedCompleted(
+            snapshot,
+            'mixedTestCompleted',
+            _displayTarget(snapshot, 'mixedTest', activePlan),
+          ),
+          plannedTarget: _planTarget('mixedTest', activePlan),
+          color: const Color(0xFF8F5A2F),
+          mode: 'mixedTest',
+        ),
+        _TaskItemViewModel(
+          label: '错词强化',
+          helper: '回收今天的薄弱点',
+          target: _displayTarget(
+            snapshot,
+            'wrongWordReinforcement',
+            activePlan,
+          ),
+          completed: _cappedCompleted(
+            snapshot,
+            'wrongWordTestCompleted',
+            _displayTarget(snapshot, 'wrongWordReinforcement', activePlan),
+          ),
+          plannedTarget: _planTarget('wrongWordReinforcement', activePlan),
+          color: const Color(0xFF8F3B4D),
+          mode: 'wrongWordReinforcement',
+        ),
+        _TaskItemViewModel(
+          label: '词根词缀',
+          helper: '补充结构化记忆',
+          target: _displayTarget(snapshot, 'rootAffix', activePlan),
+          completed: _cappedCompleted(
+            snapshot,
+            'rootAffixCompleted',
+            _displayTarget(snapshot, 'rootAffix', activePlan),
+          ),
+          plannedTarget: _planTarget('rootAffix', activePlan),
+          color: const Color(0xFF7C52A1),
+          mode: 'rootAffix',
+        ),
+      ]
+      .where((item) => item.target > 0 || item.plannedTarget > 0)
+      .toList(growable: false);
 }
 
 int _displayTarget(
@@ -919,6 +961,103 @@ String _accountPhaseLabel(AuthAccountPhase phase, String? userEmail) {
     AuthAccountPhase.accountDeletedOrRevoked => 'account deleted or revoked',
     AuthAccountPhase.error => 'auth error',
   };
+}
+
+class _AnnouncementBanner extends StatelessWidget {
+  const _AnnouncementBanner({
+    required this.announcement,
+    required this.onDismiss,
+  });
+
+  final CloudAnnouncement announcement;
+  final Future<void> Function() onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final colors = _announcementColors(scheme, announcement.level);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: colors.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(_announcementIcon(announcement.level), color: colors.content),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    announcement.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colors.content,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    announcement.body,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: colors.content),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onDismiss,
+              tooltip: 'Dismiss announcement',
+              icon: const Icon(Icons.close),
+              color: colors.content,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  _AnnouncementColors _announcementColors(
+    ColorScheme scheme,
+    AnnouncementLevel level,
+  ) {
+    return switch (level) {
+      AnnouncementLevel.success => _AnnouncementColors(
+        background: scheme.tertiaryContainer,
+        content: scheme.onTertiaryContainer,
+      ),
+      AnnouncementLevel.warning => _AnnouncementColors(
+        background: const Color(0xFFFFF1C2),
+        content: const Color(0xFF4F3900),
+      ),
+      AnnouncementLevel.critical => _AnnouncementColors(
+        background: scheme.errorContainer,
+        content: scheme.onErrorContainer,
+      ),
+      AnnouncementLevel.info => _AnnouncementColors(
+        background: scheme.secondaryContainer,
+        content: scheme.onSecondaryContainer,
+      ),
+    };
+  }
+
+  IconData _announcementIcon(AnnouncementLevel level) {
+    return switch (level) {
+      AnnouncementLevel.success => Icons.check_circle_outline,
+      AnnouncementLevel.warning => Icons.warning_amber_outlined,
+      AnnouncementLevel.critical => Icons.error_outline,
+      AnnouncementLevel.info => Icons.campaign_outlined,
+    };
+  }
+}
+
+class _AnnouncementColors {
+  const _AnnouncementColors({required this.background, required this.content});
+
+  final Color background;
+  final Color content;
 }
 
 class _PrimaryActionCard extends StatelessWidget {

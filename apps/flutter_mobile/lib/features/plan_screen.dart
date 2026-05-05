@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
+import '../widgets/crocodile_frame_animation.dart';
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({
@@ -152,9 +153,9 @@ class _PlanScreenState extends State<PlanScreen> {
     widget.onDirtyChanged?.call(dirty);
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool showFullLoading = true}) async {
     setState(() {
-      _loading = true;
+      if (showFullLoading) _loading = true;
       _error = null;
     });
     try {
@@ -432,13 +433,13 @@ class _PlanScreenState extends State<PlanScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('计划')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
               ? _PlanMessage(message: _error!, onRetry: _load)
               : plan == null
                   ? _PlanMessage(message: '当前没有可编辑的计划。', onRetry: _load)
-                  : RefreshIndicator(
-                      onRefresh: _load,
+                  : CrocodileRefreshIndicator(
+                      onRefresh: () => _load(showFullLoading: false),
                       child: ListView(
                         controller: _scrollController,
                         physics: const AlwaysScrollableScrollPhysics(),

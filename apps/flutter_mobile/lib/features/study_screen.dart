@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
+import '../widgets/crocodile_frame_animation.dart';
 
 class StudyScreen extends StatefulWidget {
   const StudyScreen({
@@ -476,7 +477,7 @@ class _StudyScreenState extends State<StudyScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
           ? _StudyMessage(
               title: '学习出错',

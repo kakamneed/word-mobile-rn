@@ -51,6 +51,13 @@ Or run the SQL manually in Dashboard SQL Editor:
 supabase/cloud-setup.sql
 ```
 
+Feature migrations added after the first setup can also be run directly from
+`supabase/migrations/`. For operator-authored announcements, use:
+
+```text
+supabase/announcements-admin.sql
+```
+
 The Flutter cloud smoke script reads `.env.supabase.local`, which is ignored by
 git:
 
@@ -76,7 +83,9 @@ tokens. Flutter feature code consumes typed account/sync state only.
 - Append-only `study_events`
 - Sync cursor and dead-letter infrastructure
 - Wrong-word, report, and AI projection tables
+- Public active announcements for in-app operator messages
 - RLS policies for owner-only client access
+- RLS policy for public read-only active announcements
 - RPC helpers for device registration and revocation
 - Private `ai-passages` bucket policy scaffold
 
@@ -88,3 +97,5 @@ tokens. Flutter feature code consumes typed account/sync state only.
   wordbook preference rows.
 - `register_device` upserts only for `auth.uid()`.
 - `sync_dead_letters` remains function/service-owned by default.
+- Active announcements can be read by ordinary clients, but ordinary clients
+  cannot insert, update, or delete announcements.

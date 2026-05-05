@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
 import '../supabase/auth_session_manager.dart';
+import '../widgets/crocodile_frame_animation.dart';
 
 enum AuthEntryMode { signIn, signUp }
 
@@ -110,7 +111,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     final body = _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const CrocodileLoadingAnimation(label: '加载中...')
         : ListView(
             padding: const EdgeInsets.all(16),
             children: [
