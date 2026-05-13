@@ -3,8 +3,10 @@ library;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../sdk/local_data_owner_client.dart';
+import '../cloud/cloud_backend_config.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_config.dart';
+import 'word_admin_auth_service.dart';
 
 enum AuthAccountPhase {
   uninitialized,
@@ -38,7 +40,7 @@ class AuthAccountState {
   const AuthAccountState.notConfigured()
     : this._(
         phase: AuthAccountPhase.notConfigured,
-        message: 'Supabase not configured',
+        message: 'Cloud backend not configured',
       );
 
   const AuthAccountState.guestLocalOnly([
@@ -60,11 +62,12 @@ class AuthAccountState {
   AuthAccountState.signedInActive(Session session)
     : this._(phase: AuthAccountPhase.signedInActive, session: session);
 
-  AuthAccountState.signedInNeedsBind(Session session)
+  AuthAccountState.signedInNeedsBind(Session session, [String? message])
     : this._(
         phase: AuthAccountPhase.signedInNeedsBind,
         session: session,
         message:
+            message ??
             'Signed in. Cloud sync is paused until local and cloud data are checked.',
       );
 
@@ -99,6 +102,8 @@ class AuthSessionManager {
   final LocalDataOwnerGateway? _localDataOwner;
   final Future<void> Function(String userId)? _restoreCloudData;
   final Future<void> Function()? _backfillLocalLearning;
+  final Future<bool> Function(String userId, LocalDataOwnerResult ownerResult)?
+  _shouldRestoreCloudData;
 
   AuthSessionManager({
     SupabaseAuthGateway? auth,
@@ -106,12 +111,27 @@ class AuthSessionManager {
     LocalDataOwnerGateway? localDataOwner,
     Future<void> Function(String userId)? restoreCloudData,
     Future<void> Function()? backfillLocalLearning,
-  })
-    : _auth = auth ?? SupabaseAuthService(),
-      _isConfigured = isConfigured ?? (() => SupabaseConfig.isConfigured),
-      _localDataOwner = localDataOwner,
-      _restoreCloudData = restoreCloudData,
-      _backfillLocalLearning = backfillLocalLearning;
+    Future<bool> Function(String userId, LocalDataOwnerResult ownerResult)?
+    shouldRestoreCloudData,
+  }) : _auth = auth ?? _defaultAuthGateway(),
+       _isConfigured = isConfigured ?? _defaultIsConfigured,
+       _localDataOwner = localDataOwner,
+       _restoreCloudData = restoreCloudData,
+       _backfillLocalLearning = backfillLocalLearning,
+       _shouldRestoreCloudData = shouldRestoreCloudData;
+
+  static SupabaseAuthGateway _defaultAuthGateway() {
+    return CloudBackendConfig.usesWordAdmin
+        ? WordAdminAuthService()
+        : SupabaseAuthService();
+  }
+
+  static bool _defaultIsConfigured() {
+    if (CloudBackendConfig.usesWordAdmin) {
+      return CloudBackendConfig.fromEnvironment().isConfigured;
+    }
+    return SupabaseConfig.isConfigured;
+  }
 
   Future<AuthAccountState> resolveStartupState() async {
     if (!_isConfigured()) {
@@ -202,29 +222,55 @@ class AuthSessionManager {
     try {
       await _auth.verifyCloudDataAccess(session.user.id);
       final ownerResult = await _localDataOwner?.reconcile(session.user.id);
-      if (ownerResult != null &&
-          !ownerResult.restoredSnapshot &&
-          (ownerResult.resetPerformed || !ownerResult.hasLocalLearningData)) {
-        await _restoreCloudData?.call(session.user.id);
-      } else if (ownerResult != null && ownerResult.hasLocalLearningData) {
+      if (ownerResult != null) {
+        final shouldRestore = _shouldRestoreCloudData == null
+            ? !ownerResult.restoredSnapshot &&
+                  (ownerResult.resetPerformed ||
+                      !ownerResult.hasLocalLearningData)
+            : await _shouldRestoreCloudData.call(session.user.id, ownerResult);
+        if (shouldRestore) {
+          await _restoreCloudData?.call(session.user.id);
+        }
+        if (ownerResult.hasLocalLearningData) {
+          await _backfillLocalLearning?.call();
+        }
+      } else {
         await _backfillLocalLearning?.call();
       }
       return AuthAccountState.signedInActive(session);
-    } catch (_) {
-      return AuthAccountState.signedInNeedsBind(session);
+    } catch (error) {
+      final message = error.toString();
+      if (_isNetworkFailure(message.toLowerCase())) {
+        await _switchToGuestLocalData();
+        return AuthAccountState.guestLocalOnly(
+          'Network connection failed; using local guest data.',
+        );
+      }
+      return AuthAccountState.signedInNeedsBind(
+        session,
+        'Cloud data check failed: $error',
+      );
     }
   }
 
-  AuthAccountState _stateFromAuthFailure(
+  Future<AuthAccountState> _stateFromAuthFailure(
     Object error, {
     Session? expiredSession,
-  }) {
+  }) async {
     final message = error.toString();
     final lower = message.toLowerCase();
+
+    if (_isNetworkFailure(lower)) {
+      await _switchToGuestLocalData();
+      return AuthAccountState.guestLocalOnly(
+        'Network connection failed; using local guest data.',
+      );
+    }
 
     if (lower.contains('revoked') ||
         lower.contains('deleted') ||
         lower.contains('user not found')) {
+      await _switchToGuestLocalData();
       return AuthAccountState.accountDeletedOrRevoked(message);
     }
 
@@ -232,12 +278,31 @@ class AuthSessionManager {
         lower.contains('expired') ||
         lower.contains('invalid refresh') ||
         lower.contains('invalid_grant')) {
+      await _switchToGuestLocalData();
       return AuthAccountState.signedInExpired(
         '$message; local study remains available.',
-        session: expiredSession,
       );
     }
 
     return AuthAccountState.error(message);
+  }
+
+  Future<void> _switchToGuestLocalData() async {
+    await _localDataOwner?.preserveGuestLocalData();
+  }
+
+  bool _isNetworkFailure(String lowerMessage) {
+    return lowerMessage.contains('socketexception') ||
+        lowerMessage.contains('connection refused') ||
+        lowerMessage.contains('connection failed') ||
+        lowerMessage.contains('connection reset') ||
+        lowerMessage.contains('failed host lookup') ||
+        lowerMessage.contains('network is unreachable') ||
+        lowerMessage.contains('network connection failed') ||
+        lowerMessage.contains('network error') ||
+        lowerMessage.contains('timed out') ||
+        lowerMessage.contains('timeout') ||
+        lowerMessage.contains('httpclientexception') ||
+        lowerMessage.contains('clientexception');
   }
 }

@@ -14,6 +14,13 @@ For release builds, prefer the repo script:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps\flutter_mobile\scripts\android-release-wireless-deploy.ps1
 ```
 
+For `word_admin` builds, do not use the default Supabase deploy script. Follow
+the `Word Admin Variant` section in [workflow.md](workflow.md). The correct
+flow reads `.env.word-admin.local`, sets the same fixed JDK/Android/Gradle/PATH
+environment as the stable release script, runs Flutter outside the Codex
+sandbox when needed so `D:\flutter\flutter\bin\cache\lockfile` is writable,
+then inspects, installs, and launches the APK.
+
 That script is the default because it:
 
 - Loads `SUPABASE_URL` and `SUPABASE_ANON_KEY` from repo-root `.env.supabase.local`.

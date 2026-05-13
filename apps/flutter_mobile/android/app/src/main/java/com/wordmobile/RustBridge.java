@@ -141,6 +141,46 @@ public final class RustBridge {
     return requirePayload(nativeDrawTodayReward(requestJson), "drawTodayReward");
   }
 
+  public static String getRewardImageUploadEntitlement() {
+    return requirePayload(nativeGetRewardImageUploadEntitlement(), "getRewardImageUploadEntitlement");
+  }
+
+  public static String refreshRewardImageUploadEntitlement(String requestJson) {
+    return requirePayload(nativeRefreshRewardImageUploadEntitlement(requestJson), "refreshRewardImageUploadEntitlement");
+  }
+
+  public static String createRewardImageUpload(String requestJson) {
+    return requirePayload(nativeCreateRewardImageUpload(requestJson), "createRewardImageUpload");
+  }
+
+  public static String listRewardImages(String requestJson) {
+    return requirePayload(nativeListRewardImages(requestJson), "listRewardImages");
+  }
+
+  public static String moderateRewardImage(String requestJson) {
+    return requirePayload(nativeModerateRewardImage(requestJson), "moderateRewardImage");
+  }
+
+  public static String selectLeaderboardRewardImageTag(String requestJson) {
+    return requirePayload(nativeSelectLeaderboardRewardImageTag(requestJson), "selectLeaderboardRewardImageTag");
+  }
+
+  public static String voteRewardImage(String requestJson) {
+    return requirePayload(nativeVoteRewardImage(requestJson), "voteRewardImage");
+  }
+
+  public static String getLocalLeaderboard(String requestJson) {
+    return requirePayload(nativeGetLocalLeaderboard(requestJson), "getLocalLeaderboard");
+  }
+
+  public static String refreshLocalLeaderboardSummary(String requestJson) {
+    return requirePayload(nativeRefreshLocalLeaderboardSummary(requestJson), "refreshLocalLeaderboardSummary");
+  }
+
+  public static String seedLocalLeaderboardDemo() {
+    return requirePayload(nativeSeedLocalLeaderboardDemo(), "seedLocalLeaderboardDemo");
+  }
+
   public static String getActivePlan() {
     return requirePayload(nativeGetActivePlan(), "getActivePlan");
   }
@@ -151,6 +191,14 @@ public final class RustBridge {
 
   public static String applySavedPlanToToday() {
     return requirePayload(nativeApplySavedPlanToToday(), "applySavedPlanToToday");
+  }
+
+  public static String getCrocBtiProfile() {
+    return requirePayload(nativeGetCrocBtiProfile(), "getCrocBtiProfile");
+  }
+
+  public static String saveCrocBtiProfile(String requestJson) {
+    return requirePayload(nativeSaveCrocBtiProfile(requestJson), "saveCrocBtiProfile");
   }
 
   public static String getWordbooks() {
@@ -191,6 +239,10 @@ public final class RustBridge {
 
   public static String restoreCloudDataSnapshot(String requestJson) {
     return requirePayload(nativeRestoreCloudDataSnapshot(requestJson), "restoreCloudDataSnapshot");
+  }
+
+  public static String restoreCloudAiPassageSnapshot(String requestJson) {
+    return requirePayload(nativeRestoreCloudAiPassageSnapshot(requestJson), "restoreCloudAiPassageSnapshot");
   }
 
   public static String getWrongWords(String filter) {
@@ -248,6 +300,10 @@ public final class RustBridge {
     return requirePayload(nativeSubmitStudyAnswer(requestJson), "submitStudyAnswer");
   }
 
+  public static String markStudyEntryMastered(String requestJson) {
+    return requirePayload(nativeMarkStudyEntryMastered(requestJson), "markStudyEntryMastered");
+  }
+
   public static String completeStudySession(String sessionId) {
     return requirePayload(nativeCompleteStudySession(sessionId), "completeStudySession");
   }
@@ -285,6 +341,26 @@ public final class RustBridge {
 
   private static native String nativeDrawTodayReward(String requestJson);
 
+  private static native String nativeGetRewardImageUploadEntitlement();
+
+  private static native String nativeRefreshRewardImageUploadEntitlement(String requestJson);
+
+  private static native String nativeCreateRewardImageUpload(String requestJson);
+
+  private static native String nativeListRewardImages(String requestJson);
+
+  private static native String nativeModerateRewardImage(String requestJson);
+
+  private static native String nativeSelectLeaderboardRewardImageTag(String requestJson);
+
+  private static native String nativeVoteRewardImage(String requestJson);
+
+  private static native String nativeGetLocalLeaderboard(String requestJson);
+
+  private static native String nativeRefreshLocalLeaderboardSummary(String requestJson);
+
+  private static native String nativeSeedLocalLeaderboardDemo();
+
   private static native String nativeMarkOnboardingCompleted();
 
   private static native String nativeGetActivePlan();
@@ -292,6 +368,10 @@ public final class RustBridge {
   private static native String nativeSavePlan(String requestJson);
 
   private static native String nativeApplySavedPlanToToday();
+
+  private static native String nativeGetCrocBtiProfile();
+
+  private static native String nativeSaveCrocBtiProfile(String requestJson);
 
   private static native String nativeGetWordbooks();
 
@@ -314,6 +394,8 @@ public final class RustBridge {
   private static native String nativeReconcileLocalDataOwner(String requestJson);
 
   private static native String nativeRestoreCloudDataSnapshot(String requestJson);
+
+  private static native String nativeRestoreCloudAiPassageSnapshot(String requestJson);
 
   private static native String nativeGetWrongWords(String filter);
 
@@ -338,6 +420,8 @@ public final class RustBridge {
   private static native String nativeStartStudySession(String requestJson);
 
   private static native String nativeSubmitStudyAnswer(String requestJson);
+
+  private static native String nativeMarkStudyEntryMastered(String requestJson);
 
   private static native String nativeCompleteStudySession(String sessionId);
 

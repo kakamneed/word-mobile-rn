@@ -171,3 +171,62 @@ Success criteria:
 1. Cold start, restart, interrupted-session, and offline tests pass on target devices.
 2. Release packaging and privacy/compliance tasks are complete.
 3. Crash handling and diagnostics are sufficient for real-user support.
+
+### Phase 9: Learning flow structure map and pitfall inventory
+
+**Goal:** Build a complete, evidence-backed map of the mobile learning loop before any destructive cleanup, covering Today, study answering, AI passage/history, native bridge contracts, Rust core, SQLite/Supabase-adjacent data boundaries, and every known stale implementation path.
+**Requirements**: [ARCH-02, MOB-02, STUD-02, STUD-03, STUD-04, STUD-05, PLAN-01, WRNG-01, RPT-01, AI-01, AI-02, AI-03]
+**Depends on:** Phase 8
+**Plans:** 4 plans
+
+Plans:
+- [ ] 09-01 - Map the current Today-to-study-to-result flow across Flutter, legacy React Native, Rust bridge, core crates, and persistence
+- [ ] 09-02 - Inventory all historical learning-flow pitfalls, including selected-wrong-option highlighting and correct-answer index drift toward A
+- [ ] 09-03 - Classify stale layers, empty adapters, mock truth, duplicate clients, and abandoned UI/data paths by ownership and deletion risk
+- [ ] 09-04 - Produce canonical structure docs that define the intended latest layer hierarchy and cleanup acceptance gates
+
+Success criteria:
+1. Every active learning-flow surface has a named owner layer and canonical file path.
+2. Known historical failures are traced to concrete causes and linked to the layers where regression guards belong.
+3. Obsolete, duplicate, mock, or empty paths are listed with keep/delete/replace recommendations before cleanup starts.
+4. Downstream cleanup plans can proceed without rediscovering the same architecture history.
+
+### Phase 10: Today answer AI and data layer cleanup
+
+**Goal:** Thoroughly clean the learning-flow implementation layers identified in Phase 9, removing obsolete remnants and simplifying Today, answer evaluation, AI, bridge, and persistence code while preserving current user-facing behavior and effects.
+**Requirements**: [ARCH-02, MOB-02, STUD-02, STUD-03, STUD-04, STUD-05, PLAN-01, WRNG-01, RPT-01, AI-01, AI-02, AI-03]
+**Depends on:** Phase 9
+**Plans:** 5 plans
+
+Plans:
+- [ ] 10-01 - Clean Today page state sourcing, progress truth, resume paths, and navigation handoff into study sessions
+- [ ] 10-02 - Clean study question rendering, answer evaluation, selected-option feedback, correct-answer indexing, and submit/next state transitions
+- [ ] 10-03 - Clean AI page generation/history wiring so mobile uses one canonical non-blocking AI boundary and no abandoned mock path
+- [ ] 10-04 - Clean native bridge, Rust core DTOs, SQLite repositories, and cloud-adjacent data code to remove duplicate truth and empty adapters
+- [ ] 10-05 - Run focused regression validation across Today, answering, AI, reports/wrong words, persistence restart, and release-device smoke paths
+
+Success criteria:
+1. The selected wrong answer is visibly marked wrong while the correct option remains accurately identified.
+2. Correct answers remain bound to their real option index for A/B/C/D, with no fallback that collapses results to A.
+3. Today, study, AI, report, wrong-word, and persistence flows use the latest canonical layers only.
+4. Removed legacy code has no surviving imports, navigation entries, bridge methods, DTO variants, test fixtures, or docs that imply it is still active.
+5. Existing product behavior and visual effects are preserved unless Phase 9 explicitly marked them obsolete.
+
+### Phase 11: Learning flow skillization and regression guardrails
+
+**Goal:** Convert the cleaned learning-flow implementation knowledge into reusable skill-standard documentation and regression guardrails so future Today, answer, AI, and database changes start from the canonical structure rather than old residue.
+**Requirements**: [ARCH-02, MOB-02, STUD-02, STUD-03, STUD-04, STUD-05, WRNG-01, RPT-01, AI-01, AI-02, AI-03]
+**Depends on:** Phase 10
+**Plans:** 4 plans
+
+Plans:
+- [ ] 11-01 - Create skill-standard docs for Today, study answering, AI passage/history, bridge/data persistence, and mobile release validation workflows
+- [ ] 11-02 - Encode historical pitfalls and canonical modification recipes into skills so future fixes avoid stale paths and answer-index regressions
+- [ ] 11-03 - Add focused tests/checklists for selected-option feedback, correct-answer index preservation, Today progress truth, AI non-blocking behavior, and persisted result continuity
+- [ ] 11-04 - Update roadmap/state references so future GSD or Vico work enters through the new skills and canonical structure map
+
+Success criteria:
+1. Each major learning-flow capability has a skill-standard guide with purpose, trigger conditions, canonical files, workflow, verification, and known pitfalls.
+2. Future agents can modify Today, answering, AI, and persistence without needing to rediscover which historical paths are stale.
+3. Regression guards cover the two named hard bugs and the broader layer-cleanup risks from Phase 10.
+4. Project planning docs point to the new skills and structure docs as the default entry points for future learning-flow work.

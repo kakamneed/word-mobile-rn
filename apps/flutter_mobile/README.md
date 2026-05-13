@@ -69,6 +69,33 @@ Important distinction:
 Supabase integration is being added incrementally.
 Core learning truth remains Rust + local SQLite first.
 
+## Word Admin local backend run
+
+The app can target the local `D:\projects\word-admin` backend for account auth
+with these Dart defines:
+
+```powershell
+flutter run `
+  --dart-define=CLOUD_BACKEND=word_admin `
+  --dart-define=WORD_ADMIN_API_URL=http://<computer-lan-ip>:8787
+```
+
+For a physical phone, do not use `127.0.0.1`; use the computer's LAN IP and
+make sure the phone can reach port `8787`.
+
+Repo-root helpers read `.env.word-admin.local`, which is ignored by git:
+
+```text
+WORD_ADMIN_API_URL=http://<computer-lan-ip>:8787
+```
+
+Run/build helpers:
+
+```powershell
+D:\projects\word-mobile-rn\scripts\flutter-run-word-admin-local.cmd
+D:\projects\word-mobile-rn\scripts\flutter-build-release-word-admin-local.cmd
+```
+
 ## Supabase auth local run
 
 Current auth screen expects `dart-define` values:

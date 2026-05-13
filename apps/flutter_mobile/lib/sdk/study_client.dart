@@ -139,6 +139,7 @@ class StudyQuestion {
   bool get isChoiceType =>
       questionType == 'enToCnChoice' ||
       questionType == 'exampleToCnChoice' ||
+      questionType == 'exampleToCnChoiceNoTranslation' ||
       questionType == 'cnToEnChoice';
 
   StudyQuestion copyWith({
@@ -275,6 +276,24 @@ class StudyResult {
       );
 }
 
+class AnsweredStudyQuestion {
+  final StudyQuestion question;
+  final StudyResult result;
+
+  const AnsweredStudyQuestion({
+    required this.question,
+    required this.result,
+  });
+
+  factory AnsweredStudyQuestion.fromJson(Map<String, dynamic> json) =>
+      AnsweredStudyQuestion(
+        question: StudyQuestion.fromJson(
+          json['question'] as Map<String, dynamic>,
+        ),
+        result: StudyResult.fromJson(json['result'] as Map<String, dynamic>),
+      );
+}
+
 String _jsonString(Object? value, {String fallback = ''}) {
   if (value == null) return fallback;
   if (value is String) return value;
@@ -391,11 +410,13 @@ class StartSessionResponse {
   final StudySession session;
   final StudyQuestion currentQuestion;
   final SessionProgress progress;
+  final List<AnsweredStudyQuestion> answeredQuestions;
 
   const StartSessionResponse({
     required this.session,
     required this.currentQuestion,
     required this.progress,
+    this.answeredQuestions = const [],
   });
 
   factory StartSessionResponse.fromJson(Map<String, dynamic> json) =>
@@ -405,6 +426,7 @@ class StartSessionResponse {
             StudyQuestion.fromJson(json['currentQuestion'] as Map<String, dynamic>),
         progress:
             SessionProgress.fromJson(json['progress'] as Map<String, dynamic>),
+        answeredQuestions: _answeredStudyQuestionList(json['answeredQuestions']),
       );
 }
 
@@ -417,6 +439,7 @@ class SubmitAnswerResponse {
   final String? nextAction;
   final SessionProgress progress;
   final HintPrompt? hintPrompt;
+  final List<AnsweredStudyQuestion> answeredQuestions;
 
   const SubmitAnswerResponse({
     required this.result,
@@ -426,6 +449,7 @@ class SubmitAnswerResponse {
     this.nextAction,
     required this.progress,
     this.hintPrompt,
+    this.answeredQuestions = const [],
   });
 
   factory SubmitAnswerResponse.fromJson(Map<String, dynamic> json) =>
@@ -446,6 +470,59 @@ class SubmitAnswerResponse {
         hintPrompt: json['hintPrompt'] is Map<String, dynamic>
             ? HintPrompt.fromJson(json['hintPrompt'] as Map<String, dynamic>)
             : null,
+        answeredQuestions: _answeredStudyQuestionList(json['answeredQuestions']),
+      );
+}
+
+List<AnsweredStudyQuestion> _answeredStudyQuestionList(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(AnsweredStudyQuestion.fromJson)
+      .toList(growable: false);
+}
+
+class MarkStudyEntryMasteredResponse {
+  final String entrySourceId;
+  final int? entryId;
+  final int prunedQuestionCount;
+  final bool isComplete;
+  final StudyQuestion? currentQuestion;
+  final SessionSummary? summary;
+  final String? nextAction;
+  final SessionProgress progress;
+  final List<AnsweredStudyQuestion> answeredQuestions;
+
+  const MarkStudyEntryMasteredResponse({
+    required this.entrySourceId,
+    this.entryId,
+    required this.prunedQuestionCount,
+    required this.isComplete,
+    this.currentQuestion,
+    this.summary,
+    this.nextAction,
+    required this.progress,
+    this.answeredQuestions = const [],
+  });
+
+  factory MarkStudyEntryMasteredResponse.fromJson(Map<String, dynamic> json) =>
+      MarkStudyEntryMasteredResponse(
+        entrySourceId: _jsonString(json['entrySourceId']),
+        entryId: json['entryId'] is int ? json['entryId'] as int : null,
+        prunedQuestionCount: _jsonInt(json['prunedQuestionCount']),
+        isComplete: _jsonBool(json['isComplete']),
+        currentQuestion: _hasCompleteStudyQuestion(json['currentQuestion'])
+            ? StudyQuestion.fromJson(json['currentQuestion'] as Map<String, dynamic>)
+            : null,
+        summary: json['summary'] is Map<String, dynamic>
+            ? SessionSummary.fromJson(json['summary'] as Map<String, dynamic>)
+            : null,
+        nextAction: json['nextAction'] == null
+            ? null
+            : _jsonString(json['nextAction']),
+        progress:
+            SessionProgress.fromJson(json['progress'] as Map<String, dynamic>),
+        answeredQuestions: _answeredStudyQuestionList(json['answeredQuestions']),
       );
 }
 
@@ -477,6 +554,7 @@ class StudyClient {
     required List<String> entrySourceIds,
     List<StartSessionEntryPayload>? entryPayloads,
     List<StartSessionEntryPayload>? distractorPayloads,
+    List<Map<String, dynamic>>? questionTypeWeights,
   }) async {
     final request = <String, dynamic>{
       'mode': mode,
@@ -489,6 +567,9 @@ class StudyClient {
     if (distractorPayloads != null) {
       request['distractorPayloads'] =
           distractorPayloads.map((payload) => payload.toJson()).toList();
+    }
+    if (questionTypeWeights != null) {
+      request['questionTypeWeights'] = questionTypeWeights;
     }
 
     final raw = await _bridge.call('startStudySession', _codec.encodeRequest(request));
@@ -516,6 +597,22 @@ class StudyClient {
     final raw = await _bridge.call('submitStudyAnswer', _codec.encodeRequest(request));
     final json = _codec.decodeResponse(raw);
     return SubmitAnswerResponse.fromJson(json);
+  }
+
+  Future<MarkStudyEntryMasteredResponse> markEntryMastered({
+    required String entrySourceId,
+    String reason = 'mastered',
+  }) async {
+    final request = <String, dynamic>{
+      'entrySourceId': entrySourceId,
+      'reason': reason,
+    };
+    final raw = await _bridge.call(
+      'markStudyEntryMastered',
+      _codec.encodeRequest(request),
+    );
+    final json = _codec.decodeResponse(raw);
+    return MarkStudyEntryMasteredResponse.fromJson(json);
   }
 
   /// Complete the active study session.

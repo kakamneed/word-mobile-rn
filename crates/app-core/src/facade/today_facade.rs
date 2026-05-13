@@ -33,6 +33,7 @@ pub fn get_today_home_state(conn: &Connection) -> Result<TodayHomeState, Storage
         root_affix_per_day: None,
         growth_interval_days: plan.growth_interval_days,
         growth_increment: plan.growth_increment,
+        question_type_weights_by_mode: None,
     });
 
     // Get wordbooks
@@ -95,13 +96,13 @@ pub fn build_today_home_state(seed: TodayHomeStateSeed) -> TodayHomeState {
         date: seed.today_date.clone(),
         new_words_target: targets
             .new_words_target
-            .unwrap_or((plan.new_words_per_day.max(0) as u32) * 4),
+            .unwrap_or(plan.new_words_per_day.max(0) as u32),
         new_words_base_target: targets.new_words_base_target,
         new_words_carryover_target: targets.new_words_carryover_target,
         new_words_completed: seed.completions.new_words_completed,
         review_words_target: targets
             .review_words_target
-            .unwrap_or((plan.review_words_per_day.max(0) as u32) * 4),
+            .unwrap_or(plan.review_words_per_day.max(0) as u32),
         review_words_base_target: targets.review_words_base_target,
         review_words_carryover_target: targets.review_words_carryover_target,
         review_words_completed: seed.completions.review_words_completed,

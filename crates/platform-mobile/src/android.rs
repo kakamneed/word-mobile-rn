@@ -6,15 +6,20 @@ use crate::bridge::{
     analyze_wrong_word_import, apply_saved_plan_to_today, build_reports_overview,
     build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
     build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
-    draw_today_reward, enqueue_cloud_backfill, generate_ai_passage, get_active_plan,
-    get_ai_passage, get_ai_passage_history, get_ai_provider_config, get_bootstrap_state,
-    get_bridge_status, get_reports_overview, get_resume_session_hint, get_settings,
-    get_sync_status, get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
-    get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail, get_wrong_words,
-    initialize_mobile_runtime, mark_onboarding_completed, reconcile_local_data_owner,
-    record_cloud_restore_attempt, record_sync_result, restore_cloud_data_snapshot, save_ai_passage,
-    save_ai_provider_config, save_plan, save_word_hint, start_study_session, submit_study_answer,
-    switch_to_guest_local_data, toggle_wordbook,
+    create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill, generate_ai_passage,
+    get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_provider_config,
+    get_bootstrap_state, get_bridge_status, get_croc_bti_profile, get_local_leaderboard,
+    get_reports_overview, get_resume_session_hint, get_reward_image_upload_entitlement,
+    get_settings, get_sync_status, get_today_ai_passage_context, get_today_home_state,
+    get_today_reward_state, get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail,
+    get_wrong_words, initialize_mobile_runtime, list_reward_images, mark_onboarding_completed,
+    mark_study_entry_mastered, moderate_reward_image, reconcile_local_data_owner,
+    record_cloud_restore_attempt, record_sync_result, refresh_local_leaderboard_summary,
+    refresh_reward_image_upload_entitlement, restore_cloud_ai_passage_snapshot,
+    restore_cloud_data_snapshot, save_ai_passage, save_ai_provider_config, save_croc_bti_profile,
+    save_plan, save_word_hint, seed_local_leaderboard_demo, select_leaderboard_reward_image_tag,
+    start_study_session, submit_study_answer, switch_to_guest_local_data, toggle_wordbook,
+    vote_reward_image,
 };
 
 fn to_java_string(env: &mut JNIEnv, value: &str) -> jstring {
@@ -104,6 +109,124 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeDrawTodayReward(
     request_json: JString,
 ) -> jstring {
     match string_arg(&mut env, request_json).and_then(draw_today_reward) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetRewardImageUploadEntitlement(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_reward_image_upload_entitlement() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRefreshRewardImageUploadEntitlement(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(refresh_reward_image_upload_entitlement) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeCreateRewardImageUpload(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(create_reward_image_upload) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeListRewardImages(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(list_reward_images) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeModerateRewardImage(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(moderate_reward_image) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSelectLeaderboardRewardImageTag(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(select_leaderboard_reward_image_tag) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeVoteRewardImage(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(vote_reward_image) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetLocalLeaderboard(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(get_local_leaderboard) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRefreshLocalLeaderboardSummary(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(refresh_local_leaderboard_summary) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSeedLocalLeaderboardDemo(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match seed_local_leaderboard_demo() {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }
@@ -209,6 +332,29 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeApplySavedPlanToToda
     _class: JClass,
 ) -> jstring {
     match apply_saved_plan_to_today() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetCrocBtiProfile(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_croc_bti_profile() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSaveCrocBtiProfile(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(save_croc_bti_profile) {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }
@@ -399,6 +545,18 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRestoreCloudDataSnap
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeRestoreCloudAiPassageSnapshot(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(restore_cloud_ai_passage_snapshot) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetAiProviderConfig(
     mut env: JNIEnv,
     _class: JClass,
@@ -524,6 +682,18 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSubmitStudyAnswer(
     request_json: JString,
 ) -> jstring {
     match string_arg(&mut env, request_json).and_then(submit_study_answer) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeMarkStudyEntryMastered(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(mark_study_entry_mastered) {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }

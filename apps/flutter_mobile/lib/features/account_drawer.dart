@@ -16,6 +16,7 @@ class AccountDrawer extends StatefulWidget {
     this.onProfileSettingsChanged,
     this.onAuthChanged,
     this.onOpenOnboarding,
+    this.onOpenCrocBti,
     this.onOpenLeaderboard,
     this.onOpenSettings,
   });
@@ -25,6 +26,7 @@ class AccountDrawer extends StatefulWidget {
   final Future<void> Function()? onProfileSettingsChanged;
   final VoidCallback? onAuthChanged;
   final VoidCallback? onOpenOnboarding;
+  final VoidCallback? onOpenCrocBti;
   final VoidCallback? onOpenLeaderboard;
   final VoidCallback? onOpenSettings;
 
@@ -78,6 +80,13 @@ class _AccountDrawerState extends State<AccountDrawer> {
     if (onOpenOnboarding == null) return;
     Navigator.of(context).pop();
     onOpenOnboarding();
+  }
+
+  void _openCrocBti() {
+    final onOpenCrocBti = widget.onOpenCrocBti;
+    if (onOpenCrocBti == null) return;
+    Navigator.of(context).pop();
+    onOpenCrocBti();
   }
 
   Future<void> _signOut() async {
@@ -143,6 +152,10 @@ class _AccountDrawerState extends State<AccountDrawer> {
             enabled: widget.onOpenOnboarding != null,
             onTap: _openOnboarding,
           ),
+          _CrocBtiTile(
+            enabled: widget.onOpenCrocBti != null,
+            onTap: _openCrocBti,
+          ),
           ListTile(
             leading: const Icon(Icons.account_circle_outlined),
             title: const Text('个人信息'),
@@ -175,6 +188,10 @@ class _AccountDrawerState extends State<AccountDrawer> {
           _OnboardingTile(
             enabled: widget.onOpenOnboarding != null,
             onTap: _openOnboarding,
+          ),
+          _CrocBtiTile(
+            enabled: widget.onOpenCrocBti != null,
+            onTap: _openCrocBti,
           ),
           ListTile(
             leading: const Icon(Icons.login),
@@ -253,6 +270,24 @@ class _OnboardingTile extends StatelessWidget {
       leading: const Icon(Icons.tips_and_updates_outlined),
       title: const Text('新手引导'),
       subtitle: const Text('重新设置词数并回顾功能'),
+      enabled: enabled,
+      onTap: onTap,
+    );
+  }
+}
+
+class _CrocBtiTile extends StatelessWidget {
+  const _CrocBtiTile({required this.enabled, required this.onTap});
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.psychology_alt_outlined),
+      title: const Text('鳄bti 学习人格'),
+      subtitle: const Text('测试适合你的新词、复习、混测和错题权重'),
       enabled: enabled,
       onTap: onTap,
     );

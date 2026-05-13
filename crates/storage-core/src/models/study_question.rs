@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 pub enum QuestionType {
     EnToCnChoice,
     ExampleToCnChoice,
+    ExampleToCnChoiceNoTranslation,
     CnToEnChoice,
     EnToCnInput,
+    WordSkeletonInput,
     GlossToRootInput,
     RootToGlossInput,
 }
@@ -16,6 +18,7 @@ impl QuestionType {
         matches!(
             self,
             QuestionType::EnToCnInput
+                | QuestionType::WordSkeletonInput
                 | QuestionType::GlossToRootInput
                 | QuestionType::RootToGlossInput
         )

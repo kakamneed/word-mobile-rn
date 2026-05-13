@@ -3,7 +3,8 @@
 use std::collections::HashSet;
 
 use word_storage_core::models::{
-    ChoiceOption, EntryExample, MeaningZh, QuestionType, SessionMode, StudyQuestion,
+    ChoiceOption, EntryExample, MeaningZh, QuestionType, QuestionTypeWeight, SessionMode,
+    StudyQuestion,
 };
 
 use crate::session_definition::SessionDefinition;
@@ -31,6 +32,7 @@ impl QuestionBuilder {
         words: &[WordForQuestion],
         distractors: &[WordForQuestion],
         session_id: &str,
+        question_type_weights: &[QuestionTypeWeight],
     ) -> Vec<StudyQuestion> {
         let definition = SessionDefinition::for_mode(mode.clone());
 
@@ -39,9 +41,26 @@ impl QuestionBuilder {
         } else if definition.rules.loops_all_types_per_word {
             Self::build_loop_questions(words, distractors, session_id)
         } else if definition.rules.from_wrong_pool {
-            Self::build_wrong_word_questions(words, distractors, session_id)
+            Self::build_weighted_pool_questions(
+                words,
+                distractors,
+                session_id,
+                question_type_weights,
+                Self::default_wrong_word_types(),
+            )
         } else {
-            Self::build_mixed_test_questions(words, distractors, session_id)
+            let fallback_types = if definition.rules.loops_all_types_per_word {
+                QuestionType::all_four()
+            } else {
+                definition.rules.question_types.clone()
+            };
+            Self::build_weighted_pool_questions(
+                words,
+                distractors,
+                session_id,
+                question_type_weights,
+                fallback_types,
+            )
         }
     }
 
@@ -97,12 +116,8 @@ impl QuestionBuilder {
         questions
     }
 
-    fn build_wrong_word_questions(
-        wrong_words: &[WordForQuestion],
-        distractors: &[WordForQuestion],
-        session_id: &str,
-    ) -> Vec<StudyQuestion> {
-        let types = vec![
+    fn default_wrong_word_types() -> Vec<QuestionType> {
+        vec![
             QuestionType::ExampleToCnChoice,
             QuestionType::EnToCnChoice,
             QuestionType::EnToCnInput,
@@ -111,45 +126,21 @@ impl QuestionBuilder {
             QuestionType::EnToCnChoice,
             QuestionType::CnToEnChoice,
             QuestionType::EnToCnInput,
-        ];
-        let total_questions = wrong_words.len() as u32;
-        let mut questions = Vec::with_capacity(total_questions as usize);
-        let mut question_index = 0u32;
-        let mut used_distractors = HashSet::new();
-
-        for word in wrong_words {
-            let qt = &types[(question_index as usize) % types.len()];
-            let question = Self::build_single_question_with_used(
-                word,
-                qt,
-                distractors,
-                session_id,
-                question_index,
-                total_questions,
-                &mut used_distractors,
-            );
-            questions.push(question);
-            question_index += 1;
-        }
-
-        questions
+        ]
     }
 
-    fn build_mixed_test_questions(
+    fn build_weighted_pool_questions(
         words: &[WordForQuestion],
         distractors: &[WordForQuestion],
         session_id: &str,
+        question_type_weights: &[QuestionTypeWeight],
+        fallback_types: Vec<QuestionType>,
     ) -> Vec<StudyQuestion> {
-        let types = vec![
-            QuestionType::ExampleToCnChoice,
-            QuestionType::EnToCnChoice,
-            QuestionType::EnToCnInput,
-            QuestionType::EnToCnChoice,
-            QuestionType::EnToCnInput,
-            QuestionType::EnToCnChoice,
-            QuestionType::CnToEnChoice,
-            QuestionType::EnToCnInput,
-        ];
+        let types = Self::question_type_sequence_for_count(
+            words.len(),
+            question_type_weights,
+            fallback_types,
+        );
         let total_questions = words.len() as u32;
         let mut questions = Vec::with_capacity(total_questions as usize);
         let mut question_index = 0u32;
@@ -171,6 +162,59 @@ impl QuestionBuilder {
         }
 
         questions
+    }
+
+    fn question_type_sequence_for_count(
+        count: usize,
+        question_type_weights: &[QuestionTypeWeight],
+        fallback_types: Vec<QuestionType>,
+    ) -> Vec<QuestionType> {
+        if count == 0 {
+            return fallback_types;
+        }
+        let total_weight: u32 = question_type_weights.iter().map(|item| item.weight).sum();
+        if total_weight == 0 {
+            return fallback_types;
+        }
+        let mut sequence = Vec::with_capacity(count);
+        let mut slots = question_type_weights
+            .iter()
+            .filter(|item| item.weight > 0)
+            .map(|item| {
+                let quota =
+                    ((item.weight as f64 / total_weight as f64) * count as f64).round() as usize;
+                (item.question_type.clone(), quota.max(1))
+            })
+            .collect::<Vec<_>>();
+        while slots.iter().map(|(_, quota)| *quota).sum::<usize>() > count {
+            if let Some((_, quota)) = slots.iter_mut().find(|(_, quota)| *quota > 1) {
+                *quota -= 1;
+            } else {
+                break;
+            }
+        }
+        while slots.iter().map(|(_, quota)| *quota).sum::<usize>() < count {
+            if let Some((_, quota)) = slots.first_mut() {
+                *quota += 1;
+            }
+        }
+        while sequence.len() < count && slots.iter().any(|(_, quota)| *quota > 0) {
+            for (question_type, quota) in slots.iter_mut() {
+                if *quota == 0 {
+                    continue;
+                }
+                sequence.push(question_type.clone());
+                *quota -= 1;
+                if sequence.len() >= count {
+                    break;
+                }
+            }
+        }
+        if sequence.is_empty() {
+            fallback_types
+        } else {
+            sequence
+        }
     }
 
     #[cfg(test)]
@@ -208,19 +252,15 @@ impl QuestionBuilder {
 
         let question_id = format!("{}_{}", session_id, question_index);
 
-        let example = word.examples.first();
-        let example_sentence = example.map(|e| e.sentence_en.clone());
-        let example_translation = example.map(|e| e.sentence_cn.clone());
-
         match question_type {
             QuestionType::EnToCnChoice => {
-                let accepted_meanings = Self::choice_meanings_for_word(word);
-                let primary_meaning =
-                    Self::primary_meaning_for_question(word, example_translation.as_deref());
+                let primary_meaning = Self::primary_meaning_for_question(word, None);
+                let accepted_meanings = vec![Self::sanitize_choice_text(&primary_meaning)];
+                let excluded_meanings = Self::choice_meanings_for_word(word);
                 let (choices, correct_label) = Self::build_cn_choices(
                     &primary_meaning,
                     distractors,
-                    &accepted_meanings,
+                    &excluded_meanings,
                     word.part_of_speech.as_deref(),
                     question_index,
                     used_distractors,
@@ -243,24 +283,32 @@ impl QuestionBuilder {
                     total_questions,
                 }
             }
-            QuestionType::ExampleToCnChoice => {
-                let accepted_meanings = Self::choice_meanings_for_word(word);
+            QuestionType::ExampleToCnChoice | QuestionType::ExampleToCnChoiceNoTranslation => {
+                let primary_meaning = Self::primary_meaning_for_question(word, None);
+                let example = Self::example_matching_meaning(word, &primary_meaning);
                 let prompt = example
                     .map(|e| e.sentence_en.clone())
                     .unwrap_or_else(|| word.word.clone());
-                let contextual_meaning =
-                    Self::primary_meaning_for_question(word, example_translation.as_deref());
+                let contextual_meaning = example
+                    .map(|example| {
+                        Self::primary_meaning_for_question(word, Some(&example.sentence_cn))
+                    })
+                    .unwrap_or(primary_meaning);
+                let example_sentence = example.map(|e| e.sentence_en.clone());
+                let example_translation = example.map(|e| e.sentence_cn.clone());
+                let accepted_meanings = vec![Self::sanitize_choice_text(&contextual_meaning)];
+                let excluded_meanings = Self::choice_meanings_for_word(word);
                 let (choices, correct_label) = Self::build_cn_choices(
                     &contextual_meaning,
                     distractors,
-                    &accepted_meanings,
+                    &excluded_meanings,
                     word.part_of_speech.as_deref(),
                     question_index,
                     used_distractors,
                 );
                 StudyQuestion {
                     question_id,
-                    question_type: QuestionType::ExampleToCnChoice,
+                    question_type: question_type.clone(),
                     entry_source_id: word.source_id.clone(),
                     word: word.word.clone(),
                     part_of_speech: word.part_of_speech.clone(),
@@ -269,7 +317,14 @@ impl QuestionBuilder {
                     prompt,
                     accepted_meanings,
                     example_sentence,
-                    example_translation,
+                    example_translation: if matches!(
+                        question_type,
+                        QuestionType::ExampleToCnChoiceNoTranslation
+                    ) {
+                        None
+                    } else {
+                        example_translation
+                    },
                     choices: Some(choices),
                     correct_choice_label: Some(correct_label),
                     question_index,
@@ -313,6 +368,23 @@ impl QuestionBuilder {
                 accepted_meanings,
                 example_sentence: None,
                 example_translation: None,
+                choices: None,
+                correct_choice_label: None,
+                question_index,
+                total_questions,
+            },
+            QuestionType::WordSkeletonInput => StudyQuestion {
+                question_id,
+                question_type: QuestionType::WordSkeletonInput,
+                entry_source_id: word.source_id.clone(),
+                word: word.word.clone(),
+                part_of_speech: word.part_of_speech.clone(),
+                phonetic_us: word.phonetic_us.clone(),
+                phonetic_uk: word.phonetic_uk.clone(),
+                prompt: Self::word_skeleton_prompt(&word.word),
+                accepted_meanings: vec![Self::word_skeleton_missing_text(&word.word)],
+                example_sentence: None,
+                example_translation: accepted_meanings.first().cloned(),
                 choices: None,
                 correct_choice_label: None,
                 question_index,
@@ -595,7 +667,7 @@ impl QuestionBuilder {
 
         for candidate in distractors {
             for text in values_for_word(candidate) {
-                if !should_keep(&text) || !seen.insert(text.clone()) {
+                if text.trim().is_empty() || !should_keep(&text) || !seen.insert(text.clone()) {
                     continue;
                 }
                 let text_norm = normalize_context_text(&text);
@@ -748,6 +820,9 @@ impl QuestionBuilder {
             cleaned = cleaned.replace(&format!(" {separator}"), &separator.to_string());
             cleaned = cleaned.replace(&format!("{separator} "), &separator.to_string());
         }
+        if matches!(cleaned.trim(), "" | "/" | "\\" | "-" | "—" | "——") {
+            return String::new();
+        }
         cleaned
     }
 
@@ -786,6 +861,27 @@ impl QuestionBuilder {
             .unwrap_or_else(|| candidate_meanings[0].clone())
     }
 
+    fn example_matching_meaning<'a>(
+        word: &'a WordForQuestion,
+        meaning: &str,
+    ) -> Option<&'a EntryExample> {
+        let normalized_meaning = normalize_context_text(meaning);
+        word.examples
+            .iter()
+            .filter(|example| {
+                context_overlap_score(
+                    &normalize_context_text(&example.sentence_cn),
+                    &normalized_meaning,
+                ) > 0
+            })
+            .max_by_key(|example| {
+                context_overlap_score(
+                    &normalize_context_text(&example.sentence_cn),
+                    &normalized_meaning,
+                )
+            })
+    }
+
     fn meanings_matching_target_pos<'a>(
         word: &'a WordForQuestion,
         target_pos: Option<&str>,
@@ -821,6 +917,35 @@ impl QuestionBuilder {
             }
         }
         ordered
+    }
+
+    fn word_skeleton_prompt(word: &str) -> String {
+        Self::word_skeleton_parts(word).0
+    }
+
+    fn word_skeleton_missing_text(word: &str) -> String {
+        Self::word_skeleton_parts(word).1
+    }
+
+    fn word_skeleton_parts(word: &str) -> (String, String) {
+        let chars = word.chars().collect::<Vec<_>>();
+        if chars.len() < 5 {
+            return (word.to_string(), word.to_string());
+        }
+        let hide_start = 1usize;
+        let hide_count = ((chars.len() / 3).max(2)).min(chars.len().saturating_sub(2));
+        let hide_end = hide_start + hide_count;
+        let mut skeleton = String::with_capacity(word.len());
+        let mut missing = String::new();
+        for (index, ch) in chars.iter().enumerate() {
+            if index >= hide_start && index < hide_end && ch.is_ascii_alphabetic() {
+                skeleton.push('_');
+                missing.push(*ch);
+            } else {
+                skeleton.push(*ch);
+            }
+        }
+        (skeleton, missing)
     }
 }
 
@@ -891,7 +1016,9 @@ fn distractor_similarity_score(correct: &str, candidate: &str) -> usize {
 mod tests {
     use super::{QuestionBuilder, WordForQuestion};
     use std::collections::HashSet;
-    use word_storage_core::models::{EntryExample, MeaningZh, QuestionType, SessionMode};
+    use word_storage_core::models::{
+        EntryExample, MeaningZh, QuestionType, QuestionTypeWeight, SessionMode,
+    };
 
     fn build_word(
         source_id: &str,
@@ -923,6 +1050,24 @@ mod tests {
                 .into_iter()
                 .collect(),
         }
+    }
+
+    fn build_word_with_examples(
+        source_id: &str,
+        word: &str,
+        part_of_speech: Option<&str>,
+        meanings: &[(&str, &str)],
+        examples: &[(&str, &str)],
+    ) -> WordForQuestion {
+        let mut word = build_word(source_id, word, part_of_speech, meanings, None);
+        word.examples = examples
+            .iter()
+            .map(|(sentence_en, sentence_cn)| EntryExample {
+                sentence_en: (*sentence_en).to_string(),
+                sentence_cn: (*sentence_cn).to_string(),
+            })
+            .collect();
+        word
     }
 
     #[test]
@@ -1063,6 +1208,7 @@ mod tests {
             &words,
             &distractors,
             "sess_no_repeat",
+            &[],
         );
 
         let mut seen = HashSet::new();
@@ -1113,6 +1259,16 @@ mod tests {
             &words,
             &distractors,
             "sess_variety",
+            &[
+                QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnChoice,
+                    weight: 50,
+                },
+                QuestionTypeWeight {
+                    question_type: QuestionType::ExampleToCnChoice,
+                    weight: 50,
+                },
+            ],
         );
 
         let mut choice_sets = HashSet::new();
@@ -1136,7 +1292,7 @@ mod tests {
         }
 
         assert!(
-            choice_sets.len() >= 15,
+            choice_sets.len() >= 20,
             "choice distractors should vary across a large candidate pool, got {} sets",
             choice_sets.len()
         );
@@ -1232,6 +1388,53 @@ mod tests {
     }
 
     #[test]
+    fn cn_choice_distractors_skip_placeholder_slash_meanings() {
+        let target = build_word(
+            "target",
+            "politician",
+            Some("n."),
+            &[("n.", "politician meaning")],
+            None,
+        );
+        let distractors = vec![
+            build_word("d1", "slash", Some("n."), &[("n.", "/")], None),
+            build_word("d2", "staff", Some("n."), &[("n.", "staff meaning")], None),
+            build_word(
+                "d3",
+                "invite",
+                Some("n."),
+                &[("n.", "invite meaning")],
+                None,
+            ),
+            build_word(
+                "d4",
+                "public",
+                Some("n."),
+                &[("n.", "public meaning")],
+                None,
+            ),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::ExampleToCnChoice,
+            &distractors,
+            "sess",
+            0,
+            1,
+        );
+
+        let texts = question
+            .choices
+            .expect("choices should exist")
+            .into_iter()
+            .map(|choice| choice.text)
+            .collect::<Vec<_>>();
+        assert!(!texts.iter().any(|text| text.trim() == "/"));
+        assert!(!texts.iter().any(|text| text.trim().is_empty()));
+    }
+
+    #[test]
     fn cn_to_en_prompt_strips_embedded_option_labels() {
         let target = build_word(
             "target",
@@ -1251,6 +1454,250 @@ mod tests {
         );
 
         assert_eq!(question.prompt, "doctor；surgeon；operator");
+    }
+
+    #[test]
+    fn example_no_translation_choice_hides_translation_payload() {
+        let target = build_word(
+            "target",
+            "adapt",
+            Some("v."),
+            &[("v.", "adapt meaning")],
+            Some("adapt translation"),
+        );
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::ExampleToCnChoiceNoTranslation,
+            &[],
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(
+            question.question_type,
+            QuestionType::ExampleToCnChoiceNoTranslation
+        );
+        assert_eq!(
+            question.example_sentence.as_deref(),
+            Some("example for adapt")
+        );
+        assert_eq!(question.example_translation, None);
+        assert!(question.choices.is_some());
+    }
+
+    #[test]
+    fn example_choice_does_not_use_example_from_different_meaning() {
+        let target = build_word_with_examples(
+            "target",
+            "pop",
+            Some("adj"),
+            &[("adj", "流行的，通俗的"), ("v", "突然出现；冒出")],
+            &[(
+                "All at once an idea popped into her head.",
+                "她脑子里突然冒出一个念头。",
+            )],
+        );
+        let distractors = vec![
+            build_word(
+                "d1",
+                "artistic",
+                Some("adj"),
+                &[("adj", "艺术的，美术的")],
+                None,
+            ),
+            build_word(
+                "d2",
+                "notable",
+                Some("adj"),
+                &[("adj", "值得注意的，显著的")],
+                None,
+            ),
+            build_word(
+                "d3",
+                "splendid",
+                Some("adj"),
+                &[("adj", "华丽的，极好的")],
+                None,
+            ),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::ExampleToCnChoice,
+            &distractors,
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(question.prompt, "pop");
+        assert_eq!(question.example_sentence, None);
+        assert_eq!(question.example_translation, None);
+        assert_eq!(
+            question.accepted_meanings,
+            vec!["流行的，通俗的".to_string()]
+        );
+    }
+
+    #[test]
+    fn word_skeleton_input_prompts_with_hidden_middle_letters() {
+        let target = build_word(
+            "target",
+            "function",
+            Some("n."),
+            &[("n.", "function meaning")],
+            None,
+        );
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::WordSkeletonInput,
+            &[],
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(question.question_type, QuestionType::WordSkeletonInput);
+        assert_eq!(question.prompt, "f__ction");
+        assert_eq!(question.accepted_meanings, vec!["un".to_string()]);
+        assert_eq!(
+            question.example_translation.as_deref(),
+            Some("function meaning")
+        );
+        assert!(question.choices.is_none());
+    }
+
+    #[test]
+    fn word_skeleton_input_accepts_only_missing_letters() {
+        let target = build_word(
+            "target",
+            "fridge",
+            Some("n."),
+            &[("n.", "fridge meaning")],
+            None,
+        );
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::WordSkeletonInput,
+            &[],
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(question.prompt, "f__dge");
+        assert_eq!(question.accepted_meanings, vec!["ri".to_string()]);
+    }
+
+    #[test]
+    fn new_word_ignores_personalized_weights_and_keeps_fixed_four_type_loop() {
+        let words = vec![
+            build_word("w1", "function", Some("n."), &[("n.", "meaning 1")], None),
+            build_word("w2", "balance", Some("n."), &[("n.", "meaning 2")], None),
+            build_word("w3", "conduct", Some("v."), &[("v.", "meaning 3")], None),
+        ];
+        let weights = vec![QuestionTypeWeight {
+            question_type: QuestionType::WordSkeletonInput,
+            weight: 100,
+        }];
+
+        let questions = QuestionBuilder::build_session_questions(
+            &SessionMode::NewWord,
+            &words,
+            &words,
+            "sess_personalized_new",
+            &weights,
+        );
+
+        assert_eq!(questions.len(), words.len() * 4);
+        assert_eq!(questions[0].question_type, QuestionType::ExampleToCnChoice);
+        assert_eq!(
+            questions[words.len()].question_type,
+            QuestionType::EnToCnChoice
+        );
+        assert_eq!(
+            questions[words.len() * 2].question_type,
+            QuestionType::CnToEnChoice
+        );
+        assert_eq!(
+            questions[words.len() * 3].question_type,
+            QuestionType::EnToCnInput
+        );
+    }
+
+    #[test]
+    fn new_word_choice_labels_are_owned_by_generated_choice_position() {
+        let target = build_word(
+            "target",
+            "target",
+            Some("n."),
+            &[("n.", "target meaning")],
+            Some("target meaning example"),
+        );
+        let distractors = vec![
+            build_word("d1", "alpha", Some("n."), &[("n.", "alpha meaning")], None),
+            build_word("d2", "bravo", Some("n."), &[("n.", "bravo meaning")], None),
+            build_word("d3", "charlie", Some("n."), &[("n.", "charlie meaning")], None),
+            build_word("d4", "delta", Some("n."), &[("n.", "delta meaning")], None),
+            build_word("d5", "echo", Some("n."), &[("n.", "echo meaning")], None),
+            build_word("d6", "foxtrot", Some("n."), &[("n.", "foxtrot meaning")], None),
+        ];
+
+        let questions = QuestionBuilder::build_session_questions(
+            &SessionMode::NewWord,
+            &[target],
+            &distractors,
+            "sess_choice_labels",
+            &[],
+        );
+        let choice_labels = questions
+            .iter()
+            .filter(|question| question.question_type.is_choice_type())
+            .map(|question| {
+                let label = question
+                    .correct_choice_label
+                    .as_deref()
+                    .expect("choice question has correct label");
+                let choices = question.choices.as_ref().expect("choices");
+                assert!(
+                    choices.iter().any(|choice| choice.label == label),
+                    "correct label {label} must point at one rendered choice"
+                );
+                label.to_string()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(choice_labels, vec!["A", "B", "D"]);
+    }
+
+    #[test]
+    fn root_affix_ignores_personalized_weights() {
+        let words = vec![build_word(
+            "root",
+            "re",
+            Some("root"),
+            &[("root", "again")],
+            None,
+        )];
+        let weights = vec![QuestionTypeWeight {
+            question_type: QuestionType::WordSkeletonInput,
+            weight: 100,
+        }];
+
+        let questions = QuestionBuilder::build_session_questions(
+            &SessionMode::RootAffix,
+            &words,
+            &words,
+            "sess_root_fixed",
+            &weights,
+        );
+
+        assert_eq!(questions.len(), 1);
+        assert_eq!(questions[0].question_type, QuestionType::RootToGlossInput);
     }
 
     #[test]
@@ -1290,7 +1737,7 @@ mod tests {
     }
 
     #[test]
-    fn mixed_test_prefers_en_to_cn_choice_and_input_question_types() {
+    fn mixed_test_uses_default_choice_and_input_question_types() {
         let words: Vec<WordForQuestion> = (0..8)
             .map(|index| {
                 build_word(
@@ -1308,6 +1755,7 @@ mod tests {
             &words,
             &words,
             "sess",
+            &[],
         );
 
         let en_to_cn_choice = questions
@@ -1323,8 +1771,12 @@ mod tests {
             .filter(|question| question.question_type == QuestionType::CnToEnChoice)
             .count();
 
-        assert!(en_to_cn_choice >= 3);
-        assert!(en_to_cn_input >= 3);
-        assert!(cn_to_en_choice <= 1);
+        assert!(en_to_cn_choice > 0);
+        assert!(en_to_cn_input > 0);
+        assert!(cn_to_en_choice > 0);
+        assert_eq!(
+            en_to_cn_choice + en_to_cn_input + cn_to_en_choice,
+            questions.len()
+        );
     }
 }

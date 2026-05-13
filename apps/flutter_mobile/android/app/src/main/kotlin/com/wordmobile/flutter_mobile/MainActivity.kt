@@ -82,6 +82,56 @@ class MainActivity : FlutterActivity() {
                                 RustBridge.drawTodayReward(call.arguments as? String ?: "")
                             }
                         }
+                        "getRewardImageUploadEntitlement" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getRewardImageUploadEntitlement()
+                            }
+                        }
+                        "refreshRewardImageUploadEntitlement" -> {
+                            runBridgeCall(result) {
+                                RustBridge.refreshRewardImageUploadEntitlement(call.arguments as? String ?: "")
+                            }
+                        }
+                        "createRewardImageUpload" -> {
+                            runBridgeCall(result) {
+                                RustBridge.createRewardImageUpload(call.arguments as? String ?: "")
+                            }
+                        }
+                        "listRewardImages" -> {
+                            runBridgeCall(result) {
+                                RustBridge.listRewardImages(call.arguments as? String ?: "")
+                            }
+                        }
+                        "moderateRewardImage" -> {
+                            runBridgeCall(result) {
+                                RustBridge.moderateRewardImage(call.arguments as? String ?: "")
+                            }
+                        }
+                        "selectLeaderboardRewardImageTag" -> {
+                            runBridgeCall(result) {
+                                RustBridge.selectLeaderboardRewardImageTag(call.arguments as? String ?: "")
+                            }
+                        }
+                        "voteRewardImage" -> {
+                            runBridgeCall(result) {
+                                RustBridge.voteRewardImage(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getLocalLeaderboard" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getLocalLeaderboard(call.arguments as? String ?: "")
+                            }
+                        }
+                        "refreshLocalLeaderboardSummary" -> {
+                            runBridgeCall(result) {
+                                RustBridge.refreshLocalLeaderboardSummary(call.arguments as? String ?: "")
+                            }
+                        }
+                        "seedLocalLeaderboardDemo" -> {
+                            runBridgeCall(result) {
+                                RustBridge.seedLocalLeaderboardDemo()
+                            }
+                        }
                         "saveImageToGallery" -> {
                             runBridgeCall(result) {
                                 saveImageToGallery(call.arguments as? String ?: "")
@@ -104,6 +154,16 @@ class MainActivity : FlutterActivity() {
                         "applySavedPlanToToday" -> {
                             runBridgeCall(result) {
                                 RustBridge.applySavedPlanToToday()
+                            }
+                        }
+                        "getCrocBtiProfile" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getCrocBtiProfile()
+                            }
+                        }
+                        "saveCrocBtiProfile" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveCrocBtiProfile(call.arguments as? String ?: "")
                             }
                         }
                         "getWordbooks" -> {
@@ -154,6 +214,11 @@ class MainActivity : FlutterActivity() {
                         "restoreCloudDataSnapshot" -> {
                             runBridgeCall(result) {
                                 RustBridge.restoreCloudDataSnapshot(call.arguments as? String ?: "")
+                            }
+                        }
+                        "restoreCloudAiPassageSnapshot" -> {
+                            runBridgeCall(result) {
+                                RustBridge.restoreCloudAiPassageSnapshot(call.arguments as? String ?: "")
                             }
                         }
                         "getWrongWords" -> {
@@ -237,6 +302,11 @@ class MainActivity : FlutterActivity() {
                         "submitStudyAnswer" -> {
                             runBridgeCall(result) {
                                 RustBridge.submitStudyAnswer(call.arguments as? String ?: "")
+                            }
+                        }
+                        "markStudyEntryMastered" -> {
+                            runBridgeCall(result) {
+                                RustBridge.markStudyEntryMastered(call.arguments as? String ?: "")
                             }
                         }
                         "completeStudySession" -> {

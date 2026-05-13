@@ -219,6 +219,11 @@ class _PlanScreenState extends State<PlanScreen> {
     return _clamp(int.tryParse(controller.text.trim()) ?? fallback, min, max);
   }
 
+  int _parseNewWordQuestions(PlanSummary plan) {
+    final parsed = _parseController(_newWordsController, plan.newWordsPerDay, 0, 180);
+    return parsed - (parsed % 4);
+  }
+
   int _clamp(int value, int min, int max) => value < min ? min : (value > max ? max : value);
 
   int? get _selectedWordbookId {
@@ -244,7 +249,7 @@ class _PlanScreenState extends State<PlanScreen> {
     }
     return <String, dynamic>{
       'name': _nameController.text.trim().isEmpty ? plan.name : _nameController.text.trim(),
-      'newWordsPerDay': _parseController(_newWordsController, plan.newWordsPerDay, 0, 100),
+      'newWordsPerDay': _parseNewWordQuestions(plan),
       'reviewWordsPerDay': _parseController(_reviewWordsController, plan.reviewWordsPerDay, 0, 200),
       'mixedTestPerDay': _parseController(_mixedController, plan.mixedTestPerDay, 0, 50),
       'wrongWordTestPerDay': _parseController(_wrongWordsController, plan.wrongWordTestPerDay, 0, 30),
@@ -257,6 +262,8 @@ class _PlanScreenState extends State<PlanScreen> {
         'increment': sharedIncrement,
       },
       'growthRulesByMode': rulesByMode,
+      'questionTypeWeightsByMode':
+          plan.questionTypeWeightsByMode ?? const <String, dynamic>{},
     };
   }
 
@@ -424,8 +431,6 @@ class _PlanScreenState extends State<PlanScreen> {
     return Future<bool?>.value(false);
   }
 
-  int _questionCountFromWords(int words) => words * 4;
-
   @override
   Widget build(BuildContext context) {
     final plan = _plan;
@@ -470,17 +475,17 @@ class _PlanScreenState extends State<PlanScreen> {
                             children: [
                               _StepperField(
                                 label: '新词学习',
-                                helper: '${_questionCountFromWords(int.tryParse(_newWordsController.text) ?? plan.newWordsPerDay)} 题',
+                                helper: '单位：题；需为 4 的倍数，对应四种固定题型',
                                 controller: _newWordsController,
-                                step: 5,
-                                max: 100,
+                                step: 4,
+                                max: 180,
                               ),
                               const SizedBox(height: 12),
                               _StepperField(
                                 label: '复习',
-                                helper: '${_questionCountFromWords(int.tryParse(_reviewWordsController.text) ?? plan.reviewWordsPerDay)} 题',
+                                helper: '单位：题；按人格推荐题型占比分配',
                                 controller: _reviewWordsController,
-                                step: 10,
+                                step: 5,
                                 max: 200,
                               ),
                               const SizedBox(height: 12),
@@ -793,7 +798,10 @@ class _StepperField extends StatelessWidget {
 
   void _adjust(int delta) {
     final current = int.tryParse(controller.text) ?? 0;
-    final next = (current + delta).clamp(0, max);
+    var next = (current + delta).clamp(0, max);
+    if (step == 4) {
+      next -= next % 4;
+    }
     controller.text = '$next';
   }
 

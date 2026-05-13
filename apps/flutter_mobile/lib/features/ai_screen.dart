@@ -5,6 +5,49 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
 
+enum _AiToolMode { passage, import }
+
+enum _AiChatMessageKind { text, passage, history, importReview, loading }
+
+class _AiChatMessage {
+  const _AiChatMessage.text(this.text)
+      : kind = _AiChatMessageKind.text,
+        passage = null,
+        history = null,
+        analysis = null;
+
+  const _AiChatMessage.passage(this.passage)
+      : kind = _AiChatMessageKind.passage,
+        text = null,
+        history = null,
+        analysis = null;
+
+  const _AiChatMessage.history(this.history)
+      : kind = _AiChatMessageKind.history,
+        text = null,
+        passage = null,
+        analysis = null;
+
+  const _AiChatMessage.importReview(this.analysis)
+      : kind = _AiChatMessageKind.importReview,
+        text = null,
+        passage = null,
+        history = null;
+
+  const _AiChatMessage.loading()
+      : kind = _AiChatMessageKind.loading,
+        text = null,
+        passage = null,
+        history = null,
+        analysis = null;
+
+  final _AiChatMessageKind kind;
+  final String? text;
+  final AiPassage? passage;
+  final List<AiPassageHistoryItem>? history;
+  final AiWrongWordImportAnalysis? analysis;
+}
+
 class AiScreen extends StatefulWidget {
   const AiScreen({
     super.key,
@@ -26,17 +69,19 @@ class AiScreen extends StatefulWidget {
 }
 
 class _AiScreenState extends State<AiScreen> {
+  final _input = TextEditingController();
+  final _scrollController = ScrollController();
+
   TodayAiPassageContext? _context;
   List<AiPassageHistoryItem> _history = const [];
   AiPassage? _passage;
-  AiWrongWordImportAnalysis? _importAnalysis;
-  String? _message;
-  String? _importMessage;
-  String? _importProgressMessage;
+  final List<_AiChatMessage> _messages = [];
+  final Set<String> _selectedImportCandidateIds = {};
+
   bool _loading = true;
-  bool _generating = false;
-  bool _analyzingImport = false;
+  bool _busy = false;
   bool _handledOpenIntent = false;
+  _AiToolMode _mode = _AiToolMode.passage;
 
   @override
   void initState() {
@@ -44,446 +89,278 @@ class _AiScreenState extends State<AiScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _input.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _load({bool showFullLoading = true}) async {
-    setState(() {
-      if (showFullLoading) _loading = true;
-      _message = null;
-    });
+    if (mounted && showFullLoading) setState(() => _loading = true);
     try {
-      final context = await widget.sdk.ai.getTodayAiPassageContext();
-      final history = await widget.sdk.ai.getAiPassageHistory();
-      final todayItem = _todayHistoryItem(context, history);
-      AiPassage? latest;
-      if (todayItem != null) {
-        latest = await widget.sdk.ai.getAiPassage(todayItem.passageId);
+      var history = await widget.sdk.ai.getAiPassageHistory();
+      if (history.isEmpty && widget.isSignedIn) {
+        await _restoreCloudAiPassageHistory();
+        history = await widget.sdk.ai.getAiPassageHistory();
       }
+      final context = await widget.sdk.ai.getTodayAiPassageContext();
+      final todayItem = _todayHistoryItem(context, history);
+      final latest = todayItem == null
+          ? null
+          : await widget.sdk.ai.getAiPassage(todayItem.passageId);
+      if (!mounted) return;
       setState(() {
         _context = context;
         _history = history;
         _passage = latest;
       });
+      if (widget.showPassageFirst && latest != null && _messages.isEmpty) {
+        _appendMessage(_AiChatMessage.passage(latest));
+      }
       if (widget.generateOnOpen && !_handledOpenIntent && latest == null) {
         _handledOpenIntent = true;
-        await _generate();
+        await _generatePassage();
       }
     } catch (error) {
-      setState(() {
-        _message = error.toString();
-      });
+      _appendText(error.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<int> _restoreCloudAiPassageHistory({bool announce = false}) async {
+    if (!widget.isSignedIn) {
+      if (announce) {
+        _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u4ece\u4e91\u7aef\u6062\u590d AI \u77ed\u6587\u5386\u53f2\u3002');
+      }
+      return 0;
+    }
+    try {
+      final rows = await widget.sdk.sync.fetchCloudAiPassages();
+      if (rows.isEmpty) {
+        if (announce) _appendText('\u4e91\u7aef\u6ca1\u6709\u53ef\u6062\u590d\u7684 AI \u77ed\u6587\u5386\u53f2\u3002');
+        return 0;
+      }
+      final restored = await widget.sdk.sync.restoreCloudAiPassagesToLocal(rows);
+      final history = await widget.sdk.ai.getAiPassageHistory();
+      if (mounted) setState(() => _history = history);
+      if (announce) _appendText('\u5df2\u4ece\u4e91\u7aef\u6062\u590d $restored \u7bc7 AI \u77ed\u6587\u3002');
+      return restored;
+    } catch (error) {
+      if (announce) _appendText('\u4e91\u7aef AI \u77ed\u6587\u6062\u590d\u5931\u8d25\uff1a$error');
+      return 0;
+    }
+  }
+
+  void _appendText(String text) => _appendMessage(_AiChatMessage.text(text));
+
+  void _appendMessage(_AiChatMessage message) {
+    if (!mounted) return;
+    setState(() => _messages.add(message));
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _showHistoryInChat() async {
+    if (_history.isEmpty) {
+      await _restoreCloudAiPassageHistory();
+      _history = await widget.sdk.ai.getAiPassageHistory();
+    }
+    if (_history.isEmpty) {
+      _appendText('\u8fd8\u6ca1\u6709 AI \u77ed\u6587\u5386\u53f2\u3002');
+      return;
+    }
+    _appendMessage(_AiChatMessage.history(_history));
   }
 
   Future<void> _openHistoryItem(AiPassageHistoryItem item) async {
-    final next = await widget.sdk.ai.getAiPassage(item.passageId);
+    _appendText('\u6b63\u5728\u8bfb\u53d6\u5386\u53f2\u77ed\u6587...');
+    final passage = await widget.sdk.ai.getAiPassage(item.passageId);
     if (!mounted) return;
+    setState(() => _messages.removeLast());
+    if (passage == null) {
+      _appendText('\u672a\u80fd\u8bfb\u53d6\u8fd9\u7bc7\u5386\u53f2\u77ed\u6587\u6b63\u6587\uff0c\u8bf7\u91cd\u65b0\u540c\u6b65\u540e\u518d\u8bd5\u3002');
+      return;
+    }
     setState(() {
-      _passage = next;
+      _mode = _AiToolMode.passage;
+      _passage = passage;
+      _messages.add(_AiChatMessage.passage(passage));
     });
+    _scrollToBottom();
   }
 
-  Future<void> _generate() async {
+  Future<void> _generatePassage({String? styleInstruction}) async {
     if (!widget.isSignedIn) {
-      setState(() {
-        _message = '请先登录账号，再生成 AI 短文。';
-      });
+      _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002');
       return;
     }
-
     final context = _context;
     if (context == null) return;
-
-    final wrongWords = context.generationWrongWords.toList(growable: false);
-    final targetWords = context.generationTargetWords.toList(growable: false);
-
     if (!context.tasksComplete) {
-      setState(() {
-        _message =
-            '\u8bf7\u5148\u5b8c\u6210\u4eca\u65e5\u4efb\u52a1\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002';
-      });
+      _appendText('\u8bf7\u5148\u5b8c\u6210\u4eca\u65e5\u5b66\u4e60\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002');
       return;
     }
-
+    final wrongWords = context.generationWrongWords.toList(growable: false);
+    final targetWords = context.generationTargetWords.toList(growable: false);
     if (wrongWords.isEmpty && targetWords.isEmpty) {
-      setState(() {
-        _message =
-            '\u5f53\u524d\u6ca1\u6709\u53ef\u7528\u4e8e\u751f\u6210\u77ed\u6587\u7684\u9519\u8bcd\u3002';
-      });
+      _appendText('\u4eca\u5929\u8fd8\u6ca1\u6709\u53ef\u7528\u4e8e\u751f\u6210\u77ed\u6587\u7684\u9519\u8bcd\u3002');
       return;
     }
 
     setState(() {
-      _generating = true;
-      _message = null;
+      _mode = _AiToolMode.passage;
+      _busy = true;
+      _messages.add(const _AiChatMessage.loading());
     });
+    _scrollToBottom();
     try {
       final generated = await widget.sdk.ai.generateAiPassage(
         wrongWords: wrongWords,
         targetWords: targetWords,
         level: 'intermediate',
         date: context.date,
+        style: styleInstruction,
       );
+      if (!mounted) return;
       setState(() {
+        _messages.removeLast();
         _passage = generated;
+        _messages.add(_AiChatMessage.passage(generated));
       });
-      if (widget.isSignedIn) {
-        await widget.sdk.sync.flushPendingToCloud();
-      }
-      await _load();
+      _scrollToBottom();
+      await widget.sdk.sync.flushPendingToCloud();
+      await _load(showFullLoading: false);
     } catch (error) {
-      setState(() {
-        _message = error.toString();
-      });
+      if (!mounted) return;
+      setState(() => _messages.removeLast());
+      _appendText(error.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _generating = false;
-        });
-      }
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _startWrongWordImport(String sourceType) async {
-    if (!widget.isSignedIn) {
-      setState(() {
-        _importMessage = '请先登录账号，再导入错词。';
-      });
-      return;
-    }
-
-    final importSource = sourceType == 'text'
-        ? await _chooseWrongWordRecordSource()
-        : await widget.sdk.ai.pickWrongWordImportSource(sourceType: sourceType);
-    if (importSource == null) return;
-
-    setState(() {
-      _analyzingImport = true;
-      _importMessage = null;
-      _importProgressMessage = _initialImportProgressMessage(importSource);
-    });
-    try {
-      final analysis = await _analyzeWrongWordImportWithProgress(importSource);
-      if (!mounted) return;
-      setState(() {
-        _importAnalysis = analysis;
-        _importProgressMessage = null;
-      });
-      if (analysis.candidates.isEmpty) {
-        await _showEmptyWrongWordImportResult(analysis);
+  Future<void> _submitComposer() async {
+    final text = _input.text.trim();
+    _input.clear();
+    if (_mode == _AiToolMode.import) {
+      if (text.isEmpty) {
+        _appendText('\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u7528\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002');
         return;
       }
-      await _reviewWrongWordImport(analysis);
-    } catch (error) {
+      await _runWrongWordImport(
+        AiWrongWordImportSource(
+          sourceType: 'text',
+          sourceName: 'pasted-wrong-word-record',
+          textContent: text,
+        ),
+      );
+      return;
+    }
+    final lower = text.toLowerCase();
+    if (text.contains('\u5386\u53f2') || lower.contains('history')) {
+      await _showHistoryInChat();
+      return;
+    }
+    await _generatePassage(styleInstruction: text.isEmpty ? null : text);
+  }
+
+  Future<void> _startImageWrongWordImport() async {
+    if (!widget.isSignedIn) {
+      _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u5bfc\u5165\u9519\u8bcd\u3002');
+      return;
+    }
+    final importSource = await widget.sdk.ai.pickWrongWordImportSource(
+      sourceType: 'image',
+    );
+    if (importSource == null) return;
+    await _runWrongWordImport(importSource);
+  }
+
+  Future<void> _runWrongWordImport(AiWrongWordImportSource source) async {
+    if (!widget.isSignedIn) {
+      _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u5bfc\u5165\u9519\u8bcd\u3002');
+      return;
+    }
+    setState(() {
+      _mode = _AiToolMode.import;
+      _busy = true;
+      _messages.add(const _AiChatMessage.loading());
+    });
+    _scrollToBottom();
+    try {
+      final results = await Future.wait<dynamic>([
+        widget.sdk.ai.analyzeWrongWordImport(
+          sourceType: source.sourceType,
+          sourceName: source.sourceName,
+          textContent: source.textContent,
+          bytesBase64: source.bytesBase64,
+          mimeType: source.mimeType,
+        ),
+        Future<void>.delayed(
+          source.sourceType == 'image'
+              ? const Duration(milliseconds: 1200)
+              : const Duration(milliseconds: 500),
+        ),
+      ]);
+      final analysis = results.first as AiWrongWordImportAnalysis;
+      final defaultSelection = analysis.candidates
+          .where((candidate) => candidate.confidence >= 0.55)
+          .map((candidate) => candidate.candidateId);
       if (!mounted) return;
       setState(() {
-        _importMessage = error.toString();
-        _importProgressMessage = null;
+        _messages.removeLast();
+        _selectedImportCandidateIds
+          ..clear()
+          ..addAll(defaultSelection);
+        _messages.add(_AiChatMessage.importReview(analysis));
       });
-      await _showWrongWordImportError(error);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _analyzingImport = false;
-          _importProgressMessage = null;
-        });
+      _scrollToBottom();
+      if (analysis.candidates.isEmpty) {
+        _appendText('\u6ca1\u6709\u8bc6\u522b\u5230\u53ef\u5bfc\u5165\u7684\u9519\u8bcd\u3002');
       }
-    }
-  }
-
-  Future<AiWrongWordImportAnalysis> _analyzeWrongWordImportWithProgress(
-    AiWrongWordImportSource importSource,
-  ) async {
-    final progressTitle = importSource.sourceType == 'image'
-        ? '\u6b63\u5728\u5206\u6790\u9519\u8bcd\u7167\u7247'
-        : '\u6b63\u5728\u5206\u6790\u9519\u8bcd\u8bb0\u5f55';
-    final progressBody = importSource.sourceType == 'image'
-        ? '\u6b63\u5728\u8bfb\u53d6\u56fe\u7247\u5e76\u51c6\u5907 AI \u63d0\u53d6\u3002'
-        : '\u6b63\u5728\u8bfb\u53d6\u8bb0\u5f55\u5e76\u63d0\u53d6\u5019\u9009\u8bcd\u3002';
-    final minimumProgress = importSource.sourceType == 'image'
-        ? const Duration(milliseconds: 1400)
-        : const Duration(milliseconds: 700);
-
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(progressTitle),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LinearProgressIndicator(),
-              SizedBox(height: 16),
-              Text('\u8bfb\u53d6\u6765\u6e90\u5185\u5bb9'),
-              SizedBox(height: 4),
-              Text('\u6267\u884c AI \u63d0\u53d6'),
-              SizedBox(height: 4),
-              Text('\u6574\u7406\u5019\u9009\u8bcd'),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    setState(() {
-      _importProgressMessage = progressBody;
-    });
-    try {
-      final analysisFuture = widget.sdk.ai.analyzeWrongWordImport(
-        sourceType: importSource.sourceType,
-        sourceName: importSource.sourceName,
-        textContent: importSource.textContent,
-        bytesBase64: importSource.bytesBase64,
-        mimeType: importSource.mimeType,
-      );
-      final results = await Future.wait<dynamic>([
-        analysisFuture,
-        Future<void>.delayed(minimumProgress),
-      ]);
-      return results.first as AiWrongWordImportAnalysis;
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _messages.removeLast());
+      _appendText(error.toString());
     } finally {
-      setState(() {
-        _importProgressMessage = '\u6b63\u5728\u5b8c\u6210\u5206\u6790';
-      });
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  String _initialImportProgressMessage(AiWrongWordImportSource source) {
-    return source.sourceType == 'image'
-        ? '\u6b63\u5728\u51c6\u5907\u7167\u7247\u5206\u6790...'
-        : '\u6b63\u5728\u51c6\u5907\u8bb0\u5f55\u5206\u6790...';
-  }
-
-  Future<AiWrongWordImportSource?> _chooseWrongWordRecordSource() async {
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('\u5bfc\u5165\u9519\u8bcd\u8bb0\u5f55'),
-        content: const Text(
-          '\u53ef\u4ee5\u9009\u62e9\u6587\u672c\u5bfc\u51fa\u6587\u4ef6\uff0c\u6216\u7c98\u8d34\u5176\u4ed6\u5e94\u7528\u91cc\u7684\u9519\u8bcd\u8bb0\u5f55\u3002',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('\u53d6\u6d88'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop('paste'),
-            child: const Text('\u7c98\u8d34'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop('file'),
-            child: const Text('\u9009\u62e9\u6587\u4ef6'),
-          ),
-        ],
-      ),
-    );
-    if (choice == null) return null;
-    if (choice == 'file') {
-      return widget.sdk.ai.pickWrongWordImportSource(sourceType: 'text');
+  Future<void> _commitSelectedImport(AiWrongWordImportAnalysis analysis) async {
+    if (_selectedImportCandidateIds.isEmpty) {
+      _appendText('\u8bf7\u5148\u52fe\u9009\u8981\u52a0\u5165\u9519\u8bcd\u672c\u7684\u8bcd\u3002');
+      return;
     }
-    final textContent = await _showWrongWordRecordInput();
-    if (textContent == null) return null;
-    return AiWrongWordImportSource(
-      sourceType: 'text',
-      sourceName: 'pasted-wrong-word-record',
-      textContent: textContent,
-    );
-  }
-
-  Future<String?> _showWrongWordRecordInput() async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 6,
-          maxLines: 10,
-          decoration: const InputDecoration(
-            hintText:
-                '\u7c98\u8d34\u5355\u8bcd\u3001CSV \u6587\u672c\u6216\u5176\u4ed6\u5e94\u7528\u91cc\u7684\u7b14\u8bb0',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('\u53d6\u6d88'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              Navigator.of(dialogContext).pop(value.isEmpty ? null : value);
-            },
-            child: const Text('\u5206\u6790'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    return result;
-  }
-
-  Future<void> _reviewWrongWordImport(
-    AiWrongWordImportAnalysis analysis,
-  ) async {
-    final selectedIds = analysis.candidates
-        .where((candidate) => candidate.confidence >= 0.6)
-        .map((candidate) => candidate.candidateId)
-        .toSet();
-    final acceptedIds = await showDialog<Set<String>>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text('\u786e\u8ba4\u5bfc\u5165\u7684\u9519\u8bcd'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final warning in analysis.warnings)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          warning,
-                          style: const TextStyle(color: Color(0xFF9A6A1D)),
-                        ),
-                      ),
-                    for (final candidate in analysis.candidates)
-                      CheckboxListTile(
-                        value: selectedIds.contains(candidate.candidateId),
-                        onChanged: (checked) {
-                          setDialogState(() {
-                            if (checked ?? false) {
-                              selectedIds.add(candidate.candidateId);
-                            } else {
-                              selectedIds.remove(candidate.candidateId);
-                            }
-                          });
-                        },
-                        title: Text(candidate.word),
-                        subtitle: Text(_candidateSummary(candidate)),
-                        secondary: candidate.isHighFrequency
-                            ? const Icon(
-                                Icons.priority_high_rounded,
-                                color: Color(0xFFD64545),
-                              )
-                            : null,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('\u53d6\u6d88'),
-              ),
-              FilledButton(
-                onPressed: selectedIds.isEmpty
-                    ? null
-                    : () => Navigator.of(dialogContext).pop(selectedIds),
-                child: const Text('\u5bfc\u5165\u9009\u4e2d\u9879'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (acceptedIds == null || acceptedIds.isEmpty) return;
     final result = await widget.sdk.ai.commitWrongWordImport(
       analysis: analysis,
-      acceptedCandidateIds: acceptedIds,
+      acceptedCandidateIds: _selectedImportCandidateIds,
     );
-    if (!mounted) return;
-    await _showWrongWordImportResult(result);
+    final added = _wordList(result.added);
+    final skipped = _wordList(result.skipped);
+    final highFrequency = _wordList(result.highFrequency);
+    _appendText(
+      '\u5df2\u786e\u8ba4\u5bfc\u5165\u3002\n'
+      '\u65b0\u589e\uff1a$added\n'
+      '\u8df3\u8fc7\uff1a$skipped\n'
+      '\u9ad8\u9891\uff1a$highFrequency',
+    );
     if (result.persisted && result.added.isNotEmpty) {
       widget.onWrongWordsImported?.call();
-      await _load();
+      await _load(showFullLoading: false);
     }
-  }
-
-  Future<void> _showEmptyWrongWordImportResult(
-    AiWrongWordImportAnalysis analysis,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('\u5206\u6790\u5b8c\u6210'),
-        content: _EmptyImportAnalysisView(analysis: analysis),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('\u5b8c\u6210'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showWrongWordImportError(Object error) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('\u5206\u6790\u5931\u8d25'),
-        content: Text(error.toString()),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('\u5b8c\u6210'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showWrongWordImportResult(
-    AiWrongWordImportCommitResult result,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('\u9519\u8bcd\u5206\u6790\u7ed3\u679c'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              result.persisted
-                  ? '\u5df2\u5c06\u9009\u4e2d\u7684\u5355\u8bcd\u52a0\u5165\u9519\u8bcd\u672c\u3002'
-                  : '\u9884\u89c8\u5df2\u5b8c\u6210\uff0c\u6682\u672a\u5199\u5165\u9519\u8bcd\u672c\u3002',
-            ),
-            const SizedBox(height: 12),
-            Text('\u5df2\u6dfb\u52a0\uff1a${_wordList(result.added)}'),
-            Text('\u5df2\u8df3\u8fc7\uff1a${_wordList(result.skipped)}'),
-            Text(
-              '\u9ad8\u9891\u9519\u8bcd\uff1a${_wordList(result.highFrequency)}',
-            ),
-          ],
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('\u5b8c\u6210'),
-          ),
-        ],
-      ),
-    );
   }
 
   String _candidateSummary(AiWrongWordImportCandidate candidate) {
@@ -499,250 +376,321 @@ class _AiScreenState extends State<AiScreen> {
     return candidates.map((candidate) => candidate.word).join(', ');
   }
 
-  Widget _buildPassageSection(BuildContext context) {
-    return _SectionCard(
-      title: '\u5f53\u524d\u6b63\u6587',
-      subtitle:
-          '\u4f18\u5148\u67e5\u770b\u6700\u8fd1\u4e00\u7bc7 AI \u77ed\u6587\u7684\u6807\u9898\u3001\u72b6\u6001\u548c\u6b63\u6587\u5757\u3002',
-      child: _passage == null
-          ? const Text('\u8fd8\u6ca1\u6709 AI \u77ed\u6587\u3002')
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _passage!.title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text('\u72b6\u6001\uff1a${_passage!.validationStatus}'),
-                if (_passage!.failureReason != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _passage!.failureReason!,
-                    style: const TextStyle(color: Colors.redAccent),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('AI'), centerTitle: true),
+      body: _loading
+          ? const CrocodileLoadingAnimation(label: '\u52a0\u8f7d\u4e2d...')
+          : SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _messages.isEmpty
+                        ? _buildEmptyState(context)
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) =>
+                                _buildMessage(context, _messages[index]),
+                          ),
+                  ),
+                  _ToolSelector(
+                    selected: _mode,
+                    onSelected: (mode) => setState(() => _mode = mode),
+                  ),
+                  _ComposerBar(
+                    mode: _mode,
+                    controller: _input,
+                    busy: _busy,
+                    signedIn: widget.isSignedIn,
+                    onCamera: _startImageWrongWordImport,
+                    onSubmit: _submitComposer,
                   ),
                 ],
-                const SizedBox(height: 12),
-                for (final block in _passage!.blocks)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _AiBlockView(block: block),
-                  ),
-              ],
+              ),
             ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final contextPayload = _context;
-    final signedIn = widget.isSignedIn;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('AI 短文')),
-      body: _loading
-          ? const CrocodileLoadingAnimation(label: '加载中...')
-          : CrocodileRefreshIndicator(
-              onRefresh: () => _load(showFullLoading: false),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                children: [
-                Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  color: Theme.of(context).colorScheme.primary,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'AI \u9605\u8bfb',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '\u548c RN \u4e00\u6837\uff0cAI \u9875\u9762\u4f18\u5148\u5c55\u793a today context\u3001\u5386\u53f2\u4e0e\u6b63\u6587\u3002',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.88),
-                              ),
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            _StatPill(
-                              label: '\u4efb\u52a1\u5b8c\u6210',
-                              value:
-                                  '${contextPayload?.tasksComplete ?? false}',
-                            ),
-                            _StatPill(
-                              label: '\u4eca\u65e5\u9519\u8bcd',
-                              value:
-                                  '${contextPayload?.wrongWords.length ?? 0}',
-                            ),
-                            _StatPill(
-                              label: '\u5386\u53f2\u7bc7\u6570',
-                              value: '${_history.length}',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (widget.showPassageFirst && _passage != null)
-                  _buildPassageSection(context),
-                _SectionCard(
-                  title: '\u9519\u8bcd\u5bfc\u5165',
-                  subtitle:
-                      '\u5206\u6790\u622a\u56fe\u3001\u624b\u5199\u7b14\u8bb0\u6216\u5bfc\u51fa\u8bb0\u5f55\uff0c\u786e\u8ba4\u540e\u518d\u52a0\u5165\u9519\u8bcd\u672c\u3002',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'AI \u4f1a\u63d0\u53d6\u5019\u9009\u8bcd\u3001\u6807\u8bb0\u91cd\u590d\u6216\u9ad8\u9891\u9879\uff0c\u4f60\u786e\u8ba4\u540e\u624d\u4f1a\u5199\u5165\u9519\u8bcd\u672c\u3002',
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: _analyzingImport || !signedIn
-                                ? null
-                                : () => _startWrongWordImport('image'),
-                            icon: const Icon(Icons.image_search_rounded),
-                            label: const Text('\u7167\u7247\u5bfc\u5165'),
-                          ),
-                          FilledButton.tonalIcon(
-                            onPressed: _analyzingImport || !signedIn
-                                ? null
-                                : () => _startWrongWordImport('text'),
-                            icon: const Icon(Icons.upload_file_rounded),
-                            label: const Text('\u8bb0\u5f55\u5bfc\u5165'),
-                          ),
-                        ],
-                      ),
-                      if (_analyzingImport) ...[
-                        const SizedBox(height: 12),
-                        const LinearProgressIndicator(),
-                        if (_importProgressMessage != null) ...[
-                          const SizedBox(height: 8),
-                          Text(_importProgressMessage!),
-                        ],
-                      ],
-                      if (_importAnalysis != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          '\u4e0a\u6b21\u5206\u6790\uff1a${_importAnalysis!.candidates.length} \u4e2a\u5019\u9009\u8bcd\uff0c${_importAnalysis!.candidates.where((candidate) => candidate.isHighFrequency).length} \u4e2a\u9ad8\u9891\u9879\u3002',
-                        ),
-                      ],
-                      if (_importMessage != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          _importMessage!,
-                          style: const TextStyle(color: Colors.redAccent),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                _SectionCard(
-                  title: '\u751f\u6210\u5165\u53e3',
-                  subtitle:
-                      '\u53ea\u6709\u5728\u4eca\u65e5\u4efb\u52a1\u5b8c\u6210\u4e14\u5b58\u5728\u9519\u8bcd\u65f6\uff0c\u624d\u5efa\u8bae\u751f\u6210 AI \u77ed\u6587\u3002',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        contextPayload == null
-                            ? '\u6682\u65f6\u6ca1\u6709 today context\u3002'
-                            : contextPayload.tasksComplete
-                            ? '\u4eca\u65e5\u4efb\u52a1\u5df2\u5b8c\u6210\uff0c\u53ef\u4ee5\u751f\u6210 AI \u77ed\u6587\u3002'
-                            : '\u5b8c\u6210\u4eca\u65e5\u4efb\u52a1\u540e\u518d\u751f\u6210 AI \u77ed\u6587\u3002',
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '\u4eca\u65e5\u9519\u8bcd\u6570\uff1a${contextPayload?.wrongWords.length ?? 0}',
-                      ),
-                      const SizedBox(height: 12),
-                      if (!signedIn) ...[
-                        const Text('登录后可使用错词导入。'),
-                        const SizedBox(height: 8),
-                      ],
-                      FilledButton(
-                        onPressed: _generating || !signedIn ? null : _generate,
-                        child: Text(
-                          _generating
-                              ? '\u751f\u6210\u4e2d...'
-                              : '\u751f\u6210 AI \u77ed\u6587',
-                        ),
-                      ),
-                      if (_message != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          _message!,
-                          style: const TextStyle(color: Colors.redAccent),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (!widget.showPassageFirst || _passage == null)
-                  _buildPassageSection(context),
-                _SectionCard(
-                  title: '\u5386\u53f2\u8bb0\u5f55',
-                  subtitle:
-                      '\u67e5\u770b\u5df2\u751f\u6210\u7684 AI \u77ed\u6587\u3002',
-                  child: _history.isEmpty
-                      ? const Text(
-                          '\u8fd8\u6ca1\u6709\u5386\u53f2\u8bb0\u5f55\u3002',
-                        )
-                      : Column(
-                          children: _history
-                              .map((item) {
-                                final selected =
-                                    _passage?.passageId == item.passageId;
-                                final colorScheme = Theme.of(
-                                  context,
-                                ).colorScheme;
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  color: selected
-                                      ? colorScheme.primary.withValues(
-                                          alpha: 0.10,
-                                        )
-                                      : null,
-                                  child: ListTile(
-                                    onTap: () => _openHistoryItem(item),
-                                    title: Text(item.title),
-                                    subtitle: Text(item.preview),
-                                    trailing: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(item.generatedAt.split('T').first),
-                                        Text(item.validationStatus),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              })
-                              .toList(growable: false),
-                        ),
-                ),
-                ],
+  Widget _buildEmptyState(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 56,
+              color: colorScheme.onSurface.withValues(alpha: 0.18),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _mode == _AiToolMode.passage
+                  ? '\u8f93\u5165\u60f3\u8981\u7684\u77ed\u6587\u98ce\u683c\uff0c\u6216\u8f93\u5165\u5386\u53f2\u67e5\u770b AI \u77ed\u6587\u5386\u53f2\u3002'
+                  : '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u70b9\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.42),
+                fontSize: 14,
+                height: 1.45,
               ),
             ),
+            if (widget.isSignedIn && _history.isEmpty) ...[
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () => _restoreCloudAiPassageHistory(announce: true),
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                label: const Text('\u6062\u590d\u4e91\u7aef AI \u77ed\u6587\u5386\u53f2'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessage(BuildContext context, _AiChatMessage message) {
+    return switch (message.kind) {
+      _AiChatMessageKind.text => _TextBubble(text: message.text ?? ''),
+      _AiChatMessageKind.passage => _PassageBubble(passage: message.passage!),
+      _AiChatMessageKind.history => _HistoryBubble(
+          history: message.history ?? const [],
+          selectedPassageId: _passage?.passageId,
+          onOpen: _openHistoryItem,
+        ),
+      _AiChatMessageKind.importReview => _ImportReviewBubble(
+          analysis: message.analysis!,
+          selectedIds: _selectedImportCandidateIds,
+          onToggle: (candidateId, selected) {
+            setState(() {
+              if (selected) {
+                _selectedImportCandidateIds.add(candidateId);
+              } else {
+                _selectedImportCandidateIds.remove(candidateId);
+              }
+            });
+          },
+          onCommit: () => _commitSelectedImport(message.analysis!),
+          candidateSummary: _candidateSummary,
+        ),
+      _AiChatMessageKind.loading => const _StreamLoadingBubble(),
+    };
+  }
+}
+
+class _TextBubble extends StatelessWidget {
+  const _TextBubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BubbleShell(
+      child: Text(text, style: const TextStyle(height: 1.55)),
+    );
+  }
+}
+
+class _StreamLoadingBubble extends StatefulWidget {
+  const _StreamLoadingBubble();
+
+  @override
+  State<_StreamLoadingBubble> createState() => _StreamLoadingBubbleState();
+}
+
+class _StreamLoadingBubbleState extends State<_StreamLoadingBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _BubbleShell(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final dots = '.' * (1 + (_controller.value * 3).floor().clamp(0, 2));
+          return Text(
+            '\u6b63\u5728\u601d\u8003$dots',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              fontStyle: FontStyle.italic,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PassageBubble extends StatelessWidget {
+  const _PassageBubble({required this.passage});
+
+  final AiPassage passage;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BubbleShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            passage.title,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          for (final block in passage.blocks)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _AiBlockView(block: block),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryBubble extends StatelessWidget {
+  const _HistoryBubble({
+    required this.history,
+    required this.selectedPassageId,
+    required this.onOpen,
+  });
+
+  final List<AiPassageHistoryItem> history;
+  final String? selectedPassageId;
+  final ValueChanged<AiPassageHistoryItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BubbleShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '\u5386\u53f2 AI \u77ed\u6587',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          for (final item in history.take(8))
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              onTap: () => onOpen(item),
+              leading: Icon(
+                selectedPassageId == item.passageId
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                size: 20,
+              ),
+              title: Text(item.title, style: const TextStyle(fontSize: 14)),
+              subtitle: Text(
+                item.preview,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: Text(
+                item.generatedAt.split('T').first,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportReviewBubble extends StatelessWidget {
+  const _ImportReviewBubble({
+    required this.analysis,
+    required this.selectedIds,
+    required this.onToggle,
+    required this.onCommit,
+    required this.candidateSummary,
+  });
+
+  final AiWrongWordImportAnalysis analysis;
+  final Set<String> selectedIds;
+  final void Function(String candidateId, bool selected) onToggle;
+  final VoidCallback onCommit;
+  final String Function(AiWrongWordImportCandidate candidate) candidateSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    final highFrequency =
+        analysis.candidates.where((candidate) => candidate.isHighFrequency).length;
+    return _BubbleShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '\u8bc6\u522b\u5230 ${analysis.candidates.length} \u4e2a\u5019\u9009\u9519\u8bcd',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '\u5176\u4e2d $highFrequency \u4e2a\u88ab\u5224\u5b9a\u4e3a\u9ad8\u9891\u3002\u52fe\u9009\u8981\u52a0\u5165\u9519\u8bcd\u672c\u7684\u8bcd\u3002',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          for (final candidate in analysis.candidates)
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: selectedIds.contains(candidate.candidateId),
+              onChanged: (checked) =>
+                  onToggle(candidate.candidateId, checked ?? false),
+              title: Text(candidate.word, style: const TextStyle(fontSize: 14)),
+              subtitle: Text(
+                candidateSummary(candidate),
+                style: const TextStyle(fontSize: 12),
+              ),
+              secondary: candidate.isHighFrequency
+                  ? const Icon(
+                      Icons.priority_high_rounded,
+                      color: Color(0xFFD64545),
+                      size: 20,
+                    )
+                  : null,
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: selectedIds.isEmpty ? null : onCommit,
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: const Text('\u786e\u8ba4\u52a0\u5165\u9519\u8bcd\u672c'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -754,59 +702,255 @@ class _AiBlockView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (block is String) {
-      return Text(block as String);
-    }
-
-    if (block is Map<String, dynamic>) {
-      final map = block as Map<String, dynamic>;
+    if (block is String) return Text(block);
+    if (block is Map) {
+      final map = Map<String, dynamic>.from(block);
       final segments = map['segments'];
       if (segments is List) {
         return RichText(
           text: TextSpan(
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.black87),
-            children: segments
-                .map<InlineSpan>((segment) {
-                  if (segment is! Map<String, dynamic>) {
-                    return TextSpan(text: '$segment');
-                  }
-                  final text = '${segment['text'] ?? ''}';
-                  final gloss = segment['glossZh'];
-                  final isWord = segment['type'] == 'word';
-                  if (!isWord) {
-                    return TextSpan(text: text);
-                  }
-                  final colorScheme = Theme.of(context).colorScheme;
-                  return TextSpan(
-                    children: [
-                      TextSpan(
-                        text: text,
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  height: 1.65,
+                ),
+            children: segments.map<InlineSpan>((segment) {
+              if (segment is! Map) return TextSpan(text: '$segment');
+              final segmentMap = Map<String, dynamic>.from(segment);
+              final text = '${segmentMap['text'] ?? ''}';
+              final gloss = segmentMap['glossZh'];
+              if (segmentMap['type'] != 'word') return TextSpan(text: text);
+              final colorScheme = Theme.of(context).colorScheme;
+              return TextSpan(
+                children: [
+                  TextSpan(
+                    text: text,
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (gloss != null && '$gloss'.isNotEmpty)
+                    TextSpan(
+                      text: '($gloss)',
+                      style: const TextStyle(
+                        color: Color(0xFFB64A4A),
+                        fontWeight: FontWeight.w600,
                       ),
-                      if (gloss != null && '$gloss'.isNotEmpty)
-                        TextSpan(
-                          text: '（$gloss）',
-                          style: const TextStyle(
-                            color: Color(0xFFB64A4A),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                    ],
-                  );
-                })
-                .toList(growable: false),
+                    ),
+                ],
+              );
+            }).toList(growable: false),
           ),
         );
       }
       return Text('${map['text'] ?? map['content'] ?? map}');
     }
-
     return Text('$block');
+  }
+}
+
+class _BubbleShell extends StatelessWidget {
+  const _BubbleShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width - 48,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(4),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(18),
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolSelector extends StatelessWidget {
+  const _ToolSelector({required this.selected, required this.onSelected});
+
+  final _AiToolMode selected;
+  final ValueChanged<_AiToolMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+        child: Row(
+          children: [
+            _ToolChip(
+              icon: Icons.auto_stories_rounded,
+              label: 'AI \u77ed\u6587\u67e5\u770b',
+              selected: selected == _AiToolMode.passage,
+              onTap: () => onSelected(_AiToolMode.passage),
+            ),
+            const SizedBox(width: 8),
+            _ToolChip(
+              icon: Icons.library_add_check_rounded,
+              label: '\u9519\u8bcd\u5bfc\u5165',
+              selected: selected == _AiToolMode.import,
+              onTap: () => onSelected(_AiToolMode.import),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolChip extends StatelessWidget {
+  const _ToolChip({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ChoiceChip(
+      avatar: Icon(
+        icon,
+        size: 16,
+        color: selected ? colorScheme.onPrimaryContainer : colorScheme.primary,
+      ),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: colorScheme.primaryContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    );
+  }
+}
+
+class _ComposerBar extends StatelessWidget {
+  const _ComposerBar({
+    required this.mode,
+    required this.controller,
+    required this.busy,
+    required this.signedIn,
+    required this.onCamera,
+    required this.onSubmit,
+  });
+
+  final _AiToolMode mode;
+  final TextEditingController controller;
+  final bool busy;
+  final bool signedIn;
+  final VoidCallback onCamera;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final importMode = mode == _AiToolMode.import;
+    return Material(
+      color: colorScheme.surface,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              SizedBox(
+                width: 42,
+                height: 44,
+                child: IconButton(
+                  tooltip: importMode ? '\u62cd\u7167\u8bc6\u522b' : '\u5207\u6362\u5230\u9519\u8bcd\u5bfc\u5165\u540e\u4f7f\u7528',
+                  onPressed: busy || !signedIn || !importMode ? null : onCamera,
+                  icon: Icon(
+                    Icons.photo_camera_rounded,
+                    size: 22,
+                    color: importMode && signedIn && !busy
+                        ? colorScheme.primary
+                        : colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: !busy && signedIn,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.newline,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: signedIn
+                        ? importMode
+                            ? '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55...'
+                            : '\u8f93\u5165\u77ed\u6587\u98ce\u683c\uff0c\u6216\u8f93\u5165\u5386\u53f2...'
+                        : '\u8bf7\u5148\u767b\u5f55\u540e\u4f7f\u7528 AI',
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 42,
+                height: 44,
+                child: IconButton(
+                  tooltip: importMode ? '\u5bfc\u5165' : '\u751f\u6210',
+                  onPressed: busy || !signedIn ? null : onSubmit,
+                  icon: busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          Icons.arrow_upward_rounded,
+                          size: 22,
+                          color: signedIn && !busy
+                              ? colorScheme.primary
+                              : colorScheme.onSurface.withValues(alpha: 0.3),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -815,103 +959,9 @@ AiPassageHistoryItem? _todayHistoryItem(
   List<AiPassageHistoryItem> history,
 ) {
   for (final item in history) {
-    if (item.date == context.date ||
-        item.generatedAt.startsWith(context.date)) {
+    if (item.date == context.date || item.generatedAt.startsWith(context.date)) {
       return item;
     }
   }
   return null;
-}
-
-class _StatPill extends StatelessWidget {
-  const _StatPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          Text(label),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyImportAnalysisView extends StatelessWidget {
-  const _EmptyImportAnalysisView({required this.analysis});
-
-  final AiWrongWordImportAnalysis analysis;
-
-  @override
-  Widget build(BuildContext context) {
-    final message = analysis.warnings.isNotEmpty
-        ? analysis.warnings.first
-        : '\u6ca1\u6709\u627e\u5230\u53ef\u5bfc\u5165\u7684\u5019\u9009\u8bcd\u3002';
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(message),
-        if (analysis.sourceType == 'image') ...[
-          const SizedBox(height: 12),
-          const Text(
-            '\u8bf7\u786e\u4fdd\u624b\u5199\u5355\u8bcd\u6e05\u6670\u3001\u65b9\u5411\u6b63\u786e\u3001\u8ddd\u79bb\u8db3\u591f\u8fd1\u3002\u9002\u5f53\u88c1\u6389\u65e0\u5173\u5185\u5bb9\u53ef\u4ee5\u63d0\u9ad8\u8bc6\u522b\u6548\u679c\u3002',
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
 }

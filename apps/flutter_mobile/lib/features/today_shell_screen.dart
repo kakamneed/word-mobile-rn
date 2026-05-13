@@ -251,16 +251,25 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     String mode = 'newWord',
     ResumeSessionHint? resumeHint,
   ]) async {
+    final navigator = Navigator.of(context);
+    final effectiveHint =
+        resumeHint ?? await widget.appState.sdk.study.getResumeSessionHint();
+    if (!mounted) return;
+    final effectiveMode = mode;
+    final hintForScreen =
+        effectiveHint.hasResume && effectiveHint.mode == effectiveMode
+            ? effectiveHint
+            : null;
     if (widget.onOpenStudy != null) {
-      await widget.onOpenStudy!.call(mode, resumeHint);
+      await widget.onOpenStudy!.call(effectiveMode, hintForScreen);
       return;
     }
-    await Navigator.of(context).push(
+    await navigator.push(
       MaterialPageRoute(
         builder: (_) => StudyScreen(
           sdk: widget.appState.sdk,
-          mode: mode,
-          resumeHint: resumeHint,
+          mode: effectiveMode,
+          resumeHint: hintForScreen,
         ),
       ),
     );
@@ -2020,11 +2029,25 @@ class _SyncStatusSummary extends StatelessWidget {
     final restoredStudyPoints = restore['restoredStudyPoints'] ?? 0;
     final reportRows = restore['reportSnapshotRows'] ?? 0;
     final restoredReports = restore['restoredReportSnapshots'] ?? 0;
+    final wrongWordRows = restore['wrongWordRows'] ?? 0;
+    final restoredWrongWords = restore['restoredWordHints'] ?? 0;
+    final aiPassageRows = restore['aiPassageRows'] ?? 0;
+    final restoredAiPassages = restore['restoredAiPassages'] ?? 0;
     final error = restore['error'];
     if (!succeeded) {
       return '失败 ${error ?? ''}'.trim();
     }
-    return '成功 学习点 $studyPointRows/$restoredStudyPoints · 报告 $reportRows/$restoredReports';
+    return '成功 学习 $studyPointRows/$restoredStudyPoints · 错词 $wrongWordRows/$restoredWrongWords · 报告 $reportRows/$restoredReports · AI $aiPassageRows/$restoredAiPassages';
+  }
+
+  String _formatLocalRestoreDiagnostics(Map<String, dynamic> diagnostics) {
+    final studyResults = diagnostics['studyResultsCount'] ?? 0;
+    final restoredResults = diagnostics['cloudRestoreStudyResultsCount'] ?? 0;
+    final wrongWords = diagnostics['wrongWordVisibleCount'] ?? 0;
+    final reports = diagnostics['reportsHistoryCount'] ?? 0;
+    final aiPassages = diagnostics['aiPassageCount'] ?? 0;
+    final highlightedAi = diagnostics['aiPassagesWithWordSegments'] ?? 0;
+    return '本机可读 学习结果 $studyResults（云恢复 $restoredResults） · 错词 $wrongWords · 报告 $reports · AI $aiPassages（高亮 $highlightedAi）';
   }
 
   @override
@@ -2042,10 +2065,14 @@ class _SyncStatusSummary extends StatelessWidget {
         Text('账号同步状态：${status.accountSyncState}'),
         Text('待同步队列：${status.pendingCount}'),
         Text('待同步领域：${domains.isEmpty ? '无' : domains}'),
-        Text('上次成功：${status.lastSyncSucceededAt ?? '从未'}'),
-        Text('上次错误：${status.lastSyncErrorCode ?? '无'}'),
+        Text('上次上传成功：${status.lastSyncSucceededAt ?? '从未'}'),
+        Text('上次上传错误：${status.lastSyncErrorCode ?? '无'}'),
         if (status.lastCloudRestore != null)
           Text('云端恢复：${_formatCloudRestore(status.lastCloudRestore!)}'),
+        if (status.localCloudRestoreDiagnostics != null)
+          Text(
+            '恢复诊断：${_formatLocalRestoreDiagnostics(status.localCloudRestoreDiagnostics!)}',
+          ),
         const SizedBox(height: 8),
         FilledButton(
           onPressed: canSyncNow ? onSyncNow : null,

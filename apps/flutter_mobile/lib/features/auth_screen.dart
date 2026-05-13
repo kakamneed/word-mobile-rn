@@ -41,6 +41,7 @@ class _AuthScreenState extends State<AuthScreen> {
           : RustLocalDataOwnerGateway(widget.sdk!.localDataOwner),
       restoreCloudData: widget.sdk?.sync.restoreCloudDataToLocal,
       backfillLocalLearning: widget.sdk?.sync.backfillLocalLearningToCloud,
+      shouldRestoreCloudData: widget.sdk?.sync.shouldRestoreCloudData,
     );
     _signupMode = widget.initialMode == AuthEntryMode.signUp;
     _restore();

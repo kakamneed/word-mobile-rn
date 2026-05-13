@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../sdk/sdk.dart';
 import '../state/app_state.dart';
 import '../supabase/auth_session_manager.dart';
 import 'auth_screen.dart';
+import 'croc_bti_model.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
@@ -25,10 +27,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _newWordsController = TextEditingController(text: '20');
   final _reviewWordsController = TextEditingController(text: '40');
   final _mixedController = TextEditingController(text: '10');
+  final Map<String, int> _crocBtiAnswers = {};
 
   int _step = 0;
   bool _savingPlan = false;
   String? _error;
+  CrocBtiResult? _crocBtiResult;
 
   @override
   void initState() {
@@ -75,11 +79,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _goNext() async {
-    if (_step == 1) {
+    if (_step == 2) {
       final saved = await _savePlan();
       if (!saved) return;
     }
-    if (_step >= 2) {
+    if (_step >= 3) {
       if (widget.replayMode) {
         widget.onReplayFinished?.call();
         if (mounted) {
@@ -111,22 +115,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     try {
       final saved = await widget.appState.sdk.plan.savePlan(
         planId: plan.id,
-        input: <String, dynamic>{
-          'name': plan.name,
-          'newWordsPerDay': _parseCount(_newWordsController, plan.newWordsPerDay, 0, 100),
-          'reviewWordsPerDay': _parseCount(_reviewWordsController, plan.reviewWordsPerDay, 0, 200),
-          'mixedTestPerDay': _parseCount(_mixedController, plan.mixedTestPerDay, 0, 50),
-          'wrongWordTestPerDay': plan.wrongWordTestPerDay,
-          'rootAffixPerDay': plan.rootAffixPerDay ?? 0,
-          'growthRuleMode': plan.growthRuleMode,
-          'growthIntervalDays': plan.growthIntervalDays,
-          'growthIncrement': plan.growthIncrement,
-          'sharedGrowthRule': <String, dynamic>{
-            'intervalDays': plan.growthIntervalDays,
-            'increment': plan.growthIncrement,
-          },
-          'growthRulesByMode': plan.growthRulesByMode ?? const <String, dynamic>{},
-        },
+        input: _buildPlanInput(plan),
       );
       await widget.appState.sdk.plan.applySavedPlanToToday();
       if (!mounted) return true;
@@ -143,6 +132,38 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         setState(() => _savingPlan = false);
       }
     }
+  }
+
+  Map<String, dynamic> _buildPlanInput(PlanSummary plan) {
+    final crocBtiResult = _crocBtiResult;
+    if (crocBtiResult != null) {
+      return crocBtiPlanInputFor(plan, crocBtiResult);
+    }
+    return <String, dynamic>{
+      'name': plan.name,
+      'newWordsPerDay': _parseCount(_newWordsController, plan.newWordsPerDay, 0, 100),
+      'reviewWordsPerDay': _parseCount(_reviewWordsController, plan.reviewWordsPerDay, 0, 200),
+      'mixedTestPerDay': _parseCount(_mixedController, plan.mixedTestPerDay, 0, 50),
+      'wrongWordTestPerDay': plan.wrongWordTestPerDay,
+      'rootAffixPerDay': plan.rootAffixPerDay ?? 0,
+      'growthRuleMode': plan.growthRuleMode,
+      'growthIntervalDays': plan.growthIntervalDays,
+      'growthIncrement': plan.growthIncrement,
+      'sharedGrowthRule': <String, dynamic>{
+        'intervalDays': plan.growthIntervalDays,
+        'increment': plan.growthIncrement,
+      },
+      'growthRulesByMode': plan.growthRulesByMode ?? const <String, dynamic>{},
+    };
+  }
+
+  Future<void> _jumpToStep(int step) async {
+    setState(() => _step = step);
+    await _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   int _parseCount(
@@ -189,11 +210,29 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     onSignUp: () => _openAuth(AuthEntryMode.signUp),
                     onSkip: _goNext,
                   ),
+                  _CrocBtiOnboardingStep(
+                    answers: _crocBtiAnswers,
+                    result: _crocBtiResult,
+                    onAnswerChanged: (questionId, value) {
+                      setState(() => _crocBtiAnswers[questionId] = value);
+                    },
+                    onUseResult: () {
+                      setState(() {
+                        _crocBtiResult = evaluateCrocBti(_crocBtiAnswers);
+                      });
+                      _jumpToStep(2);
+                    },
+                    onSkip: () {
+                      setState(() => _crocBtiResult = null);
+                      _jumpToStep(2);
+                    },
+                  ),
                   _PlanStep(
                     newWordsController: _newWordsController,
                     reviewWordsController: _reviewWordsController,
                     mixedController: _mixedController,
                     error: _error,
+                    crocBtiResult: _crocBtiResult,
                   ),
                   const _ExplainStep(),
                 ],
@@ -322,15 +361,63 @@ class _PlanStep extends StatelessWidget {
     required this.reviewWordsController,
     required this.mixedController,
     required this.error,
+    required this.crocBtiResult,
   });
 
   final TextEditingController newWordsController;
   final TextEditingController reviewWordsController;
   final TextEditingController mixedController;
   final String? error;
+  final CrocBtiResult? crocBtiResult;
 
   @override
   Widget build(BuildContext context) {
+    final result = crocBtiResult;
+    if (result != null) {
+      return ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(
+            '鳄bti 已接管初始计划',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Text('你的类型是 ${result.title}。初始计划会按测试结果分配新词、复习、混测和错题权重。'),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(result.code, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(result.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Text(result.advice),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Chip(label: Text('新词 ${result.planInput['newWordsPerDay']}')),
+                      Chip(label: Text('复习 ${result.planInput['reviewWordsPerDay']}')),
+                      Chip(label: Text('混测 ${result.planInput['mixedTestPerDay']}')),
+                      Chip(label: Text('错题 ${result.planInput['wrongWordTestPerDay']}')),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 16),
+            Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
+        ],
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -369,6 +456,131 @@ class _PlanStep extends StatelessWidget {
           Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
       ],
+    );
+  }
+}
+
+class _CrocBtiOnboardingStep extends StatelessWidget {
+  const _CrocBtiOnboardingStep({
+    required this.answers,
+    required this.result,
+    required this.onAnswerChanged,
+    required this.onUseResult,
+    required this.onSkip,
+  });
+
+  final Map<String, int> answers;
+  final CrocBtiResult? result;
+  final void Function(String questionId, int value) onAnswerChanged;
+  final VoidCallback onUseResult;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final allAnswered = answers.length == crocBtiQuestions.length;
+    final existingResult = result;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          '鳄bti 学习人格',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
+        const Text('可跳过。完成后会用你的学习人格生成更合适的初始计划。'),
+        if (existingResult != null) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              title: Text('${existingResult.code} · ${existingResult.title}'),
+              subtitle: Text(existingResult.summary),
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        LinearProgressIndicator(value: answers.length / crocBtiQuestions.length),
+        const SizedBox(height: 8),
+        Text('${answers.length}/${crocBtiQuestions.length} 已回答'),
+        const SizedBox(height: 16),
+        for (var i = 0; i < crocBtiQuestions.length; i++) ...[
+          _OnboardingBtiQuestionCard(
+            index: i + 1,
+            question: crocBtiQuestions[i],
+            selectedValue: answers[crocBtiQuestions[i].id],
+            onChanged: onAnswerChanged,
+          ),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onSkip,
+                child: const Text('跳过'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: FilledButton(
+                onPressed: allAnswered ? onUseResult : null,
+                child: Text(allAnswered ? '使用鳄bti结果' : '${answers.length}/${crocBtiQuestions.length}'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _OnboardingBtiQuestionCard extends StatelessWidget {
+  const _OnboardingBtiQuestionCard({
+    required this.index,
+    required this.question,
+    required this.selectedValue,
+    required this.onChanged,
+  });
+
+  final int index;
+  final CrocBtiQuestion question;
+  final int? selectedValue;
+  final void Function(String questionId, int value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = const {
+      -2: '很不同意',
+      -1: '不同意',
+      0: '不确定',
+      1: '同意',
+      2: '很同意',
+    };
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$index', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(question.text, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final entry in labels.entries)
+                  ChoiceChip(
+                    label: Text(entry.value),
+                    selected: selectedValue == entry.key,
+                    onSelected: (_) => onChanged(question.id, entry.key),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

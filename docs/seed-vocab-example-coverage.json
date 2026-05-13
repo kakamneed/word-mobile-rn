@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-05-13T04:08:19.709Z",
+  "summary": {
+    "scannedBooks": 4,
+    "scannedEntries": 11537,
+    "multiPosEntries": 2120,
+    "entriesWithMissingPosExamples": 0,
+    "missingPosCount": 0
+  },
+  "issues": []
+}

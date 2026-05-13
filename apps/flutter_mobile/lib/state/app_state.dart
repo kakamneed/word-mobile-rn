@@ -31,6 +31,7 @@ class AppState extends ChangeNotifier {
               localDataOwner: RustLocalDataOwnerGateway(_sdk.localDataOwner),
               restoreCloudData: _sdk.sync.restoreCloudDataToLocal,
               backfillLocalLearning: _sdk.sync.backfillLocalLearningToCloud,
+              shouldRestoreCloudData: _sdk.sync.shouldRestoreCloudData,
             );
 
   AppPhase get phase => _phase;

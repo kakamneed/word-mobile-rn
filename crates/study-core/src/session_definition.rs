@@ -34,7 +34,7 @@ impl SessionDefinition {
             },
             SessionMode::Review => ModeRules {
                 question_types: QuestionType::all_four(),
-                loops_all_types_per_word: true,
+                loops_all_types_per_word: false,
                 batch_only: false,
                 from_wrong_pool: false,
                 word_selection_description: String::from(

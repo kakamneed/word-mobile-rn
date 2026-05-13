@@ -4,6 +4,7 @@
 .npm-cache/
 .tools/
 .vico/
+backups/
 target/
 
 apps/mobile/node_modules/
@@ -20,3 +21,4 @@ apps/mobile/android_build*/
 Thumbs.db
 supabase/.temp/
 .env.supabase.local
+.env.word-admin.local

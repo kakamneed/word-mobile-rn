@@ -82,22 +82,66 @@ void main() {
     expect(state.allowsCloudWork, isFalse);
   });
 
-  test('valid restored session becomes active after cloud access check', () async {
+  test('startup network failure switches to guest local data', () async {
+    final localDataOwner = _FakeLocalDataOwnerGateway();
     final manager = AuthSessionManager(
       auth: _FakeAuthGateway(
-        restoredSession: _validSession(),
-        cloudDataAccessAvailable: true,
+        restoreError: Exception('SocketException: Connection refused'),
       ),
-      localDataOwner: _FakeLocalDataOwnerGateway(),
+      localDataOwner: localDataOwner,
       isConfigured: () => true,
     );
 
     final state = await manager.resolveStartupState();
 
-    expect(state.phase, AuthAccountPhase.signedInActive);
-    expect(state.isSignedIn, isTrue);
-    expect(state.allowsCloudWork, isTrue);
+    expect(state.phase, AuthAccountPhase.guestLocalOnly);
+    expect(state.isSignedIn, isFalse);
+    expect(state.allowsCloudWork, isFalse);
+    expect(localDataOwner.preserveGuestLocalDataCount, 1);
   });
+
+  test(
+    'cloud access network failure does not keep prior account data',
+    () async {
+      final localDataOwner = _FakeLocalDataOwnerGateway();
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(
+          restoredSession: _validSession(),
+          verifyError: Exception('SocketException: Connection refused'),
+        ),
+        localDataOwner: localDataOwner,
+        isConfigured: () => true,
+      );
+
+      final state = await manager.resolveStartupState();
+
+      expect(state.phase, AuthAccountPhase.guestLocalOnly);
+      expect(state.isSignedIn, isFalse);
+      expect(state.allowsCloudWork, isFalse);
+      expect(localDataOwner.reconciledUserIds, isEmpty);
+      expect(localDataOwner.preserveGuestLocalDataCount, 1);
+    },
+  );
+
+  test(
+    'valid restored session becomes active after cloud access check',
+    () async {
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(
+          restoredSession: _validSession(),
+          cloudDataAccessAvailable: true,
+        ),
+        localDataOwner: _FakeLocalDataOwnerGateway(),
+        isConfigured: () => true,
+      );
+
+      final state = await manager.resolveStartupState();
+
+      expect(state.phase, AuthAccountPhase.signedInActive);
+      expect(state.isSignedIn, isTrue);
+      expect(state.allowsCloudWork, isTrue);
+    },
+  );
 
   test('active session reconciles local data owner', () async {
     final localDataOwner = _FakeLocalDataOwnerGateway();
@@ -116,86 +160,95 @@ void main() {
     expect(localDataOwner.reconciledUserIds, ['user-1']);
   });
 
-  test('active session restores cloud data when no local snapshot exists', () async {
-    final restoredUserIds = <String>[];
-    final manager = AuthSessionManager(
-      auth: _FakeAuthGateway(
-        restoredSession: _validSession(),
-        cloudDataAccessAvailable: true,
-      ),
-      localDataOwner: _FakeLocalDataOwnerGateway(
-        result: const LocalDataOwnerResult(
-          ownerUserId: 'user-1',
-          resetPerformed: true,
-          restoredSnapshot: false,
-          hasLocalLearningData: false,
+  test(
+    'active session restores cloud data when no local snapshot exists',
+    () async {
+      final restoredUserIds = <String>[];
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(
+          restoredSession: _validSession(),
+          cloudDataAccessAvailable: true,
         ),
-      ),
-      restoreCloudData: (userId) async {
-        restoredUserIds.add(userId);
-      },
-      isConfigured: () => true,
-    );
-
-    final state = await manager.resolveStartupState();
-
-    expect(state.phase, AuthAccountPhase.signedInActive);
-    expect(restoredUserIds, ['user-1']);
-  });
-
-  test('active session keeps restored local snapshot without cloud pull', () async {
-    final restoredUserIds = <String>[];
-    final manager = AuthSessionManager(
-      auth: _FakeAuthGateway(
-        restoredSession: _validSession(),
-        cloudDataAccessAvailable: true,
-      ),
-      localDataOwner: _FakeLocalDataOwnerGateway(
-        result: const LocalDataOwnerResult(
-          ownerUserId: 'user-1',
-          resetPerformed: true,
-          restoredSnapshot: true,
-          hasLocalLearningData: true,
+        localDataOwner: _FakeLocalDataOwnerGateway(
+          result: const LocalDataOwnerResult(
+            ownerUserId: 'user-1',
+            resetPerformed: true,
+            restoredSnapshot: false,
+            hasLocalLearningData: false,
+          ),
         ),
-      ),
-      restoreCloudData: (userId) async {
-        restoredUserIds.add(userId);
-      },
-      isConfigured: () => true,
-    );
+        restoreCloudData: (userId) async {
+          restoredUserIds.add(userId);
+        },
+        isConfigured: () => true,
+      );
 
-    final state = await manager.resolveStartupState();
+      final state = await manager.resolveStartupState();
 
-    expect(state.phase, AuthAccountPhase.signedInActive);
-    expect(restoredUserIds, isEmpty);
-  });
+      expect(state.phase, AuthAccountPhase.signedInActive);
+      expect(restoredUserIds, ['user-1']);
+    },
+  );
 
-  test('active session restores cloud data when local learning data is empty', () async {
-    final restoredUserIds = <String>[];
-    final manager = AuthSessionManager(
-      auth: _FakeAuthGateway(
-        restoredSession: _validSession(),
-        cloudDataAccessAvailable: true,
-      ),
-      localDataOwner: _FakeLocalDataOwnerGateway(
-        result: const LocalDataOwnerResult(
-          ownerUserId: 'user-1',
-          resetPerformed: false,
-          restoredSnapshot: false,
-          hasLocalLearningData: false,
+  test(
+    'active session keeps restored local snapshot without cloud pull',
+    () async {
+      final restoredUserIds = <String>[];
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(
+          restoredSession: _validSession(),
+          cloudDataAccessAvailable: true,
         ),
-      ),
-      restoreCloudData: (userId) async {
-        restoredUserIds.add(userId);
-      },
-      isConfigured: () => true,
-    );
+        localDataOwner: _FakeLocalDataOwnerGateway(
+          result: const LocalDataOwnerResult(
+            ownerUserId: 'user-1',
+            resetPerformed: true,
+            restoredSnapshot: true,
+            hasLocalLearningData: true,
+          ),
+        ),
+        restoreCloudData: (userId) async {
+          restoredUserIds.add(userId);
+        },
+        isConfigured: () => true,
+      );
 
-    final state = await manager.resolveStartupState();
+      final state = await manager.resolveStartupState();
 
-    expect(state.phase, AuthAccountPhase.signedInActive);
-    expect(restoredUserIds, ['user-1']);
-  });
+      expect(state.phase, AuthAccountPhase.signedInActive);
+      expect(restoredUserIds, isEmpty);
+    },
+  );
+
+  test(
+    'active session restores cloud data when local learning data is empty',
+    () async {
+      final restoredUserIds = <String>[];
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(
+          restoredSession: _validSession(),
+          cloudDataAccessAvailable: true,
+        ),
+        localDataOwner: _FakeLocalDataOwnerGateway(
+          result: const LocalDataOwnerResult(
+            ownerUserId: 'user-1',
+            resetPerformed: false,
+            restoredSnapshot: false,
+            hasLocalLearningData: false,
+          ),
+        ),
+        restoreCloudData: (userId) async {
+          restoredUserIds.add(userId);
+        },
+        isConfigured: () => true,
+      );
+
+      final state = await manager.resolveStartupState();
+
+      expect(state.phase, AuthAccountPhase.signedInActive);
+      expect(restoredUserIds, ['user-1']);
+    },
+  );
 
   test('active session backfills local learning data when present', () async {
     var backfillCount = 0;
@@ -229,18 +282,28 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
   _FakeAuthGateway({
     this.signUpResponse,
     this.restoredSession,
+    this.restoreError,
+    this.verifyError,
     this.cloudDataAccessAvailable = false,
   });
 
   final AuthResponse? signUpResponse;
   final Session? restoredSession;
+  final Object? restoreError;
+  final Object? verifyError;
   final bool cloudDataAccessAvailable;
 
   @override
   Future<AuthResponse> refreshSession() async => AuthResponse();
 
   @override
-  Future<Session?> restoreSession() async => restoredSession;
+  Future<Session?> restoreSession() async {
+    final error = restoreError;
+    if (error != null) {
+      throw error;
+    }
+    return restoredSession;
+  }
 
   @override
   Future<AuthResponse> signIn({
@@ -259,6 +322,10 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
 
   @override
   Future<void> verifyCloudDataAccess(String userId) async {
+    final error = verifyError;
+    if (error != null) {
+      throw error;
+    }
     if (!cloudDataAccessAvailable) {
       throw StateError('cloud data not bound yet');
     }
@@ -270,6 +337,7 @@ class _FakeLocalDataOwnerGateway implements LocalDataOwnerGateway {
 
   final LocalDataOwnerResult? result;
   final reconciledUserIds = <String>[];
+  var preserveGuestLocalDataCount = 0;
 
   @override
   Future<LocalDataOwnerResult> reconcile(String userId) async {
@@ -284,7 +352,9 @@ class _FakeLocalDataOwnerGateway implements LocalDataOwnerGateway {
   }
 
   @override
-  Future<void> preserveGuestLocalData() async {}
+  Future<void> preserveGuestLocalData() async {
+    preserveGuestLocalDataCount += 1;
+  }
 }
 
 Session _validSession() {

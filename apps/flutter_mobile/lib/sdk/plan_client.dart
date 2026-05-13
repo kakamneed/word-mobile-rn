@@ -16,6 +16,7 @@ class PlanSummary {
   final String growthRuleMode;
   final Map<String, dynamic>? sharedGrowthRule;
   final Map<String, dynamic>? growthRulesByMode;
+  final Map<String, dynamic>? questionTypeWeightsByMode;
 
   const PlanSummary({
     required this.id,
@@ -30,6 +31,7 @@ class PlanSummary {
     required this.growthRuleMode,
     this.sharedGrowthRule,
     this.growthRulesByMode,
+    this.questionTypeWeightsByMode,
   });
 
   factory PlanSummary.fromJson(Map<String, dynamic> json) {
@@ -70,6 +72,8 @@ class PlanSummary {
       growthRuleMode: mode,
       sharedGrowthRule: sharedRule,
       growthRulesByMode: modes,
+      questionTypeWeightsByMode:
+          (json['questionTypeWeightsByMode'] as Map?)?.cast<String, dynamic>(),
     );
   }
 }

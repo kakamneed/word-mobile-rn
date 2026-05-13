@@ -1,0 +1,2537 @@
+{
+  "CET4_3_13": {
+    "word": "wreck",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to wreck the idea in a clear way.",
+        "sentenceCn": "wreck 在此处表示： 破坏"
+      }
+    ]
+  },
+  "CET4_3_28": {
+    "word": "circular",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The circular was easy to notice in the example.",
+        "sentenceCn": "circular 在此处表示： 通知， 通告"
+      }
+    ]
+  },
+  "CET4_3_43": {
+    "word": "harbour",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to harbour the idea in a clear way.",
+        "sentenceCn": "harbour 在此处表示： 庇护； 心怀"
+      }
+    ]
+  },
+  "CET4_3_60": {
+    "word": "editorial",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The editorial was easy to notice in the example.",
+        "sentenceCn": "editorial 在此处表示： 社论， 重要评论"
+      }
+    ]
+  },
+  "CET4_3_75": {
+    "word": "wrap",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The wrap was easy to notice in the example.",
+        "sentenceCn": "wrap 在此处表示： 披肩"
+      }
+    ]
+  },
+  "CET4_3_88": {
+    "word": "pad",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to pad the idea in a clear way.",
+        "sentenceCn": "pad 在此处表示： 填塞"
+      }
+    ]
+  },
+  "CET4_3_93": {
+    "word": "besides",
+    "examples": [
+      {
+        "pos": "prep",
+        "sentenceEn": "The note was placed besides the main text.",
+        "sentenceCn": "besides 在此处表示： 除…之外"
+      }
+    ]
+  },
+  "CET4_3_100": {
+    "word": "pat",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a pat choice for everyday use.",
+        "sentenceCn": "pat 在此处表示： 非常恰当的， 适时的"
+      },
+      {
+        "pos": "n",
+        "sentenceEn": "The pat was easy to notice in the example.",
+        "sentenceCn": "pat 在此处表示：轻拍"
+      }
+    ]
+  },
+  "CET4_3_105": {
+    "word": "paw",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The paw was easy to notice in the example.",
+        "sentenceCn": "paw 在此处表示：爪子"
+      }
+    ]
+  },
+  "CET4_3_221": {
+    "word": "cheat",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The cheat was easy to notice in the example.",
+        "sentenceCn": "cheat 在此处表示： 欺骗， 欺骗行为； 骗子"
+      }
+    ]
+  },
+  "CET4_3_241": {
+    "word": "lag",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to lag the idea in a clear way.",
+        "sentenceCn": "lag 在此处表示：走得慢"
+      }
+    ]
+  },
+  "CET4_3_250": {
+    "word": "stock",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stock the idea in a clear way.",
+        "sentenceCn": "stock 在此处表示：储备"
+      }
+    ]
+  },
+  "CET4_3_308": {
+    "word": "stable",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stable was easy to notice in the example.",
+        "sentenceCn": "stable 在此处表示： 厩， 马厩， 牛棚"
+      }
+    ]
+  },
+  "CET4_3_383": {
+    "word": "intimate",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to intimate the idea in a clear way.",
+        "sentenceCn": "intimate 在此处表示： 暗示， 提示"
+      }
+    ]
+  },
+  "CET4_3_389": {
+    "word": "claw",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The claw was easy to notice in the example.",
+        "sentenceCn": "claw 在此处表示：爪，脚爪，螯"
+      }
+    ]
+  },
+  "CET4_3_393": {
+    "word": "charm",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to charm the idea in a clear way.",
+        "sentenceCn": "charm 在此处表示： 吸引， 迷住"
+      }
+    ]
+  },
+  "CET4_3_418": {
+    "word": "given",
+    "examples": [
+      {
+        "pos": "prep",
+        "sentenceEn": "The note was placed given the main text.",
+        "sentenceCn": "given 在此处表示： 考虑到"
+      }
+    ]
+  },
+  "CET4_3_436": {
+    "word": "pepper",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to pepper the idea in a clear way.",
+        "sentenceCn": "pepper 在此处表示： 在…上撒； 使布满"
+      }
+    ]
+  },
+  "CET4_3_657": {
+    "word": "relative",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The relative was easy to notice in the example.",
+        "sentenceCn": "relative 在此处表示： 亲属， 亲戚"
+      }
+    ]
+  },
+  "CET4_3_741": {
+    "word": "tackle",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to tackle the idea in a clear way.",
+        "sentenceCn": "tackle 在此处表示：对付，处理；与…交涉；阻截，擒抱"
+      }
+    ]
+  },
+  "CET4_3_744": {
+    "word": "occasion",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to occasion the idea in a clear way.",
+        "sentenceCn": "occasion 在此处表示： 引起"
+      }
+    ]
+  },
+  "CET4_3_780": {
+    "word": "tame",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to tame the idea in a clear way.",
+        "sentenceCn": "tame 在此处表示： 制服， 控制并利用； 驯化， 驯服"
+      }
+    ]
+  },
+  "CET4_3_813": {
+    "word": "chop",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The chop was easy to notice in the example.",
+        "sentenceCn": "chop 在此处表示： 排骨"
+      }
+    ]
+  },
+  "CET4_3_844": {
+    "word": "heave",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The heave was easy to notice in the example.",
+        "sentenceCn": "heave 在此处表示： 举起； 起伏， 升降"
+      }
+    ]
+  },
+  "CET4_3_865": {
+    "word": "subject",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to subject the idea in a clear way.",
+        "sentenceCn": "subject 在此处表示： 使隶属"
+      }
+    ]
+  },
+  "CET4_3_896": {
+    "word": "trash",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to trash the idea in a clear way.",
+        "sentenceCn": "trash 在此处表示： 捣毁， 破坏"
+      }
+    ]
+  },
+  "CET4_3_945": {
+    "word": "lodge",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The lodge was easy to notice in the example.",
+        "sentenceCn": "lodge 在此处表示： 乡间小屋； 旅舍"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to lodge the idea in a clear way.",
+        "sentenceCn": "lodge 在此处表示：暂住，借宿"
+      }
+    ]
+  },
+  "CET4_3_1225": {
+    "word": "butcher",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to butcher the idea in a clear way.",
+        "sentenceCn": "butcher 在此处表示： 屠宰， 残杀"
+      }
+    ]
+  },
+  "CET4_3_1235": {
+    "word": "spite",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to spite the idea in a clear way.",
+        "sentenceCn": "spite 在此处表示： 刁难， 欺侮"
+      }
+    ]
+  },
+  "CET4_3_1257": {
+    "word": "mug",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to mug the idea in a clear way.",
+        "sentenceCn": "mug 在此处表示： 对…行凶抢劫"
+      }
+    ]
+  },
+  "CET4_3_1298": {
+    "word": "fare",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to fare the idea in a clear way.",
+        "sentenceCn": "fare 在此处表示： 进展"
+      }
+    ]
+  },
+  "CET4_3_1377": {
+    "word": "exploit",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The exploit was easy to notice in the example.",
+        "sentenceCn": "exploit 在此处表示： 业绩， 功绩"
+      }
+    ]
+  },
+  "CET4_3_1424": {
+    "word": "private",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The private was easy to notice in the example.",
+        "sentenceCn": "private 在此处表示： 士兵， 列兵"
+      }
+    ]
+  },
+  "CET4_3_1509": {
+    "word": "swell",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The swell was easy to notice in the example.",
+        "sentenceCn": "swell 在此处表示： 波浪起伏； 鼓起， 隆起； 增强"
+      }
+    ]
+  },
+  "CET4_3_1541": {
+    "word": "shed",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The shed was easy to notice in the example.",
+        "sentenceCn": "shed 在此处表示： 棚， 小屋， 货棚"
+      }
+    ]
+  },
+  "CET4_3_1551": {
+    "word": "rear",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to rear the idea in a clear way.",
+        "sentenceCn": "rear 在此处表示： 抚养， 饲养； 种植"
+      }
+    ]
+  },
+  "CET4_3_1584": {
+    "word": "dictate",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The dictate was easy to notice in the example.",
+        "sentenceCn": "dictate 在此处表示： 命令， 指挥"
+      }
+    ]
+  },
+  "CET4_3_1608": {
+    "word": "collapse",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The collapse was easy to notice in the example.",
+        "sentenceCn": "collapse 在此处表示：突然失败；突然瓦解"
+      }
+    ]
+  },
+  "CET4_3_1616": {
+    "word": "erect",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to erect the idea in a clear way.",
+        "sentenceCn": "erect 在此处表示：建造；使竖立"
+      }
+    ]
+  },
+  "CET4_3_1718": {
+    "word": "bolt",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to bolt the idea in a clear way.",
+        "sentenceCn": "bolt 在此处表示： 闩门"
+      }
+    ]
+  },
+  "CET4_3_1863": {
+    "word": "rail",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to rail the idea in a clear way.",
+        "sentenceCn": "rail 在此处表示： 责骂， 抱怨"
+      }
+    ]
+  },
+  "CET4_3_1911": {
+    "word": "sheer",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to sheer the idea in a clear way.",
+        "sentenceCn": "sheer 在此处表示： 急转向， 偏离"
+      }
+    ]
+  },
+  "CET4_3_2075": {
+    "word": "stroke",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stroke the idea in a clear way.",
+        "sentenceCn": "stroke 在此处表示： 抚摸"
+      }
+    ]
+  },
+  "CET4_3_2109": {
+    "word": "drag",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The drag was easy to notice in the example.",
+        "sentenceCn": "drag 在此处表示： 累赘； 一吸， 一抽"
+      }
+    ]
+  },
+  "CET4_3_2143": {
+    "word": "digest",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The digest was easy to notice in the example.",
+        "sentenceCn": "digest 在此处表示： 文摘； 摘要"
+      }
+    ]
+  },
+  "CET4_3_2270": {
+    "word": "discipline",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to discipline the idea in a clear way.",
+        "sentenceCn": "discipline 在此处表示： 训练； 惩罚， 处罚"
+      }
+    ]
+  },
+  "CET4_3_2309": {
+    "word": "minus",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The minus was easy to notice in the example.",
+        "sentenceCn": "minus 在此处表示：负数；减号"
+      },
+      {
+        "pos": "prep",
+        "sentenceEn": "The note was placed minus the main text.",
+        "sentenceCn": "minus 在此处表示： 减"
+      }
+    ]
+  },
+  "CET4_3_2463": {
+    "word": "beggar",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to beggar the idea in a clear way.",
+        "sentenceCn": "beggar 在此处表示： 使贫穷"
+      }
+    ]
+  },
+  "CET4_3_2471": {
+    "word": "exact",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to exact the idea in a clear way.",
+        "sentenceCn": "exact 在此处表示： 强求， 索取"
+      }
+    ]
+  },
+  "CET4_3_2566": {
+    "word": "scale",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to scale the idea in a clear way.",
+        "sentenceCn": "scale 在此处表示： 攀登， 爬越"
+      }
+    ]
+  },
+  "CET4_3_2568": {
+    "word": "hedge",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The hedge was easy to notice in the example.",
+        "sentenceCn": "hedge 在此处表示：篱笆，树篱；障碍物"
+      }
+    ]
+  },
+  "CET4_3_2574": {
+    "word": "limp",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The limp was easy to notice in the example.",
+        "sentenceCn": "limp 在此处表示：跛行"
+      }
+    ]
+  },
+  "CET4_3_2582": {
+    "word": "herd",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to herd the idea in a clear way.",
+        "sentenceCn": "herd 在此处表示： 放牧"
+      }
+    ]
+  },
+  "CET6_3_12": {
+    "word": "wreck",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to wreck the idea in a clear way.",
+        "sentenceCn": "wreck 在此处表示： 破坏"
+      }
+    ]
+  },
+  "CET6_3_53": {
+    "word": "notable",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a notable choice for everyday use.",
+        "sentenceCn": "notable 在此处表示：值得注意的，显著的；著名的"
+      },
+      {
+        "pos": "n",
+        "sentenceEn": "The notable was easy to notice in the example.",
+        "sentenceCn": "notable 在此处表示： 名人， 要人"
+      }
+    ]
+  },
+  "CET6_3_194": {
+    "word": "verge",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The verge was easy to notice in the example.",
+        "sentenceCn": "verge 在此处表示：边，边缘"
+      }
+    ]
+  },
+  "CET6_3_221": {
+    "word": "void",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to void the idea in a clear way.",
+        "sentenceCn": "void 在此处表示： 使无效"
+      }
+    ]
+  },
+  "CET6_3_281": {
+    "word": "stable",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stable was easy to notice in the example.",
+        "sentenceCn": "stable 在此处表示： 厩， 马厩， 牛棚"
+      }
+    ]
+  },
+  "CET6_3_302": {
+    "word": "refrain",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The refrain was easy to notice in the example.",
+        "sentenceCn": "refrain 在此处表示： 叠句， 副歌"
+      }
+    ]
+  },
+  "CET6_3_315": {
+    "word": "mute",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to mute the idea in a clear way.",
+        "sentenceCn": "mute 在此处表示： 消除， 减轻"
+      }
+    ]
+  },
+  "CET6_3_336": {
+    "word": "indicative",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The indicative was easy to notice in the example.",
+        "sentenceCn": "indicative 在此处表示： 【语】陈述语气"
+      }
+    ]
+  },
+  "CET6_3_360": {
+    "word": "intimate",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to intimate the idea in a clear way.",
+        "sentenceCn": "intimate 在此处表示： 暗示， 提示"
+      }
+    ]
+  },
+  "CET6_3_385": {
+    "word": "initiate",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The initiate was easy to notice in the example.",
+        "sentenceCn": "initiate 在此处表示： 新加入组织的人"
+      }
+    ]
+  },
+  "CET6_3_399": {
+    "word": "given",
+    "examples": [
+      {
+        "pos": "prep",
+        "sentenceEn": "The note was placed given the main text.",
+        "sentenceCn": "given 在此处表示： 考虑到"
+      }
+    ]
+  },
+  "CET6_3_460": {
+    "word": "batter",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The batter was easy to notice in the example.",
+        "sentenceCn": "batter 在此处表示： 面糊"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to batter the idea in a clear way.",
+        "sentenceCn": "batter 在此处表示：连续猛击"
+      }
+    ]
+  },
+  "CET6_3_481": {
+    "word": "alien",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The alien was easy to notice in the example.",
+        "sentenceCn": "alien 在此处表示： 外国人， 外侨； 外星人"
+      }
+    ]
+  },
+  "CET6_3_494": {
+    "word": "gracious",
+    "examples": [
+      {
+        "pos": "int",
+        "sentenceEn": "The gracious was easy to notice in the example.",
+        "sentenceCn": "gracious 在此处表示： 天哪!"
+      }
+    ]
+  },
+  "CET6_3_528": {
+    "word": "doom",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The doom was easy to notice in the example.",
+        "sentenceCn": "doom 在此处表示： 厄运， 劫数"
+      }
+    ]
+  },
+  "CET6_3_562": {
+    "word": "shepherd",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to shepherd the idea in a clear way.",
+        "sentenceCn": "shepherd 在此处表示： 带领， 引导"
+      }
+    ]
+  },
+  "CET6_3_599": {
+    "word": "crisp",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The crisp was easy to notice in the example.",
+        "sentenceCn": "crisp 在此处表示： 油炸土豆片"
+      }
+    ]
+  },
+  "CET6_3_620": {
+    "word": "relative",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The relative was easy to notice in the example.",
+        "sentenceCn": "relative 在此处表示： 亲属， 亲戚"
+      }
+    ]
+  },
+  "CET6_3_631": {
+    "word": "bully",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to bully the idea in a clear way.",
+        "sentenceCn": "bully 在此处表示： 威吓， 欺负"
+      }
+    ]
+  },
+  "CET6_3_689": {
+    "word": "tackle",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to tackle the idea in a clear way.",
+        "sentenceCn": "tackle 在此处表示：对付，处理；与…交涉；阻截，擒抱"
+      }
+    ]
+  },
+  "CET6_3_720": {
+    "word": "tame",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to tame the idea in a clear way.",
+        "sentenceCn": "tame 在此处表示： 制服， 控制并利用； 驯化， 驯服"
+      }
+    ]
+  },
+  "CET6_3_733": {
+    "word": "hum",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The hum was easy to notice in the example.",
+        "sentenceCn": "hum 在此处表示： 嗡嗡声， 营营声， 嘈杂声"
+      }
+    ]
+  },
+  "CET6_3_741": {
+    "word": "relish",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to relish the idea in a clear way.",
+        "sentenceCn": "relish 在此处表示：享受，从…中获得乐趣"
+      }
+    ]
+  },
+  "CET6_3_748": {
+    "word": "stalk",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stalk the idea in a clear way.",
+        "sentenceCn": "stalk 在此处表示： 高视阔步地走"
+      }
+    ]
+  },
+  "CET6_3_755": {
+    "word": "stall",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stall was easy to notice in the example.",
+        "sentenceCn": "stall 在此处表示：货摊；"
+      }
+    ]
+  },
+  "CET6_3_761": {
+    "word": "menace",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to menace the idea in a clear way.",
+        "sentenceCn": "menace 在此处表示： 威胁， 威吓"
+      }
+    ]
+  },
+  "CET6_3_763": {
+    "word": "invalid",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The invalid was easy to notice in the example.",
+        "sentenceCn": "invalid 在此处表示： 病弱者， 残疾者"
+      }
+    ]
+  },
+  "CET6_3_786": {
+    "word": "heave",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The heave was easy to notice in the example.",
+        "sentenceCn": "heave 在此处表示： 举起， 升降"
+      }
+    ]
+  },
+  "CET6_3_807": {
+    "word": "thrill",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to thrill the idea in a clear way.",
+        "sentenceCn": "thrill 在此处表示： 非常兴奋， 非常激动"
+      }
+    ]
+  },
+  "CET6_3_831": {
+    "word": "brood",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The brood was easy to notice in the example.",
+        "sentenceCn": "brood 在此处表示： 一窝； 全体孩子"
+      }
+    ]
+  },
+  "CET6_3_949": {
+    "word": "swamp",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to swamp the idea in a clear way.",
+        "sentenceCn": "swamp 在此处表示： 淹没， 浸没； 难倒， 压倒"
+      }
+    ]
+  },
+  "CET6_3_1088": {
+    "word": "graze",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The graze was easy to notice in the example.",
+        "sentenceCn": "graze 在此处表示： 擦破"
+      }
+    ]
+  },
+  "CET6_3_1095": {
+    "word": "degenerate",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The degenerate was easy to notice in the example.",
+        "sentenceCn": "degenerate 在此处表示： 堕落者"
+      }
+    ]
+  },
+  "CET6_3_1116": {
+    "word": "spite",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to spite the idea in a clear way.",
+        "sentenceCn": "spite 在此处表示： 刁难， 欺侮"
+      }
+    ]
+  },
+  "CET6_3_1129": {
+    "word": "poke",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The poke was easy to notice in the example.",
+        "sentenceCn": "poke 在此处表示： 戳， 捅"
+      }
+    ]
+  },
+  "CET6_3_1168": {
+    "word": "slash",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The slash was easy to notice in the example.",
+        "sentenceCn": "slash 在此处表示： 砍， 砍痕； 斜线号"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to slash the idea in a clear way.",
+        "sentenceCn": "slash 在此处表示：砍；大幅度削减"
+      }
+    ]
+  },
+  "CET6_3_1191": {
+    "word": "rap",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The rap was easy to notice in the example.",
+        "sentenceCn": "rap 在此处表示： 敲击， 急敲"
+      }
+    ]
+  },
+  "CET6_3_1200": {
+    "word": "sprinkle",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The sprinkle was easy to notice in the example.",
+        "sentenceCn": "sprinkle 在此处表示： 少量， 少数"
+      }
+    ]
+  },
+  "CET6_3_1215": {
+    "word": "maneuver",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The maneuver was easy to notice in the example.",
+        "sentenceCn": "maneuver 在此处表示：谨慎而熟练的动作；策略，花招；演习"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to maneuver the idea in a clear way.",
+        "sentenceCn": "maneuver 在此处表示： 设法变动位置； 用策略， 耍花招"
+      }
+    ]
+  },
+  "CET6_3_1243": {
+    "word": "exploit",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The exploit was easy to notice in the example.",
+        "sentenceCn": "exploit 在此处表示： 业绩， 功绩"
+      }
+    ]
+  },
+  "CET6_3_1260": {
+    "word": "pose",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The pose was easy to notice in the example.",
+        "sentenceCn": "pose 在此处表示： 样子， 姿势"
+      }
+    ]
+  },
+  "CET6_3_1287": {
+    "word": "strand",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to strand the idea in a clear way.",
+        "sentenceCn": "strand 在此处表示： 使搁浅"
+      }
+    ]
+  },
+  "CET6_3_1388": {
+    "word": "shed",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The shed was easy to notice in the example.",
+        "sentenceCn": "shed 在此处表示： 棚， 小屋， 货棚"
+      }
+    ]
+  },
+  "CET6_3_1394": {
+    "word": "aerial",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The aerial was easy to notice in the example.",
+        "sentenceCn": "aerial 在此处表示： 天线"
+      }
+    ]
+  },
+  "CET6_3_1434": {
+    "word": "dictate",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to dictate the idea in a clear way.",
+        "sentenceCn": "dictate 在此处表示：['dIkteIt]"
+      }
+    ]
+  },
+  "CET6_3_1471": {
+    "word": "erect",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to erect the idea in a clear way.",
+        "sentenceCn": "erect 在此处表示：建造，使竖立"
+      }
+    ]
+  },
+  "CET6_3_1510": {
+    "word": "captive",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The captive was easy to notice in the example.",
+        "sentenceCn": "captive 在此处表示： 俘虏"
+      }
+    ]
+  },
+  "CET6_3_1559": {
+    "word": "decrease",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The decrease was easy to notice in the example.",
+        "sentenceCn": "decrease 在此处表示：[dI'kriːs]"
+      }
+    ]
+  },
+  "CET6_3_1579": {
+    "word": "snatch",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The snatch was easy to notice in the example.",
+        "sentenceCn": "snatch 在此处表示： 片断"
+      }
+    ]
+  },
+  "CET6_3_1623": {
+    "word": "incline",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to incline the idea in a clear way.",
+        "sentenceCn": "incline 在此处表示： 使倾斜"
+      }
+    ]
+  },
+  "CET6_3_1649": {
+    "word": "pattern",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to pattern the idea in a clear way.",
+        "sentenceCn": "pattern 在此处表示： 仿制， 使…仿效"
+      }
+    ]
+  },
+  "CET6_3_1684": {
+    "word": "foil",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to foil the idea in a clear way.",
+        "sentenceCn": "foil 在此处表示： 挫败， 使受挫折"
+      }
+    ]
+  },
+  "CET6_3_1690": {
+    "word": "intrigue",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The intrigue was easy to notice in the example.",
+        "sentenceCn": "intrigue 在此处表示： 阴谋， 诡计， 密谋"
+      }
+    ]
+  },
+  "CET6_3_1734": {
+    "word": "sheer",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to sheer the idea in a clear way.",
+        "sentenceCn": "sheer 在此处表示： 急转向， 偏离"
+      }
+    ]
+  },
+  "CET6_3_1747": {
+    "word": "regiment",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The regiment was easy to notice in the example.",
+        "sentenceCn": "regiment 在此处表示：团；大量"
+      }
+    ]
+  },
+  "CET6_3_1777": {
+    "word": "veil",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to veil the idea in a clear way.",
+        "sentenceCn": "veil 在此处表示： 掩盖， 掩饰"
+      }
+    ]
+  },
+  "CET6_3_1848": {
+    "word": "scrub",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The scrub was easy to notice in the example.",
+        "sentenceCn": "scrub 在此处表示： 矮树丛， 灌木丛"
+      }
+    ]
+  },
+  "CET6_3_1892": {
+    "word": "stroke",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stroke the idea in a clear way.",
+        "sentenceCn": "stroke 在此处表示： 抚摸"
+      }
+    ]
+  },
+  "CET6_3_1922": {
+    "word": "drag",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The drag was easy to notice in the example.",
+        "sentenceCn": "drag 在此处表示： 累赘； 一吸， 一抽"
+      }
+    ]
+  },
+  "CET6_3_1949": {
+    "word": "digest",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The digest was easy to notice in the example.",
+        "sentenceCn": "digest 在此处表示： 文摘"
+      }
+    ]
+  },
+  "CET6_3_1950": {
+    "word": "slump",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The slump was easy to notice in the example.",
+        "sentenceCn": "slump 在此处表示： 萧条期， 低潮"
+      }
+    ]
+  },
+  "CET6_3_1975": {
+    "word": "marshal",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to marshal the idea in a clear way.",
+        "sentenceCn": "marshal 在此处表示： 整理， 排列， 集结"
+      }
+    ]
+  },
+  "CET6_3_1996": {
+    "word": "survey",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The survey was easy to notice in the example.",
+        "sentenceCn": "survey 在此处表示：[sə'veɪ]"
+      }
+    ]
+  },
+  "CET6_3_2013": {
+    "word": "savage",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to savage the idea in a clear way.",
+        "sentenceCn": "savage 在此处表示： 乱咬； 激烈抨击"
+      }
+    ]
+  },
+  "CET6_3_2035": {
+    "word": "overthrow",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The overthrow was easy to notice in the example.",
+        "sentenceCn": "overthrow 在此处表示： 推翻， 终止， 结束"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to overthrow the idea in a clear way.",
+        "sentenceCn": "overthrow 在此处表示：推翻，打倒；使终止，摒弃"
+      }
+    ]
+  },
+  "CET6_3_2049": {
+    "word": "discipline",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to discipline the idea in a clear way.",
+        "sentenceCn": "discipline 在此处表示： 训练； 惩罚， 处罚"
+      }
+    ]
+  },
+  "CET6_3_2056": {
+    "word": "scent",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to scent the idea in a clear way.",
+        "sentenceCn": "scent 在此处表示： 嗅到， 察觉"
+      }
+    ]
+  },
+  "CET6_3_2102": {
+    "word": "closet",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to closet the idea in a clear way.",
+        "sentenceCn": "closet 在此处表示： 把…引进密室会谈"
+      }
+    ]
+  },
+  "CET6_3_2140": {
+    "word": "tuck",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The tuck was easy to notice in the example.",
+        "sentenceCn": "tuck 在此处表示： 褶， 裥"
+      }
+    ]
+  },
+  "CET6_3_2145": {
+    "word": "obscure",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to obscure the idea in a clear way.",
+        "sentenceCn": "obscure 在此处表示： 使变糊， 掩盖"
+      }
+    ]
+  },
+  "CET6_3_2146": {
+    "word": "dismay",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The dismay was easy to notice in the example.",
+        "sentenceCn": "dismay 在此处表示：失望，气馁；惊恐"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to dismay the idea in a clear way.",
+        "sentenceCn": "dismay 在此处表示： 使失望， 使气馁； 使惊恐"
+      }
+    ]
+  },
+  "CET6_3_2157": {
+    "word": "yoke",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to yoke the idea in a clear way.",
+        "sentenceCn": "yoke 在此处表示： 结合， 联结"
+      }
+    ]
+  },
+  "CET6_3_2168": {
+    "word": "kit",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to kit the idea in a clear way.",
+        "sentenceCn": "kit 在此处表示： 装备"
+      }
+    ]
+  },
+  "CET6_3_2172": {
+    "word": "mortal",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The mortal was easy to notice in the example.",
+        "sentenceCn": "mortal 在此处表示： 凡人， 人类"
+      }
+    ]
+  },
+  "CET6_3_2237": {
+    "word": "dart",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The dart was easy to notice in the example.",
+        "sentenceCn": "dart 在此处表示： 飞镖， 飞镖游戏； 急驰， 飞奔"
+      }
+    ]
+  },
+  "CET6_3_2272": {
+    "word": "cork",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to cork the idea in a clear way.",
+        "sentenceCn": "cork 在此处表示： 用瓶塞塞住"
+      }
+    ]
+  },
+  "CET6_3_2290": {
+    "word": "brace",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The brace was easy to notice in the example.",
+        "sentenceCn": "brace 在此处表示： 支架， 托架"
+      }
+    ]
+  },
+  "CET6_3_2310": {
+    "word": "scale",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to scale the idea in a clear way.",
+        "sentenceCn": "scale 在此处表示： 攀登， 爬越"
+      }
+    ]
+  },
+  "CET6_3_2320": {
+    "word": "limp",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a limp choice for everyday use.",
+        "sentenceCn": "limp 在此处表示：软弱的，无生气的，无精神的；软的，松沓的"
+      },
+      {
+        "pos": "n",
+        "sentenceEn": "The limp was easy to notice in the example.",
+        "sentenceCn": "limp 在此处表示： 跛行"
+      }
+    ]
+  },
+  "CET6_3_2323": {
+    "word": "buck",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The buck was easy to notice in the example.",
+        "sentenceCn": "buck 在此处表示：美元，澳元；雄鹿，雄兔"
+      }
+    ]
+  },
+  "KaoYan_3_20": {
+    "word": "scratch",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to scratch the idea in a clear way.",
+        "sentenceCn": "scratch 在此处表示：抓， 搔， 扒"
+      }
+    ]
+  },
+  "KaoYan_3_21": {
+    "word": "circular",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The circular was easy to notice in the example.",
+        "sentenceCn": "circular 在此处表示：传单， 通报"
+      }
+    ]
+  },
+  "KaoYan_3_25": {
+    "word": "temper",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to temper the idea in a clear way.",
+        "sentenceCn": "temper 在此处表示：减缓； 调和， 调节 <"
+      }
+    ]
+  },
+  "KaoYan_3_61": {
+    "word": "besides",
+    "examples": [
+      {
+        "pos": "prep",
+        "sentenceEn": "The note was placed besides the main text.",
+        "sentenceCn": "besides 在此处表示：除…之外"
+      }
+    ]
+  },
+  "KaoYan_3_118": {
+    "word": "coach",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to coach the idea in a clear way.",
+        "sentenceCn": "coach 在此处表示：辅导， 指导"
+      }
+    ]
+  },
+  "KaoYan_3_129": {
+    "word": "orderly",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The orderly was easy to notice in the example.",
+        "sentenceCn": "orderly 在此处表示：勤务兵"
+      }
+    ]
+  },
+  "KaoYan_3_144": {
+    "word": "cheat",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The cheat was easy to notice in the example.",
+        "sentenceCn": "cheat 在此处表示：骗子；欺诈， 欺骗行为"
+      }
+    ]
+  },
+  "KaoYan_3_195": {
+    "word": "stable",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stable was easy to notice in the example.",
+        "sentenceCn": "stable 在此处表示：马厩， 马棚"
+      }
+    ]
+  },
+  "KaoYan_3_212": {
+    "word": "refrain",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The refrain was easy to notice in the example.",
+        "sentenceCn": "refrain 在此处表示：反复句， 叠句；副歌"
+      }
+    ]
+  },
+  "KaoYan_3_227": {
+    "word": "stereotype",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stereotype was easy to notice in the example.",
+        "sentenceCn": "stereotype 在此处表示：陈规， 旧框框， 固定形式， 老套；铅版"
+      }
+    ]
+  },
+  "KaoYan_3_255": {
+    "word": "claw",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The claw was easy to notice in the example.",
+        "sentenceCn": "claw 在此处表示：爪； 脚爪"
+      }
+    ]
+  },
+  "KaoYan_3_256": {
+    "word": "torture",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The torture was easy to notice in the example.",
+        "sentenceCn": "torture 在此处表示：拷问， 拷打；折磨， 痛苦"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to torture the idea in a clear way.",
+        "sentenceCn": "torture 在此处表示：拷问， 拷打；折磨， 磨难"
+      }
+    ]
+  },
+  "KaoYan_3_294": {
+    "word": "overall",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The overall was easy to notice in the example.",
+        "sentenceCn": "overall 在此处表示：工作服； 工装裤"
+      }
+    ]
+  },
+  "KaoYan_3_363": {
+    "word": "hound",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to hound the idea in a clear way.",
+        "sentenceCn": "hound 在此处表示：追逼； 烦扰， 纠缠"
+      }
+    ]
+  },
+  "KaoYan_3_375": {
+    "word": "doom",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to doom the idea in a clear way.",
+        "sentenceCn": "doom 在此处表示：注定， 命定"
+      }
+    ]
+  },
+  "KaoYan_3_423": {
+    "word": "zoom",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The zoom was easy to notice in the example.",
+        "sentenceCn": "zoom 在此处表示：嗡嗡声， 隆隆声"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to zoom the idea in a clear way.",
+        "sentenceCn": "zoom 在此处表示：急速移动；急升， 猛涨"
+      }
+    ]
+  },
+  "KaoYan_3_505": {
+    "word": "strap",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to strap the idea in a clear way.",
+        "sentenceCn": "strap 在此处表示：捆扎"
+      }
+    ]
+  },
+  "KaoYan_3_515": {
+    "word": "tackle",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to tackle the idea in a clear way.",
+        "sentenceCn": "tackle 在此处表示：处理， 解决， 对付 <"
+      }
+    ]
+  },
+  "KaoYan_3_548": {
+    "word": "grant",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The grant was easy to notice in the example.",
+        "sentenceCn": "grant 在此处表示：授予 A <"
+      }
+    ]
+  },
+  "KaoYan_3_554": {
+    "word": "relish",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to relish the idea in a clear way.",
+        "sentenceCn": "relish 在此处表示：欣赏； 品尝"
+      }
+    ]
+  },
+  "KaoYan_3_568": {
+    "word": "stall",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stall was easy to notice in the example.",
+        "sentenceCn": "stall 在此处表示：货摊；畜栏， 厩"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stall the idea in a clear way.",
+        "sentenceCn": "stall 在此处表示：停转， 停止"
+      }
+    ]
+  },
+  "KaoYan_3_572": {
+    "word": "menace",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to menace the idea in a clear way.",
+        "sentenceCn": "menace 在此处表示：威胁"
+      }
+    ]
+  },
+  "KaoYan_3_574": {
+    "word": "invalid",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The invalid was easy to notice in the example.",
+        "sentenceCn": "invalid 在此处表示：病人， 病弱者； 伤残人 A"
+      }
+    ]
+  },
+  "KaoYan_3_671": {
+    "word": "curb",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The curb was easy to notice in the example.",
+        "sentenceCn": "curb 在此处表示：路缘； 镶边石；勒马绳"
+      }
+    ]
+  },
+  "KaoYan_3_680": {
+    "word": "band",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to band the idea in a clear way.",
+        "sentenceCn": "band 在此处表示：缚， 绑扎"
+      }
+    ]
+  },
+  "KaoYan_3_717": {
+    "word": "swamp",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to swamp the idea in a clear way.",
+        "sentenceCn": "swamp 在此处表示：压倒某人"
+      }
+    ]
+  },
+  "KaoYan_3_722": {
+    "word": "stab",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The stab was easy to notice in the example.",
+        "sentenceCn": "stab 在此处表示：刺， 戳"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stab the idea in a clear way.",
+        "sentenceCn": "stab 在此处表示：刺， 戳"
+      }
+    ]
+  },
+  "KaoYan_3_834": {
+    "word": "graze",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The graze was easy to notice in the example.",
+        "sentenceCn": "graze 在此处表示：擦伤"
+      }
+    ]
+  },
+  "KaoYan_3_839": {
+    "word": "sting",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The sting was easy to notice in the example.",
+        "sentenceCn": "sting 在此处表示：刺， 刺痛， 剧痛， 叮"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to sting the idea in a clear way.",
+        "sentenceCn": "sting 在此处表示：刺， 刺痛， 叮 A"
+      }
+    ]
+  },
+  "KaoYan_3_843": {
+    "word": "degenerate",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The degenerate was easy to notice in the example.",
+        "sentenceCn": "degenerate 在此处表示：堕落者"
+      }
+    ]
+  },
+  "KaoYan_3_871": {
+    "word": "mug",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to mug the idea in a clear way.",
+        "sentenceCn": "mug 在此处表示：对…行凶抢劫"
+      }
+    ]
+  },
+  "KaoYan_3_900": {
+    "word": "urge",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The urge was easy to notice in the example.",
+        "sentenceCn": "urge 在此处表示：强烈欲望， 迫切要求"
+      }
+    ]
+  },
+  "KaoYan_3_970": {
+    "word": "cardinal",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The cardinal was easy to notice in the example.",
+        "sentenceCn": "cardinal 在此处表示：红衣主教"
+      }
+    ]
+  },
+  "KaoYan_3_993": {
+    "word": "toil",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to toil the idea in a clear way.",
+        "sentenceCn": "toil 在此处表示：艰难地进行， 费力地做"
+      }
+    ]
+  },
+  "KaoYan_3_1046": {
+    "word": "vacuum",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to vacuum the idea in a clear way.",
+        "sentenceCn": "vacuum 在此处表示：收集"
+      }
+    ]
+  },
+  "KaoYan_3_1067": {
+    "word": "aerial",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The aerial was easy to notice in the example.",
+        "sentenceCn": "aerial 在此处表示：天线"
+      }
+    ]
+  },
+  "KaoYan_3_1077": {
+    "word": "articulate",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to articulate the idea in a clear way.",
+        "sentenceCn": "articulate 在此处表示：清晰明白地说"
+      }
+    ]
+  },
+  "KaoYan_3_1100": {
+    "word": "endeavor",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The endeavor was easy to notice in the example.",
+        "sentenceCn": "endeavor 在此处表示：努力， 尽力； 力图"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to endeavor the idea in a clear way.",
+        "sentenceCn": "endeavor 在此处表示：努力， 尽力； 力图"
+      }
+    ]
+  },
+  "KaoYan_3_1123": {
+    "word": "despatch",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The despatch was easy to notice in the example.",
+        "sentenceCn": "despatch 在此处表示：急件， 快信；新闻报道"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to despatch the idea in a clear way.",
+        "sentenceCn": "despatch 在此处表示：派遣， 调遣； 发送"
+      }
+    ]
+  },
+  "KaoYan_3_1156": {
+    "word": "classic",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The classic was easy to notice in the example.",
+        "sentenceCn": "classic 在此处表示：杰作， 名著"
+      }
+    ]
+  },
+  "KaoYan_3_1191": {
+    "word": "trifle",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to trifle the idea in a clear way.",
+        "sentenceCn": "trifle 在此处表示：嬉耍  <"
+      }
+    ]
+  },
+  "KaoYan_3_1294": {
+    "word": "intrigue",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The intrigue was easy to notice in the example.",
+        "sentenceCn": "intrigue 在此处表示：阴谋， 诡计， 密谋"
+      }
+    ]
+  },
+  "KaoYan_3_1368": {
+    "word": "veil",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The veil was easy to notice in the example.",
+        "sentenceCn": "veil 在此处表示：面纱， 遮蔽物"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to veil the idea in a clear way.",
+        "sentenceCn": "veil 在此处表示：用面纱掩盖；掩饰"
+      }
+    ]
+  },
+  "KaoYan_3_1409": {
+    "word": "scare",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The scare was easy to notice in the example.",
+        "sentenceCn": "scare 在此处表示：惊恐， 恐慌"
+      }
+    ]
+  },
+  "KaoYan_3_1448": {
+    "word": "rate",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to rate the idea in a clear way.",
+        "sentenceCn": "rate 在此处表示：估价； 评级， 评价"
+      }
+    ]
+  },
+  "KaoYan_3_1476": {
+    "word": "divine",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The divine was easy to notice in the example.",
+        "sentenceCn": "divine 在此处表示：牧师"
+      }
+    ]
+  },
+  "KaoYan_3_1510": {
+    "word": "digest",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The digest was easy to notice in the example.",
+        "sentenceCn": "digest 在此处表示：摘要， 文摘"
+      }
+    ]
+  },
+  "KaoYan_3_1627": {
+    "word": "minus",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The minus was easy to notice in the example.",
+        "sentenceCn": "minus 在此处表示：负号； 减号"
+      },
+      {
+        "pos": "prep",
+        "sentenceEn": "The note was placed minus the main text.",
+        "sentenceCn": "minus 在此处表示：减去"
+      }
+    ]
+  },
+  "KaoYan_3_1647": {
+    "word": "closet",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to closet the idea in a clear way.",
+        "sentenceCn": "closet 在此处表示：把…引进密室会谈"
+      }
+    ]
+  },
+  "KaoYan_3_1658": {
+    "word": "commercial",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The commercial was easy to notice in the example.",
+        "sentenceCn": "commercial 在此处表示：广告"
+      }
+    ]
+  },
+  "KaoYan_3_1773": {
+    "word": "harbor",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to harbor the idea in a clear way.",
+        "sentenceCn": "harbor 在此处表示：隐匿； 窝藏， 包庇"
+      }
+    ]
+  },
+  "KaoYan_3_1810": {
+    "word": "limp",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The limp was easy to notice in the example.",
+        "sentenceCn": "limp 在此处表示：/"
+      }
+    ]
+  },
+  "KaoYan_3_1861": {
+    "word": "humble",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to humble the idea in a clear way.",
+        "sentenceCn": "humble 在此处表示：降低； 贬抑"
+      }
+    ]
+  },
+  "KaoYan_3_1863": {
+    "word": "harbour",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to harbour the idea in a clear way.",
+        "sentenceCn": "harbour 在此处表示：隐匿； 窝藏， 包庇"
+      }
+    ]
+  },
+  "KaoYan_3_1887": {
+    "word": "wrap",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The wrap was easy to notice in the example.",
+        "sentenceCn": "wrap 在此处表示：披肩； 围巾"
+      }
+    ]
+  },
+  "KaoYan_3_1898": {
+    "word": "pad",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to pad the idea in a clear way.",
+        "sentenceCn": "pad 在此处表示：填塞"
+      }
+    ]
+  },
+  "KaoYan_3_1940": {
+    "word": "channel",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to channel the idea in a clear way.",
+        "sentenceCn": "channel 在此处表示：引导； 集中"
+      }
+    ]
+  },
+  "KaoYan_3_1958": {
+    "word": "wage",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to wage the idea in a clear way.",
+        "sentenceCn": "wage 在此处表示：进行， 开展"
+      }
+    ]
+  },
+  "KaoYan_3_1976": {
+    "word": "gut",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The gut was easy to notice in the example.",
+        "sentenceCn": "gut 在此处表示：肠； 肠线"
+      }
+    ]
+  },
+  "KaoYan_3_1996": {
+    "word": "verge",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The verge was easy to notice in the example.",
+        "sentenceCn": "verge 在此处表示：边， 边缘"
+      }
+    ]
+  },
+  "KaoYan_3_2070": {
+    "word": "groan",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The groan was easy to notice in the example.",
+        "sentenceCn": "groan 在此处表示：呻吟"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to groan the idea in a clear way.",
+        "sentenceCn": "groan 在此处表示：呻吟"
+      }
+    ]
+  },
+  "KaoYan_3_2184": {
+    "word": "alike",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a alike choice for everyday use.",
+        "sentenceCn": "alike 在此处表示：相同的， 相像的"
+      },
+      {
+        "pos": "adv",
+        "sentenceEn": "The answer came alike and surprised everyone.",
+        "sentenceCn": "alike 在此处表示：也； 同样地"
+      }
+    ]
+  },
+  "KaoYan_3_2222": {
+    "word": "alien",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The alien was easy to notice in the example.",
+        "sentenceCn": "alien 在此处表示：外侨；外星人"
+      }
+    ]
+  },
+  "KaoYan_3_2227": {
+    "word": "ornament",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The ornament was easy to notice in the example.",
+        "sentenceCn": "ornament 在此处表示：装饰， 装饰物"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to ornament the idea in a clear way.",
+        "sentenceCn": "ornament 在此处表示：装饰， 美化"
+      }
+    ]
+  },
+  "KaoYan_3_2240": {
+    "word": "disgrace",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The disgrace was easy to notice in the example.",
+        "sentenceCn": "disgrace 在此处表示：失宠；耻辱"
+      }
+    ]
+  },
+  "KaoYan_3_2352": {
+    "word": "bully",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to bully the idea in a clear way.",
+        "sentenceCn": "bully 在此处表示：恐吓， 欺负"
+      }
+    ]
+  },
+  "KaoYan_3_2413": {
+    "word": "tame",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to tame the idea in a clear way.",
+        "sentenceCn": "tame 在此处表示：驯服， 制服"
+      }
+    ]
+  },
+  "KaoYan_3_2420": {
+    "word": "hum",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The hum was easy to notice in the example.",
+        "sentenceCn": "hum 在此处表示：嗡嗡声， 营营声， 嘈杂声"
+      }
+    ]
+  },
+  "KaoYan_3_2439": {
+    "word": "chop",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The chop was easy to notice in the example.",
+        "sentenceCn": "chop 在此处表示：排骨； 肉块"
+      }
+    ]
+  },
+  "KaoYan_3_2455": {
+    "word": "file",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to file the idea in a clear way.",
+        "sentenceCn": "file 在此处表示：锉"
+      }
+    ]
+  },
+  "KaoYan_3_2458": {
+    "word": "heave",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The heave was easy to notice in the example.",
+        "sentenceCn": "heave 在此处表示：举起； 升降"
+      }
+    ]
+  },
+  "KaoYan_3_2486": {
+    "word": "jolly",
+    "examples": [
+      {
+        "pos": "adv",
+        "sentenceEn": "The answer came jolly and surprised everyone.",
+        "sentenceCn": "jolly 在此处表示：非常"
+      }
+    ]
+  },
+  "KaoYan_3_2493": {
+    "word": "trash",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to trash the idea in a clear way.",
+        "sentenceCn": "trash 在此处表示：捣毁， 破坏"
+      }
+    ]
+  },
+  "KaoYan_3_2609": {
+    "word": "spill",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The spill was easy to notice in the example.",
+        "sentenceCn": "spill 在此处表示：摔下， 跌下"
+      }
+    ]
+  },
+  "KaoYan_3_2705": {
+    "word": "abstract",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The abstract was easy to notice in the example.",
+        "sentenceCn": "abstract 在此处表示：摘要， 提要"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to abstract the idea in a clear way.",
+        "sentenceCn": "abstract 在此处表示：提取"
+      }
+    ]
+  },
+  "KaoYan_3_2769": {
+    "word": "fare",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to fare the idea in a clear way.",
+        "sentenceCn": "fare 在此处表示：过活； 进展"
+      }
+    ]
+  },
+  "KaoYan_3_2782": {
+    "word": "scorn",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The scorn was easy to notice in the example.",
+        "sentenceCn": "scorn 在此处表示：轻蔑， 藐视"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to scorn the idea in a clear way.",
+        "sentenceCn": "scorn 在此处表示：轻蔑， 藐视"
+      }
+    ]
+  },
+  "KaoYan_3_2823": {
+    "word": "scout",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to scout the idea in a clear way.",
+        "sentenceCn": "scout 在此处表示：搜索， 侦察"
+      }
+    ]
+  },
+  "KaoYan_3_2830": {
+    "word": "acclaim",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to acclaim the idea in a clear way.",
+        "sentenceCn": "acclaim 在此处表示：向…欢呼， 为…喝彩"
+      }
+    ]
+  },
+  "KaoYan_3_2850": {
+    "word": "therefore",
+    "examples": [
+      {
+        "pos": "adv",
+        "sentenceEn": "The answer came therefore and surprised everyone.",
+        "sentenceCn": "therefore 在此处表示：因此， 从而"
+      }
+    ]
+  },
+  "KaoYan_3_2946": {
+    "word": "shed",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The shed was easy to notice in the example.",
+        "sentenceCn": "shed 在此处表示：棚， 小屋"
+      }
+    ]
+  },
+  "KaoYan_3_2954": {
+    "word": "rear",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to rear the idea in a clear way.",
+        "sentenceCn": "rear 在此处表示：饲养； 抚养 A"
+      }
+    ]
+  },
+  "KaoYan_3_2983": {
+    "word": "rot",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The rot was easy to notice in the example.",
+        "sentenceCn": "rot 在此处表示：荒唐"
+      }
+    ]
+  },
+  "KaoYan_3_3003": {
+    "word": "dull",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to dull the idea in a clear way.",
+        "sentenceCn": "dull 在此处表示：使迟钝"
+      }
+    ]
+  },
+  "KaoYan_3_3008": {
+    "word": "erect",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to erect the idea in a clear way.",
+        "sentenceCn": "erect 在此处表示：树立； 建立； 使竖立"
+      }
+    ]
+  },
+  "KaoYan_3_3012": {
+    "word": "ape",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to ape the idea in a clear way.",
+        "sentenceCn": "ape 在此处表示：模仿"
+      }
+    ]
+  },
+  "KaoYan_3_3091": {
+    "word": "volunteer",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to volunteer the idea in a clear way.",
+        "sentenceCn": "volunteer 在此处表示：自愿"
+      }
+    ]
+  },
+  "KaoYan_3_3098": {
+    "word": "bolt",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to bolt the idea in a clear way.",
+        "sentenceCn": "bolt 在此处表示：闩， 关窗， 拴住"
+      }
+    ]
+  },
+  "KaoYan_3_3141": {
+    "word": "cast",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The cast was easy to notice in the example.",
+        "sentenceCn": "cast 在此处表示：演员表； 全体演员"
+      }
+    ]
+  },
+  "KaoYan_3_3221": {
+    "word": "sponsor",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to sponsor the idea in a clear way.",
+        "sentenceCn": "sponsor 在此处表示：发起， 主办"
+      }
+    ]
+  },
+  "KaoYan_3_3264": {
+    "word": "bar",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to bar the idea in a clear way.",
+        "sentenceCn": "bar 在此处表示：闩上； 阻拦， 拦住； 妨碍"
+      }
+    ]
+  },
+  "KaoYan_3_3314": {
+    "word": "jug",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to jug the idea in a clear way.",
+        "sentenceCn": "jug 在此处表示：关押"
+      }
+    ]
+  },
+  "KaoYan_3_3357": {
+    "word": "bound",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The bound was easy to notice in the example.",
+        "sentenceCn": "bound 在此处表示：跳"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to bound the idea in a clear way.",
+        "sentenceCn": "bound 在此处表示：跳"
+      }
+    ]
+  },
+  "KaoYan_3_3359": {
+    "word": "stroke",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to stroke the idea in a clear way.",
+        "sentenceCn": "stroke 在此处表示：抚摸 A"
+      }
+    ]
+  },
+  "KaoYan_3_3430": {
+    "word": "outrage",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to outrage the idea in a clear way.",
+        "sentenceCn": "outrage 在此处表示：激怒"
+      }
+    ]
+  },
+  "KaoYan_3_3441": {
+    "word": "preserve",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The preserve was easy to notice in the example.",
+        "sentenceCn": "preserve 在此处表示：专门领域"
+      }
+    ]
+  },
+  "KaoYan_3_3513": {
+    "word": "zigzag",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a zigzag choice for everyday use.",
+        "sentenceCn": "zigzag 在此处表示：之字形的"
+      },
+      {
+        "pos": "n",
+        "sentenceEn": "The zigzag was easy to notice in the example.",
+        "sentenceCn": "zigzag 在此处表示：之字形"
+      }
+    ]
+  },
+  "KaoYan_3_3572": {
+    "word": "dismay",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The dismay was easy to notice in the example.",
+        "sentenceCn": "dismay 在此处表示：惊恐， 惊愕；失望， 绝望"
+      },
+      {
+        "pos": "v",
+        "sentenceEn": "They need to dismay the idea in a clear way.",
+        "sentenceCn": "dismay 在此处表示：使惊恐， 使惊愕；失望， 绝望"
+      }
+    ]
+  },
+  "KaoYan_3_3587": {
+    "word": "mortal",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The mortal was easy to notice in the example.",
+        "sentenceCn": "mortal 在此处表示：凡人"
+      }
+    ]
+  },
+  "KaoYan_3_3605": {
+    "word": "sack",
+    "examples": [
+      {
+        "pos": "v",
+        "sentenceEn": "They need to sack the idea in a clear way.",
+        "sentenceCn": "sack 在此处表示：解雇"
+      }
+    ]
+  },
+  "KaoYan_3_3699": {
+    "word": "hedge",
+    "examples": [
+      {
+        "pos": "n",
+        "sentenceEn": "The hedge was easy to notice in the example.",
+        "sentenceCn": "hedge 在此处表示：篱笆， 树篱； 障碍物"
+      }
+    ]
+  },
+  "MEDICAL_RESP_1177": {
+    "word": "hormonal",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a hormonal choice for everyday use.",
+        "sentenceCn": "hormonal 在此处表示：激素的"
+      },
+      {
+        "pos": "therapy",
+        "sentenceEn": "The hormonal was easy to notice in the example.",
+        "sentenceCn": "hormonal 在此处表示：激素的"
+      }
+    ]
+  },
+  "MEDICAL_RESP_1852": {
+    "word": "parathyroid",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a parathyroid choice for everyday use.",
+        "sentenceCn": "parathyroid 在此处表示：甲状旁腺的"
+      },
+      {
+        "pos": "hormone",
+        "sentenceEn": "The parathyroid was easy to notice in the example.",
+        "sentenceCn": "parathyroid 在此处表示：甲状旁腺的"
+      }
+    ]
+  },
+  "MEDICAL_RESP_2724": {
+    "word": "tumor",
+    "examples": [
+      {
+        "pos": "marker",
+        "sentenceEn": "The tumor was easy to notice in the example.",
+        "sentenceCn": "tumor 在此处表示：肿瘤"
+      },
+      {
+        "pos": "n",
+        "sentenceEn": "The tumor was easy to notice in the example.",
+        "sentenceCn": "tumor 在此处表示：肿瘤"
+      }
+    ]
+  },
+  "MEDICAL_RESP_2755": {
+    "word": "urinary",
+    "examples": [
+      {
+        "pos": "adj",
+        "sentenceEn": "It was a urinary choice for everyday use.",
+        "sentenceCn": "urinary 在此处表示：尿的"
+      },
+      {
+        "pos": "retention",
+        "sentenceEn": "The urinary was easy to notice in the example.",
+        "sentenceCn": "urinary 在此处表示：尿的"
+      }
+    ]
+  }
+}

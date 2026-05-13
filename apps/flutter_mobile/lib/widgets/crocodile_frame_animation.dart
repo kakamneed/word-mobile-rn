@@ -247,11 +247,13 @@ class CrocodileRefreshIndicator extends StatefulWidget {
 }
 
 class _CrocodileRefreshIndicatorState extends State<CrocodileRefreshIndicator> {
+  static const _triggerDistance = 72.0;
+
   bool _refreshing = false;
-  bool _dragCanRefresh = true;
+  bool _draggingFromTop = false;
+  double _pullDistance = 0;
 
   Future<void> _refresh() async {
-    if (!_dragCanRefresh) return;
     if (mounted) {
       setState(() {
         _refreshing = true;
@@ -260,48 +262,55 @@ class _CrocodileRefreshIndicatorState extends State<CrocodileRefreshIndicator> {
     try {
       await widget.onRefresh();
     } finally {
-      _dragCanRefresh = true;
       if (mounted) {
         setState(() {
           _refreshing = false;
+          _draggingFromTop = false;
+          _pullDistance = 0;
         });
       }
     }
   }
 
+  void _resetPull() {
+    if (_pullDistance == 0 && !_draggingFromTop) return;
+    setState(() {
+      _draggingFromTop = false;
+      _pullDistance = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return CrocodileRefreshContainer(
-      refreshing: _refreshing,
+      refreshing: _refreshing || _pullDistance >= _triggerDistance * 0.45,
       label: widget.label,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification.depth != 0) return false;
           if (notification is ScrollStartNotification &&
               notification.dragDetails != null) {
-            _dragCanRefresh = notification.metrics.extentBefore <= 24.0;
+            _draggingFromTop = notification.metrics.extentBefore <= 0.0;
+            _pullDistance = 0;
           } else if (notification is OverscrollNotification &&
-              notification.dragDetails != null &&
-              notification.metrics.extentBefore <= 0.0 &&
-              notification.overscroll < 0) {
-            _dragCanRefresh = true;
+              notification.dragDetails != null) {
+            final atTop = notification.metrics.extentBefore <= 0.0;
+            final pullingDown = notification.overscroll < 0;
+            if (_draggingFromTop && atTop && pullingDown && !_refreshing) {
+              _pullDistance += -notification.overscroll;
+            }
           } else if (notification is ScrollEndNotification) {
-            if (!_refreshing) _dragCanRefresh = true;
+            if (_draggingFromTop &&
+                _pullDistance >= _triggerDistance &&
+                !_refreshing) {
+              _refresh();
+            } else if (!_refreshing) {
+              _resetPull();
+            }
           }
           return false;
         },
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          color: Colors.transparent,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          displacement: 96,
-          edgeOffset: 12,
-          notificationPredicate: (notification) =>
-              notification.depth == 0 && _dragCanRefresh,
-          strokeWidth: 0.01,
-          child: widget.child,
-        ),
+        child: widget.child,
       ),
     );
   }

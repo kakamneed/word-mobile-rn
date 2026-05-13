@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +23,8 @@ pub struct PlanSummary {
     pub root_affix_per_day: Option<i64>,
     pub growth_interval_days: i64,
     pub growth_increment: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question_type_weights_by_mode: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

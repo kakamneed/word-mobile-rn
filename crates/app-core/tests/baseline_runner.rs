@@ -118,12 +118,12 @@ fn seed_entries_for_payloads(conn: &Connection) {
         )
         .unwrap_or(1);
 
-    for (key, word, meaning) in [
-        ("w1", "abandon", "放弃"),
-        ("w2", "abstract", "抽象的"),
-        ("w3", "academic", "学术的"),
-        ("w4", "accelerate", "加速"),
-        ("w5", "accept", "接受"),
+    for (key, word, _meaning) in [
+        ("w1", "abandon", "give up"),
+        ("w2", "abstract", "abstract"),
+        ("w3", "academic", "academic"),
+        ("w4", "accelerate", "speed up"),
+        ("w5", "accept", "accept"),
     ] {
         conn.execute(
             "INSERT OR IGNORE INTO entries (source_version_id, source_entry_key, word, lemma, part_of_speech)
@@ -145,12 +145,12 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             phonetic_uk: None,
             meaning_details: vec![StartSessionMeaningPayload {
                 pos: "v.".into(),
-                meaning_cn: "放弃".into(),
+                meaning_cn: "meaning".into(),
                 meaning_en: None,
             }],
-            meanings: vec!["放弃".into()],
+            meanings: vec!["meaning".into()],
             example_sentence: Some("He abandoned the project.".into()),
-            example_translation: Some("他放弃了这个项目。".into()),
+            example_translation: Some("example translation".into()),
         },
         StartSessionEntryPayload {
             source_id: "w2".into(),
@@ -161,12 +161,12 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             phonetic_uk: None,
             meaning_details: vec![StartSessionMeaningPayload {
                 pos: "adj.".into(),
-                meaning_cn: "抽象的".into(),
+                meaning_cn: "meaning".into(),
                 meaning_en: None,
             }],
-            meanings: vec!["抽象的".into()],
+            meanings: vec!["meaning".into()],
             example_sentence: Some("Abstract thinking is important.".into()),
-            example_translation: Some("抽象思维很重要。".into()),
+            example_translation: Some("example translation".into()),
         },
         StartSessionEntryPayload {
             source_id: "w3".into(),
@@ -177,12 +177,12 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             phonetic_uk: None,
             meaning_details: vec![StartSessionMeaningPayload {
                 pos: "adj.".into(),
-                meaning_cn: "学术的".into(),
+                meaning_cn: "meaning".into(),
                 meaning_en: None,
             }],
-            meanings: vec!["学术的".into()],
+            meanings: vec!["meaning".into()],
             example_sentence: Some("She has an academic background.".into()),
-            example_translation: Some("她有学术背景。".into()),
+            example_translation: Some("example translation".into()),
         },
         StartSessionEntryPayload {
             source_id: "w4".into(),
@@ -193,12 +193,12 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             phonetic_uk: None,
             meaning_details: vec![StartSessionMeaningPayload {
                 pos: "v.".into(),
-                meaning_cn: "加速".into(),
+                meaning_cn: "meaning".into(),
                 meaning_en: None,
             }],
-            meanings: vec!["加速".into()],
+            meanings: vec!["meaning".into()],
             example_sentence: Some("We need to accelerate the process.".into()),
-            example_translation: Some("我们需要加速这个过程。".into()),
+            example_translation: Some("example translation".into()),
         },
         StartSessionEntryPayload {
             source_id: "w5".into(),
@@ -209,12 +209,12 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             phonetic_uk: None,
             meaning_details: vec![StartSessionMeaningPayload {
                 pos: "v.".into(),
-                meaning_cn: "接受".into(),
+                meaning_cn: "meaning".into(),
                 meaning_en: None,
             }],
-            meanings: vec!["接受".into()],
+            meanings: vec!["meaning".into()],
             example_sentence: Some("Please accept my apology.".into()),
-            example_translation: Some("请接受我的道歉。".into()),
+            example_translation: Some("example translation".into()),
         },
     ]
 }
@@ -452,6 +452,7 @@ fn baseline_study_newword_all_correct() {
         entry_source_ids: source_ids,
         entry_payloads: payloads,
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start_response = word_app_core::start_study_session(&conn, request)
@@ -581,6 +582,7 @@ fn baseline_study_mixed_incorrect() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start_response = word_app_core::start_study_session(&conn, request)
@@ -655,6 +657,7 @@ fn baseline_study_cancel_no_persist() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start_response = word_app_core::start_study_session(&conn, request)
@@ -738,6 +741,7 @@ fn baseline_progress_monotonic_in_session() {
         entry_source_ids: vec!["w1".into(), "w2".into()],
         entry_payloads: payloads[..2].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start = word_app_core::start_study_session(&conn, request).unwrap();
@@ -788,6 +792,7 @@ fn baseline_is_complete_and_summary_mutex() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start = word_app_core::start_study_session(&conn, request).unwrap();
@@ -857,15 +862,16 @@ fn baseline_study_review_mode() {
         entry_source_ids: vec!["w1".into(), "w2".into()],
         entry_payloads: payloads[..2].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start = word_app_core::start_study_session(&conn, request)
         .expect("startStudySession should succeed");
 
-    // Review mode: 4 questions per word = 8 total for 2 words
+    // Review mode plan units are questions, so 2 hydrated entries produce 2 questions.
     assert_eq!(start.session.mode, SessionMode::Review);
     assert_eq!(start.session.total_words, 2);
-    assert_eq!(start.progress.total, 8);
+    assert_eq!(start.progress.total, 2);
 
     let session_id = start.session.session_id.clone();
     let mut current_question = start.current_question;
@@ -889,14 +895,14 @@ fn baseline_study_review_mode() {
 
         if response.is_complete {
             let summary = response.summary.as_ref().unwrap();
-            assert_eq!(summary.correct_count, 8);
-            assert_eq!(summary.total_questions, 8);
+            assert_eq!(summary.correct_count, 2);
+            assert_eq!(summary.total_questions, 2);
             break;
         }
         current_question = response.current_question.unwrap();
     }
 
-    assert_eq!(answer_count, 8, "Review mode: 2 words * 4 questions = 8");
+    assert_eq!(answer_count, 2, "Review mode: 2 plan questions = 2 answers");
     let _ = word_app_core::complete_study_session(&conn, &session_id);
 }
 
@@ -917,6 +923,7 @@ fn baseline_study_fuzzy_correct() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start = word_app_core::start_study_session(&conn, request)
@@ -924,8 +931,8 @@ fn baseline_study_fuzzy_correct() {
     let session_id = start.session.session_id.clone();
 
     // Submit a partial answer that should trigger FuzzyCorrect
-    // The first question's accepted meanings include "放弃", "抽象的", or "学术的"
-    // Submitting a substring like "放" should trigger fuzzy match
+    // The first question's accepted meanings include "鏀惧純", "鎶借薄鐨?, or "瀛︽湳鐨?
+    // Submitting a substring like "鏀? should trigger fuzzy match
     let first_question = &start.current_question;
 
     // For choice questions, we can't trigger fuzzy. For input questions, we can.
@@ -998,6 +1005,7 @@ fn baseline_study_skip_answer() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start = word_app_core::start_study_session(&conn, request)
@@ -1059,6 +1067,7 @@ fn baseline_session_persistence_across_restart() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let start = word_app_core::start_study_session(&conn, request)
@@ -1086,6 +1095,7 @@ fn baseline_session_persistence_across_restart() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
+        question_type_weights: vec![],
     };
 
     let resumed =

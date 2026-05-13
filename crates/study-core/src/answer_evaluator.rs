@@ -1,6 +1,8 @@
 //! Answer evaluator for study answers.
 
-use word_storage_core::models::{AnswerOutcome, StudyAnswer, StudyQuestion, StudyResult};
+use word_storage_core::models::{
+    AnswerOutcome, QuestionType, StudyAnswer, StudyQuestion, StudyResult,
+};
 
 /// Authoritative grading service for study answers.
 pub struct AnswerEvaluator;
@@ -16,8 +18,12 @@ impl AnswerEvaluator {
             let choice_outcome = Self::evaluate_choice(question, &answer.response);
             (choice_outcome, None)
         } else {
-            let (input_outcome, norm) =
-                Self::evaluate_input(&answer.response, &question.accepted_meanings);
+            let (input_outcome, norm) = if question.question_type == QuestionType::WordSkeletonInput
+            {
+                Self::evaluate_word_input(&answer.response, &question.accepted_meanings)
+            } else {
+                Self::evaluate_input(&answer.response, &question.accepted_meanings)
+            };
             (input_outcome, Some(norm))
         };
 
@@ -26,15 +32,12 @@ impl AnswerEvaluator {
                 .choices
                 .as_ref()
                 .and_then(|choices| {
-                    question
-                        .correct_choice_label
-                        .as_ref()
-                        .and_then(|correct_label| {
-                            choices
-                                .iter()
-                                .find(|choice| &choice.label == correct_label)
-                                .map(|choice| choice.text.clone())
-                        })
+                    Self::resolved_choice_label(question).and_then(|correct_label| {
+                        choices
+                            .iter()
+                            .find(|choice| choice.label.trim() == correct_label)
+                            .map(|choice| choice.text.clone())
+                    })
                 })
                 .unwrap_or_else(|| {
                     question
@@ -65,7 +68,7 @@ impl AnswerEvaluator {
     }
 
     fn evaluate_choice(question: &StudyQuestion, selected_label: &str) -> AnswerOutcome {
-        let correct_label = match &question.correct_choice_label {
+        let correct_label = match Self::resolved_choice_label(question) {
             Some(label) => label,
             None => return AnswerOutcome::Incorrect,
         };
@@ -79,27 +82,49 @@ impl AnswerEvaluator {
             return AnswerOutcome::Correct;
         }
 
-        if Self::selected_choice_matches_accepted_meaning(question, selected_label) {
-            return AnswerOutcome::Correct;
-        }
-
         AnswerOutcome::Incorrect
     }
 
-    fn selected_choice_matches_accepted_meaning(
-        question: &StudyQuestion,
-        selected_label: &str,
-    ) -> bool {
-        let Some(selected_text) = question.choices.as_ref().and_then(|choices| {
-            choices
-                .iter()
-                .find(|choice| choice.label.trim() == selected_label)
-                .map(|choice| choice.text.as_str())
-        }) else {
-            return false;
-        };
+    fn resolved_choice_label(question: &StudyQuestion) -> Option<&str> {
+        let choices = question.choices.as_ref()?;
+        if let Some(correct_label) = question.correct_choice_label.as_deref() {
+            let correct_label = correct_label.trim();
+            if !correct_label.is_empty()
+                && choices
+                    .iter()
+                    .any(|choice| choice.label.trim() == correct_label)
+            {
+                return Some(correct_label);
+            }
+        }
 
-        meaning_text_matches_any_accepted(selected_text, &question.accepted_meanings)
+        if question.question_type == QuestionType::CnToEnChoice {
+            let correct_word = normalize_english_word(&question.word);
+            if let Some(choice) = choices
+                .iter()
+                .find(|choice| normalize_english_word(&choice.text) == correct_word)
+            {
+                return Some(choice.label.trim());
+            }
+        } else {
+            let accepted_meanings = question
+                .accepted_meanings
+                .iter()
+                .map(|meaning| normalize_meaning_segment(meaning))
+                .filter(|meaning| !meaning.is_empty())
+                .collect::<Vec<_>>();
+            if let Some(choice) = choices.iter().find(|choice| {
+                let choice_text = normalize_meaning_segment(&choice.text);
+                !choice_text.is_empty()
+                    && accepted_meanings
+                        .iter()
+                        .any(|accepted| accepted == &choice_text)
+            }) {
+                return Some(choice.label.trim());
+            }
+        }
+
+        None
     }
 
     fn evaluate_input(response: &str, accepted_meanings: &[String]) -> (AnswerOutcome, String) {
@@ -126,6 +151,28 @@ impl AnswerEvaluator {
 
         (AnswerOutcome::Incorrect, normalized_input)
     }
+
+    fn evaluate_word_input(response: &str, accepted_words: &[String]) -> (AnswerOutcome, String) {
+        let trimmed = response.trim();
+        if trimmed.is_empty() {
+            return (AnswerOutcome::Skipped, String::new());
+        }
+        let normalized_input = normalize_english_word(trimmed);
+        if accepted_words
+            .iter()
+            .any(|word| normalize_english_word(word) == normalized_input)
+        {
+            return (AnswerOutcome::Correct, normalized_input);
+        }
+        (AnswerOutcome::Incorrect, normalized_input)
+    }
+}
+
+fn normalize_english_word(text: &str) -> String {
+    text.chars()
+        .filter(|ch| ch.is_ascii_alphabetic() || *ch == '-' || *ch == '\'')
+        .flat_map(|ch| ch.to_lowercase())
+        .collect()
 }
 
 /// Normalize a meaning string for comparison.
@@ -255,34 +302,6 @@ fn is_fuzzy_meaning_match(input: &str, accepted_parts: &[String]) -> bool {
     })
 }
 
-fn meaning_text_matches_any_accepted(candidate: &str, accepted_meanings: &[String]) -> bool {
-    let candidate_parts = normalized_meaning_parts(candidate);
-    if candidate_parts.is_empty() {
-        return false;
-    }
-    let candidate_full = normalize_answer_text(candidate);
-
-    accepted_meanings.iter().any(|accepted| {
-        let accepted_parts = normalized_meaning_parts(accepted);
-        if accepted_parts.is_empty() {
-            return false;
-        }
-        let accepted_full = normalize_answer_text(accepted);
-        if !candidate_full.is_empty() && candidate_full == accepted_full {
-            return true;
-        }
-        candidate_parts.iter().any(|candidate_part| {
-            candidate_part.chars().count() >= 2
-                && !is_stopword(candidate_part)
-                && accepted_parts.iter().any(|accepted_part| {
-                    accepted_part.chars().count() >= 2
-                        && !is_stopword(accepted_part)
-                        && candidate_part == accepted_part
-                })
-        })
-    })
-}
-
 fn meaningful_tokens(text: &str) -> Vec<String> {
     let chars = text.chars().collect::<Vec<_>>();
     let mut tokens = Vec::new();
@@ -388,12 +407,12 @@ mod choice_tests {
     }
 
     #[test]
-    fn choice_accepts_alternate_correct_meaning_text() {
+    fn choice_rejects_non_label_answer_even_when_text_matches_meaning() {
         let question = choice_question(vec!["explosive; eruptive; impulsive"], "B");
 
         let result = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
 
-        assert_eq!(result.outcome, AnswerOutcome::Correct);
+        assert_eq!(result.outcome, AnswerOutcome::Incorrect);
     }
 
     #[test]
@@ -404,6 +423,57 @@ mod choice_tests {
         let result = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
 
         assert_eq!(result.outcome, AnswerOutcome::Incorrect);
+    }
+
+    #[test]
+    fn choice_uses_question_correct_label_as_authority() {
+        let question = choice_question(vec!["explosive; eruptive; impulsive"], "A");
+
+        let correct = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
+        let wrong = AnswerEvaluator::evaluate(&question, &answer("B"), "2026-05-01T00:00:00Z");
+
+        assert_eq!(correct.outcome, AnswerOutcome::Correct);
+        assert_eq!(correct.correct_answer, "intense; explosive; eruptive");
+        assert_eq!(wrong.outcome, AnswerOutcome::Incorrect);
+        assert_eq!(wrong.correct_answer, "intense; explosive; eruptive");
+    }
+
+    #[test]
+    fn choice_ignores_other_meanings_from_same_word() {
+        let question = StudyQuestion {
+            question_id: "q1".to_string(),
+            question_type: QuestionType::EnToCnChoice,
+            entry_source_id: "gesture".to_string(),
+            word: "gesture".to_string(),
+            part_of_speech: None,
+            phonetic_us: None,
+            phonetic_uk: None,
+            prompt: "gesture".to_string(),
+            accepted_meanings: vec!["做手势；用动作示意".to_string()],
+            example_sentence: None,
+            example_translation: None,
+            choices: Some(vec![
+                ChoiceOption {
+                    label: "A".to_string(),
+                    text: "取消；删去；划掉；把...作废".to_string(),
+                },
+                ChoiceOption {
+                    label: "B".to_string(),
+                    text: "做手势；用动作示意".to_string(),
+                },
+            ]),
+            correct_choice_label: Some("B".to_string()),
+            question_index: 0,
+            total_questions: 1,
+        };
+
+        let wrong = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
+        let correct = AnswerEvaluator::evaluate(&question, &answer("B"), "2026-05-01T00:00:00Z");
+
+        assert_eq!(wrong.outcome, AnswerOutcome::Incorrect);
+        assert_eq!(wrong.correct_answer, "做手势；用动作示意");
+        assert_eq!(correct.outcome, AnswerOutcome::Correct);
+        assert_eq!(correct.correct_answer, "做手势；用动作示意");
     }
 }
 
@@ -466,5 +536,27 @@ mod tests {
         let result = AnswerEvaluator::evaluate(&question, &answer("取代"), "2026-04-30T00:00:00Z");
 
         assert_eq!(result.outcome, AnswerOutcome::FuzzyCorrect);
+    }
+
+    #[test]
+    fn word_skeleton_input_matches_english_word_case_insensitively() {
+        let mut question = input_question(vec!["unc"]);
+        question.question_type = QuestionType::WordSkeletonInput;
+
+        let result = AnswerEvaluator::evaluate(&question, &answer(" UnC "), "2026-05-07T00:00:00Z");
+
+        assert_eq!(result.outcome, AnswerOutcome::Correct);
+        assert_eq!(result.normalized_response.as_deref(), Some("unc"));
+    }
+
+    #[test]
+    fn word_skeleton_input_rejects_full_word_when_missing_letters_are_expected() {
+        let mut question = input_question(vec!["ri"]);
+        question.question_type = QuestionType::WordSkeletonInput;
+
+        let result =
+            AnswerEvaluator::evaluate(&question, &answer("fridge"), "2026-05-07T00:00:00Z");
+
+        assert_eq!(result.outcome, AnswerOutcome::Incorrect);
     }
 }

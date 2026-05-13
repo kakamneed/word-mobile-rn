@@ -132,6 +132,65 @@ configured in the release APK.
 Never use bare `flutter build apk --release` for releases that need account,
 auth, cloud sync, or Supabase validation.
 
+#### Word Admin Variant
+
+Use this branch when the user asks for `word_admin`, `wordadmin`, or the local
+Word Admin backend build. This build targets the local `D:\projects\word-admin`
+backend instead of Supabase auth.
+
+Required local env:
+
+```text
+D:\projects\word-mobile-rn\.env.word-admin.local
+WORD_ADMIN_API_URL=http://<computer-lan-ip>:8787
+```
+
+`.env.word-admin.local` must be ignored by git. Do not print the configured URL
+unless the user explicitly asks for it.
+
+Important: do not rely on `scripts\flutter-build-release-word-admin-local.cmd`
+inside Codex sandbox. It does not set the fixed release JDK/Android/Gradle/PATH
+environment, and Flutter must be able to create
+`D:\flutter\flutter\bin\cache\lockfile`. If Flutter hangs before printing build
+progress, or reports that it cannot open the lockfile, rerun the build outside
+the sandbox with escalation.
+
+Build command:
+
+```powershell
+$envFile='D:\projects\word-mobile-rn\.env.word-admin.local'
+$apiUrl=$null
+Get-Content -LiteralPath $envFile | ForEach-Object {
+  if ($_ -match '^WORD_ADMIN_API_URL=(.*)$') { $apiUrl=$Matches[1] }
+}
+if (-not $apiUrl) { throw 'WORD_ADMIN_API_URL is missing' }
+
+$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-21.0.10.7-hotspot'
+$env:ANDROID_HOME='D:\Android\Sdk'
+$env:ANDROID_SDK_ROOT='D:\Android\Sdk'
+$env:GRADLE_USER_HOME='D:\projects\word-mobile-rn\apps\mobile\.gradle-home'
+$env:PATH=@(
+  'C:\Program Files\Microsoft\jdk-21.0.10.7-hotspot\bin',
+  'D:\flutter\flutter\bin',
+  'D:\flutter\flutter\bin\cache\dart-sdk\bin',
+  'D:\Android\Sdk\platform-tools',
+  'D:\Android\Sdk\cmdline-tools\latest\bin',
+  'D:\Android\Sdk\build-tools\35.0.0',
+  'D:\msys64\home\clf20\.cargo\bin',
+  'C:\Windows\System32',
+  'C:\Windows',
+  'C:\Windows\System32\WindowsPowerShell\v1.0'
+) -join ';'
+
+Set-Location D:\projects\word-mobile-rn\apps\flutter_mobile
+D:\flutter\flutter\bin\flutter.bat build apk --release `
+  --dart-define=CLOUD_BACKEND=word_admin `
+  --dart-define=WORD_ADMIN_API_URL=$apiUrl
+```
+
+After the build succeeds, continue with APK inspection, install, and launch
+below. The output APK path is the same as the Supabase build.
+
 Expected APK path:
 
 ```text

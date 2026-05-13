@@ -8,6 +8,7 @@ import '../supabase/auth_session_manager.dart';
 import 'account_drawer.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
+import 'croc_bti_screen.dart';
 import 'leaderboard_screen.dart';
 import 'onboarding_flow.dart';
 import 'plan_screen.dart';
@@ -42,6 +43,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
   int _reportsReloadSeed = 0;
   int _aiReloadSeed = 0;
   int _studyReloadSeed = 0;
+  int _planReloadSeed = 0;
   bool _planHasUnappliedChanges = false;
   bool _aiGenerateOnOpen = false;
   bool _aiShowPassageFirst = false;
@@ -83,6 +85,18 @@ class _MobileRootShellState extends State<MobileRootShell> {
   void _handleAppStateChanged() {
     final currentUserId = widget.appState.authState.userId;
     if (currentUserId == _loadedProfileUserId) return;
+    if (mounted) {
+      setState(() {
+        _todayReloadSeed++;
+        _wrongReloadSeed++;
+        _reportsReloadSeed++;
+        _aiReloadSeed++;
+        _studyReloadSeed++;
+        _planReloadSeed++;
+        _showingStudy = false;
+        _studyResumeHint = null;
+      });
+    }
     _loadProfileSettings();
   }
 
@@ -93,9 +107,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
         _profileSettings = const LocalProfileSettings();
       });
     }
-    final settings = await loadLocalProfileSettings(
-      userId: targetUserId,
-    );
+    final settings = await loadLocalProfileSettings(userId: targetUserId);
     if (!mounted) return;
     if (widget.appState.authState.userId != targetUserId) return;
     setState(() {
@@ -161,10 +173,18 @@ class _MobileRootShellState extends State<MobileRootShell> {
 
   Future<void> _openStudy(String mode, ResumeSessionHint? hint) async {
     if (!mounted) return;
+    final effectiveHint =
+        hint ?? await widget.appState.sdk.study.getResumeSessionHint();
+    final effectiveMode = mode;
+    final hintForScreen =
+        effectiveHint.hasResume && effectiveHint.mode == effectiveMode
+            ? effectiveHint
+            : null;
+    if (!mounted) return;
     setState(() {
       _studyReloadSeed++;
-      _studyMode = mode;
-      _studyResumeHint = hint;
+      _studyMode = effectiveMode;
+      _studyResumeHint = hintForScreen;
       _showingStudy = true;
     });
   }
@@ -246,11 +266,13 @@ class _MobileRootShellState extends State<MobileRootShell> {
             child: const Text('跳过'),
           ),
           OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(_LoginPromptAction.signUp),
+            onPressed: () =>
+                Navigator.of(context).pop(_LoginPromptAction.signUp),
             child: const Text('注册'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(_LoginPromptAction.signIn),
+            onPressed: () =>
+                Navigator.of(context).pop(_LoginPromptAction.signIn),
             child: const Text('登录'),
           ),
         ],
@@ -283,9 +305,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
     _scaffoldKey.currentState?.closeEndDrawer();
     await navigator.push(
       MaterialPageRoute(
-        builder: (_) => SettingsScreen(
-          themeController: widget.themeController,
-        ),
+        builder: (_) => SettingsScreen(themeController: widget.themeController),
       ),
     );
   }
@@ -295,16 +315,49 @@ class _MobileRootShellState extends State<MobileRootShell> {
     _scaffoldKey.currentState?.closeEndDrawer();
     final completed = await navigator.push<bool>(
       MaterialPageRoute(
-        builder: (_) => OnboardingFlow(
-          appState: widget.appState,
-          replayMode: true,
-        ),
+        builder: (_) =>
+            OnboardingFlow(appState: widget.appState, replayMode: true),
       ),
     );
     if (!mounted || completed != true) return;
     setState(() {
       _todayReloadSeed++;
       _aiReloadSeed++;
+    });
+  }
+
+  Future<void> _openCrocBti() async {
+    final navigator = Navigator.of(context);
+    _scaffoldKey.currentState?.closeEndDrawer();
+    final applied = await navigator.push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CrocBtiScreen(
+          sdk: widget.appState.sdk,
+          userId: widget.appState.authState.userId,
+          onApplied: () {
+            if (!mounted) return;
+            setState(() {
+              _todayReloadSeed++;
+              _wrongReloadSeed++;
+              _reportsReloadSeed++;
+              _aiReloadSeed++;
+              _studyReloadSeed++;
+              _planReloadSeed++;
+              _planHasUnappliedChanges = false;
+            });
+          },
+        ),
+      ),
+    );
+    if (!mounted || applied != true) return;
+    setState(() {
+      _todayReloadSeed++;
+      _wrongReloadSeed++;
+      _reportsReloadSeed++;
+      _aiReloadSeed++;
+      _studyReloadSeed++;
+      _planReloadSeed++;
+      _planHasUnappliedChanges = false;
     });
   }
 
@@ -332,7 +385,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
         onOpenAccount: _openAccountDrawer,
       ),
       PlanScreen(
-        key: const ValueKey('plan'),
+        key: ValueKey('plan-$_planReloadSeed'),
         sdk: widget.appState.sdk,
         onTodayPlanApplied: () {
           if (!mounted) return;
@@ -396,11 +449,13 @@ class _MobileRootShellState extends State<MobileRootShell> {
                 _wrongReloadSeed++;
                 _reportsReloadSeed++;
                 _aiReloadSeed++;
+                _planReloadSeed++;
                 _showingStudy = false;
                 _studyResumeHint = null;
               });
             },
             onOpenOnboarding: _openOnboarding,
+            onOpenCrocBti: _openCrocBti,
             onOpenLeaderboard: _openLeaderboard,
             onOpenSettings: _openSettings,
           ),
@@ -409,7 +464,8 @@ class _MobileRootShellState extends State<MobileRootShell> {
       body: Stack(
         children: [
           IndexedStack(index: _bodyIndex, children: pages),
-          Positioned(
+          if (!_showingStudy)
+            Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
             right: 12,
             child: Builder(
@@ -419,10 +475,10 @@ class _MobileRootShellState extends State<MobileRootShell> {
                 onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
               ),
             ),
-          ),
+            ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _showingStudy ? null : NavigationBar(
         selectedIndex: _mainIndex,
         onDestinationSelected: (index) {
           _switchToMain(index);

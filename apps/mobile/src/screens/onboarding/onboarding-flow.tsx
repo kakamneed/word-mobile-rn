@@ -8,6 +8,13 @@ import {
   View,
 } from 'react-native';
 import {markOnboardingCompleted} from '../../lib/mobile-bridge';
+import {
+  CROC_BTI_QUESTIONS,
+  evaluateCrocBti,
+  type CrocBtiAnswer,
+  type CrocBtiAnswerValue,
+  type CrocBtiResult,
+} from '../../lib/croc-bti';
 import {applyPlanToToday, fetchActivePlan, savePlan} from '../../lib/plan-client';
 import {fetchWordbooks, toggleWordbook} from '../../lib/vocabulary-client';
 
@@ -15,7 +22,7 @@ interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
-type OnboardingStep = 'welcome' | 'vocabulary' | 'plan' | 'complete';
+type OnboardingStep = 'welcome' | 'vocabulary' | 'crocBti' | 'plan' | 'complete';
 
 type WordbookOption = {
   id: string;
@@ -29,6 +36,7 @@ export function OnboardingFlow({
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
   const [selectedWordbooks, setSelectedWordbooks] = useState<string[]>([]);
   const [dailyTarget, setDailyTarget] = useState(20);
+  const [crocBtiResult, setCrocBtiResult] = useState<CrocBtiResult | null>(null);
   const [wordbooks, setWordbooks] = useState<WordbookOption[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -52,6 +60,9 @@ export function OnboardingFlow({
         setCurrentStep('vocabulary');
         break;
       case 'vocabulary':
+        setCurrentStep('crocBti');
+        break;
+      case 'crocBti':
         setCurrentStep('plan');
         break;
       case 'plan':
@@ -69,6 +80,9 @@ export function OnboardingFlow({
         setCurrentStep('welcome');
         break;
       case 'plan':
+        setCurrentStep('crocBti');
+        break;
+      case 'crocBti':
         setCurrentStep('vocabulary');
         break;
       case 'complete':
@@ -83,12 +97,18 @@ export function OnboardingFlow({
       const currentPlan = await fetchActivePlan();
       const planId = currentPlan?.id ?? 1;
       await savePlan(planId, {
-        name: currentPlan?.name ?? 'Starter Plan',
-        newWordsPerDay: dailyTarget,
-        reviewWordsPerDay: Math.max(dailyTarget * 2, 10),
-        mixedTestPerDay: Math.max(Math.round(dailyTarget * 0.4), 4),
-        wrongWordTestPerDay: Math.max(Math.round(dailyTarget * 0.2), 2),
-        rootAffixPerDay: 2,
+        name: crocBtiResult
+          ? `${currentPlan?.name ?? 'Starter Plan'} - ${crocBtiResult.title}`
+          : currentPlan?.name ?? 'Starter Plan',
+        ...(crocBtiResult
+          ? crocBtiResult.planInput
+          : {
+              newWordsPerDay: dailyTarget,
+              reviewWordsPerDay: Math.max(dailyTarget * 2, 10),
+              mixedTestPerDay: Math.max(Math.round(dailyTarget * 0.4), 4),
+              wrongWordTestPerDay: Math.max(Math.round(dailyTarget * 0.2), 2),
+              rootAffixPerDay: 2,
+            }),
       });
       for (const wordbook of wordbooks) {
         await toggleWordbook(
@@ -109,7 +129,7 @@ export function OnboardingFlow({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.progressBar}>
-        {(['welcome', 'vocabulary', 'plan', 'complete'] as OnboardingStep[]).map(
+        {(['welcome', 'vocabulary', 'crocBti', 'plan', 'complete'] as OnboardingStep[]).map(
           (step, index) => (
             <View
               key={step}
@@ -136,7 +156,24 @@ export function OnboardingFlow({
           />
         ) : null}
         {currentStep === 'plan' ? (
-          <PlanStep target={dailyTarget} onChange={setDailyTarget} />
+          <PlanStep
+            target={dailyTarget}
+            onChange={setDailyTarget}
+            crocBtiResult={crocBtiResult}
+          />
+        ) : null}
+        {currentStep === 'crocBti' ? (
+          <OnboardingCrocBtiStep
+            result={crocBtiResult}
+            onComplete={result => {
+              setCrocBtiResult(result);
+              setCurrentStep('plan');
+            }}
+            onSkip={() => {
+              setCrocBtiResult(null);
+              setCurrentStep('plan');
+            }}
+          />
         ) : null}
         {currentStep === 'complete' ? (
           <CompleteStep onEnter={() => void handleNext()} saving={saving} />
@@ -171,7 +208,7 @@ export function OnboardingFlow({
 }
 
 function getStepIndex(step: OnboardingStep): number {
-  return ['welcome', 'vocabulary', 'plan', 'complete'].indexOf(step);
+  return ['welcome', 'vocabulary', 'crocBti', 'plan', 'complete'].indexOf(step);
 }
 
 function WelcomeStep(): React.JSX.Element {
@@ -229,10 +266,29 @@ function VocabularyStep({
 function PlanStep({
   target,
   onChange,
+  crocBtiResult,
 }: {
   target: number;
   onChange: (n: number) => void;
+  crocBtiResult: CrocBtiResult | null;
 }): React.JSX.Element {
+  if (crocBtiResult) {
+    return (
+      <View style={styles.stepContainer}>
+        <Text style={styles.stepTitle}>鳄bti 已接管初始计划</Text>
+        <Text style={styles.stepDescription}>
+          你的类型是 {crocBtiResult.title}。初始计划会按测试结果分配新词、复习、混测和错题权重。
+        </Text>
+
+        <View style={styles.btiResultBox}>
+          <Text style={styles.btiResultCode}>{crocBtiResult.code}</Text>
+          <Text style={styles.btiResultTitle}>{crocBtiResult.title}</Text>
+          <Text style={styles.btiResultText}>{crocBtiResult.advice}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Set Daily Target</Text>
@@ -260,6 +316,94 @@ function PlanStep({
       <Text style={styles.targetHint}>
         The app will derive review, mixed-test, wrong-word, and root-affix starter targets from this baseline.
       </Text>
+    </View>
+  );
+}
+
+function OnboardingCrocBtiStep({
+  result,
+  onComplete,
+  onSkip,
+}: {
+  result: CrocBtiResult | null;
+  onComplete: (result: CrocBtiResult) => void;
+  onSkip: () => void;
+}): React.JSX.Element {
+  const [answerMap, setAnswerMap] = useState<Record<string, CrocBtiAnswerValue>>({});
+  const answers: CrocBtiAnswer[] = Object.entries(answerMap).map(
+    ([questionId, value]) => ({
+      questionId,
+      value,
+    }),
+  );
+  const currentResult = evaluateCrocBti(answers);
+  const answered = Object.keys(answerMap).length;
+  const allAnswered = answered === CROC_BTI_QUESTIONS.length;
+
+  return (
+    <View style={styles.btiStep}>
+      <Text style={styles.stepTitle}>鳄bti 学习人格</Text>
+      <Text style={styles.stepDescription}>
+        可跳过。完成后会用你的学习人格生成更合适的初始计划。
+      </Text>
+      {result ? (
+        <View style={styles.btiResultBox}>
+          <Text style={styles.btiResultCode}>{result.code}</Text>
+          <Text style={styles.btiResultTitle}>{result.title}</Text>
+          <Text style={styles.btiResultText}>{result.summary}</Text>
+        </View>
+      ) : null}
+
+      {CROC_BTI_QUESTIONS.map((question, index) => (
+        <View key={question.id} style={styles.btiQuestion}>
+          <Text style={styles.btiQuestionText}>
+            {index + 1}. {question.text}
+          </Text>
+          <View style={styles.btiOptions}>
+            {([-2, -1, 0, 1, 2] as CrocBtiAnswerValue[]).map(value => {
+              const selected = answerMap[question.id] === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.btiOption, selected && styles.btiOptionSelected]}
+                  onPress={() =>
+                    setAnswerMap(current => ({...current, [question.id]: value}))
+                  }>
+                  <Text
+                    style={[
+                      styles.btiOptionText,
+                      selected && styles.btiOptionTextSelected,
+                    ]}>
+                    {value === -2
+                      ? '很不同意'
+                      : value === -1
+                        ? '不同意'
+                        : value === 0
+                          ? '不确定'
+                          : value === 1
+                            ? '同意'
+                            : '很同意'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+
+      <View style={styles.btiActions}>
+        <TouchableOpacity style={styles.btiSkipButton} onPress={onSkip}>
+          <Text style={styles.btiSkipText}>跳过</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.btiApplyButton, !allAnswered && styles.nextButtonDisabled]}
+          onPress={() => onComplete(currentResult)}
+          disabled={!allAnswered}>
+          <Text style={styles.btiApplyText}>
+            {allAnswered ? '使用鳄bti结果' : `${answered}/${CROC_BTI_QUESTIONS.length}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -341,4 +485,46 @@ const styles = StyleSheet.create({
   singleButton: {padding: 24},
   enterButton: {backgroundColor: '#007AFF', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 32, marginTop: 24},
   enterButtonText: {color: '#fff', fontSize: 18, fontWeight: '600'},
+  btiStep: {padding: 24},
+  btiQuestion: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  btiQuestionText: {fontSize: 15, color: '#333', lineHeight: 22, marginBottom: 10},
+  btiOptions: {gap: 8},
+  btiOption: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  btiOptionSelected: {borderColor: '#8DAA3D', backgroundColor: '#F2F7E8'},
+  btiOptionText: {fontSize: 13, color: '#555'},
+  btiOptionTextSelected: {fontWeight: '700', color: '#50651F'},
+  btiActions: {flexDirection: 'row', gap: 12, marginTop: 8},
+  btiSkipButton: {flex: 1, paddingVertical: 14, alignItems: 'center'},
+  btiSkipText: {fontSize: 16, color: '#666'},
+  btiApplyButton: {
+    flex: 2,
+    backgroundColor: '#6B7F32',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  btiApplyText: {fontSize: 16, color: '#fff', fontWeight: '700'},
+  btiResultBox: {
+    width: '100%',
+    backgroundColor: '#F2F7E8',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+  },
+  btiResultCode: {fontSize: 13, color: '#6B7F32', fontWeight: '800'},
+  btiResultTitle: {fontSize: 24, color: '#222', fontWeight: '800', marginTop: 4},
+  btiResultText: {fontSize: 14, color: '#555', lineHeight: 22, marginTop: 8},
 });

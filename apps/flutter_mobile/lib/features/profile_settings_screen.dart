@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/crocodile_frame_animation.dart';
 
 import '../state/app_state.dart';
+import '../sdk/sdk.dart';
 
 const _displayNameKey = 'account.profile.display_name';
 const _avatarIndexKey = 'account.profile.avatar_index';
@@ -121,8 +122,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  bool _uploadingRewardImage = false;
   int _avatarIndex = 0;
   String? _avatarImagePath;
+  RewardImageUploadEntitlement? _uploadEntitlement;
+  List<RewardImage> _rewardImages = const [];
 
   @override
   void initState() {
@@ -148,13 +152,47 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final settings = await loadLocalProfileSettings(
       userId: widget.appState.authState.userId,
     );
+    RewardImageUploadEntitlement? uploadEntitlement;
+    try {
+      final reports = await widget.appState.sdk.reports.getReportsOverview();
+      final currentStreak =
+          (reports.streakInfo['currentStreak'] as num?)?.toInt() ?? 0;
+      uploadEntitlement =
+          await widget.appState.sdk.rewardImages.refreshUploadEntitlement(
+        currentStreakDays: currentStreak,
+      );
+    } catch (_) {
+      try {
+        uploadEntitlement =
+            await widget.appState.sdk.rewardImages.getUploadEntitlement();
+      } catch (_) {
+        uploadEntitlement = null;
+      }
+    }
     if (!mounted) return;
     setState(() {
       _nameController.text = settings.displayName;
       _avatarIndex = settings.avatarIndex;
       _avatarImagePath = settings.avatarImagePath;
+      _uploadEntitlement = uploadEntitlement;
       _loading = false;
     });
+    await _loadRewardImages();
+  }
+
+  Future<void> _loadRewardImages() async {
+    try {
+      final images = await widget.appState.sdk.rewardImages.listImages();
+      if (!mounted) return;
+      setState(() {
+        _rewardImages = images;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _rewardImages = const [];
+      });
+    }
   }
 
   Future<void> _pickAvatarImage() async {
@@ -184,7 +222,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('头像保存失败，请重试')),
+        const SnackBar(content: Text('澶村儚淇濆瓨澶辫触锛岃閲嶈瘯')),
       );
     }
   }
@@ -193,6 +231,91 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     setState(() {
       _avatarImagePath = null;
     });
+  }
+
+  Future<void> _pickRewardImage() async {
+    final entitlement = _uploadEntitlement;
+    if (entitlement == null || entitlement.availableUploads <= 0) {
+      _showSnack('No upload chances available yet');
+      return;
+    }
+    final pickedImage = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 90,
+    );
+    if (pickedImage == null) return;
+
+    setState(() {
+      _uploadingRewardImage = true;
+    });
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final imageDirectory = Directory('${directory.path}/reward_images');
+      if (!await imageDirectory.exists()) {
+        await imageDirectory.create(recursive: true);
+      }
+      final extension = _extensionFor(pickedImage.path);
+      final savedImage = File(
+        '${imageDirectory.path}/reward_${DateTime.now().millisecondsSinceEpoch}$extension',
+      );
+      await File(pickedImage.path).copy(savedImage.path);
+      await widget.appState.sdk.rewardImages.createUpload(
+        localPath: savedImage.path,
+        mimeType: _mimeTypeFor(extension),
+        originalFilename: pickedImage.name,
+      );
+      final updatedEntitlement =
+          await widget.appState.sdk.rewardImages.getUploadEntitlement();
+      final images = await widget.appState.sdk.rewardImages.listImages();
+      if (!mounted) return;
+      setState(() {
+        _uploadEntitlement = updatedEntitlement;
+        _rewardImages = images;
+        _uploadingRewardImage = false;
+      });
+      _showSnack('Image submitted for local review');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _uploadingRewardImage = false;
+      });
+      _showSnack('Image submit failed: $error');
+    }
+  }
+
+  Future<void> _moderateRewardImage(RewardImage image, String status) async {
+    try {
+      await widget.appState.sdk.rewardImages.moderateImage(
+        imageId: image.id,
+        status: status,
+        reason: status == 'rejected' ? 'local test rejected' : '',
+      );
+      await _loadRewardImages();
+      _showSnack(status == 'approved' ? 'Approved locally' : 'Rejected locally');
+    } catch (error) {
+      _showSnack('Review action failed: $error');
+    }
+  }
+
+  Future<void> _selectRewardImageTag(RewardImage image) async {
+    try {
+      await widget.appState.sdk.rewardImages.selectLeaderboardTag(
+        imageId: image.id,
+      );
+      await _loadRewardImages();
+      _showSnack('Leaderboard tag selected');
+    } catch (error) {
+      _showSnack('Tag selection failed: $error');
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   Future<void> _save() async {
@@ -240,9 +363,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('个人信息')),
+      appBar: AppBar(title: const Text('涓汉淇℃伅')),
       body: _loading
-          ? const CrocodileLoadingAnimation(label: '加载中...')
+          ? const CrocodileLoadingAnimation(label: '鍔犺浇涓?..')
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
@@ -263,13 +386,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         children: [
                           Text(
                             previewSettings.displayName.trim().isEmpty
-                                ? '设置昵称'
+                                ? '璁剧疆鏄电О'
                                 : previewSettings.displayName.trim(),
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            email ?? '当前账号',
+                            email ?? '褰撳墠璐﹀彿',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
@@ -282,14 +405,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   controller: _nameController,
                   textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
-                    labelText: '昵称',
-                    hintText: '输入你想显示的名称',
+                    labelText: '鏄电О',
+                    hintText: '杈撳叆浣犳兂鏄剧ず鐨勫悕绉?',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  '头像',
+                  '澶村儚',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
@@ -298,13 +421,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     FilledButton.icon(
                       onPressed: _pickAvatarImage,
                       icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('从相册选择'),
+                      label: const Text('浠庣浉鍐岄€夋嫨'),
                     ),
                     const SizedBox(width: 12),
                     if (previewSettings.hasAvatarImage)
                       TextButton(
                         onPressed: _removeAvatarImage,
-                        child: const Text('移除图片'),
+                        child: const Text('绉婚櫎鍥剧墖'),
                       ),
                   ],
                 ),
@@ -330,14 +453,37 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 const SizedBox(height: 8),
                 Text(
                   previewSettings.hasAvatarImage
-                      ? '头像图片保存在本机，后续可接入云端同步。'
-                      : '未选择图片时使用本机头像预设。',
+                      ? '澶村儚鍥剧墖淇濆瓨鍦ㄦ湰鏈猴紝鍚庣画鍙帴鍏ヤ簯绔悓姝ャ€?'
+                      : '鏈€夋嫨鍥剧墖鏃朵娇鐢ㄦ湰鏈哄ご鍍忛璁俱€?',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 32),
+                if (_uploadEntitlement != null) ...[
+                  _RewardImageEntitlementCard(
+                    entitlement: _uploadEntitlement!,
+                    uploading: _uploadingRewardImage,
+                    onUpload: _pickRewardImage,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                if (_rewardImages.isNotEmpty) ...[
+                  _RewardImageList(
+                    images: _rewardImages,
+                    onApprove: (image) => _moderateRewardImage(
+                      image,
+                      'approved',
+                    ),
+                    onReject: (image) => _moderateRewardImage(
+                      image,
+                      'rejected',
+                    ),
+                    onSelectTag: _selectRewardImageTag,
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 FilledButton(
                   onPressed: _saving ? null : _save,
-                  child: Text(_saving ? '保存中...' : '保存'),
+                  child: Text(_saving ? '淇濆瓨涓?..' : '淇濆瓨'),
                 ),
               ],
             ),
@@ -374,7 +520,191 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     if (extension.length > 8) return '.jpg';
     return extension;
   }
+
+  String _mimeTypeFor(String extension) {
+    return switch (extension.toLowerCase()) {
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+  }
 }
+class _RewardImageEntitlementCard extends StatelessWidget {
+  const _RewardImageEntitlementCard({
+    required this.entitlement,
+    required this.uploading,
+    required this.onUpload,
+  });
+
+  final RewardImageUploadEntitlement entitlement;
+  final bool uploading;
+  final VoidCallback onUpload;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.add_photo_alternate_outlined, color: colorScheme.primary, size: 30),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Image upload chances', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${entitlement.availableUploads} available. Next at ${entitlement.nextMilestoneStreakDays} streak days.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              onPressed: entitlement.availableUploads <= 0 || uploading ? null : onUpload,
+              icon: uploading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.upload_file_outlined),
+              label: Text(uploading ? 'Submitting' : 'Upload'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RewardImageList extends StatelessWidget {
+  const _RewardImageList({
+    required this.images,
+    required this.onApprove,
+    required this.onReject,
+    required this.onSelectTag,
+  });
+
+  final List<RewardImage> images;
+  final ValueChanged<RewardImage> onApprove;
+  final ValueChanged<RewardImage> onReject;
+  final ValueChanged<RewardImage> onSelectTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Leaderboard images', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        for (final image in images) ...[
+          _RewardImageTile(
+            image: image,
+            onApprove: () => onApprove(image),
+            onReject: () => onReject(image),
+            onSelectTag: () => onSelectTag(image),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _RewardImageTile extends StatelessWidget {
+  const _RewardImageTile({
+    required this.image,
+    required this.onApprove,
+    required this.onReject,
+    required this.onSelectTag,
+  });
+
+  final RewardImage image;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+  final VoidCallback onSelectTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final file = File(image.localPath);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: file.existsSync()
+                  ? Image.file(file, width: 76, height: 76, fit: BoxFit.cover)
+                  : Container(width: 76, height: 76, color: colorScheme.surfaceContainerHighest, child: const Icon(Icons.broken_image_outlined)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_statusLabel(image), style: Theme.of(context).textTheme.labelLarge?.copyWith(color: _statusColor(colorScheme, image))),
+                  const SizedBox(height: 4),
+                  Text(
+                    image.originalFilename.isEmpty ? image.localPath.split(Platform.pathSeparator).last : image.originalFilename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      if (image.moderationStatus == 'pending') ...[
+                        OutlinedButton(onPressed: onApprove, child: const Text('Approve')),
+                        OutlinedButton(onPressed: onReject, child: const Text('Reject')),
+                      ],
+                      if (image.isApproved)
+                        FilledButton.tonalIcon(
+                          onPressed: image.selectedAsTag ? null : onSelectTag,
+                          icon: Icon(image.selectedAsTag ? Icons.check_circle_outline : Icons.sell_outlined),
+                          label: Text(image.selectedAsTag ? 'Selected' : 'Use as tag'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _statusLabel(RewardImage image) {
+    return switch (image.moderationStatus) {
+      'approved' => image.selectedAsTag ? 'Approved tag' : 'Approved',
+      'rejected' => 'Rejected',
+      _ => 'Pending review',
+    };
+  }
+
+  Color _statusColor(ColorScheme colorScheme, RewardImage image) {
+    return switch (image.moderationStatus) {
+      'approved' => colorScheme.primary,
+      'rejected' => colorScheme.error,
+      _ => colorScheme.tertiary,
+    };
+  }
+}
+
 
 class _AvatarChoice extends StatelessWidget {
   const _AvatarChoice({

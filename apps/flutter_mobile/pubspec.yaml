@@ -64,6 +64,7 @@ flutter:
   assets:
     - assets/crocodile/roll/
     - assets/crocodile/crawl/
+    - assets/croc_bti/
     - assets/rewards/manifest.json
     - assets/rewards/webp_q60_540/
 

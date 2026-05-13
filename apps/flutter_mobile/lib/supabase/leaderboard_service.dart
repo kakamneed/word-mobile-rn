@@ -1,12 +1,12 @@
-library;
+﻿library;
 
 import '../sdk/reports_client.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_config.dart';
 
 enum LeaderboardPeriod {
-  weekly('weekly', '本周榜'),
-  monthly('monthly', '本月榜'),
+  weekly('weekly', '周榜'),
+  monthly('monthly', '月榜'),
   allTime('all_time', '总榜');
 
   const LeaderboardPeriod(this.wireName, this.label);

@@ -6,6 +6,7 @@
 use std::path::Path;
 
 pub mod entry_repo;
+pub mod mastered_entry_repo;
 pub mod plan_repo;
 pub mod schema;
 pub mod study_repo;

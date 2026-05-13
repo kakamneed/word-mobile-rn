@@ -53,6 +53,46 @@ import UniformTypeIdentifiers
       request.withCString { pointer in
         handleString(result: result) { word_mobile_ios_draw_today_reward(pointer) }
       }
+    case "getRewardImageUploadEntitlement":
+      handleString(result: result) { word_mobile_ios_get_reward_image_upload_entitlement() }
+    case "refreshRewardImageUploadEntitlement":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "refreshRewardImageUploadEntitlement requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_refresh_reward_image_upload_entitlement(pointer) }
+      }
+    case "createRewardImageUpload":
+      handleJsonStringCall(call: call, result: result, name: "createRewardImageUpload") { pointer in
+        word_mobile_ios_create_reward_image_upload(pointer)
+      }
+    case "listRewardImages":
+      handleJsonStringCall(call: call, result: result, name: "listRewardImages") { pointer in
+        word_mobile_ios_list_reward_images(pointer)
+      }
+    case "moderateRewardImage":
+      handleJsonStringCall(call: call, result: result, name: "moderateRewardImage") { pointer in
+        word_mobile_ios_moderate_reward_image(pointer)
+      }
+    case "selectLeaderboardRewardImageTag":
+      handleJsonStringCall(call: call, result: result, name: "selectLeaderboardRewardImageTag") { pointer in
+        word_mobile_ios_select_leaderboard_reward_image_tag(pointer)
+      }
+    case "voteRewardImage":
+      handleJsonStringCall(call: call, result: result, name: "voteRewardImage") { pointer in
+        word_mobile_ios_vote_reward_image(pointer)
+      }
+    case "getLocalLeaderboard":
+      handleJsonStringCall(call: call, result: result, name: "getLocalLeaderboard") { pointer in
+        word_mobile_ios_get_local_leaderboard(pointer)
+      }
+    case "refreshLocalLeaderboardSummary":
+      handleJsonStringCall(call: call, result: result, name: "refreshLocalLeaderboardSummary") { pointer in
+        word_mobile_ios_refresh_local_leaderboard_summary(pointer)
+      }
+    case "seedLocalLeaderboardDemo":
+      handleString(result: result) { word_mobile_ios_seed_local_leaderboard_demo() }
     case "saveImageToGallery":
       handleSaveImageToGallery(call: call, result: result)
     case "pickWrongWordImportSource":
@@ -209,6 +249,14 @@ import UniformTypeIdentifiers
       }
       request.withCString { pointer in
         handleString(result: result) { word_mobile_ios_submit_study_answer(pointer) }
+      }
+    case "markStudyEntryMastered":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "markStudyEntryMastered requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_mark_study_entry_mastered(pointer) }
       }
     case "completeStudySession":
       guard let sessionId = call.arguments as? String else {
@@ -376,6 +424,21 @@ import UniformTypeIdentifiers
       return
     }
     result(decoded)
+  }
+
+  private func handleJsonStringCall(
+    call: FlutterMethodCall,
+    result: @escaping FlutterResult,
+    name: String,
+    action: (UnsafePointer<CChar>) -> UnsafeMutablePointer<CChar>?
+  ) {
+    guard let request = call.arguments as? String else {
+      result(FlutterError(code: "INVALID_ARGS", message: "\(name) requires JSON string", details: nil))
+      return
+    }
+    request.withCString { pointer in
+      handleString(result: result) { action(pointer) }
+    }
   }
 
   private func handleVoid(

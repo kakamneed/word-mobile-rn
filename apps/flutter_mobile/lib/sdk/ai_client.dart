@@ -79,6 +79,7 @@ class AiPassage {
   final String passageId;
   final String title;
   final List<dynamic> blocks;
+  final List<dynamic> wrongWords;
   final String validationStatus;
   final String? failureReason;
   final String? date;
@@ -87,19 +88,111 @@ class AiPassage {
     required this.passageId,
     required this.title,
     required this.blocks,
+    required this.wrongWords,
     required this.validationStatus,
     this.failureReason,
     this.date,
   });
 
-  factory AiPassage.fromJson(Map<String, dynamic> json) => AiPassage(
-    passageId: json['passageId'] as String,
-    title: json['title'] as String,
-    blocks: json['blocks'] as List<dynamic>? ?? const [],
-    validationStatus: json['validationStatus'] as String,
-    failureReason: json['failureReason'] as String?,
-    date: json['date'] as String?,
-  );
+  factory AiPassage.fromJson(Map<String, dynamic> json) {
+    final wrongWords = json['wrongWords'] as List<dynamic>? ?? const [];
+    return AiPassage(
+      passageId: json['passageId'] as String,
+      title: json['title'] as String,
+      blocks: _normalizePassageBlocks(
+        json['blocks'] as List<dynamic>? ?? const [],
+        wrongWords,
+      ),
+      wrongWords: wrongWords,
+      validationStatus: json['validationStatus'] as String,
+      failureReason: json['failureReason'] as String?,
+      date: json['date'] as String?,
+    );
+  }
+}
+
+List<dynamic> _normalizePassageBlocks(
+  List<dynamic> blocks,
+  List<dynamic> wrongWords,
+) {
+  if (_hasWordSegments(blocks) || wrongWords.isEmpty) return blocks;
+  final lookup = <String, Map<String, dynamic>>{};
+  for (final item in wrongWords) {
+    final normalized = _normalizeWrongWord(item);
+    final word = '${normalized?['word'] ?? ''}'.trim();
+    if (word.isNotEmpty && normalized != null) {
+      lookup[word.toLowerCase()] = normalized;
+    }
+  }
+  if (lookup.isEmpty) return blocks;
+
+  return blocks.map((block) {
+    if (block is Map && block['segments'] is List) return block;
+    final text = block is String
+        ? block
+        : block is Map
+        ? '${block['text'] ?? block['content'] ?? ''}'
+        : '';
+    if (text.trim().isEmpty) return block;
+    return {
+      'blockType': block is Map ? block['blockType'] ?? 'paragraph' : 'paragraph',
+      'segments': _highlightTextSegments(text, lookup),
+    };
+  }).toList(growable: false);
+}
+
+bool _hasWordSegments(List<dynamic> blocks) {
+  for (final block in blocks) {
+    if (block is! Map) continue;
+    final segments = block['segments'];
+    if (segments is! List) continue;
+    for (final segment in segments) {
+      if (segment is Map && segment['type'] == 'word') return true;
+    }
+  }
+  return false;
+}
+
+List<Map<String, dynamic>> _highlightTextSegments(
+  String text,
+  Map<String, Map<String, dynamic>> wrongWords,
+) {
+  final lower = text.toLowerCase();
+  var cursor = 0;
+  final segments = <Map<String, dynamic>>[];
+  while (cursor < text.length) {
+    ({int start, int end, Map<String, dynamic> metadata})? best;
+    for (final entry in wrongWords.entries) {
+      final relative = lower.indexOf(entry.key, cursor);
+      if (relative < 0) continue;
+      final start = relative;
+      final end = start + entry.key.length;
+      final current = best;
+      if (current == null ||
+          start < current.start ||
+          (start == current.start && end > current.end)) {
+        best = (start: start, end: end, metadata: entry.value);
+      }
+    }
+    final match = best;
+    if (match == null) {
+      segments.add({'type': 'text', 'text': text.substring(cursor)});
+      break;
+    }
+    if (match.start > cursor) {
+      segments.add({'type': 'text', 'text': text.substring(cursor, match.start)});
+    }
+    segments.add({
+      'type': 'word',
+      'text': text.substring(match.start, match.end),
+      'entryId': (match.metadata['entryId'] as num?)?.toInt() ?? 0,
+      'glossZh':
+          '${match.metadata['primaryGloss'] ?? match.metadata['glossZh'] ?? ''}',
+      'highlighted': true,
+    });
+    cursor = match.end;
+  }
+  return segments;
 }
 
 class AiWrongWordImportCandidate {
@@ -284,6 +377,7 @@ class AiClient {
     List<String> targetWords = const [],
     required String level,
     String? date,
+    String? style,
   }) async {
     final request = <String, dynamic>{
       'wrongWords': wrongWords,
@@ -292,6 +386,9 @@ class AiClient {
     };
     if (date != null) {
       request['date'] = date;
+    }
+    if (style != null && style.trim().isNotEmpty) {
+      request['style'] = style.trim();
     }
     final raw = await _bridge.call(
       'generateAiPassage',
@@ -385,6 +482,24 @@ class AiClient {
             .toList(),
       );
     }
+  }
+
+  /// Returns the current AI provider configuration summary.
+  /// Shows provider names, models, and redacted auth tokens.
+  Future<Map<String, dynamic>> getAiProviderConfig() async {
+    final raw = await _bridge.call('getAiProviderConfig');
+    return _codec.decodeResponse(raw);
+  }
+
+  /// Saves a new AI provider configuration.
+  Future<Map<String, dynamic>> saveAiProviderConfig(
+    Map<String, dynamic> config,
+  ) async {
+    final raw = await _bridge.call(
+      'saveAiProviderConfig',
+      _codec.encodeRequest(config),
+    );
+    return _codec.decodeResponse(raw);
   }
 }
 
