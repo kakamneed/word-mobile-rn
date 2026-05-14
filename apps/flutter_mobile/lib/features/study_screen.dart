@@ -2156,7 +2156,8 @@ bool _isCorrectChoice(
   String correctTextToken,
 ) {
   final correctLabelToken = _normalizeChoiceToken(question.correctChoiceLabel);
-  if (correctLabelToken.isNotEmpty) {
+  if (correctLabelToken.isNotEmpty &&
+      (correctTextToken.isEmpty || displayTextToken == correctTextToken)) {
     return displayLabelToken == correctLabelToken;
   }
 

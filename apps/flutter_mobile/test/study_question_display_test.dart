@@ -283,7 +283,7 @@ void main() {
     expect(b.isUserWrong, isFalse);
   });
 
-  test('choice state keeps question correct label as the only authority', () {
+  test('choice state uses result text when a stale label points at A', () {
     const question = StudyQuestion(
       questionId: 'q10',
       questionType: 'enToCnChoice',
@@ -305,7 +305,7 @@ void main() {
       questionType: 'enToCnChoice',
       userResponse: 'B',
       correctAnswer: '做手势；用动作示意',
-      outcome: AnswerOutcome.correct,
+      outcome: AnswerOutcome.incorrect,
       responseTimeMs: 100,
       answeredAt: '2026-05-12T00:00:00Z',
     );
@@ -313,10 +313,10 @@ void main() {
     final a = choiceStateForTest(question, result, question.choices![0], 0);
     final b = choiceStateForTest(question, result, question.choices![1], 1);
 
-    expect(a.isCorrect, isTrue);
+    expect(a.isCorrect, isFalse);
     expect(a.isUserWrong, isFalse);
-    expect(b.isCorrect, isFalse);
-    expect(b.isUserWrong, isTrue);
+    expect(b.isCorrect, isTrue);
+    expect(b.isUserWrong, isFalse);
   });
 
   test('latest submitted answer is merged when response answered list is stale', () {
