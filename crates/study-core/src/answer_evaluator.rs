@@ -87,17 +87,6 @@ impl AnswerEvaluator {
 
     fn resolved_choice_label(question: &StudyQuestion) -> Option<&str> {
         let choices = question.choices.as_ref()?;
-        if let Some(correct_label) = question.correct_choice_label.as_deref() {
-            let correct_label = correct_label.trim();
-            if !correct_label.is_empty()
-                && choices
-                    .iter()
-                    .any(|choice| choice.label.trim() == correct_label)
-            {
-                return Some(correct_label);
-            }
-        }
-
         if question.question_type == QuestionType::CnToEnChoice {
             let correct_word = normalize_english_word(&question.word);
             if let Some(choice) = choices
@@ -121,6 +110,17 @@ impl AnswerEvaluator {
                         .any(|accepted| accepted == &choice_text)
             }) {
                 return Some(choice.label.trim());
+            }
+        }
+
+        if let Some(correct_label) = question.correct_choice_label.as_deref() {
+            let correct_label = correct_label.trim();
+            if !correct_label.is_empty()
+                && choices
+                    .iter()
+                    .any(|choice| choice.label.trim() == correct_label)
+            {
+                return Some(correct_label);
             }
         }
 
@@ -427,7 +427,7 @@ mod choice_tests {
 
     #[test]
     fn choice_uses_question_correct_label_as_authority() {
-        let question = choice_question(vec!["explosive; eruptive; impulsive"], "A");
+        let question = choice_question(vec!["intense; explosive; eruptive"], "A");
 
         let correct = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
         let wrong = AnswerEvaluator::evaluate(&question, &answer("B"), "2026-05-01T00:00:00Z");
@@ -436,6 +436,65 @@ mod choice_tests {
         assert_eq!(correct.correct_answer, "intense; explosive; eruptive");
         assert_eq!(wrong.outcome, AnswerOutcome::Incorrect);
         assert_eq!(wrong.correct_answer, "intense; explosive; eruptive");
+    }
+
+    #[test]
+    fn choice_prefers_correct_text_over_stale_a_label_for_cn_choice() {
+        let question = choice_question(vec!["explosive; eruptive; impulsive"], "A");
+
+        let stale_a = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
+        let real_b = AnswerEvaluator::evaluate(&question, &answer("B"), "2026-05-01T00:00:00Z");
+
+        assert_eq!(stale_a.outcome, AnswerOutcome::Incorrect);
+        assert_eq!(stale_a.correct_answer, "explosive; eruptive; impulsive");
+        assert_eq!(real_b.outcome, AnswerOutcome::Correct);
+        assert_eq!(real_b.correct_answer, "explosive; eruptive; impulsive");
+    }
+
+    #[test]
+    fn choice_prefers_correct_word_over_stale_a_label_for_en_choice() {
+        let question = StudyQuestion {
+            question_id: "q1".to_string(),
+            question_type: QuestionType::CnToEnChoice,
+            entry_source_id: "surgeon".to_string(),
+            word: "surgeon".to_string(),
+            part_of_speech: None,
+            phonetic_us: None,
+            phonetic_uk: None,
+            prompt: "doctor who performs operations".to_string(),
+            accepted_meanings: vec!["doctor who performs operations".to_string()],
+            example_sentence: None,
+            example_translation: None,
+            choices: Some(vec![
+                ChoiceOption {
+                    label: "A".to_string(),
+                    text: "wreck".to_string(),
+                },
+                ChoiceOption {
+                    label: "B".to_string(),
+                    text: "rabbit".to_string(),
+                },
+                ChoiceOption {
+                    label: "C".to_string(),
+                    text: "reproach".to_string(),
+                },
+                ChoiceOption {
+                    label: "D".to_string(),
+                    text: "surgeon".to_string(),
+                },
+            ]),
+            correct_choice_label: Some("A".to_string()),
+            question_index: 0,
+            total_questions: 1,
+        };
+
+        let stale_a = AnswerEvaluator::evaluate(&question, &answer("A"), "2026-05-01T00:00:00Z");
+        let real_d = AnswerEvaluator::evaluate(&question, &answer("D"), "2026-05-01T00:00:00Z");
+
+        assert_eq!(stale_a.outcome, AnswerOutcome::Incorrect);
+        assert_eq!(stale_a.correct_answer, "surgeon");
+        assert_eq!(real_d.outcome, AnswerOutcome::Correct);
+        assert_eq!(real_d.correct_answer, "surgeon");
     }
 
     #[test]
