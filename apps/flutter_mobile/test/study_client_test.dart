@@ -1,4 +1,5 @@
 import 'package:flutter_mobile/sdk/study_client.dart';
+import 'package:flutter_mobile/bridge/bridge.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -95,5 +96,83 @@ void main() {
     expect(response.isComplete, isTrue);
     expect(response.currentQuestion, isNull);
     expect(response.summary?.correctCount, 1);
+  });
+
+  test('study question decode preserves non-A correct choice identity', () {
+    final question = StudyQuestion.fromJson({
+      'questionId': 'q-choice',
+      'questionType': 'enToCnChoice',
+      'entrySourceId': 'famine',
+      'word': 'famine',
+      'prompt': 'famine',
+      'acceptedMeanings': ['food shortage'],
+      'choices': [
+        {'label': 'A', 'value': 'A', 'text': 'celebration'},
+        {'label': 'B', 'value': 'B', 'text': 'festival'},
+        {'label': 'C', 'value': 'C', 'text': 'food shortage'},
+        {'label': 'D', 'value': 'D', 'text': 'journey'},
+      ],
+      'correctChoiceLabel': 'C',
+      'questionIndex': 2,
+      'totalQuestions': 8,
+    });
+
+    expect(question.correctChoiceLabel, 'C');
+    expect(question.choices?[2]['label'], 'C');
+    expect(question.choices?[2]['value'], 'C');
+    expect(question.choices?[2]['text'], 'food shortage');
+  });
+
+  test('choice question decode fails instead of guessing A when correct label is missing', () {
+    expect(
+      () => StudyQuestion.fromJson({
+        'questionId': 'q-choice',
+        'questionType': 'enToCnChoice',
+        'entrySourceId': 'famine',
+        'word': 'famine',
+        'prompt': 'famine',
+        'acceptedMeanings': ['food shortage'],
+        'choices': [
+          {'label': 'A', 'text': 'celebration'},
+          {'label': 'B', 'text': 'food shortage'},
+        ],
+        'questionIndex': 2,
+        'totalQuestions': 8,
+      }),
+      throwsA(
+        isA<BridgeError>().having(
+          (error) => error.kind,
+          'kind',
+          BridgeErrorKind.protocol,
+        ),
+      ),
+    );
+  });
+
+  test('choice question decode fails when correct label does not match choices', () {
+    expect(
+      () => StudyQuestion.fromJson({
+        'questionId': 'q-choice',
+        'questionType': 'enToCnChoice',
+        'entrySourceId': 'famine',
+        'word': 'famine',
+        'prompt': 'famine',
+        'acceptedMeanings': ['food shortage'],
+        'choices': [
+          {'label': 'A', 'text': 'celebration'},
+          {'label': 'B', 'text': 'food shortage'},
+        ],
+        'correctChoiceLabel': 'C',
+        'questionIndex': 2,
+        'totalQuestions': 8,
+      }),
+      throwsA(
+        isA<BridgeError>().having(
+          (error) => error.code,
+          'code',
+          'STUDY_QUESTION_CORRECT_CHOICE_INVALID',
+        ),
+      ),
+    );
   });
 }

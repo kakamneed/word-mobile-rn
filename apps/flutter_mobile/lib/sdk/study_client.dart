@@ -111,29 +111,61 @@ class StudyQuestion {
     this.hintSuggestions = const [],
   });
 
-  factory StudyQuestion.fromJson(Map<String, dynamic> json) => StudyQuestion(
-        questionId: _jsonString(json['questionId']),
-        questionType: _jsonString(json['questionType'], fallback: 'unknown'),
-        entrySourceId: _jsonString(json['entrySourceId']),
-        word: _jsonString(json['word']),
-        prompt: _jsonString(json['prompt']),
-        partOfSpeech: _jsonNullableString(json['partOfSpeech']),
-        phoneticUs: _jsonNullableString(json['phoneticUs']),
-        phoneticUk: _jsonNullableString(json['phoneticUk']),
-        exampleSentence: _jsonNullableString(json['exampleSentence']),
-        exampleTranslation: _jsonNullableString(json['exampleTranslation']),
-        acceptedMeanings: _jsonStringList(json['acceptedMeanings']),
-        choices: _jsonMapListOrNull(json['choices']),
-        correctChoiceLabel: _jsonNullableString(json['correctChoiceLabel']),
-        questionIndex: _jsonInt(json['questionIndex']),
-        totalQuestions: _jsonInt(json['totalQuestions']),
-        userHint: _jsonNullableString(json['userHint']),
-        hasHint: _jsonBool(json['hasHint']),
-        hintSuggestions: (json['hintSuggestions'] as List<dynamic>? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(WordHintSuggestion.fromJson)
-            .toList(growable: false),
-      );
+  factory StudyQuestion.fromJson(Map<String, dynamic> json) {
+    final questionType = _requiredString(json, 'questionType');
+    final choices = _choiceListOrNull(json['choices']);
+    final correctChoiceLabel = _jsonNullableString(json['correctChoiceLabel']);
+    if (_isChoiceQuestionType(questionType)) {
+      if (choices == null || choices.isEmpty) {
+        throw BridgeError.protocol(
+          'STUDY_QUESTION_CHOICES_MISSING',
+          'Choice question is missing choices.',
+        );
+      }
+      final normalizedCorrect = correctChoiceLabel?.trim();
+      if (normalizedCorrect == null || normalizedCorrect.isEmpty) {
+        throw BridgeError.protocol(
+          'STUDY_QUESTION_CORRECT_CHOICE_MISSING',
+          'Choice question is missing correctChoiceLabel.',
+        );
+      }
+      final hasCorrectChoice = choices.any((choice) {
+        final label = _jsonString(choice['label']).trim();
+        final value = _jsonString(choice['value']).trim();
+        return label == normalizedCorrect || value == normalizedCorrect;
+      });
+      if (!hasCorrectChoice) {
+        throw BridgeError.protocol(
+          'STUDY_QUESTION_CORRECT_CHOICE_INVALID',
+          'correctChoiceLabel does not match any choice label or value.',
+        );
+      }
+    }
+
+    return StudyQuestion(
+      questionId: _requiredString(json, 'questionId'),
+      questionType: questionType,
+      entrySourceId: _requiredString(json, 'entrySourceId'),
+      word: _requiredString(json, 'word'),
+      prompt: _requiredString(json, 'prompt'),
+      partOfSpeech: _jsonNullableString(json['partOfSpeech']),
+      phoneticUs: _jsonNullableString(json['phoneticUs']),
+      phoneticUk: _jsonNullableString(json['phoneticUk']),
+      exampleSentence: _jsonNullableString(json['exampleSentence']),
+      exampleTranslation: _jsonNullableString(json['exampleTranslation']),
+      acceptedMeanings: _jsonStringList(json['acceptedMeanings']),
+      choices: choices,
+      correctChoiceLabel: correctChoiceLabel,
+      questionIndex: _jsonInt(json['questionIndex']),
+      totalQuestions: _jsonInt(json['totalQuestions']),
+      userHint: _jsonNullableString(json['userHint']),
+      hasHint: _jsonBool(json['hasHint']),
+      hintSuggestions: (json['hintSuggestions'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(WordHintSuggestion.fromJson)
+          .toList(growable: false),
+    );
+  }
 
   /// Whether this is a choice-type question.
   bool get isChoiceType =>
@@ -343,6 +375,42 @@ List<Map<String, dynamic>>? _jsonMapListOrNull(Object? value) {
       .whereType<Map<String, dynamic>>()
       .toList(growable: false);
 }
+
+List<Map<String, dynamic>>? _choiceListOrNull(Object? value) {
+  final choices = _jsonMapListOrNull(value);
+  if (choices == null) return null;
+  return choices
+      .map((choice) => {
+            ...choice,
+            'label': _requiredString(choice, 'label'),
+            'text': _requiredString(choice, 'text'),
+          })
+      .toList(growable: false);
+}
+
+String _requiredString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value == null) {
+    throw BridgeError.protocol(
+      'STUDY_DTO_FIELD_MISSING',
+      'Study DTO is missing required field $key.',
+    );
+  }
+  final text = value is String ? value : value.toString();
+  if (text.trim().isEmpty) {
+    throw BridgeError.protocol(
+      'STUDY_DTO_FIELD_EMPTY',
+      'Study DTO field $key is empty.',
+    );
+  }
+  return text;
+}
+
+bool _isChoiceQuestionType(String questionType) =>
+    questionType == 'enToCnChoice' ||
+    questionType == 'exampleToCnChoice' ||
+    questionType == 'exampleToCnChoiceNoTranslation' ||
+    questionType == 'cnToEnChoice';
 
 bool _hasCompleteStudyQuestion(Object? value) {
   if (value is! Map<String, dynamic>) return false;
