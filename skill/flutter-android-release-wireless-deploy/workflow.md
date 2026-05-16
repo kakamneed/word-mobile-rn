@@ -174,6 +174,40 @@ metadata steps below.
 For staged stable packages, continue with the GitHub Release and Supabase
 metadata steps below.
 
+Operational lessons from the `v1.0.2` release:
+
+- Keep `releases\word-mobile-*.apk` as local/upload artifacts, not Git-tracked
+  files. APKs are uploaded to GitHub Releases and can contain compiled-in token
+  strings from defaults or tests, so adding them to Git creates false positives
+  at best and a security risk at worst.
+- Commit the matching text metadata instead: release notes, publish script, and
+  Supabase SQL file.
+- Before committing, check:
+
+```powershell
+git diff --cached --check
+git diff --cached --name-only | Select-String -Pattern '\.apk$'
+git diff --cached -- crates\platform-mobile\src\bridge.rs apps\flutter_mobile\lib\sdk\ai_client.dart releases\publish-v*.ps1 releases\v*-supabase-release.sql |
+  Select-String -Pattern '^\+.*sk-[A-Za-z0-9_-]{20,}|^\+.*ghp_[A-Za-z0-9_]{20,}|^\+.*service_role'
+```
+
+- Do not run broad `git diff --cached --text` or `git grep --cached` across the
+  entire staged set while APKs are staged. It can scan huge binary payloads,
+  surface embedded strings, spawn long-running Git processes, and block later
+  index writes.
+- Do not run Git index writes in parallel with Git readers. If
+  `fatal: Unable to create '.git/index.lock': Permission denied` appears but
+  `.git\index.lock` does not exist, stop lingering Git scan processes and retry
+  the index operation:
+
+```powershell
+Get-Process git -ErrorAction SilentlyContinue | Stop-Process -Force
+git restore --staged releases\word-mobile-*.apk
+```
+
+- If sandbox ACLs block `.git` index writes, rerun the exact Git index command
+  with approval/escalation rather than changing file permissions manually.
+
 After building, confirm the packaged version:
 
 ```powershell
@@ -227,6 +261,14 @@ $env:HTTPS_PROXY='http://127.0.0.1:7897'
 If release notes or a prepared asset were staged under `D:\projects\word-mobile-rn\releases`,
 it is also acceptable to run the matching `publish-vX.Y.Z.ps1` script from a
 PowerShell session where `gh auth status` succeeds.
+
+When using a prepared publish script, run it after the release commit has been
+pushed so `--target main` resolves to the release commit:
+
+```powershell
+git -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 push origin main
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File releases\publish-vX.Y.Z.ps1
+```
 
 The download URL format for Supabase metadata is:
 
@@ -406,6 +448,39 @@ D:\Android\Sdk\platform-tools\adb.exe shell pm install -r /data/local/tmp/word_f
 If `pm install` also returns `INSTALL_FAILED_ABORTED: User rejected permissions`,
 the build is ready but the phone-side permission dialog or device policy must be
 approved before installation can complete.
+
+If the release/deploy script ends with:
+
+```text
+adb.exe: no devices/emulators found
+```
+
+but the APK exists and `aapt dump badging` reports the intended version, the APK
+build is still usable for GitHub Release upload. Mark local device install and
+launch verification as not performed or `HUMAN NEEDED`, and include that in the
+final report.
+
+### 6.1 Release Validation Pitfalls
+
+Run Flutter tests that share build assets serially. Do not start
+`flutter test test\today_task_breakdown_test.dart --no-pub` and
+`flutter test test\study_question_display_test.dart --no-pub` in parallel; they
+can collide on `build\unit_test_assets` and fail with a file lock.
+
+For the study facade release gate, use one test thread:
+
+```powershell
+cargo test -p word-app-core study --lib -- --test-threads=1
+```
+
+The single-thread form avoids process-global active-session state leaking across
+study tests and producing a misleading `NoActiveSession` failure.
+
+For `word-platform-mobile image` tests, remember that the AI client retries HTTP
+requests. Any mock server used by fallback tests must be able to answer multiple
+requests, not just the first one. If a test is meant to verify OpenAI backup
+behavior, prefer constructing `AiAgent` directly with `anthropic_fallback: None`
+instead of relying on mutable process environment variables.
 
 ### 7. Device UI Verification
 

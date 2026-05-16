@@ -61,6 +61,17 @@ For every later APK intended for Supabase direct update delivery:
 - GitHub CLI login is persistent. Run `gh auth login` only when `gh auth status`
   says the token is missing or invalid. In this workspace, GitHub access usually
   needs proxy `http://127.0.0.1:7897`.
+- Keep APK binaries out of Git commits. APKs may contain embedded configuration
+  strings from compiled code and should be uploaded as GitHub Release assets
+  only. Commit release notes, publish scripts, and Supabase SQL metadata, but
+  leave `releases/*.apk` untracked unless the user explicitly asks for binary
+  artifact versioning and the secret scan is clean.
+- Do not run broad staged-diff secret scans across APKs or other large binaries.
+  First ensure APKs are not staged, then scan only text/source/release metadata.
+- Avoid running Git index writes in parallel with `git diff`, `git grep`, or
+  other Git readers. On Windows this can leave competing `git` processes and
+  make `.git/index.lock` creation fail. Stop lingering Git scan processes before
+  retrying an index write.
 
 Distinguish test packages from staged stable packages:
 
@@ -74,6 +85,26 @@ Distinguish test packages from staged stable packages:
   that is still a local testing version. Do not reuse that row as an automatic
   update unless the user explicitly promotes the same APK to staged stable after
   validation.
+
+## Lessons From The 1.0.2 Release
+
+- Run Flutter focused tests serially when they touch `build\unit_test_assets`.
+  Parallel Flutter test runs can fail with file-lock errors unrelated to product
+  behavior.
+- `cargo test -p word-app-core study --lib` can be order-sensitive because some
+  tests share process-global session state. For release validation, prefer
+  `cargo test -p word-app-core study --lib -- --test-threads=1`.
+- If `cargo test -p word-platform-mobile image --lib` fails around AI fallback,
+  verify the test actually reaches the intended provider fallback. The test HTTP
+  server must handle retry attempts, and direct `AiAgent` construction is safer
+  than process env mutation for isolated provider fallback tests.
+- The release/deploy script may still build the APK successfully when adb later
+  reports `no devices/emulators found`. Treat GitHub Release packaging as
+  complete after APK inspection and upload, but report device install/launch as
+  `HUMAN NEEDED` or not performed.
+- Before committing a release, run `git diff --cached --check`, confirm no
+  staged `*.apk`, and scan staged text diffs for token-like values. If APKs were
+  accidentally staged, use `git restore --staged releases\*.apk` before commit.
 
 Before any account/auth/cloud/Supabase-related packaging or debugging, also apply
 the `supabase-mobile-auth-checks` skill:
