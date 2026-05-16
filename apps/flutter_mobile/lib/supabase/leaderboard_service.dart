@@ -4,6 +4,13 @@ import '../sdk/reports_client.dart';
 import 'supabase_auth_service.dart';
 import 'supabase_config.dart';
 
+/// Future-only remote leaderboard integration.
+///
+/// The active Flutter leaderboard is local-first and SQLite-backed through
+/// `RewardImageClient`/Rust. This service is intentionally not used by local
+/// Today, Study, Reports, WrongWords, AI history, image voting, or local
+/// leaderboard rendering. Keep it isolated until remote leaderboard sync is
+/// explicitly reintroduced.
 enum LeaderboardPeriod {
   weekly('weekly', '周榜'),
   monthly('monthly', '月榜'),
@@ -43,6 +50,7 @@ class LeaderboardEntry {
     required this.mixedTestAccuracyPercent,
     required this.currentStreakDays,
     required this.updatedAt,
+    this.avatarUrl,
   });
 
   final int rank;
@@ -57,6 +65,7 @@ class LeaderboardEntry {
   final double mixedTestAccuracyPercent;
   final int currentStreakDays;
   final DateTime? updatedAt;
+  final String? avatarUrl;
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) {
     return LeaderboardEntry(
@@ -75,7 +84,13 @@ class LeaderboardEntry {
           (json['mixed_test_accuracy_percent'] as num?)?.toDouble() ?? 0,
       currentStreakDays: (json['current_streak_days'] as num?)?.toInt() ?? 0,
       updatedAt: DateTime.tryParse('${json['updated_at'] ?? ''}'),
+      avatarUrl: _nonEmptyString(json['avatar_url']),
     );
+  }
+
+  static String? _nonEmptyString(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    return text.isEmpty ? null : text;
   }
 }
 

@@ -58,6 +58,33 @@ Feature migrations added after the first setup can also be run directly from
 supabase/announcements-admin.sql
 ```
 
+The reward image voting prototype needs this migration before ordinary users can
+upload to the `reward-images` bucket or vote on cloud images:
+
+```text
+supabase/migrations/202605140001_reward_image_voting.sql
+```
+
+Cloud profile avatars need this migration before ordinary users can upload
+their account avatar to the `avatars` bucket and before `get_leaderboard`
+returns `avatar_url` for the normal learning leaderboard:
+
+```text
+supabase/migrations/202605140003_profile_avatars.sql
+```
+
+After running it in the Dashboard SQL Editor, run or keep the included
+`select pg_notify('pgrst', 'reload schema');` statement so the new
+`get_reward_image_vote_leaderboard` and `vote_reward_image` RPCs are visible to
+PostgREST.
+
+User-uploaded reward images are compressed by the Flutter client before cloud
+upload. The target is a 540px WebP at quality 60, with retry qualities 50 and 40
+when needed; JPEG at the same dimensions/qualities is used only if WebP
+compression is unavailable on the device. The `reward-images` bucket migration
+keeps a 512KB file-size ceiling as a server-side guard, so ordinary user uploads
+should stay in the same order of magnitude as `assets/rewards/webp_q60_540/`.
+
 The Flutter cloud smoke script reads `.env.supabase.local`, which is ignored by
 git:
 

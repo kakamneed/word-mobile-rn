@@ -10,6 +10,8 @@ import '../widgets/crocodile_frame_animation.dart';
 
 import '../state/app_state.dart';
 import '../sdk/sdk.dart';
+import '../supabase/profile_avatar_service.dart';
+import '../supabase/reward_image_upload_service.dart';
 
 const _displayNameKey = 'account.profile.display_name';
 const _avatarIndexKey = 'account.profile.avatar_index';
@@ -215,6 +217,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         '${avatarDirectory.path}/avatar_${DateTime.now().millisecondsSinceEpoch}$extension',
       );
       await File(pickedImage.path).copy(savedImage.path);
+      if (widget.appState.authState.isSignedIn) {
+        try {
+          final avatarService = ProfileAvatarService();
+          if (avatarService.isConfigured) {
+            await avatarService.uploadAvatar(sourcePath: pickedImage.path);
+          }
+        } catch (_) {
+          // Local avatar remains available even when cloud avatar sync fails.
+        }
+      }
       if (!mounted) return;
       setState(() {
         _avatarImagePath = savedImage.path;
@@ -236,14 +248,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Future<void> _pickRewardImage() async {
     final entitlement = _uploadEntitlement;
     if (entitlement == null || entitlement.availableUploads <= 0) {
-      _showSnack('No upload chances available yet');
+      _showSnack('暂无上传机会');
       return;
     }
     final pickedImage = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 90,
     );
     if (pickedImage == null) return;
 
@@ -251,21 +260,36 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       _uploadingRewardImage = true;
     });
     try {
+      final uploadService = RewardImageUploadService();
+      final compressed = await uploadService.compressForRewardUpload(
+        sourcePath: pickedImage.path,
+      );
       final directory = await getApplicationDocumentsDirectory();
       final imageDirectory = Directory('${directory.path}/reward_images');
       if (!await imageDirectory.exists()) {
         await imageDirectory.create(recursive: true);
       }
-      final extension = _extensionFor(pickedImage.path);
       final savedImage = File(
-        '${imageDirectory.path}/reward_${DateTime.now().millisecondsSinceEpoch}$extension',
+        '${imageDirectory.path}/reward_${DateTime.now().millisecondsSinceEpoch}'
+        '${compressed.extension}',
       );
-      await File(pickedImage.path).copy(savedImage.path);
+      await File(compressed.path).copy(savedImage.path);
       await widget.appState.sdk.rewardImages.createUpload(
         localPath: savedImage.path,
-        mimeType: _mimeTypeFor(extension),
+        mimeType: compressed.mimeType,
         originalFilename: pickedImage.name,
       );
+      Object? cloudUploadError;
+      if (widget.appState.authState.isSignedIn && uploadService.isConfigured) {
+        try {
+          await uploadService.uploadCompressedRewardImage(
+            image: compressed.copyWith(path: savedImage.path),
+            originalFilename: pickedImage.name,
+          );
+        } catch (error) {
+          cloudUploadError = error;
+        }
+      }
       final updatedEntitlement =
           await widget.appState.sdk.rewardImages.getUploadEntitlement();
       final images = await widget.appState.sdk.rewardImages.listImages();
@@ -275,13 +299,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         _rewardImages = images;
         _uploadingRewardImage = false;
       });
-      _showSnack('Image submitted for local review');
+      final sizeLabel = _formatImageSize(compressed.byteLength);
+      if (cloudUploadError == null &&
+          widget.appState.authState.isSignedIn &&
+          uploadService.isConfigured) {
+        _showSnack('图片已压缩至 $sizeLabel，并上传等待审核');
+      } else if (cloudUploadError != null) {
+        _showSnack('图片已压缩至 $sizeLabel；云端上传失败');
+      } else {
+        _showSnack('图片已压缩至 $sizeLabel，并保存到本地');
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _uploadingRewardImage = false;
       });
-      _showSnack('Image submit failed: $error');
+      _showSnack('图片提交失败：$error');
     }
   }
 
@@ -293,9 +326,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         reason: status == 'rejected' ? 'local test rejected' : '',
       );
       await _loadRewardImages();
-      _showSnack(status == 'approved' ? 'Approved locally' : 'Rejected locally');
+      _showSnack(status == 'approved' ? '已通过本地审核' : '已拒绝本地审核');
     } catch (error) {
-      _showSnack('Review action failed: $error');
+      _showSnack('审核操作失败：$error');
     }
   }
 
@@ -305,9 +338,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         imageId: image.id,
       );
       await _loadRewardImages();
-      _showSnack('Leaderboard tag selected');
+      _showSnack('已设为排行榜头像');
     } catch (error) {
-      _showSnack('Tag selection failed: $error');
+      _showSnack('设置排行榜头像失败：$error');
     }
   }
 
@@ -316,6 +349,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  String _formatImageSize(int bytes) {
+    final kb = bytes / 1024;
+    if (kb < 10) return '${kb.toStringAsFixed(1)}KB';
+    return '${kb.round()}KB';
   }
 
   Future<void> _save() async {
@@ -335,11 +374,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       try {
         final client = Supabase.instance.client;
         final displayName = _nameController.text.trim();
+        final cloudAvatarUrl = _cloudAvatarUrlFromAuth();
+        final profilePayload = <String, dynamic>{
+          'user_id': userId,
+          'display_name': displayName,
+        };
+        if (cloudAvatarUrl != null) {
+          profilePayload['avatar_url'] = cloudAvatarUrl;
+        }
         await client.from('profiles').upsert(
-          {
-            'user_id': userId,
-            'display_name': displayName,
-          },
+          profilePayload,
           onConflict: 'user_id',
         );
         await client.auth.updateUser(
@@ -362,7 +406,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       avatarImagePath: _avatarImagePath,
     );
 
-    return Scaffold(
+    return _buildProfileSettingsBody(context, email, previewSettings);
+    /*
       appBar: AppBar(title: const Text('涓汉淇℃伅')),
       body: _loading
           ? const CrocodileLoadingAnimation(label: '鍔犺浇涓?..')
@@ -487,6 +532,142 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
               ],
             ),
+    */
+  }
+
+  String? _cloudAvatarUrlFromAuth() {
+    final metadata = Supabase.instance.client.auth.currentUser?.userMetadata;
+    final avatarUrl = '${metadata?['avatar_url'] ?? ''}'.trim();
+    return avatarUrl.isEmpty ? null : avatarUrl;
+  }
+
+  Widget _buildProfileSettingsBody(
+    BuildContext context,
+    String? email,
+    LocalProfileSettings previewSettings,
+  ) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('个人设置')),
+      body: _loading
+          ? const CrocodileLoadingAnimation(label: '加载中...')
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor: previewSettings.avatarColor,
+                      foregroundImage: _avatarImageProvider(previewSettings),
+                      child: previewSettings.hasAvatarImage
+                          ? null
+                          : _avatarLabel(previewSettings, email),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            previewSettings.displayName.trim().isEmpty
+                                ? '未设置昵称'
+                                : previewSettings.displayName.trim(),
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            email ?? '未登录账号',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                TextField(
+                  controller: _nameController,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    labelText: '昵称',
+                    hintText: '输入你想展示在排行榜上的名字',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text('头像', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: _pickAvatarImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('从相册选择'),
+                    ),
+                    const SizedBox(width: 12),
+                    if (previewSettings.hasAvatarImage)
+                      TextButton(
+                        onPressed: _removeAvatarImage,
+                        child: const Text('移除图片'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (var index = 0;
+                        index < profileAvatarColors.length;
+                        index += 1)
+                      _AvatarChoice(
+                        color: profileAvatarColors[index],
+                        selected: index == _avatarIndex,
+                        onTap: () {
+                          setState(() {
+                            _avatarIndex = index;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  previewSettings.hasAvatarImage
+                      ? '当前使用相册图片作为头像，也可以改选下方颜色。'
+                      : '未选择图片时，将使用昵称首字母和下方主题色作为头像。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 32),
+                if (_uploadEntitlement != null) ...[
+                  _RewardImageEntitlementCard(
+                    entitlement: _uploadEntitlement!,
+                    uploading: _uploadingRewardImage,
+                    onUpload: _pickRewardImage,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                if (_rewardImages.isNotEmpty) ...[
+                  _RewardImageList(
+                    images: _rewardImages,
+                    onApprove: (image) => _moderateRewardImage(
+                      image,
+                      'approved',
+                    ),
+                    onReject: (image) => _moderateRewardImage(
+                      image,
+                      'rejected',
+                    ),
+                    onSelectTag: _selectRewardImageTag,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? '保存中...' : '保存'),
+                ),
+              ],
+            ),
     );
   }
 
@@ -521,14 +702,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return extension;
   }
 
-  String _mimeTypeFor(String extension) {
-    return switch (extension.toLowerCase()) {
-      '.png' => 'image/png',
-      '.webp' => 'image/webp',
-      _ => 'image/jpeg',
-    };
-  }
 }
+
 class _RewardImageEntitlementCard extends StatelessWidget {
   const _RewardImageEntitlementCard({
     required this.entitlement,
@@ -545,9 +720,9 @@ class _RewardImageEntitlementCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.55),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.primary.withOpacity(0.18)),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -559,10 +734,10 @@ class _RewardImageEntitlementCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Image upload chances', style: Theme.of(context).textTheme.titleMedium),
+                  Text('图片上传机会', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 4),
                   Text(
-                    '${entitlement.availableUploads} available. Next at ${entitlement.nextMilestoneStreakDays} streak days.',
+                    '剩余 ${entitlement.availableUploads} 次。连续学习 ${entitlement.nextMilestoneStreakDays} 天可获得下一次机会。',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -574,7 +749,7 @@ class _RewardImageEntitlementCard extends StatelessWidget {
               icon: uploading
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.upload_file_outlined),
-              label: Text(uploading ? 'Submitting' : 'Upload'),
+              label: Text(uploading ? '提交中' : '上传'),
             ),
           ],
         ),
@@ -601,7 +776,7 @@ class _RewardImageList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Leaderboard images', style: Theme.of(context).textTheme.titleMedium),
+        Text('排行榜图片', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         for (final image in images) ...[
           _RewardImageTile(
@@ -668,14 +843,14 @@ class _RewardImageTile extends StatelessWidget {
                     runSpacing: 4,
                     children: [
                       if (image.moderationStatus == 'pending') ...[
-                        OutlinedButton(onPressed: onApprove, child: const Text('Approve')),
-                        OutlinedButton(onPressed: onReject, child: const Text('Reject')),
+                        OutlinedButton(onPressed: onApprove, child: const Text('通过')),
+                        OutlinedButton(onPressed: onReject, child: const Text('拒绝')),
                       ],
                       if (image.isApproved)
                         FilledButton.tonalIcon(
                           onPressed: image.selectedAsTag ? null : onSelectTag,
                           icon: Icon(image.selectedAsTag ? Icons.check_circle_outline : Icons.sell_outlined),
-                          label: Text(image.selectedAsTag ? 'Selected' : 'Use as tag'),
+                          label: Text(image.selectedAsTag ? '已选择' : '设为榜单头像'),
                         ),
                     ],
                   ),
@@ -690,9 +865,9 @@ class _RewardImageTile extends StatelessWidget {
 
   String _statusLabel(RewardImage image) {
     return switch (image.moderationStatus) {
-      'approved' => image.selectedAsTag ? 'Approved tag' : 'Approved',
-      'rejected' => 'Rejected',
-      _ => 'Pending review',
+      'approved' => image.selectedAsTag ? '已作为榜单头像' : '已通过',
+      'rejected' => '已拒绝',
+      _ => '待审核',
     };
   }
 

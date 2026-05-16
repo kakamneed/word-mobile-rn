@@ -1594,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    fn new_word_ignores_personalized_weights_and_keeps_fixed_four_type_loop() {
+    fn new_word_ignores_personalized_weights_and_keeps_fixed_type_rounds() {
         let words = vec![
             build_word("w1", "function", Some("n."), &[("n.", "meaning 1")], None),
             build_word("w2", "balance", Some("n."), &[("n.", "meaning 2")], None),
@@ -1614,19 +1614,18 @@ mod tests {
         );
 
         assert_eq!(questions.len(), words.len() * 4);
-        assert_eq!(questions[0].question_type, QuestionType::ExampleToCnChoice);
-        assert_eq!(
-            questions[words.len()].question_type,
-            QuestionType::EnToCnChoice
-        );
-        assert_eq!(
-            questions[words.len() * 2].question_type,
-            QuestionType::CnToEnChoice
-        );
-        assert_eq!(
-            questions[words.len() * 3].question_type,
-            QuestionType::EnToCnInput
-        );
+        assert!(questions[0..words.len()]
+            .iter()
+            .all(|question| question.question_type == QuestionType::ExampleToCnChoice));
+        assert!(questions[words.len()..words.len() * 2]
+            .iter()
+            .all(|question| question.question_type == QuestionType::EnToCnChoice));
+        assert!(questions[words.len() * 2..words.len() * 3]
+            .iter()
+            .all(|question| question.question_type == QuestionType::CnToEnChoice));
+        assert!(questions[words.len() * 3..words.len() * 4]
+            .iter()
+            .all(|question| question.question_type == QuestionType::EnToCnInput));
     }
 
     #[test]
@@ -1641,10 +1640,22 @@ mod tests {
         let distractors = vec![
             build_word("d1", "alpha", Some("n."), &[("n.", "alpha meaning")], None),
             build_word("d2", "bravo", Some("n."), &[("n.", "bravo meaning")], None),
-            build_word("d3", "charlie", Some("n."), &[("n.", "charlie meaning")], None),
+            build_word(
+                "d3",
+                "charlie",
+                Some("n."),
+                &[("n.", "charlie meaning")],
+                None,
+            ),
             build_word("d4", "delta", Some("n."), &[("n.", "delta meaning")], None),
             build_word("d5", "echo", Some("n."), &[("n.", "echo meaning")], None),
-            build_word("d6", "foxtrot", Some("n."), &[("n.", "foxtrot meaning")], None),
+            build_word(
+                "d6",
+                "foxtrot",
+                Some("n."),
+                &[("n.", "foxtrot meaning")],
+                None,
+            ),
         ];
 
         let questions = QuestionBuilder::build_session_questions(

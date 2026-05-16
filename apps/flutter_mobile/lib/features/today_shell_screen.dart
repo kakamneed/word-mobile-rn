@@ -17,6 +17,9 @@ import 'reports_screen.dart';
 import 'study_screen.dart';
 import 'wrong_words_screen.dart';
 
+const todayStudyHandoffKey = Key('today-study-handoff');
+const todayAiShortcutKey = Key('today-ai-shortcut');
+
 class TodayShellScreen extends StatefulWidget {
   const TodayShellScreen({
     super.key,
@@ -94,19 +97,8 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       return widget.appState.sdk.sync.getSyncStatus();
     });
 
-    var today = await todayFuture;
-    var activePlan = _activePlanFromToday(today) ?? await activePlanFuture;
-
-    final needsTodaySnapshot = !_hasUsableSnapshot(
-      today.todaySnapshot ?? const <String, dynamic>{},
-    );
-    if (needsTodaySnapshot && activePlan != null) {
-      try {
-        await widget.appState.sdk.plan.applySavedPlanToToday();
-        today = await widget.appState.sdk.today.getTodayHomeState();
-        activePlan = _activePlanFromToday(today) ?? activePlan;
-      } catch (_) {}
-    }
+    final today = await todayFuture;
+    final activePlan = _activePlanFromToday(today) ?? await activePlanFuture;
 
     final aiContext = await aiContextFuture;
     final aiHistory = await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
@@ -258,8 +250,8 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     final effectiveMode = mode;
     final hintForScreen =
         effectiveHint.hasResume && effectiveHint.mode == effectiveMode
-            ? effectiveHint
-            : null;
+        ? effectiveHint
+        : null;
     if (widget.onOpenStudy != null) {
       await widget.onOpenStudy!.call(effectiveMode, hintForScreen);
       return;
@@ -466,11 +458,14 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
               announcement: bundle.announcements.first,
               onDismiss: () => _dismissAnnouncement(bundle.announcements.first),
             ),
-          _PrimaryActionCard(
-            action: primaryAction,
-            completion: completion,
-            todayDate: bundle.today.todayDate,
-            onStart: handlePrimaryAction,
+          KeyedSubtree(
+            key: todayStudyHandoffKey,
+            child: _PrimaryActionCard(
+              action: primaryAction,
+              completion: completion,
+              todayDate: bundle.today.todayDate,
+              onStart: handlePrimaryAction,
+            ),
           ),
           _TaskBreakdownCard(
             items: taskItems,
@@ -480,14 +475,17 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
             onSyncToday: _applyPlanToToday,
             hasActivePlan: bundle.activePlan != null,
           ),
-          _AiShortcutCard(
-            sdk: widget.appState.sdk,
-            context: bundle.aiContext,
-            history: bundle.aiHistory,
-            isSignedIn: widget.appState.isSignedIn,
-            isGenerating: _aiGenerating,
-            message: _aiMessage,
-            onGenerate: () => _generateAiPassage(bundle.aiContext),
+          KeyedSubtree(
+            key: todayAiShortcutKey,
+            child: _AiShortcutCard(
+              sdk: widget.appState.sdk,
+              context: bundle.aiContext,
+              history: bundle.aiHistory,
+              isSignedIn: widget.appState.isSignedIn,
+              isGenerating: _aiGenerating,
+              message: _aiMessage,
+              onGenerate: () => _generateAiPassage(bundle.aiContext),
+            ),
           ),
           _RewardSlotMachineCard(
             sdk: widget.appState.sdk,
@@ -661,6 +659,14 @@ Map<String, dynamic> _snapshotOrPlanFallback(
     'rootAffixCarryoverTarget': 0,
     'rootAffixCompleted': 0,
   };
+}
+
+@visibleForTesting
+Map<String, dynamic> todaySnapshotOrPlanFallbackForTest(
+  Map<String, dynamic>? snapshot,
+  PlanSummary? activePlan,
+) {
+  return _snapshotOrPlanFallback(snapshot, activePlan);
 }
 
 _PrimaryAction _buildPrimaryAction(
@@ -963,6 +969,9 @@ String _accountPhaseLabel(AuthAccountPhase phase, String? userEmail) {
     AuthAccountPhase.checking => 'checking session',
     AuthAccountPhase.notConfigured => 'not configured',
     AuthAccountPhase.guestLocalOnly => 'guest local-only',
+    AuthAccountPhase.emailVerificationPending => 'email verification pending',
+    AuthAccountPhase.passwordResetEmailSent => 'password reset email sent',
+    AuthAccountPhase.passwordUpdated => 'password updated',
     AuthAccountPhase.signedInNeedsBind => 'signed in, checking data',
     AuthAccountPhase.signedInActive => userEmail ?? 'signed in',
     AuthAccountPhase.signedInExpired => 'signed in expired',

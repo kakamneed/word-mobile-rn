@@ -1,7 +1,7 @@
 # Project State: Word Mobile RN
 
 **Initialized:** 2026-04-09
-**Current Status:** Phase 07.4 planned - pending execution after fresh live-device parity report
+**Current Status:** Phase 11 in progress: converting the cleaned Flutter learning-flow implementation into project-local skill-standard docs and regression guardrails.
 
 ## Core Value
 
@@ -29,15 +29,24 @@ Users should be able to complete the full daily vocabulary-learning loop on mobi
 
 ## Immediate Next Step
 
-Execute Phase 07.4-01 to remove redundant study-card content and improve keyboard/submit ergonomics while keeping desktop parity as the acceptance baseline
+Finish `$gsd-execute-phase 11`: verify `.planning/skills/learning-flow/INDEX.md` and related guides, then preserve the remaining Phase 10 human/device UAT items.
 
 ## Resume Point
 
-- Resume file: `.planning/phases/07.4-mobile-study-ux-polish-and-desktop-parity-closure/07.4-01-PLAN.md`
-- Stopped at: Phase 07.4 newly planned from live-device findings; execution has not started yet
+- Resume file: `.planning/phases/11-learning-flow-skillization-and-regression-guardrails/11-01-PLAN.md`
+- Canonical skill entry: `.planning/skills/learning-flow/INDEX.md`
+- Stopped at: Phase 11 execution in progress; skill docs and guardrails are being created from Phase 9/10 facts.
 
 ## Session Log
 
+- 2026-05-13: Phase 09 added to map the full learning-flow hierarchy and inventory historical pitfalls before cleanup, including selected-wrong-option highlighting and correct-answer index drift toward A.
+- 2026-05-13: Phase 10 added to clean Today, study answering, AI, bridge, Rust core, SQLite, and cloud-adjacent data layers while preserving current behavior and effects.
+- 2026-05-13: Phase 11 added to convert the cleaned implementation knowledge into skill-standard guides and regression guardrails for future learning-flow changes.
+- 2026-05-13: Phase 09 context captured with the active scope narrowed to Flutter only; React Native paths are legacy context only, while Flutter SDK/bridge, Rust core, SQLite, AI, sync, and Flutter skills/docs remain in scope where they affect the learning flow.
+- 2026-05-13: Phase 10 context captured for Flutter-only cleanup, locking behavior preservation, layered cleanup order, answer-regression gates, AI non-blocking rules, and local SQLite/Rust truth boundaries.
+- 2026-05-13: Phase 10 planning completed with research, five executable plans, and plan-check pass. Added explicit coverage for wrong words, reports, cold-start Study bounce to Today, sidebar entries, leaderboard, image voting leaderboard mode, image extraction/upload, selected-wrong-option red feedback, and non-A correct-answer preservation.
+- 2026-05-14: Phase 10 execution reached verifier score 9/9 with `human_needed` only. Remaining items are release-device cold start -> Study -> submit -> Today refresh and visual/route smoke across Today, Study, AI, Wrong Words, Reports, leaderboard, image vote/upload, and sidebar routes.
+- 2026-05-14: Phase 11 execution created project-local Flutter learning-flow skill docs under `.planning/skills/learning-flow/`, with `INDEX.md` as the canonical future entry point.
 - 2026-04-09: New mobile migration project initialized.
 - 2026-04-09: Scheme B selected as the target architecture.
 - 2026-04-09: Initial planning documents created for Rust-core extraction and React Native mobile delivery.

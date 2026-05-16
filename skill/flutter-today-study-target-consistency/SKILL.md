@@ -7,6 +7,16 @@ description: Diagnose and fix Flutter mobile Today task breakdown versus study-s
 
 Use this skill for `apps/flutter_mobile` and `crates/platform-mobile` bugs where Today, Plan, and the concrete study session disagree about task totals.
 
+## Current Canonical Reference
+
+Start with `.planning/skills/learning-flow/INDEX.md`, then read
+`.planning/skills/learning-flow/TODAY-STUDY-HANDOFF.md` and
+`.planning/skills/learning-flow/REGRESSION-GUARDRAILS.md` before editing.
+
+This skill is still valid for target-count mismatch details, but Phase 11
+documents the current Flutter-only boundaries and the cold-start Study bounce
+and display-only Today fallback rules.
+
 ## Core Rule
 
 Treat Today task breakdown and study-session generation as two separate consumers that must share one target source.

@@ -1625,7 +1625,9 @@ fn load_wrong_word_inputs_from_entries(
             "entryId": entry_id,
             "word": entry.get("word").and_then(|value| value.as_str()).unwrap_or(""),
             "primaryGloss": primary_gloss,
-            "partOfSpeech": part_of_speech
+            "partOfSpeech": part_of_speech,
+            "todayWrongCount": entry.get("todayWrongCount").and_then(|value| value.as_i64()).unwrap_or(0),
+            "errorCount": entry.get("errorCount").and_then(|value| value.as_i64()).unwrap_or(0)
         }));
     }
 
@@ -3347,10 +3349,11 @@ pub fn generate_ai_passage(request_json: String) -> Result<String, String> {
             .map_err(|e| format!("JSON serialization failed: {}", e));
     }
 
-    let wrong_words = resolve_ai_request_wrong_words(&request)?;
-    if wrong_words.is_empty() {
+    let all_wrong_words = resolve_ai_request_wrong_words(&request)?;
+    if all_wrong_words.is_empty() {
         return Err("No wrong words available for passage generation".to_string());
     }
+    let (wrong_words, other_wrong_words) = split_ai_passage_wrong_words(all_wrong_words);
 
     let style = request
         .get("style")
@@ -3366,11 +3369,12 @@ pub fn generate_ai_passage(request_json: String) -> Result<String, String> {
     let parsed = parse_ai_model_output(&raw_content, &wrong_words)?;
     let generated_at = chrono::Utc::now().to_rfc3339();
     let passage_id = format!("passage_{}", chrono::Utc::now().timestamp_millis());
-    let blocks = parsed
+    let mut blocks = parsed
         .get("blocks")
         .and_then(|value| value.as_array())
         .cloned()
         .unwrap_or_default();
+    append_other_wrong_words_block(&mut blocks, &other_wrong_words);
     let covered_word_ids = parsed
         .get("coveredWordIds")
         .and_then(|value| value.as_array())
@@ -3388,6 +3392,7 @@ pub fn generate_ai_passage(request_json: String) -> Result<String, String> {
         "title": parsed.get("title").and_then(|value| value.as_str()).filter(|value| !value.is_empty()).unwrap_or("AI Passage"),
         "blocks": blocks,
         "wrongWords": wrong_words,
+        "otherWrongWords": other_wrong_words,
         "coveredWordIds": covered_word_ids,
         "missingWordIds": missing_word_ids.clone(),
         "validationStatus": if missing_word_ids.is_empty() { "passed" } else { "failed" },
@@ -3413,16 +3418,10 @@ fn resolve_ai_request_wrong_words(
     let wrong_words = request
         .get("wrongWords")
         .and_then(|value| value.as_array())
-        .map(|items| {
-            items
-                .iter()
-                .take(AI_PASSAGE_MAX_WRONG_WORDS)
-                .cloned()
-                .collect::<Vec<_>>()
-        })
+        .map(|items| items.clone())
         .unwrap_or_default();
     if !wrong_words.is_empty() {
-        return Ok(wrong_words);
+        return Ok(sort_ai_passage_wrong_words(wrong_words));
     }
 
     let target_words = request
@@ -3436,11 +3435,12 @@ fn resolve_ai_request_wrong_words(
         .collect::<Vec<_>>();
     with_runtime_conn(|conn| {
         let target_date = request.get("date").and_then(|value| value.as_str());
-        let mut candidates = if let Some(date) = target_date {
-            load_wrong_word_inputs_for_date(conn, date, 50)?
+        let candidates = if let Some(date) = target_date {
+            load_wrong_word_inputs_for_date(conn, date, AI_PASSAGE_MAX_WRONG_WORDS)?
         } else {
-            load_wrong_word_inputs(conn, 50)?
+            load_wrong_word_inputs(conn, AI_PASSAGE_MAX_WRONG_WORDS)?
         };
+        let mut candidates = sort_ai_passage_wrong_words(candidates);
         if !target_words.is_empty() {
             candidates.retain(|item| {
                 item.get("word")
@@ -3449,9 +3449,73 @@ fn resolve_ai_request_wrong_words(
                     .unwrap_or(false)
             });
         }
-        candidates.truncate(AI_PASSAGE_MAX_WRONG_WORDS);
         Ok(candidates)
     })
+}
+
+fn split_ai_passage_wrong_words(
+    wrong_words: Vec<serde_json::Value>,
+) -> (Vec<serde_json::Value>, Vec<serde_json::Value>) {
+    let sorted = sort_ai_passage_wrong_words(wrong_words);
+    let mut body_words = Vec::new();
+    let mut other_words = Vec::new();
+    for (index, item) in sorted.into_iter().enumerate() {
+        if index < AI_PASSAGE_BODY_WORD_LIMIT {
+            body_words.push(item);
+        } else {
+            other_words.push(item);
+        }
+    }
+    (body_words, other_words)
+}
+
+fn sort_ai_passage_wrong_words(mut wrong_words: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    wrong_words.sort_by(|left, right| {
+        json_i64_field(right, "todayWrongCount")
+            .cmp(&json_i64_field(left, "todayWrongCount"))
+            .then_with(|| {
+                json_i64_field(right, "errorCount").cmp(&json_i64_field(left, "errorCount"))
+            })
+            .then_with(|| {
+                json_str_field(left, "word")
+                    .to_ascii_lowercase()
+                    .cmp(&json_str_field(right, "word").to_ascii_lowercase())
+            })
+    });
+    wrong_words
+}
+
+fn append_other_wrong_words_block(
+    blocks: &mut Vec<serde_json::Value>,
+    other_wrong_words: &[serde_json::Value],
+) {
+    if other_wrong_words.is_empty() {
+        return;
+    }
+    let words = other_wrong_words
+        .iter()
+        .filter_map(|item| item.get("word").and_then(|value| value.as_str()))
+        .map(str::trim)
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>();
+    if words.is_empty() {
+        return;
+    }
+    blocks.push(serde_json::json!({
+        "blockType": "paragraph",
+        "text": format!("\u{5176}\u{4ed6}\u{9519}\u{8bcd}\u{ff1a}{}", words.join("\u{3001}"))
+    }));
+}
+
+fn json_i64_field(value: &serde_json::Value, key: &str) -> i64 {
+    value.get(key).and_then(|value| value.as_i64()).unwrap_or(0)
+}
+
+fn json_str_field<'a>(value: &'a serde_json::Value, key: &str) -> &'a str {
+    value
+        .get(key)
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
 }
 
 fn compare_wrong_word_entries(
@@ -3503,7 +3567,8 @@ const DEFAULT_BACKUP_AI_URL: &str = "http://107.182.173.201:8080/v1/responses";
 const DEFAULT_BACKUP_AI_MODEL: &str = "gpt-5.4";
 const DEFAULT_BACKUP_AI_KEY: &str =
     "sk-d0fea41ec127dc71bbeb14da6a2507cc0bd7d92c740c512db67242d64358567d";
-const AI_PASSAGE_MAX_WRONG_WORDS: usize = 24;
+const AI_PASSAGE_BODY_WORD_LIMIT: usize = 10;
+const AI_PASSAGE_MAX_WRONG_WORDS: usize = 100;
 const PROMPT_TEMPLATE: &str = "You are a Chinese language learning assistant. Your task is to write a vivid, readable Chinese passage around specific English vocabulary words provided by the user.\n\nImportant: the backend will insert the actual English words and Chinese glosses. You should only decide where each word belongs inside the Chinese passage.\n\nYou will receive:\n- word_list: a JSON array of objects with word, primary_gloss, part_of_speech, entry_id\n- style: the desired writing style\n- length_target: approximate character count for the Chinese body text\n\nYou MUST return exactly one JSON object with this structure:\n{\"title\":\"Optional contextual title\",\"paragraphs\":[\"Chinese paragraph with markers such as [[word:101]] inside the text.\"]}\n\nRules:\n1. Return exactly one JSON object and nothing else.\n2. Use [[word:ENTRY_ID]] exactly once per target word.\n3. Do not output the English target words or glosses directly.\n4. Write natural Chinese paragraphs, not a word list.\n5. If there are many target words, write a longer passage with enough context for every word.\n6. Avoid default classroom or textbook scenes unless the words strongly require them.";
 const DEFAULT_STYLE_TEMPLATE: &str = "Writing tone: imaginative, lively, and concrete while still easy to understand\nSentence length: Short to medium\nVocabulary level: Common Chinese vocabulary\nTopic connection: Use any fitting scene, such as travel, mystery, sci-fi, city life, dreams, myths, workplace drama, small adventures, or absurd comedy\nParagraph structure: adapt to the target word count\nCreativity: Prefer fresh situations over classroom explanations";
 const WRONG_WORD_IMPORT_PROMPT_TEMPLATE: &str = "You are an English vocabulary extraction assistant for language learners. Analyze the provided image and extract only the vocabulary headwords that the learner is likely trying to import into a wrong-word notebook.\n\nTarget sources include screenshots of vocabulary apps, wrong-word notebooks, flashcards, printed word lists, handwritten word lists, or textbook pages with clear vocabulary entries.\n\nYou MUST return exactly one JSON object and nothing else:\n{\"sourceType\":\"image\",\"sourceName\":\"optional source name\",\"warnings\":[],\"candidates\":[{\"candidateId\":\"lowercase-word-or-stable-id\",\"word\":\"word\",\"meaning\":\"short Chinese meaning when visible next to that word, otherwise null\",\"occurrenceCount\":1,\"confidence\":0.0,\"isDuplicate\":false,\"isHighFrequency\":false,\"evidence\":\"brief evidence from the source\"}]}\n\nRules:\n1. For wrong-word notebook/app screenshots, scan from top to bottom and extract the main English headword of every visible vocabulary card/list item. Do not stop after the first recognized card. Examples: large card titles such as cancel, defect, explosive, facilitate, fridge.\n2. Correct obvious OCR mistakes in headwords only when nearby phonetics or Chinese glosses clearly identify the intended standard word, such as concel -> cancel.\n3. Ignore UI chrome and navigation text: page titles, tabs, buttons, bottom navigation labels, status bar text, badges, dates, scores, icons, labels such as AI/Today/Plan/Wrong/Reports, and any instructional copy.\n4. Ignore phonetic transcriptions and pronunciations. Do not output IPA-like text as a word.\n5. Do not infer or hallucinate. Return a candidate only when the English word is visibly present in the image.\n6. If a Chinese gloss is visibly adjacent to that headword on the same card/list item, include it in meaning. Otherwise set meaning to null.\n7. If image quality is low or a headword is partially obscured, include it only when still readable; lower confidence to 0.3-0.6 and explain the uncertainty in evidence.\n8. Set isHighFrequency true when the same headword appears 2+ times or is visually marked as high-priority. occurrenceCount must reflect actual visible count.\n9. evidence must describe where the headword appears, such as \"top of the second vocabulary card\" or \"left side of a word list row\".\n10. Only return an empty candidates array if no vocabulary headwords are visible.";
@@ -4151,13 +4216,22 @@ fn apply_seed_example_overrides(
     if !path.exists() {
         return Ok(());
     }
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read seed example overrides {}: {e}", path.display()))?;
+    let content = fs::read_to_string(&path).map_err(|e| {
+        format!(
+            "Failed to read seed example overrides {}: {e}",
+            path.display()
+        )
+    })?;
     if content.trim().is_empty() {
         return Ok(());
     }
-    let overrides: BTreeMap<String, SeedExampleOverride> = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse seed example overrides {}: {e}", path.display()))?;
+    let overrides: BTreeMap<String, SeedExampleOverride> =
+        serde_json::from_str(&content).map_err(|e| {
+            format!(
+                "Failed to parse seed example overrides {}: {e}",
+                path.display()
+            )
+        })?;
     for (source_entry_key, override_entry) in overrides {
         let entry_id = conn
             .query_row(
@@ -8404,7 +8478,7 @@ fn load_medical_root_affix_cards(bundle_dir: &Path) -> Result<Vec<RootAffixCard>
         .join("seed-medical")
         .join("medical-root-affix.txt");
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok(builtin_medical_root_affix_cards());
     }
     let raw = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read medical root/affix asset: {e}"))?;
@@ -8440,10 +8514,124 @@ fn load_medical_root_affix_cards(bundle_dir: &Path) -> Result<Vec<RootAffixCard>
         });
         last_index = Some(cards.len() - 1);
     }
-    Ok(cards
+    let mut by_id = cards
         .into_iter()
         .filter(is_reliable_root_affix_card)
-        .collect())
+        .map(|card| (card.id.clone(), card))
+        .collect::<BTreeMap<_, _>>();
+    for card in builtin_medical_root_affix_cards() {
+        by_id.entry(card.id.clone()).or_insert(card);
+    }
+    Ok(by_id.into_values().collect())
+}
+
+fn builtin_medical_root_affix_cards() -> Vec<RootAffixCard> {
+    vec![
+        medical_root_affix_card(
+            "cardi-",
+            "\u{5fc3}\u{810f}",
+            &[
+                ("cardiology", "\u{5fc3}\u{810f}\u{75c5}\u{5b66}"),
+                ("cardiopulmonary", "\u{5fc3}\u{80ba}\u{7684}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "bronch-",
+            "\u{652f}\u{6c14}\u{7ba1}",
+            &[
+                ("bronchitis", "\u{652f}\u{6c14}\u{7ba1}\u{708e}"),
+                (
+                    "bronchoscopy",
+                    "\u{652f}\u{6c14}\u{7ba1}\u{955c}\u{68c0}\u{67e5}",
+                ),
+            ],
+        ),
+        medical_root_affix_card(
+            "pneumo-",
+            "\u{80ba}",
+            &[
+                ("pneumonia", "\u{80ba}\u{708e}"),
+                ("pneumothorax", "\u{6c14}\u{80f8}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "hypo-",
+            "\u{4f4e}",
+            &[
+                ("hypoxia", "\u{7f3a}\u{6c27}"),
+                ("hypoxemia", "\u{4f4e}\u{6c27}\u{8840}\u{75c7}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "hyper-",
+            "\u{9ad8}",
+            &[
+                ("hypertension", "\u{9ad8}\u{8840}\u{538b}"),
+                ("hypercapnia", "\u{9ad8}\u{78b3}\u{9178}\u{8840}\u{75c7}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "-itis",
+            "\u{708e}\u{75c7}",
+            &[
+                ("bronchitis", "\u{652f}\u{6c14}\u{7ba1}\u{708e}"),
+                ("rhinitis", "\u{9f3b}\u{708e}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "-emia",
+            "\u{8840}\u{75c7}",
+            &[
+                ("hypoxemia", "\u{4f4e}\u{6c27}\u{8840}\u{75c7}"),
+                ("anemia", "\u{8d2b}\u{8840}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "-scopy",
+            "\u{955c}\u{68c0}",
+            &[
+                (
+                    "bronchoscopy",
+                    "\u{652f}\u{6c14}\u{7ba1}\u{955c}\u{68c0}\u{67e5}",
+                ),
+                ("endoscopy", "\u{5185}\u{955c}\u{68c0}\u{67e5}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "trache-",
+            "\u{6c14}\u{7ba1}",
+            &[
+                ("tracheal", "\u{6c14}\u{7ba1}\u{7684}"),
+                ("tracheostomy", "\u{6c14}\u{7ba1}\u{9020}\u{53e3}\u{672f}"),
+            ],
+        ),
+        medical_root_affix_card(
+            "pulmon-",
+            "\u{80ba}",
+            &[
+                ("pulmonary", "\u{80ba}\u{7684}"),
+                ("extrapulmonary", "\u{80ba}\u{5916}\u{7684}"),
+            ],
+        ),
+    ]
+}
+
+fn medical_root_affix_card(
+    form: &str,
+    meaning_cn: &str,
+    example_pairs: &[(&str, &str)],
+) -> RootAffixCard {
+    let normalized = normalize_root_affix_form(form);
+    RootAffixCard {
+        id: format!("root_affix_medical_{normalized}"),
+        form: form.to_string(),
+        meaning_cn: meaning_cn.to_string(),
+        example_pairs: example_pairs
+            .iter()
+            .map(|(word, gloss)| ((*word).to_string(), (*gloss).to_string()))
+            .collect(),
+        scope: "medical".to_string(),
+    }
 }
 
 fn root_affix_card_to_payload(card: RootAffixCard) -> StartSessionEntryPayload {
@@ -8595,7 +8783,7 @@ fn is_reliable_root_affix_card(card: &RootAffixCard) -> bool {
     if normalized.len() < 2 || normalized.len() > 6 {
         return false;
     }
-    if card.scope == "shared" && normalized.len() > 4 {
+    if card.scope == "shared" && !is_reliable_shared_root_affix_form(&normalized, card) {
         return false;
     }
     if !contains_han(&card.meaning_cn) || sanitize_chinese_meaning(&card.meaning_cn).is_empty() {
@@ -8609,6 +8797,49 @@ fn is_reliable_root_affix_card(card: &RootAffixCard) -> bool {
         .collect::<BTreeSet<_>>()
         .len();
     distinct_examples >= 2
+}
+
+fn is_reliable_shared_root_affix_form(normalized: &str, card: &RootAffixCard) -> bool {
+    if normalized.len() > 4 || matches!(normalized, "ear" | "exe") {
+        return false;
+    }
+    if normalized
+        .chars()
+        .all(|ch| matches!(ch, 'a' | 'e' | 'i' | 'o' | 'u'))
+    {
+        return false;
+    }
+    if !card.form.ends_with('-') && !card.form.starts_with('-') {
+        let prefix_hits = card
+            .example_pairs
+            .iter()
+            .filter(|(word, _)| word.to_lowercase().starts_with(normalized))
+            .count();
+        let total = card.example_pairs.len().max(1);
+        if prefix_hits * 2 < total {
+            return false;
+        }
+    }
+    is_concise_root_meaning_clean(&card.meaning_cn)
+}
+
+fn is_concise_root_meaning_clean(value: &str) -> bool {
+    let meaning = sanitize_chinese_meaning(value);
+    !meaning.is_empty()
+        && meaning.chars().count() <= 8
+        && !meaning.contains("\u{7535}\u{8111}")
+        && !meaning.contains("\u{6267}\u{884c}\u{6587}\u{4ef6}")
+        && !meaning.contains("\u{53ef}\u{6267}\u{884c}")
+}
+
+#[allow(dead_code)]
+fn is_concise_root_meaning(value: &str) -> bool {
+    let meaning = sanitize_chinese_meaning(value);
+    !meaning.is_empty()
+        && meaning.chars().count() <= 8
+        && !meaning.contains("电脑")
+        && !meaning.contains("文件")
+        && !meaning.contains("可执行")
 }
 
 fn split_medical_examples(payload: &str) -> Vec<(String, String)> {
@@ -9297,7 +9528,9 @@ fn select_entry_payload_example(
     meaning_details: &[StartSessionMeaningPayload],
     part_of_speech: Option<&str>,
 ) -> Option<serde_json::Value> {
-    let target_pos = part_of_speech.map(normalize_seed_pos_key).unwrap_or_default();
+    let target_pos = part_of_speech
+        .map(normalize_seed_pos_key)
+        .unwrap_or_default();
     let target_meanings = meaning_details
         .iter()
         .filter(|meaning| {
@@ -9347,10 +9580,7 @@ fn seed_text_overlap_score(left: &str, right: &str) -> usize {
         return 100 + right.chars().count();
     }
     let left_chars = left.chars().collect::<BTreeSet<_>>();
-    right
-        .chars()
-        .filter(|ch| left_chars.contains(ch))
-        .count()
+    right.chars().filter(|ch| left_chars.contains(ch)).count()
 }
 
 fn normalize_seed_text_for_overlap(value: &str) -> String {
@@ -9463,33 +9693,30 @@ pub fn cancel_study_session(session_id: String) -> Result<(), String> {
 mod tests {
     use super::{
         active_wordbook_ids_from_selection, align_today_targets_to_available_pools,
-        analyze_wrong_word_image_with_ai, build_ai_user_prompt,
-        build_authoritative_today_home_state, build_hint_prompt_payload,
-        build_wrong_word_entries_payload, clear_persisted_active_study_sessions,
-        commit_wrong_word_import_with_connection, create_reward_image_upload_with_connection,
-        enrich_root_affix_entries_from_assets, enrich_study_question_hints,
+        append_other_wrong_words_block, build_authoritative_today_home_state,
+        build_wrong_word_entries_payload, build_wrong_word_image_user_prompt,
+        clear_persisted_active_study_sessions, commit_wrong_word_import_with_connection,
+        create_reward_image_upload_with_connection, enrich_root_affix_entries_from_assets,
         enrich_submit_response_hints, ensure_planning_state, ensure_seed_vocabulary_imported,
-        find_ai_passage_for_date, get_json_setting, hydrate_start_session_request,
-        list_reward_images_with_connection, load_entry_payload,
-        load_learned_entry_ids_for_wordbooks,
-        load_prioritized_wrong_word_entry_ids, load_reports_history,
-        load_review_entry_ids_for_today, load_reward_image_upload_entitlement,
+        get_json_setting, hydrate_start_session_request, list_reward_images_with_connection,
+        load_entry_payload, load_learned_entry_ids_for_wordbooks,
+        load_prioritized_wrong_word_entry_ids, load_review_entry_ids_for_today,
+        load_reward_image_upload_entitlement,
         load_root_affix_payloads_for_active_wordbooks_on_date, load_today_completion_seed,
         load_unlearned_ranked_entry_ids_for_wordbooks_on_date,
         load_wrong_word_detail_payload_with_bundle, load_wrong_word_entries,
-        load_wrong_word_inputs, load_wrong_word_inputs_for_date,
-        moderate_reward_image_with_connection, normalize_question_type_weights,
-        normalize_stored_session_mode, parse_ai_model_output, parse_wrong_word_import_ai_output,
-        recommendation_library_for_word, recompute_summary_json,
-        refresh_reward_image_entitlement_with_connection, repair_seed_vocabulary_dedup,
-        reset_user_owned_local_data, resolve_ai_request_wrong_words,
+        load_wrong_word_inputs, moderate_reward_image_with_connection,
+        normalize_question_type_weights, normalize_stored_session_mode,
+        parse_wrong_word_import_ai_output, refresh_reward_image_entitlement_with_connection,
+        repair_seed_vocabulary_dedup, reset_user_owned_local_data,
         restore_cloud_wordbook_preferences, restore_cloud_wrong_word_hints,
         seed_local_leaderboard_demo_with_connection, select_review_candidates,
         selected_review_wordbook_ids_for_today, selected_wordbook_ids_for_today, set_json_setting,
-        should_replace_today_review_wordbooks, single_wordbook_selection_json, today_date_string,
-        today_target_seed_from_plan_value, today_target_seed_from_plan_value_for_date,
-        try_resume_empty_start_request, vote_reward_image_with_connection, with_runtime_conn,
-        ReviewCandidate, AI_PASSAGE_MAX_WRONG_WORDS, WORD_HINT_RECOMMENDATIONS_JSON,
+        should_replace_today_review_wordbooks, single_wordbook_selection_json,
+        split_ai_passage_wrong_words, today_date_string, today_target_seed_from_plan_value,
+        today_target_seed_from_plan_value_for_date, try_resume_empty_start_request,
+        vote_reward_image_with_connection, with_runtime_conn, ReviewCandidate,
+        AI_PASSAGE_BODY_WORD_LIMIT, AI_PASSAGE_MAX_WRONG_WORDS, WRONG_WORD_IMPORT_PROMPT_TEMPLATE,
     };
     use crate::ai_agent::{AiAgent, AiProviderConfig, AiProviderProfile};
     use rusqlite::Connection;
@@ -9571,16 +9798,20 @@ mod tests {
         let status_line = status_line.to_string();
         let body = body.to_string();
         thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept test request");
-            let mut buffer = [0u8; 2048];
-            let _ = stream.read(&mut buffer);
-            let response = format!(
-                "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            );
-            stream
-                .write_all(response.as_bytes())
-                .expect("write test response");
+            for _ in 0..4 {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    break;
+                };
+                let mut buffer = [0u8; 2048];
+                let _ = stream.read(&mut buffer);
+                let response = format!(
+                    "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write test response");
+            }
         });
         format!("http://{addr}")
     }
@@ -9656,6 +9887,9 @@ mod tests {
         );
         let _primary_url = EnvGuard::set("ANTHROPIC_BASE_URL", &primary_url);
         let _primary_key = EnvGuard::set("ANTHROPIC_AUTH_TOKEN", "primary-test-key");
+        let _fallback_url = EnvGuard::set("ANTHROPIC_FALLBACK_BASE_URL", &primary_url);
+        let _fallback_key =
+            EnvGuard::set("ANTHROPIC_FALLBACK_AUTH_TOKEN", "fallback-test-key");
         let _backup_url = EnvGuard::set("OPENAI_BASE_URL", &backup_url);
         let _backup_key = EnvGuard::set("OPENAI_AUTH_TOKEN", "backup-test-key");
         let _backup_model = EnvGuard::set("OPENAI_MODEL", "gpt-test");
@@ -9766,17 +10000,35 @@ mod tests {
             "200 OK",
             r#"{"output":[{"content":[{"type":"output_text","text":"{\"sourceType\":\"image\",\"candidates\":[{\"word\":\"abandon\",\"occurrenceCount\":2,\"confidence\":0.8,\"evidence\":\"seen twice\"}]}"}]}]}"#,
         );
-        let _primary_url = EnvGuard::set("ANTHROPIC_BASE_URL", &primary_url);
-        let _primary_key = EnvGuard::set("ANTHROPIC_AUTH_TOKEN", "primary-test-key");
-        let _backup_url = EnvGuard::set("OPENAI_BASE_URL", &backup_url);
-        let _backup_key = EnvGuard::set("OPENAI_AUTH_TOKEN", "backup-test-key");
-        let _backup_model = EnvGuard::set("OPENAI_MODEL", "gpt-test");
+        let agent = AiAgent::new(AiProviderConfig {
+            primary: AiProviderProfile {
+                provider: "anthropic".to_string(),
+                base_url: primary_url,
+                model: "claude-test".to_string(),
+                auth_token: "primary-test-key".to_string(),
+            },
+            anthropic_fallback: None,
+            backup: AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: backup_url,
+                model: "gpt-test".to_string(),
+                auth_token: "backup-test-key".to_string(),
+            },
+        });
 
-        let result =
-            analyze_wrong_word_image_with_ai("photo.jpg", "image/jpeg", "ZmFrZS1pbWFnZS1ieXRlcw==")
-                .expect("backup image analysis should succeed");
+        let result = agent
+            .run_image_json(
+                WRONG_WORD_IMPORT_PROMPT_TEMPLATE,
+                &build_wrong_word_image_user_prompt("photo.jpg", "image/jpeg")
+                    .expect("image prompt"),
+                crate::ai_agent::ImageInput {
+                    mime_type: "image/jpeg",
+                    bytes_base64: "ZmFrZS1pbWFnZS1ieXRlcw==",
+                },
+            )
+            .expect("backup image analysis should succeed");
 
-        assert!(result.contains("\"word\":\"abandon\""));
+        assert!(result.contains("abandon"), "backup result: {result}");
     }
 
     #[test]
@@ -10404,8 +10656,16 @@ mod tests {
             ensure_seed_vocabulary_imported(conn, &bundle_dir)?;
             word_app_core::clear_all_active_sessions();
             clear_persisted_active_study_sessions(conn)?;
-            set_json_setting(conn, "saved_wordbooks_json", &serde_json::json!({"3": true}))?;
-            set_json_setting(conn, "today_wordbooks_json", &serde_json::json!({"3": true}))?;
+            set_json_setting(
+                conn,
+                "saved_wordbooks_json",
+                &serde_json::json!({"3": true}),
+            )?;
+            set_json_setting(
+                conn,
+                "today_wordbooks_json",
+                &serde_json::json!({"3": true}),
+            )?;
             set_json_setting(
                 conn,
                 "today_plan_json",
@@ -10470,10 +10730,7 @@ mod tests {
                 let correct_choice = choices
                     .iter()
                     .find(|choice| {
-                        choice
-                            .get("label")
-                            .and_then(|value| value.as_str())
-                            == Some(correct_label)
+                        choice.get("label").and_then(|value| value.as_str()) == Some(correct_label)
                     })
                     .expect("correctChoiceLabel must reference an actual option");
                 if correct_label != "A" {
@@ -10590,6 +10847,34 @@ mod tests {
                     "content": {"word": {"wordHead": "rebuild", "content": {
                         "trans": [{"tranCn": "\u{91cd}\u{5efa}"}],
                         "remMethod": {"val": "re(\u{518d}) + build(\u{5efa}\u{9020}) -> rebuild"}
+                    }}}
+                },
+                {
+                    "headWord": "gear",
+                    "content": {"word": {"wordHead": "gear", "content": {
+                        "trans": [{"tranCn": "\u{9f7f}\u{8f6e}\u{ff0c}\u{4f20}\u{52a8}\u{88c5}\u{7f6e}"}],
+                        "remMethod": {"val": "g + ear(\u{8033}\u{6735}) -> gear"}
+                    }}}
+                },
+                {
+                    "headWord": "shear",
+                    "content": {"word": {"wordHead": "shear", "content": {
+                        "trans": [{"tranCn": "\u{526a}\u{ff0c}\u{4fee}\u{526a}"}],
+                        "remMethod": {"val": "sh + ear(\u{8033}\u{6735}) -> shear"}
+                    }}}
+                },
+                {
+                    "headWord": "execute",
+                    "content": {"word": {"wordHead": "execute", "content": {
+                        "trans": [{"tranCn": "\u{5b9e}\u{65bd}\u{ff0c}\u{6267}\u{884c}"}],
+                        "remMethod": {"val": "exe(\u{7535}\u{8111}\u{4e2d}\u{7684}\u{53ef}\u{6267}\u{884c}\u{6587}\u{4ef6}) + cute -> execute"}
+                    }}}
+                },
+                {
+                    "headWord": "execution",
+                    "content": {"word": {"wordHead": "execution", "content": {
+                        "trans": [{"tranCn": "\u{6267}\u{884c}\u{ff0c}\u{5b9e}\u{884c}"}],
+                        "remMethod": {"val": "exe(\u{7535}\u{8111}\u{4e2d}\u{7684}\u{53ef}\u{6267}\u{884c}\u{6587}\u{4ef6}) + cution -> execution"}
                     }}}
                 }
             ])
@@ -12414,6 +12699,35 @@ mod tests {
     }
 
     #[test]
+    fn ai_passage_split_prioritizes_top_ten_and_appends_other_words() {
+        let words = (0..12)
+            .map(|index| {
+                serde_json::json!({
+                    "entryId": index + 1,
+                    "word": format!("word{index}"),
+                    "primaryGloss": format!("meaning {index}"),
+                    "partOfSpeech": "n.",
+                    "todayWrongCount": if index == 10 { 4 } else { index % 4 },
+                    "errorCount": 100 - index
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let (body_words, other_words) = split_ai_passage_wrong_words(words);
+
+        assert_eq!(body_words.len(), AI_PASSAGE_BODY_WORD_LIMIT);
+        assert_eq!(body_words[0]["word"], "word10");
+        assert_eq!(other_words.len(), 2);
+        let mut blocks = vec![serde_json::json!({"blockType": "paragraph", "text": "body"})];
+        append_other_wrong_words_block(&mut blocks, &other_words);
+        assert_eq!(blocks.len(), 2);
+        assert!(blocks[1]["text"]
+            .as_str()
+            .expect("other words text")
+            .starts_with("其他错词："));
+    }
+
+    #[test]
     fn mastered_entries_are_hidden_from_wrong_words_and_ai_inputs() {
         let conn = Connection::open_in_memory().expect("open in-memory database");
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
@@ -12696,6 +13010,51 @@ mod tests {
     }
 
     #[test]
+    fn root_affix_medical_selection_has_reliable_scoped_cards() {
+        let bundle_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/mobile/android/app/src/main/assets");
+
+        let payloads = super::load_root_affix_payloads_for_active_wordbooks(&bundle_dir, &[4], 5)
+            .expect("load medical root/affix payloads");
+
+        assert!(!payloads.is_empty());
+        assert!(
+            payloads
+                .iter()
+                .all(|payload| payload.source_id.starts_with("root_affix_medical_")),
+            "medical root/affix mode should stay in medical scope"
+        );
+        assert!(payloads.iter().all(|payload| {
+            payload
+                .meanings
+                .iter()
+                .any(|meaning| super::contains_han(meaning))
+                && payload.example_sentence.is_some()
+                && payload.example_translation.is_some()
+        }));
+    }
+
+    #[test]
+    fn root_affix_medical_selection_uses_builtin_cards_when_asset_missing() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let bundle_dir = env::temp_dir().join(format!("word-medical-root-affix-test-{nonce}"));
+        fs::create_dir_all(&bundle_dir).expect("create empty bundle dir");
+
+        let payloads = super::load_root_affix_payloads_for_active_wordbooks(&bundle_dir, &[4], 5)
+            .expect("load fallback medical root/affix payloads");
+
+        assert!(!payloads.is_empty());
+        assert!(payloads
+            .iter()
+            .all(|payload| payload.source_id.starts_with("root_affix_medical_")));
+
+        fs::remove_dir_all(bundle_dir).expect("cleanup temp bundle dir");
+    }
+
+    #[test]
     fn root_affix_hydration_uses_daily_stable_order_instead_of_id_prefix() {
         let bundle_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../apps/mobile/android/app/src/main/assets");
@@ -12919,6 +13278,18 @@ mod tests {
                 .iter()
                 .all(|payload| payload.source_id != "root_affix_shared_guar"),
             "single-example roots should be filtered out"
+        );
+        assert!(
+            payloads
+                .iter()
+                .all(|payload| payload.source_id != "root_affix_shared_ear"),
+            "tail fragments like ear should be filtered out"
+        );
+        assert!(
+            payloads
+                .iter()
+                .all(|payload| payload.source_id != "root_affix_shared_exe"),
+            "mnemonic-only fragments like exe should be filtered out"
         );
         let re = payloads
             .iter()

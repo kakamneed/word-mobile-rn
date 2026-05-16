@@ -3,6 +3,8 @@
 /// Pages and features must use these clients, never the bridge directly.
 library;
 
+import 'package:flutter/foundation.dart';
+
 import '../bridge/bridge.dart';
 import 'ai_client.dart';
 import 'bootstrap_client.dart';
@@ -64,6 +66,14 @@ class WordSdk {
   factory WordSdk() {
     const bridge = RustBridge();
     const codec = BridgeCodec();
+    return WordSdk.bridgeForTesting(bridge: bridge, codec: codec);
+  }
+
+  @visibleForTesting
+  factory WordSdk.bridgeForTesting({
+    required RustBridge bridge,
+    BridgeCodec codec = const BridgeCodec(),
+  }) {
     return WordSdk._(
       ai: AiClient(bridge, codec),
       bootstrap: BootstrapClient(bridge, codec),

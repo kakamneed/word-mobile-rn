@@ -9,6 +9,8 @@ pub mod entry_repo;
 pub mod mastered_entry_repo;
 pub mod plan_repo;
 pub mod schema;
+#[cfg(test)]
+mod schema_tests;
 pub mod study_repo;
 pub mod sync_repo;
 pub mod word_hint_repo;

@@ -122,6 +122,7 @@ class LocalLeaderboardEntry {
     required this.mixedTestAccuracyPercent,
     required this.currentStreakDays,
     required this.updatedAt,
+    this.avatarUrl,
     this.tagImage,
   });
 
@@ -137,6 +138,7 @@ class LocalLeaderboardEntry {
   final double mixedTestAccuracyPercent;
   final int currentStreakDays;
   final String updatedAt;
+  final String? avatarUrl;
   final RewardImage? tagImage;
 
   factory LocalLeaderboardEntry.fromJson(Map<String, dynamic> json) {
@@ -157,10 +159,16 @@ class LocalLeaderboardEntry {
           (json['mixed_test_accuracy_percent'] as num?)?.toDouble() ?? 0,
       currentStreakDays: (json['current_streak_days'] as num?)?.toInt() ?? 0,
       updatedAt: json['updated_at'] as String? ?? '',
+      avatarUrl: _nonEmptyString(json['avatar_url']),
       tagImage: tagImageJson is Map<String, dynamic>
           ? RewardImage.fromJson(tagImageJson)
           : null,
     );
+  }
+
+  static String? _nonEmptyString(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    return text.isEmpty ? null : text;
   }
 }
 
@@ -209,12 +217,13 @@ class RewardImageClient {
     bool publicOnly = false,
     String? weekStart,
   }) async {
+    final request = <String, dynamic>{'publicOnly': publicOnly};
+    if (weekStart != null) {
+      request['weekStart'] = weekStart;
+    }
     final raw = await _bridge.call(
       'listRewardImages',
-      _codec.encodeRequest({
-        'publicOnly': publicOnly,
-        if (weekStart != null) 'weekStart': weekStart,
-      }),
+      _codec.encodeRequest(request),
     );
     final json = _codec.decodeResponse(raw);
     return (json['images'] as List<dynamic>? ?? const [])
@@ -251,12 +260,13 @@ class RewardImageClient {
     required int imageId,
     String? weekStart,
   }) async {
+    final request = <String, dynamic>{'imageId': imageId};
+    if (weekStart != null) {
+      request['weekStart'] = weekStart;
+    }
     final raw = await _bridge.call(
       'voteRewardImage',
-      _codec.encodeRequest({
-        'imageId': imageId,
-        if (weekStart != null) 'weekStart': weekStart,
-      }),
+      _codec.encodeRequest(request),
     );
     return RewardImageVoteResult.fromJson(_codec.decodeResponse(raw));
   }

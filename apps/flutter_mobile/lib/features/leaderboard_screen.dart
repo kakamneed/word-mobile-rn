@@ -3,21 +3,51 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
-import '../supabase/leaderboard_service.dart';
+import '../supabase/leaderboard_service.dart' as cloud;
+import '../supabase/reward_image_vote_service.dart' as cloud_images;
 import '../widgets/crocodile_frame_animation.dart';
 
 class LeaderboardScreen extends StatefulWidget {
-  LeaderboardScreen({
+  const LeaderboardScreen({
     super.key,
     required this.sdk,
-    LeaderboardService? service,
-  }) : service = service ?? LeaderboardService();
+  });
 
   final WordSdk sdk;
-  final LeaderboardService service;
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+}
+
+@visibleForTesting
+const leaderboardImageVotesKey = Key('leaderboard-image-votes');
+
+@visibleForTesting
+const leaderboardVoteButtonKey = Key('leaderboard-vote-button');
+
+enum LeaderboardPeriod {
+  weekly('weekly', '\u5468\u699c'),
+  monthly('monthly', '\u6708\u699c'),
+  allTime('all_time', '\u603b\u699c');
+
+  const LeaderboardPeriod(this.wireName, this.label);
+
+  final String wireName;
+  final String label;
+}
+
+enum LeaderboardMetric {
+  totalQuestions('totalQuestions', '\u9898\u6570\u699c'),
+  accuracy('accuracy', '\u6b63\u786e\u7387\u699c'),
+  mixedAccuracy('mixedAccuracy', '\u6df7\u5408\u6d4b\u8bd5\u6b63\u786e\u7387\u699c'),
+  currentStreak('currentStreak', '\u8fde\u7eed\u699c');
+
+  const LeaderboardMetric(this.wireName, this.label);
+
+  final String wireName;
+  final String label;
+
+  bool get usesPeriod => this != LeaderboardMetric.currentStreak;
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
@@ -29,6 +59,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   String? _message;
   List<LocalLeaderboardEntry> _entries = const [];
   List<RewardImage> _rewardImages = const [];
+  List<cloud_images.CloudRewardImageEntry> _cloudRewardImages = const [];
+  final Set<int> _localVotedImageIds = <int>{};
+  final Set<String> _cloudVotedImageIds = <String>{};
+  bool _usingCloudImageVotes = false;
 
   @override
   void initState() {
@@ -49,6 +83,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         await _loadLocalImageVotes();
         return;
       }
+      if (await _loadCloudLeaderboard(refreshSummary: refreshSummary)) {
+        return;
+      }
       if (refreshSummary) {
         await _refreshMyLocalSummary();
       }
@@ -62,6 +99,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       setState(() {
         _entries = entries;
         _rewardImages = const [];
+        _cloudRewardImages = const [];
+        _usingCloudImageVotes = false;
         _message = entries.isEmpty
             ? '\u672c\u5730\u6392\u884c\u699c\u6682\u65e0\u6570\u636e\u3002'
             : null;
@@ -80,11 +119,65 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     }
   }
 
+  Future<bool> _loadCloudLeaderboard({required bool refreshSummary}) async {
+    final service = cloud.LeaderboardService();
+    if (!service.isConfigured || !await service.isSignedIn) return false;
+    try {
+      final reports = refreshSummary
+          ? await widget.sdk.reports.getReportsOverview()
+          : null;
+      final cloudMetric = cloud.LeaderboardMetric.values.byName(_metric.name);
+      final cloudPeriod = cloud.LeaderboardPeriod.values.byName(_period.name);
+      if (reports != null) {
+        await service.refreshFromReports(
+          reports,
+          metric: cloudMetric,
+          period: cloudPeriod,
+        );
+      }
+      final entries = await service.fetchLeaderboard(
+        metric: cloudMetric,
+        period: cloudPeriod,
+      );
+      setState(() {
+        _entries = entries.map(_cloudEntryToLocalShape).toList(growable: false);
+        _rewardImages = const [];
+        _message = entries.isEmpty
+            ? '\u4e91\u7aef\u6392\u884c\u699c\u6682\u65e0\u6570\u636e\u3002'
+            : null;
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  LocalLeaderboardEntry _cloudEntryToLocalShape(cloud.LeaderboardEntry entry) {
+    return LocalLeaderboardEntry(
+      rank: entry.rank,
+      isCurrentUser: entry.isCurrentUser,
+      userId: entry.userId,
+      displayName: entry.displayName,
+      totalQuestions: entry.totalQuestions,
+      correctCount: entry.correctCount,
+      accuracyPercent: entry.accuracyPercent,
+      mixedTestTotalQuestions: entry.mixedTestTotalQuestions,
+      mixedTestCorrectCount: entry.mixedTestCorrectCount,
+      mixedTestAccuracyPercent: entry.mixedTestAccuracyPercent,
+      currentStreakDays: entry.currentStreakDays,
+      updatedAt: entry.updatedAt?.toIso8601String() ?? '',
+      avatarUrl: entry.avatarUrl,
+    );
+  }
+
   Future<void> _loadLocalImageVotes() async {
+    if (await _loadCloudImageVotes()) return;
     final images = await widget.sdk.rewardImages.listImages(publicOnly: true);
     setState(() {
       _rewardImages = [...images]
         ..sort((a, b) => b.voteCount.compareTo(a.voteCount));
+      _cloudRewardImages = const [];
+      _usingCloudImageVotes = false;
       _entries = const [];
       _message = images.isEmpty
           ? '\u6682\u65e0\u5df2\u5ba1\u6838\u901a\u8fc7\u7684\u672c\u5730\u56fe\u7247\u3002'
@@ -92,9 +185,76 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     });
   }
 
+  Future<bool> _loadCloudImageVotes() async {
+    final service = cloud_images.RewardImageVoteService();
+    if (!service.isConfigured) return false;
+    try {
+      final images = await service.fetchVoteLeaderboard(
+        weekStart: _periodStart(DateTime.now(), LeaderboardPeriod.weekly),
+      );
+      setState(() {
+        _cloudRewardImages = images
+            .map(
+              (image) => image.copyWith(
+                votedByMe:
+                    image.votedByMe || _cloudVotedImageIds.contains(image.imageId),
+              ),
+            )
+            .toList(growable: false);
+        _rewardImages = const [];
+        _usingCloudImageVotes = true;
+        _entries = const [];
+        _message = images.isEmpty
+            ? '\u4e91\u7aef\u56fe\u7247\u7968\u9009\u699c\u6682\u65e0\u6570\u636e\u3002'
+            : null;
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _voteForImage(RewardImage image) async {
     try {
       await widget.sdk.rewardImages.vote(imageId: image.id);
+      if (mounted) {
+        setState(() {
+          _localVotedImageIds.add(image.id);
+        });
+      }
+      await _load(refreshSummary: false, showFullLoading: false);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('\u6295\u7968\u5931\u8d25\uff1a$error')),
+      );
+    }
+  }
+
+  Future<void> _voteForCloudImage(
+    cloud_images.CloudRewardImageEntry image,
+  ) async {
+    try {
+      final service = cloud_images.RewardImageVoteService();
+      final voteResult = await service.vote(
+        imageId: image.imageId,
+        weekStart: _periodStart(DateTime.now(), LeaderboardPeriod.weekly),
+      );
+      if (mounted) {
+        setState(() {
+          _cloudVotedImageIds.add(image.imageId);
+          _cloudRewardImages = _cloudRewardImages
+              .map(
+                (entry) => entry.imageId == image.imageId
+                    ? entry.copyWith(
+                        voteCount: voteResult.voteCount,
+                        votedByMe: true,
+                      )
+                    : entry,
+              )
+              .toList(growable: false);
+        });
+      }
       await _load(refreshSummary: false, showFullLoading: false);
     } catch (error) {
       if (!mounted) return;
@@ -235,8 +395,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 : _showImageVotes
                     ? _LocalImageVoteList(
                         images: _rewardImages,
+                        cloudImages: _cloudRewardImages,
+                        usingCloud: _usingCloudImageVotes,
                         message: _message,
+                        localVotedImageIds: _localVotedImageIds,
                         onVote: _voteForImage,
+                        onCloudVote: _voteForCloudImage,
                         onRefresh: _loadLocalImageVotes,
                       )
                     : _entries.isEmpty
@@ -277,31 +441,122 @@ class _LeaderboardTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final highlight = entry.isCurrentUser;
-    final imageProvider = _tagImageProvider(entry.tagImage);
+    final imageProvider = _avatarImageProvider(entry);
     return Card(
       color: highlight ? colorScheme.primaryContainer : null,
-      child: ListTile(
-        leading: CircleAvatar(
-          foregroundImage: imageProvider,
-          backgroundColor: highlight
-              ? colorScheme.primary
-              : colorScheme.surfaceContainerHighest,
-          foregroundColor:
-              highlight ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
-          child: imageProvider == null ? Text('${entry.rank}') : null,
-        ),
-        title: Text(entry.displayName),
-        subtitle: Text(
-          _summaryText(entry),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Text(
-          _metricValue(entry, metric),
-          style: Theme.of(context).textTheme.titleMedium,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 66,
+              height: 66,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CircleAvatar(
+                      radius: 30,
+                      foregroundImage: imageProvider,
+                      backgroundColor: highlight
+                          ? colorScheme.primary.withValues(alpha: 0.18)
+                          : colorScheme.surfaceContainerHighest,
+                      foregroundColor: colorScheme.onSurfaceVariant,
+                      child: imageProvider == null
+                          ? Text(
+                              _avatarInitial(entry.displayName),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    color: highlight
+                                        ? colorScheme.primary
+                                        : colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    left: -2,
+                    bottom: -2,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 24,
+                        minHeight: 24,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: highlight
+                            ? colorScheme.primary
+                            : colorScheme.surface,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: highlight
+                              ? colorScheme.primaryContainer
+                              : colorScheme.outlineVariant,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        '${entry.rank}',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: highlight
+                                  ? colorScheme.onPrimary
+                                  : colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _summaryText(entry),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              _metricValue(entry, metric),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  String _avatarInitial(String displayName) {
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) return '?';
+    return trimmed.characters.first.toUpperCase();
+  }
+
+  ImageProvider? _avatarImageProvider(LocalLeaderboardEntry entry) {
+    final avatarUrl = entry.avatarUrl?.trim();
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return NetworkImage(avatarUrl);
+    }
+    return _tagImageProvider(entry.tagImage);
   }
 
   ImageProvider? _tagImageProvider(RewardImage? image) {
@@ -351,6 +606,7 @@ class _MetricSelector extends StatelessWidget {
         itemBuilder: (context, index) {
           if (index == LeaderboardMetric.values.length) {
             return ChoiceChip(
+              key: leaderboardImageVotesKey,
               label: const Text(
                 '\u56fe\u7247\u7968\u9009\u699c',
                 style: TextStyle(fontSize: 13),
@@ -386,18 +642,46 @@ class _MetricSelector extends StatelessWidget {
 class _LocalImageVoteList extends StatelessWidget {
   const _LocalImageVoteList({
     required this.images,
+    required this.cloudImages,
+    required this.usingCloud,
     required this.message,
+    required this.localVotedImageIds,
     required this.onVote,
+    required this.onCloudVote,
     required this.onRefresh,
   });
 
   final List<RewardImage> images;
+  final List<cloud_images.CloudRewardImageEntry> cloudImages;
+  final bool usingCloud;
   final String? message;
+  final Set<int> localVotedImageIds;
   final ValueChanged<RewardImage> onVote;
+  final ValueChanged<cloud_images.CloudRewardImageEntry> onCloudVote;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    if (usingCloud) {
+      if (cloudImages.isEmpty) {
+        return _EmptyLeaderboard(message: message);
+      }
+      return CrocodileRefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemBuilder: (context, index) {
+            final image = cloudImages[index];
+            return _CloudImageVoteTile(
+              image: image,
+              onVote: image.votedByMe ? null : () => onCloudVote(image),
+            );
+          },
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemCount: cloudImages.length,
+        ),
+      );
+    }
     if (images.isEmpty) {
       return _EmptyLeaderboard(message: message);
     }
@@ -410,11 +694,88 @@ class _LocalImageVoteList extends StatelessWidget {
           return _LocalImageVoteTile(
             rank: index + 1,
             image: image,
-            onVote: () => onVote(image),
+            onVote: localVotedImageIds.contains(image.id)
+                ? null
+                : () => onVote(image),
           );
         },
         separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemCount: images.length,
+      ),
+    );
+  }
+}
+
+class _CloudImageVoteTile extends StatelessWidget {
+  const _CloudImageVoteTile({
+    required this.image,
+    required this.onVote,
+  });
+
+  final cloud_images.CloudRewardImageEntry image;
+  final VoidCallback? onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final imageUrl = image.publicUrl;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            CircleAvatar(child: Text('${image.rank}')),
+            const SizedBox(width: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 72,
+                        height: 72,
+                        color: colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    )
+                  : Container(
+                      width: 72,
+                      height: 72,
+                      color: colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    image.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('\u672c\u5468 ${image.voteCount} \u7968'),
+                ],
+              ),
+            ),
+            FilledButton.icon(
+              key: leaderboardVoteButtonKey,
+              onPressed: onVote,
+              icon: Icon(
+                image.votedByMe
+                    ? Icons.check_circle_outline
+                    : Icons.how_to_vote_outlined,
+              ),
+              label: Text(image.votedByMe ? '\u5df2\u6295\u7968' : '\u6295\u7968'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -429,7 +790,7 @@ class _LocalImageVoteTile extends StatelessWidget {
 
   final int rank;
   final RewardImage image;
-  final VoidCallback onVote;
+  final VoidCallback? onVote;
 
   @override
   Widget build(BuildContext context) {
@@ -472,9 +833,14 @@ class _LocalImageVoteTile extends StatelessWidget {
               ),
             ),
             FilledButton.icon(
+              key: leaderboardVoteButtonKey,
               onPressed: onVote,
-              icon: const Icon(Icons.how_to_vote_outlined),
-              label: const Text('\u6295\u7968'),
+              icon: Icon(
+                onVote == null
+                    ? Icons.check_circle_outline
+                    : Icons.how_to_vote_outlined,
+              ),
+              label: Text(onVote == null ? '\u5df2\u6295\u7968' : '\u6295\u7968'),
             ),
           ],
         ),

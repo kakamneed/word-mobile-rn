@@ -2,11 +2,9 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 use crate::bridge::{
-    analyze_wrong_word_import, apply_saved_plan_to_today, apply_saved_plan_to_today,
-    build_reports_overview, build_reports_overview, build_today_ai_passage_context,
-    build_today_ai_passage_context, build_today_home_state, build_today_home_state,
-    build_wrong_word_detail, build_wrong_word_detail, build_wrong_words, build_wrong_words,
-    cancel_study_session, cancel_study_session, commit_wrong_word_import, complete_study_session,
+    analyze_wrong_word_import, apply_saved_plan_to_today, build_reports_overview,
+    build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
+    build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
     create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill, generate_ai_passage,
     get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_provider_config,
     get_bootstrap_state, get_bridge_status, get_local_leaderboard, get_reports_overview,

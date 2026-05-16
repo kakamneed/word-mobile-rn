@@ -418,20 +418,11 @@ class AiClient {
     if (mimeType != null) {
       request['mimeType'] = mimeType;
     }
-    try {
-      final raw = await _bridge.call(
-        'analyzeWrongWordImport',
-        _codec.encodeRequest(request),
-      );
-      return AiWrongWordImportAnalysis.fromJson(_codec.decodeResponse(raw));
-    } on BridgeError catch (error) {
-      if (sourceType == 'image' || error.code != 'METHOD_MISSING') {
-        rethrow;
-      }
-      return AiWrongWordImportAnalysis.fromJson(
-        _previewWrongWordImportAnalysis(request),
-      );
-    }
+    final raw = await _bridge.call(
+      'analyzeWrongWordImport',
+      _codec.encodeRequest(request),
+    );
+    return AiWrongWordImportAnalysis.fromJson(_codec.decodeResponse(raw));
   }
 
   Future<AiWrongWordImportSource?> pickWrongWordImportSource({
@@ -458,30 +449,11 @@ class AiClient {
           .map((candidate) => candidate.toJson())
           .toList(growable: false),
     };
-    try {
-      final raw = await _bridge.call(
-        'commitWrongWordImport',
-        _codec.encodeRequest(request),
-      );
-      return AiWrongWordImportCommitResult.fromJson(_codec.decodeResponse(raw));
-    } on BridgeError catch (error) {
-      if (error.code != 'METHOD_MISSING') {
-        rethrow;
-      }
-      final accepted = analysis.candidates
-          .where(
-            (candidate) => acceptedCandidateIds.contains(candidate.candidateId),
-          )
-          .toList(growable: false);
-      return AiWrongWordImportCommitResult(
-        persisted: false,
-        added: accepted.where((candidate) => !candidate.isDuplicate).toList(),
-        skipped: accepted.where((candidate) => candidate.isDuplicate).toList(),
-        highFrequency: accepted
-            .where((candidate) => candidate.isHighFrequency)
-            .toList(),
-      );
-    }
+    final raw = await _bridge.call(
+      'commitWrongWordImport',
+      _codec.encodeRequest(request),
+    );
+    return AiWrongWordImportCommitResult.fromJson(_codec.decodeResponse(raw));
   }
 
   /// Returns the current AI provider configuration summary.
@@ -501,53 +473,4 @@ class AiClient {
     );
     return _codec.decodeResponse(raw);
   }
-}
-
-Map<String, dynamic> _previewWrongWordImportAnalysis(
-  Map<String, dynamic> request,
-) {
-  final text = '${request['textContent'] ?? ''}';
-  final sourceType = '${request['sourceType'] ?? 'text'}';
-  final sampleWords = _extractPreviewWords(text);
-  final counts = <String, int>{};
-  for (final word in sampleWords) {
-    counts[word] = (counts[word] ?? 0) + 1;
-  }
-  return {
-    'batchId': 'preview-${DateTime.now().millisecondsSinceEpoch}',
-    'sourceType': sourceType,
-    'sourceName': '${request['sourceName'] ?? sourceType}',
-    'warnings': counts.isEmpty
-        ? [
-            sourceType == 'image'
-                ? 'AI did not find any wrong-word candidates in this image. Try a clearer photo or crop closer to the notebook content.'
-                : 'No candidate words were found in the imported source.',
-          ]
-        : const [],
-    'candidates': counts.entries
-        .map(
-          (entry) => {
-            'candidateId': entry.key,
-            'word': entry.key,
-            'meaning': null,
-            'occurrenceCount': entry.value,
-            'confidence': sourceType == 'image' ? 0.72 : 0.86,
-            'isDuplicate': false,
-            'isHighFrequency': entry.value >= 2,
-            'evidence': entry.value >= 2
-                ? 'Appears ${entry.value} times in the imported source'
-                : 'Appears once in the imported source',
-          },
-        )
-        .toList(growable: false),
-  };
-}
-
-List<String> _extractPreviewWords(String text) {
-  final matches = RegExp(r'[A-Za-z][A-Za-z-]{2,}').allMatches(text);
-  return matches
-      .map((match) => match.group(0)!.toLowerCase())
-      .where((word) => word.length >= 3)
-      .take(24)
-      .toList(growable: false);
 }

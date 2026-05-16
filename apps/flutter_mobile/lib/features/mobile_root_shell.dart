@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 import '../state/app_state.dart';
 import '../supabase/auth_session_manager.dart';
+import 'app_update_gate.dart';
 import 'account_drawer.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
@@ -19,6 +20,38 @@ import 'study_screen.dart';
 import 'theme_settings.dart';
 import 'today_shell_screen.dart';
 import 'wrong_words_screen.dart';
+
+@visibleForTesting
+enum RootRouteInventoryEntry {
+  today,
+  plan,
+  wrongWords,
+  reports,
+  ai,
+  studyHandoff,
+  accountDrawer,
+  leaderboard,
+  settings,
+  onboardingReplay,
+  crocBti,
+  profile,
+}
+
+@visibleForTesting
+const rootRouteInventoryForTest = <RootRouteInventoryEntry>[
+  RootRouteInventoryEntry.today,
+  RootRouteInventoryEntry.plan,
+  RootRouteInventoryEntry.wrongWords,
+  RootRouteInventoryEntry.reports,
+  RootRouteInventoryEntry.ai,
+  RootRouteInventoryEntry.studyHandoff,
+  RootRouteInventoryEntry.accountDrawer,
+  RootRouteInventoryEntry.leaderboard,
+  RootRouteInventoryEntry.settings,
+  RootRouteInventoryEntry.onboardingReplay,
+  RootRouteInventoryEntry.crocBti,
+  RootRouteInventoryEntry.profile,
+];
 
 class MobileRootShell extends StatefulWidget {
   const MobileRootShell({
@@ -85,16 +118,23 @@ class _MobileRootShellState extends State<MobileRootShell> {
   void _handleAppStateChanged() {
     final currentUserId = widget.appState.authState.userId;
     if (currentUserId == _loadedProfileUserId) return;
+    final ownerChangedAfterInitialLoad =
+        rootOwnerChangedAfterInitialLoadForTest(
+          previousUserId: _loadedProfileUserId,
+          currentUserId: currentUserId,
+        );
     if (mounted) {
       setState(() {
         _todayReloadSeed++;
         _wrongReloadSeed++;
         _reportsReloadSeed++;
         _aiReloadSeed++;
-        _studyReloadSeed++;
         _planReloadSeed++;
-        _showingStudy = false;
-        _studyResumeHint = null;
+        if (ownerChangedAfterInitialLoad) {
+          _studyReloadSeed++;
+          _showingStudy = false;
+          _studyResumeHint = null;
+        }
       });
     }
     _loadProfileSettings();
@@ -178,8 +218,8 @@ class _MobileRootShellState extends State<MobileRootShell> {
     final effectiveMode = mode;
     final hintForScreen =
         effectiveHint.hasResume && effectiveHint.mode == effectiveMode
-            ? effectiveHint
-            : null;
+        ? effectiveHint
+        : null;
     if (!mounted) return;
     setState(() {
       _studyReloadSeed++;
@@ -308,6 +348,12 @@ class _MobileRootShellState extends State<MobileRootShell> {
         builder: (_) => SettingsScreen(themeController: widget.themeController),
       ),
     );
+  }
+
+  Future<void> _checkUpdates() async {
+    final navigator = Navigator.of(context);
+    _scaffoldKey.currentState?.closeEndDrawer();
+    await showAppUpdateCheckDialog(context: navigator.context);
   }
 
   Future<void> _openOnboarding() async {
@@ -458,6 +504,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
             onOpenCrocBti: _openCrocBti,
             onOpenLeaderboard: _openLeaderboard,
             onOpenSettings: _openSettings,
+            onCheckUpdates: _checkUpdates,
           ),
         ),
       ),
@@ -466,56 +513,66 @@ class _MobileRootShellState extends State<MobileRootShell> {
           IndexedStack(index: _bodyIndex, children: pages),
           if (!_showingStudy)
             Positioned(
-            top: MediaQuery.paddingOf(context).top + 8,
-            right: 12,
-            child: Builder(
-              builder: (context) => _AccountAvatarButton(
-                authState: widget.appState.authState,
-                profileSettings: _profileSettings,
-                onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+              top: MediaQuery.paddingOf(context).top + 8,
+              right: 12,
+              child: Builder(
+                builder: (context) => _AccountAvatarButton(
+                  authState: widget.appState.authState,
+                  profileSettings: _profileSettings,
+                  onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+                ),
               ),
             ),
+        ],
+      ),
+      bottomNavigationBar: _showingStudy
+          ? null
+          : NavigationBar(
+              selectedIndex: _mainIndex,
+              onDestinationSelected: (index) {
+                _switchToMain(index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.today_outlined),
+                  selectedIcon: Icon(Icons.today),
+                  label: '今日',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.tune_outlined),
+                  selectedIcon: Icon(Icons.tune),
+                  label: '计划',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.menu_book_outlined),
+                  selectedIcon: Icon(Icons.menu_book),
+                  label: '错词',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.query_stats_outlined),
+                  selectedIcon: Icon(Icons.query_stats),
+                  label: '报告',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.auto_awesome_outlined),
+                  selectedIcon: Icon(Icons.auto_awesome),
+                  label: 'AI',
+                ),
+              ],
             ),
-        ],
-      ),
-      bottomNavigationBar: _showingStudy ? null : NavigationBar(
-        selectedIndex: _mainIndex,
-        onDestinationSelected: (index) {
-          _switchToMain(index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.today_outlined),
-            selectedIcon: Icon(Icons.today),
-            label: '今日',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.tune_outlined),
-            selectedIcon: Icon(Icons.tune),
-            label: '计划',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: '错词',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.query_stats_outlined),
-            selectedIcon: Icon(Icons.query_stats),
-            label: '报告',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome),
-            label: 'AI',
-          ),
-        ],
-      ),
     );
   }
 }
 
 enum _LoginPromptAction { signIn, signUp, skip }
+
+@visibleForTesting
+bool rootOwnerChangedAfterInitialLoadForTest({
+  required String? previousUserId,
+  required String? currentUserId,
+}) {
+  return previousUserId != null && previousUserId != currentUserId;
+}
 
 class _AccountAvatarButton extends StatelessWidget {
   const _AccountAvatarButton({

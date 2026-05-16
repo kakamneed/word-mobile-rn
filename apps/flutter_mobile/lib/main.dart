@@ -1,10 +1,18 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'features/app_update_gate.dart';
+import 'features/auth_screen.dart';
 import 'features/mobile_root_shell.dart';
 import 'features/onboarding_flow.dart';
 import 'features/theme_settings.dart';
 import 'sdk/sdk.dart';
 import 'state/app_state.dart';
+import 'supabase/auth_session_manager.dart';
+import 'supabase/supabase_auth_service.dart';
+import 'supabase/supabase_config.dart';
 import 'widgets/crocodile_frame_animation.dart';
 
 void main() {
@@ -22,9 +30,11 @@ class MyApp extends StatelessWidget {
       childBuilder: (themeController) => MaterialApp(
         title: '单词移动端',
         theme: themeController.theme,
-        home: AppRoot(
-          sdk: sdk ?? WordSdk(),
-          themeController: themeController,
+        home: AppUpdateGate(
+          child: AppRoot(
+            sdk: sdk ?? WordSdk(),
+            themeController: themeController,
+          ),
         ),
       ),
     );
@@ -65,11 +75,7 @@ class _ThemeRootState extends State<_ThemeRoot> {
 }
 
 class AppRoot extends StatefulWidget {
-  const AppRoot({
-    super.key,
-    required this.sdk,
-    required this.themeController,
-  });
+  const AppRoot({super.key, required this.sdk, required this.themeController});
 
   final WordSdk sdk;
   final ThemeSettingsController themeController;
@@ -80,18 +86,59 @@ class AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<AppRoot> {
   late final AppState _appState;
+  StreamSubscription<AuthState>? _authStateSubscription;
+  bool _openingPasswordReset = false;
 
   @override
   void initState() {
     super.initState();
     _appState = AppState(widget.sdk);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _appState.initialize();
+      _initialize();
     });
+  }
+
+  Future<void> _initialize() async {
+    await _appState.initialize();
+    await _attachAuthRecoveryListener();
+  }
+
+  Future<void> _attachAuthRecoveryListener() async {
+    if (_authStateSubscription != null || !SupabaseConfig.isConfigured) return;
+    try {
+      await SupabaseAuthService().ensureInitialized();
+      _authStateSubscription =
+          Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+        if (state.event == AuthChangeEvent.passwordRecovery) {
+          _openPasswordReset();
+        }
+      });
+    } catch (_) {
+      // Auth recovery is optional; normal local-first startup must not fail here.
+    }
+  }
+
+  Future<void> _openPasswordReset() async {
+    if (!mounted || _openingPasswordReset) return;
+    _openingPasswordReset = true;
+    final authState = await Navigator.of(context).push<AuthAccountState>(
+      MaterialPageRoute(
+        builder: (_) => AuthScreen(
+          sdk: widget.sdk,
+          initialMode: AuthEntryMode.resetPassword,
+          onAuthChanged: _appState.applyAuthState,
+        ),
+      ),
+    );
+    if (authState != null) {
+      _appState.applyAuthState(authState);
+    }
+    _openingPasswordReset = false;
   }
 
   @override
   void dispose() {
+    _authStateSubscription?.cancel();
     _appState.dispose();
     super.dispose();
   }

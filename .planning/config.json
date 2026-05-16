@@ -3,5 +3,8 @@
   "source_reference": "D:\\projects\\word-desktop-tauri",
   "strategy": "scheme-b-shared-rust-core-react-native-shell",
   "initialized_on": "2026-04-09",
-  "next_step": "$gsd-plan-phase 1"
+  "next_step": "$gsd-plan-phase 1",
+  "workflow": {
+    "_auto_chain_active": false
+  }
 }

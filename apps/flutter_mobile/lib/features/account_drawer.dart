@@ -8,6 +8,17 @@ import '../supabase/auth_session_manager.dart';
 import 'auth_screen.dart';
 import 'profile_settings_screen.dart';
 
+const accountDrawerOnboardingReplayKey = Key(
+  'account-drawer-onboarding-replay',
+);
+const accountDrawerCrocBtiKey = Key('account-drawer-croc-bti');
+const accountDrawerProfileKey = Key('account-drawer-profile');
+const accountDrawerLeaderboardKey = Key('account-drawer-leaderboard');
+const accountDrawerSettingsKey = Key('account-drawer-settings');
+const accountDrawerCheckUpdatesKey = Key('account-drawer-check-updates');
+const accountDrawerSignInKey = Key('account-drawer-sign-in');
+const accountDrawerSignUpKey = Key('account-drawer-sign-up');
+
 class AccountDrawer extends StatefulWidget {
   const AccountDrawer({
     super.key,
@@ -19,6 +30,7 @@ class AccountDrawer extends StatefulWidget {
     this.onOpenCrocBti,
     this.onOpenLeaderboard,
     this.onOpenSettings,
+    this.onCheckUpdates,
   });
 
   final AppState appState;
@@ -29,6 +41,7 @@ class AccountDrawer extends StatefulWidget {
   final VoidCallback? onOpenCrocBti;
   final VoidCallback? onOpenLeaderboard;
   final VoidCallback? onOpenSettings;
+  final Future<void> Function()? onCheckUpdates;
 
   @override
   State<AccountDrawer> createState() => _AccountDrawerState();
@@ -75,6 +88,13 @@ class _AccountDrawerState extends State<AccountDrawer> {
     onOpenSettings();
   }
 
+  Future<void> _checkUpdates() async {
+    final onCheckUpdates = widget.onCheckUpdates;
+    if (onCheckUpdates == null) return;
+    Navigator.of(context).pop();
+    await onCheckUpdates();
+  }
+
   void _openOnboarding() {
     final onOpenOnboarding = widget.onOpenOnboarding;
     if (onOpenOnboarding == null) return;
@@ -94,7 +114,9 @@ class _AccountDrawerState extends State<AccountDrawer> {
       _signingOut = true;
     });
     final sessionManager = AuthSessionManager(
-      localDataOwner: RustLocalDataOwnerGateway(widget.appState.sdk.localDataOwner),
+      localDataOwner: RustLocalDataOwnerGateway(
+        widget.appState.sdk.localDataOwner,
+      ),
     );
     final authState = await sessionManager.signOutRetainingLocalData();
     widget.appState.applyAuthState(authState);
@@ -157,12 +179,14 @@ class _AccountDrawerState extends State<AccountDrawer> {
             onTap: _openCrocBti,
           ),
           ListTile(
+            key: accountDrawerProfileKey,
             leading: const Icon(Icons.account_circle_outlined),
             title: const Text('个人信息'),
             subtitle: const Text('昵称和头像'),
             onTap: _openProfileInfo,
           ),
           ListTile(
+            key: accountDrawerLeaderboardKey,
             leading: const Icon(Icons.leaderboard_outlined),
             title: const Text('排行榜'),
             subtitle: const Text('预留入口，后续接入云端排行'),
@@ -170,11 +194,16 @@ class _AccountDrawerState extends State<AccountDrawer> {
             onTap: widget.onOpenLeaderboard,
           ),
           ListTile(
+            key: accountDrawerSettingsKey,
             leading: const Icon(Icons.settings_outlined),
             title: const Text('设置'),
             subtitle: const Text('主题和偏好'),
             enabled: widget.onOpenSettings != null,
             onTap: _openSettings,
+          ),
+          _CheckUpdatesTile(
+            enabled: widget.onCheckUpdates != null,
+            onTap: _checkUpdates,
           ),
           const Divider(height: 24),
           ListTile(
@@ -194,16 +223,22 @@ class _AccountDrawerState extends State<AccountDrawer> {
             onTap: _openCrocBti,
           ),
           ListTile(
+            key: accountDrawerSignInKey,
             leading: const Icon(Icons.login),
             title: const Text('登录'),
             subtitle: const Text('使用已有账号继续'),
             onTap: () => _openAuth(AuthEntryMode.signIn),
           ),
           ListTile(
+            key: accountDrawerSignUpKey,
             leading: const Icon(Icons.person_add_alt_1),
             title: const Text('注册'),
             subtitle: const Text('创建新账号'),
             onTap: () => _openAuth(AuthEntryMode.signUp),
+          ),
+          _CheckUpdatesTile(
+            enabled: widget.onCheckUpdates != null,
+            onTap: _checkUpdates,
           ),
         ],
       ],
@@ -216,6 +251,9 @@ class _AccountDrawerState extends State<AccountDrawer> {
       AuthAccountPhase.checking => '正在检查账号',
       AuthAccountPhase.notConfigured => '账号服务尚未配置',
       AuthAccountPhase.guestLocalOnly => '本地游客模式',
+      AuthAccountPhase.emailVerificationPending => '等待邮箱验证',
+      AuthAccountPhase.passwordResetEmailSent => '重置邮件已发送',
+      AuthAccountPhase.passwordUpdated => '密码已更新',
       AuthAccountPhase.signedInNeedsBind => '已登录，等待数据绑定检查',
       AuthAccountPhase.signedInActive => '已登录',
       AuthAccountPhase.signedInExpired => '登录已过期',
@@ -267,6 +305,7 @@ class _OnboardingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      key: accountDrawerOnboardingReplayKey,
       leading: const Icon(Icons.tips_and_updates_outlined),
       title: const Text('新手引导'),
       subtitle: const Text('重新设置词数并回顾功能'),
@@ -285,9 +324,29 @@ class _CrocBtiTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      key: accountDrawerCrocBtiKey,
       leading: const Icon(Icons.psychology_alt_outlined),
       title: const Text('鳄bti 学习人格'),
       subtitle: const Text('测试适合你的新词、复习、混测和错题权重'),
+      enabled: enabled,
+      onTap: onTap,
+    );
+  }
+}
+
+class _CheckUpdatesTile extends StatelessWidget {
+  const _CheckUpdatesTile({required this.enabled, required this.onTap});
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      key: accountDrawerCheckUpdatesKey,
+      leading: const Icon(Icons.system_update_alt_outlined),
+      title: const Text('Check for updates'),
+      subtitle: const Text('Look for a newer APK release'),
       enabled: enabled,
       onTap: onTap,
     );

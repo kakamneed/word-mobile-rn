@@ -17,6 +17,19 @@ abstract class SupabaseAuthGateway {
     required String password,
   });
 
+  Future<void> resendSignupConfirmation({
+    required String email,
+  });
+
+  Future<void> requestPasswordReset({
+    required String email,
+    String? redirectTo,
+  });
+
+  Future<void> updatePassword({
+    required String password,
+  });
+
   Future<AuthResponse> refreshSession();
 
   Future<void> signOut();
@@ -65,6 +78,31 @@ class SupabaseAuthService implements SupabaseAuthGateway {
   }) async {
     await ensureInitialized();
     return client.auth.signInWithPassword(email: email, password: password);
+  }
+
+  @override
+  Future<void> resendSignupConfirmation({
+    required String email,
+  }) async {
+    await ensureInitialized();
+    await client.auth.resend(type: OtpType.signup, email: email);
+  }
+
+  @override
+  Future<void> requestPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    await ensureInitialized();
+    await client.auth.resetPasswordForEmail(email, redirectTo: redirectTo);
+  }
+
+  @override
+  Future<void> updatePassword({
+    required String password,
+  }) async {
+    await ensureInitialized();
+    await client.auth.updateUser(UserAttributes(password: password));
   }
 
   @override

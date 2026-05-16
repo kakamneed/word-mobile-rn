@@ -7,6 +7,16 @@ description: Diagnose and modify this project's Flutter Today page, study sessio
 
 Use this project-local skill only in `D:\projects\word-mobile-rn`.
 
+## Current Canonical Reference
+
+Before changing the Flutter learning flow, read `.planning/skills/learning-flow/INDEX.md`.
+That Phase 11 index is the current Flutter-only canonical entry point for Today,
+Study answering, AI, Wrong Words, Reports, bridge/data persistence, leaderboard,
+image vote/upload, release validation, known pitfalls, and regression guardrails.
+
+This skill remains useful as supporting study-flow detail, but React Native paths
+are legacy context only unless the user explicitly asks for React Native.
+
 ## Mental Model
 
 Treat the app as five coupled layers:

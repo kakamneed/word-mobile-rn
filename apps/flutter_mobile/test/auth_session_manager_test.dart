@@ -1,3 +1,4 @@
+import 'package:flutter_mobile/features/mobile_root_shell.dart';
 import 'package:flutter_mobile/supabase/auth_session_manager.dart';
 import 'package:flutter_mobile/sdk/local_data_owner_client.dart';
 import 'package:flutter_mobile/supabase/supabase_auth_service.dart';
@@ -63,10 +64,55 @@ void main() {
         password: 'secret',
       );
 
-      expect(state.phase, AuthAccountPhase.guestLocalOnly);
-      expect(state.message, contains('email confirmation'));
+      expect(state.phase, AuthAccountPhase.emailVerificationPending);
+      expect(state.message, contains('Verification email sent'));
     },
   );
+
+  test('resend signup confirmation reports pending verification', () async {
+    final fakeAuth = _FakeAuthGateway();
+    final manager = AuthSessionManager(
+      auth: fakeAuth,
+      isConfigured: () => true,
+    );
+
+    final state = await manager.resendSignupConfirmation(
+      email: 'new@example.com',
+    );
+
+    expect(state.phase, AuthAccountPhase.emailVerificationPending);
+    expect(fakeAuth.resentSignupEmails, ['new@example.com']);
+  });
+
+  test('request password reset reports email sent', () async {
+    final fakeAuth = _FakeAuthGateway();
+    final manager = AuthSessionManager(
+      auth: fakeAuth,
+      isConfigured: () => true,
+    );
+
+    final state = await manager.requestPasswordReset(
+      email: 'user@example.com',
+      redirectTo: 'wordmobile://auth/reset-password',
+    );
+
+    expect(state.phase, AuthAccountPhase.passwordResetEmailSent);
+    expect(fakeAuth.passwordResetRequests, ['user@example.com']);
+    expect(fakeAuth.passwordResetRedirects, ['wordmobile://auth/reset-password']);
+  });
+
+  test('update password delegates to gateway', () async {
+    final fakeAuth = _FakeAuthGateway();
+    final manager = AuthSessionManager(
+      auth: fakeAuth,
+      isConfigured: () => true,
+    );
+
+    final state = await manager.updatePassword(password: 'new-secret');
+
+    expect(state.phase, AuthAccountPhase.passwordUpdated);
+    expect(fakeAuth.updatedPasswords, ['new-secret']);
+  });
 
   test('valid restored session waits for bind before cloud work', () async {
     final manager = AuthSessionManager(
@@ -276,6 +322,25 @@ void main() {
     expect(state.phase, AuthAccountPhase.signedInActive);
     expect(backfillCount, 1);
   });
+  test(
+    'startup auth resolution does not force close an already requested Study route',
+    () {
+      expect(
+        rootOwnerChangedAfterInitialLoadForTest(
+          previousUserId: null,
+          currentUserId: 'user-1',
+        ),
+        isFalse,
+      );
+      expect(
+        rootOwnerChangedAfterInitialLoadForTest(
+          previousUserId: 'user-1',
+          currentUserId: 'user-2',
+        ),
+        isTrue,
+      );
+    },
+  );
 }
 
 class _FakeAuthGateway implements SupabaseAuthGateway {
@@ -292,6 +357,10 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
   final Object? restoreError;
   final Object? verifyError;
   final bool cloudDataAccessAvailable;
+  final resentSignupEmails = <String>[];
+  final passwordResetRequests = <String>[];
+  final passwordResetRedirects = <String?>[];
+  final updatedPasswords = <String>[];
 
   @override
   Future<AuthResponse> refreshSession() async => AuthResponse();
@@ -310,6 +379,25 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
     required String email,
     required String password,
   }) async => AuthResponse();
+
+  @override
+  Future<void> resendSignupConfirmation({required String email}) async {
+    resentSignupEmails.add(email);
+  }
+
+  @override
+  Future<void> requestPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    passwordResetRequests.add(email);
+    passwordResetRedirects.add(redirectTo);
+  }
+
+  @override
+  Future<void> updatePassword({required String password}) async {
+    updatedPasswords.add(password);
+  }
 
   @override
   Future<void> signOut() async {}

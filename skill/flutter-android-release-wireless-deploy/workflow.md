@@ -132,6 +132,154 @@ configured in the release APK.
 Never use bare `flutter build apk --release` for releases that need account,
 auth, cloud sync, or Supabase validation.
 
+#### Supabase Direct Update Versioning
+
+The Flutter `1.0.0+1` APK is the initial direct-install baseline that contains
+the self-update client. Do not create an enabled `app_releases` row for this same
+`versionCode=1` build as an update to itself.
+
+First classify the build:
+
+- **Test package**: built for the developer's own validation device. Install and
+  launch through wireless adb only. Do not upload it as an enabled Supabase
+  update, and do not create an enabled `public.app_releases` row.
+- **Staged stable package**: a validated milestone/stable APK intended for
+  clients to discover through the app's self-update check. Only this package
+  type may be uploaded to GitHub Releases and enabled in `public.app_releases`.
+
+If the user says the APK is for testing, wireless debugging, or installation on
+the developer's own phone, treat it as a test package by default. If the user
+says the APK is staged stable, ready to publish, ready for update delivery, or
+explicitly asks to promote the APK, treat it as staged stable after validation.
+
+For the next update package, update `apps/flutter_mobile/pubspec.yaml` before
+building:
+
+```yaml
+version: 1.0.1+2
+```
+
+Rules:
+
+- `versionName` is the part before `+`.
+- Android `versionCode` is the integer after `+`.
+- Every update APK must have `versionCode` greater than the installed client.
+- Reusing the same `versionCode` will make both the Flutter update check and
+  Android package installer treat the APK as not upgradable.
+
+For test packages, stop after local install, launch, and verification. Report the
+APK path and device result, but do not run the GitHub Release or Supabase
+metadata steps below.
+
+For staged stable packages, continue with the GitHub Release and Supabase
+metadata steps below.
+
+After building, confirm the packaged version:
+
+```powershell
+D:\Android\Sdk\build-tools\35.0.0\aapt.exe dump badging `
+  D:\projects\word-mobile-rn\apps\flutter_mobile\build\app\outputs\flutter-apk\app-release.apk |
+  Select-String -Pattern '^package:'
+```
+
+Expected shape:
+
+```text
+package: name='com.wordmobile' versionCode='2' versionName='1.0.1' ...
+```
+
+Compute the SHA-256 used by the client-side integrity check:
+
+```powershell
+Get-FileHash `
+  D:\projects\word-mobile-rn\apps\flutter_mobile\build\app\outputs\flutter-apk\app-release.apk `
+  -Algorithm SHA256
+```
+
+Publish the APK to GitHub Releases. GitHub CLI is installed at:
+
+```text
+C:\Program Files\GitHub CLI\gh.exe
+```
+
+`gh auth login` is a one-time setup on the machine. Do not ask the user to log in
+again unless this command reports a missing or invalid token:
+
+```powershell
+$env:HTTP_PROXY='http://127.0.0.1:7897'
+$env:HTTPS_PROXY='http://127.0.0.1:7897'
+& 'C:\Program Files\GitHub CLI\gh.exe' auth status
+```
+
+If authentication is valid, create the release:
+
+```powershell
+$env:HTTP_PROXY='http://127.0.0.1:7897'
+$env:HTTPS_PROXY='http://127.0.0.1:7897'
+& 'C:\Program Files\GitHub CLI\gh.exe' release create v1.0.1 `
+  "D:\projects\word-mobile-rn\apps\flutter_mobile\build\app\outputs\flutter-apk\app-release.apk#word-mobile-1.0.1+2.apk" `
+  --repo kakamneed/word-mobile-rn `
+  --target main `
+  --title "Word Mobile 1.0.1" `
+  --notes "Update notes shown in the app dialog."
+```
+
+If release notes or a prepared asset were staged under `D:\projects\word-mobile-rn\releases`,
+it is also acceptable to run the matching `publish-vX.Y.Z.ps1` script from a
+PowerShell session where `gh auth status` succeeds.
+
+The download URL format for Supabase metadata is:
+
+```text
+https://github.com/kakamneed/word-mobile-rn/releases/download/v1.0.1/word-mobile-1.0.1%2B2.apk
+```
+
+Then insert or update the release metadata in `public.app_releases`. Disable any
+duplicate disabled rows for the same release before inserting/enabling the final
+row:
+
+```sql
+delete from public.app_releases
+where platform = 'android'
+  and runtime = 'flutter'
+  and channel = 'stable'
+  and version_name = '1.0.1'
+  and version_code = 2
+  and enabled = false;
+
+insert into public.app_releases (
+  platform,
+  runtime,
+  channel,
+  version_name,
+  version_code,
+  min_supported_code,
+  force_update,
+  download_url,
+  sha256,
+  release_notes,
+  rollout_percent,
+  enabled
+) values (
+  'android',
+  'flutter',
+  'stable',
+  '1.0.1',
+  2,
+  1,
+  false,
+  'https://github.com/kakamneed/word-mobile-rn/releases/download/v1.0.1/word-mobile-1.0.1%2B2.apk',
+  '<lowercase sha256>',
+  'Update notes shown in the app dialog.',
+  100,
+  true
+);
+```
+
+Do not paste PowerShell scripts into Supabase SQL Editor. Supabase SQL Editor
+only accepts SQL such as the `insert into public.app_releases ...` statement
+above.
+
 #### Word Admin Variant
 
 Use this branch when the user asks for `word_admin`, `wordadmin`, or the local

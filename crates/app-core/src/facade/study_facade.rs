@@ -99,6 +99,7 @@ pub fn start_study_session(
     let total_words = request.entry_source_ids.len() as u32;
     let question_type_weights =
         normalized_question_type_weights_for_session(&mode, &request.question_type_weights);
+    let mut cleared_stale_persisted_snapshot = false;
 
     if !request.entry_source_ids.is_empty() || !request.entry_payloads.is_empty() {
         let guard = lock_sessions();
@@ -134,6 +135,7 @@ pub fn start_study_session(
         }
         if engine_stale || shape_stale {
             clear_persisted_session(conn, &mode)?;
+            cleared_stale_persisted_snapshot = true;
         }
         // Only clear the persisted snapshot if it is stale (not from today).
         // This preserves progress for same-day resume even when question-type
@@ -146,6 +148,9 @@ pub fn start_study_session(
     }
 
     if request.entry_source_ids.is_empty() && request.entry_payloads.is_empty() {
+        if cleared_stale_persisted_snapshot {
+            return Err(StudyError::NotEnoughWords);
+        }
         let guard = lock_sessions();
         if let Some(active) = guard.get(&mode_key) {
             if active.current_index < active.questions.len() {
@@ -1562,10 +1567,7 @@ mod tests {
                     Some(correct_label.as_str())
                 );
                 assert_eq!(resumed_history.result.user_response, "A");
-                assert_eq!(
-                    resumed_history.result.outcome,
-                    AnswerOutcome::Incorrect
-                );
+                assert_eq!(resumed_history.result.outcome, AnswerOutcome::Incorrect);
                 return;
             }
 

@@ -144,7 +144,6 @@ class _StudyScreenState extends State<StudyScreen> {
     final responseText =
         (explicitResponse ?? _selectedChoice ?? _answerController.text).trim();
     if (responseText.isEmpty && !allowEmpty) return;
-    _settleAnswerInputBeforeSubmit();
     setState(() {
       _submitting = true;
       _error = null;
@@ -155,6 +154,7 @@ class _StudyScreenState extends State<StudyScreen> {
         response: responseText,
         responseTimeMs: _elapsedResponseMs,
       );
+      _settleAnswerInputBeforeSubmit();
       _answerController.clear();
       setState(() {
         _latestResponse = response;
@@ -176,20 +176,6 @@ class _StudyScreenState extends State<StudyScreen> {
           );
         }
       });
-      if (response.isComplete && _pageController.hasClients) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!_pageController.hasClients) return;
-          final feedLength = _feedItems.length;
-          if (feedLength == 0) return;
-          final target = feedLength - 1;
-          _pageController.jumpToPage(target);
-          if (mounted) {
-            setState(() {
-              _visiblePageIndex = target;
-            });
-          }
-        });
-      }
       if (response.isComplete && response.summary != null) {
         setState(() {
           _completion = CompleteSessionResponse(
@@ -246,7 +232,6 @@ class _StudyScreenState extends State<StudyScreen> {
             summary: response.summary!,
             nextAction: response.nextAction ?? 'Return to today',
           );
-          _session = null;
         }
       });
       if (!response.isComplete) {
@@ -324,29 +309,49 @@ class _StudyScreenState extends State<StudyScreen> {
         title: 'Add hint',
       );
       if (saved != null && mounted) {
-        _applySavedHintToCurrentQuestion(saved);
+        _applySavedHint(saved);
       }
     } finally {
       _showingHintPrompt = false;
     }
   }
 
-  void _applySavedHintToCurrentQuestion(WordHintState hint) {
+  void _applySavedHint(WordHintState hint) {
     final session = _session;
     if (session == null) return;
-    final currentQuestion = session.currentQuestion;
-    if (currentQuestion.entrySourceId != '${hint.entryId}') return;
+    final entrySourceId = '${hint.entryId}';
     setState(() {
       _session = StartSessionResponse(
         session: session.session,
-        currentQuestion: currentQuestion.copyWith(
-          userHint: hint.userHint,
-          hasHint: hint.hasHint,
+        currentQuestion: _questionWithSavedHint(
+          session.currentQuestion,
+          entrySourceId,
+          hint,
         ),
         progress: session.progress,
-        answeredQuestions: session.answeredQuestions,
+        answeredQuestions: session.answeredQuestions
+            .map(
+              (answered) => AnsweredStudyQuestion(
+                question: _questionWithSavedHint(
+                  answered.question,
+                  entrySourceId,
+                  hint,
+                ),
+                result: answered.result,
+              ),
+            )
+            .toList(growable: false),
       );
     });
+  }
+
+  StudyQuestion _questionWithSavedHint(
+    StudyQuestion question,
+    String entrySourceId,
+    WordHintState hint,
+  ) {
+    if (question.entrySourceId != entrySourceId) return question;
+    return question.copyWith(userHint: hint.userHint, hasHint: hint.hasHint);
   }
 
   Future<WordHintState?> _showHintEditor({
@@ -591,23 +596,35 @@ class _StudyScreenState extends State<StudyScreen> {
         lastResult,
       );
     }
-    final answered = answeredQuestions.map((answered) {
-      final responseOverride =
-          lastQuestion != null &&
-              answered.question.questionId == lastQuestion.questionId
-          ? _lastSubmittedResponse
-          : null;
-      return _StudyFeedItem.answered(
-        answered,
-        responseOverride: responseOverride,
-      );
-    }).toList(growable: true);
+    final answered = answeredQuestions
+        .map((answered) {
+          final responseOverride =
+              lastQuestion != null &&
+                  answered.question.questionId == lastQuestion.questionId
+              ? _lastSubmittedResponse
+              : null;
+          return _StudyFeedItem.answered(
+            answered,
+            responseOverride: responseOverride,
+          );
+        })
+        .toList(growable: true);
     final current = session.currentQuestion;
     final currentAlreadyAnswered = answered.any(
-      (item) => item.question.questionId == current.questionId,
+      (item) => item.question?.questionId == current.questionId,
     );
     if (!currentAlreadyAnswered && _completion == null) {
       answered.add(_StudyFeedItem.unanswered(current));
+    }
+    final completion = _completion;
+    if (completion != null) {
+      answered.add(
+        _StudyFeedItem.completion(
+          completion,
+          answeredQuestions,
+          nextMode: _nextModeFrom(widget.mode),
+        ),
+      );
     }
     return answered;
   }
@@ -615,8 +632,10 @@ class _StudyScreenState extends State<StudyScreen> {
   void _jumpToCurrentFeedPage() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_pageController.hasClients) return;
-      final target =
-          ((_feedItems.length - 1).clamp(0, _feedItems.length)).toInt();
+      final target = ((_feedItems.length - 1).clamp(
+        0,
+        _feedItems.length,
+      )).toInt();
       if (target <= 0) return;
       setState(() {
         _visiblePageIndex = target;
@@ -643,140 +662,168 @@ class _StudyScreenState extends State<StudyScreen> {
       body: _loading
           ? const CrocodileLoadingAnimation(label: 'Loading...')
           : _error != null
-              ? _StudyMessage(
-                  title: 'Study error',
-                  message: _error!,
-                  actionLabel: 'Retry',
-                  onAction: _start,
-                )
-              : _completion != null && feedItems.isEmpty
-                  ? _StudyCompletion(
-                      completion: _completion!,
-                      onRestart: _start,
-                      onClose: _closeToToday,
-                      nextMode: _nextModeFrom(widget.mode),
-                      onContinueNextRound: () => _startNextRound(),
-                    )
-                  : !showQuestion
-                      ? _StudyMessage(
-                          title: 'No question',
-                          message: 'No study question is available.',
-                          actionLabel: 'Retry',
-                          onAction: _start,
-                        )
-                      : Stack(
-                          children: [
-                            PageView.builder(
-                              controller: _pageController,
-                              scrollDirection: Axis.vertical,
-                              itemCount: feedItems.length,
-                              onPageChanged: (index) {
-                                setState(() {
-                                  _visiblePageIndex = index;
-                                });
-                                final item = feedItems[index];
-                                if (!item.isAnswered &&
-                                    item.question.questionId ==
-                                        _currentQuestion?.questionId) {
-                                  _restartResponseTimer();
-                                } else {
-                                  _settleAnswerInputBeforeSubmit();
-                                }
-                              },
-                              itemBuilder: (context, index) {
-                                final item = feedItems[index];
-                                return _StudyFeedPage(
-                                  item: item,
-                                  progress: SessionProgress(
-                                    current: index + 1,
-                                    total: _session?.progress.total ??
-                                        feedItems.length,
-                                  ),
-                                  answerController: _answerController,
-                                  answerFocusNode: _answerFocusNode,
-                                  selectedChoice:
-                                      item.isAnswered ? null : _selectedChoice,
-                                  submitting: _submitting,
-                                  onChoiceSelected: (choice) {
-                                    if (item.isAnswered) return;
-                                    setState(() {
-                                      _selectedChoice = choice;
-                                    });
-                                  },
-                                  onSubmit: () {
-                                    if (item.isAnswered) return;
-                                    _submit(questionOverride: item.question);
-                                  },
-                                  onSubmitChoice: (choice) {
-                                    if (item.isAnswered) return;
-                                    _submit(
-                                      questionOverride: item.question,
-                                      explicitResponse: choice,
-                                    );
-                                  },
-                                  onEditHint: () =>
-                                      _editHintForQuestion(item.question),
-                                  onComments: () =>
-                                      _showWordComments(item.question),
-                                  onRevealAnswer: () {
-                                    if (item.isAnswered) return;
-                                    _revealCurrentAnswer(item.question);
-                                  },
-                                  onMastered: () {
-                                    if (item.isAnswered) return;
-                                    _markCurrentEntryMastered();
-                                  },
-                                );
-                              },
-                            ),
-                            Positioned(
-                              top: MediaQuery.paddingOf(context).top + 8,
-                              left: 12,
-                              child: Row(
-                                children: [
-                                  _RoundActionButton(
-                                    tooltip: 'Home',
-                                    icon: Icons.home_outlined,
-                                    onPressed: _returnToTodayKeepingProgress,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  _FeedProgressPill(
-                                    progress: SessionProgress(
-                                      current: ((_visiblePageIndex + 1).clamp(
-                                        1,
-                                        feedItems.length,
-                                      )).toInt(),
-                                      total: _session?.progress.total ??
-                                          feedItems.length,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Positioned(
-                              top: MediaQuery.paddingOf(context).top + 8,
-                              right: 12,
-                              child: _RoundActionButton(
-                                tooltip: 'Exit',
-                                icon: Icons.close,
-                                onPressed: _showExitOptions,
-                              ),
-                            ),
-                            if (_completion != null)
-                              Positioned(
-                                left: 16,
-                                right: 16,
-                                bottom:
-                                    MediaQuery.paddingOf(context).bottom + 16,
-                                child: FilledButton(
-                                  onPressed: _closeToToday,
-                                  child: const Text('Back to today'),
-                                ),
-                              ),
-                          ],
-                        ),
+          ? _StudyMessage(
+              title: 'Study error',
+              message: _error!,
+              actionLabel: 'Retry',
+              onAction: _start,
+            )
+          : _completion != null && feedItems.isEmpty
+          ? _StudyCompletion(
+              completion: _completion!,
+              onRestart: _start,
+              onClose: _closeToToday,
+              nextMode: _nextModeFrom(widget.mode),
+              onContinueNextRound: () => _startNextRound(),
+            )
+          : !showQuestion
+          ? _StudyMessage(
+              title: 'No question',
+              message: 'No study question is available.',
+              actionLabel: 'Retry',
+              onAction: _start,
+            )
+          : Stack(
+              children: [
+                PageView.builder(
+                  controller: _pageController,
+                  scrollDirection: Axis.vertical,
+                  itemCount: feedItems.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _visiblePageIndex = index;
+                    });
+                    final item = feedItems[index];
+                    final itemQuestion = item.question;
+                    if (!item.isAnswered &&
+                        itemQuestion != null &&
+                        itemQuestion.questionId ==
+                            _currentQuestion?.questionId) {
+                      _restartResponseTimer();
+                    } else {
+                      _settleAnswerInputBeforeSubmit();
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    final item = feedItems[index];
+                    if (item.isCompletion) {
+                      return _StudyCompletionFeedPage(
+                        item: item,
+                        onRestart: _start,
+                        onClose: _closeToToday,
+                        onContinueNextRound: _startNextRound,
+                      );
+                    }
+                    return _StudyFeedPage(
+                      item: item,
+                      showCompletionHint:
+                          index + 1 < feedItems.length &&
+                          feedItems[index + 1].isCompletion,
+                      progress: _studyFeedProgress(
+                        visibleQuestion: item.question,
+                        visibleIndex: index + 1,
+                        itemCount: feedItems.length,
+                        sessionTotal: _session?.progress.total,
+                      ),
+                      answerController: _answerController,
+                      answerFocusNode: _answerFocusNode,
+                      selectedChoice: item.isAnswered ? null : _selectedChoice,
+                      submitting: _submitting,
+                      onChoiceSelected: (choice) {
+                        if (item.isAnswered) return;
+                        setState(() {
+                          _selectedChoice = choice;
+                        });
+                      },
+                      onSubmit: () {
+                        if (item.isAnswered) return;
+                        final question = item.question;
+                        if (question == null) return;
+                        _submit(questionOverride: question);
+                      },
+                      onSubmitChoice: (choice) {
+                        if (item.isAnswered) return;
+                        final question = item.question;
+                        if (question == null) return;
+                        _submit(
+                          questionOverride: question,
+                          explicitResponse: choice,
+                        );
+                      },
+                      onHintPressed: questionHasHintForAction(item.question)
+                          ? () {
+                              final question = item.question;
+                              if (question == null) return;
+                              _editHintForQuestion(question);
+                            }
+                          : null,
+                      onComments: () {
+                        final question = item.question;
+                        if (question == null) return;
+                        _showWordComments(question);
+                      },
+                      onRevealAnswer: () {
+                        if (item.isAnswered) return;
+                        final question = item.question;
+                        if (question == null) return;
+                        _revealCurrentAnswer(question);
+                      },
+                      onMastered: () {
+                        if (item.isAnswered) return;
+                        _markCurrentEntryMastered();
+                      },
+                    );
+                  },
+                ),
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 8,
+                  left: 12,
+                  child: Row(
+                    children: [
+                      _RoundActionButton(
+                        tooltip: 'Home',
+                        icon: Icons.home_outlined,
+                        onPressed: _returnToTodayKeepingProgress,
+                      ),
+                      const SizedBox(width: 10),
+                      _FeedProgressPill(
+                        progress: _feedProgressForVisiblePage(feedItems),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 8,
+                  right: 12,
+                  child: _RoundActionButton(
+                    tooltip: 'Exit',
+                    icon: Icons.close,
+                    onPressed: _showExitOptions,
+                  ),
+                ),
+              ],
+            ),
     );
   }
+
+  SessionProgress _feedProgressForVisiblePage(List<_StudyFeedItem> feedItems) {
+    final sessionTotal = _session?.progress.total;
+    final visibleIndex = ((_visiblePageIndex + 1).clamp(
+      1,
+      feedItems.length,
+    )).toInt();
+    final visibleQuestion =
+        _visiblePageIndex >= 0 && _visiblePageIndex < feedItems.length
+        ? feedItems[_visiblePageIndex].question
+        : null;
+    return _studyFeedProgress(
+      visibleQuestion: visibleQuestion,
+      visibleIndex: visibleIndex,
+      itemCount: feedItems.length,
+      sessionTotal: sessionTotal,
+    );
+  }
+
   Future<void> _editHintForQuestion(StudyQuestion question) async {
     final entryId = int.tryParse(question.entrySourceId);
     if (entryId == null) return;
@@ -788,7 +835,7 @@ class _StudyScreenState extends State<StudyScreen> {
       initialText: question.userHint,
     );
     if (saved != null && mounted) {
-      _applySavedHintToCurrentQuestion(saved);
+      _applySavedHint(saved);
     }
   }
 
@@ -797,20 +844,14 @@ class _StudyScreenState extends State<StudyScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => _WordCommentsSheet(
-        service: _commentService,
-        question: question,
-      ),
+      builder: (context) =>
+          _WordCommentsSheet(service: _commentService, question: question),
     );
   }
-
 }
 
 class _WordCommentsSheet extends StatefulWidget {
-  const _WordCommentsSheet({
-    required this.service,
-    required this.question,
-  });
+  const _WordCommentsSheet({required this.service, required this.question});
 
   final WordCommentService service;
   final StudyQuestion question;
@@ -964,8 +1005,8 @@ class _WordCommentsHeader extends StatelessWidget {
                   child: RichText(
                     text: TextSpan(
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: const Color(0xFF555555),
-                          ),
+                        color: const Color(0xFF555555),
+                      ),
                       children: [
                         const TextSpan(text: '大家都在搜： '),
                         TextSpan(
@@ -1011,9 +1052,9 @@ class _CommentTab extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: active ? Colors.black : Colors.black38,
-                fontWeight: active ? FontWeight.w800 : FontWeight.w500,
-              ),
+            color: active ? Colors.black : Colors.black38,
+            fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -1058,26 +1099,26 @@ class _WordCommentTile extends StatelessWidget {
               Text(
                 author,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.black38,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.black38,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 comment.body,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.black,
-                      height: 1.35,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  color: Colors.black,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 '${_relativeCommentTime(comment.createdAt)} · 回复',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.black38,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.black38,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -1105,9 +1146,9 @@ class _WordCommentsMessage extends StatelessWidget {
       child: Text(
         message,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.black38,
-              fontWeight: FontWeight.w600,
-            ),
+          color: Colors.black38,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -1201,9 +1242,12 @@ String _relativeCommentTime(DateTime? value) {
 
 class _StudyFeedItem {
   const _StudyFeedItem._({
-    required this.question,
+    this.question,
     this.result,
     this.responseOverride,
+    this.completion,
+    this.answeredQuestions = const [],
+    this.nextMode,
   });
 
   factory _StudyFeedItem.unanswered(StudyQuestion question) =>
@@ -1212,18 +1256,31 @@ class _StudyFeedItem {
   factory _StudyFeedItem.answered(
     AnsweredStudyQuestion answered, {
     String? responseOverride,
-  }) =>
-      _StudyFeedItem._(
-        question: answered.question,
-        result: answered.result,
-        responseOverride: responseOverride,
-      );
+  }) => _StudyFeedItem._(
+    question: answered.question,
+    result: answered.result,
+    responseOverride: responseOverride,
+  );
 
-  final StudyQuestion question;
+  factory _StudyFeedItem.completion(
+    CompleteSessionResponse completion,
+    List<AnsweredStudyQuestion> answeredQuestions, {
+    String? nextMode,
+  }) => _StudyFeedItem._(
+    completion: completion,
+    answeredQuestions: answeredQuestions,
+    nextMode: nextMode,
+  );
+
+  final StudyQuestion? question;
   final StudyResult? result;
   final String? responseOverride;
+  final CompleteSessionResponse? completion;
+  final List<AnsweredStudyQuestion> answeredQuestions;
+  final String? nextMode;
 
   bool get isAnswered => result != null;
+  bool get isCompletion => completion != null;
 }
 
 List<AnsweredStudyQuestion> mergeLatestAnsweredQuestionForTest(
@@ -1250,12 +1307,13 @@ class _StudyFeedPage extends StatelessWidget {
     required this.progress,
     required this.answerController,
     required this.answerFocusNode,
+    required this.showCompletionHint,
     required this.selectedChoice,
     required this.submitting,
     required this.onChoiceSelected,
     required this.onSubmit,
     required this.onSubmitChoice,
-    required this.onEditHint,
+    required this.onHintPressed,
     required this.onComments,
     required this.onRevealAnswer,
     required this.onMastered,
@@ -1265,12 +1323,13 @@ class _StudyFeedPage extends StatelessWidget {
   final SessionProgress progress;
   final TextEditingController answerController;
   final FocusNode answerFocusNode;
+  final bool showCompletionHint;
   final String? selectedChoice;
   final bool submitting;
   final ValueChanged<String> onChoiceSelected;
   final VoidCallback onSubmit;
   final ValueChanged<String> onSubmitChoice;
-  final VoidCallback onEditHint;
+  final VoidCallback? onHintPressed;
   final VoidCallback onComments;
   final VoidCallback onRevealAnswer;
   final VoidCallback onMastered;
@@ -1278,9 +1337,9 @@ class _StudyFeedPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final question = item.question;
+    if (question == null) return const SizedBox.shrink();
     final result = item.result;
     final answered = item.isAnswered;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return ColoredBox(
       color: const Color(0xFFF9FAF7),
       child: SafeArea(
@@ -1293,29 +1352,33 @@ class _StudyFeedPage extends StatelessWidget {
                   16,
                   MediaQuery.paddingOf(context).top + 56,
                   16,
-                  24 + bottomInset,
+                  24,
                 ),
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _FeedQuestionHeader(question: question),
-                      const SizedBox(height: 12),
-                      _QuestionComposer(
-                        question: question,
-                        answerController: answerController,
-                        answerFocusNode: answerFocusNode,
-                        selectedChoice: selectedChoice,
-                        onChoiceSelected: onChoiceSelected,
-                        onSubmit: () async => onSubmit(),
-                        onSubmitChoice: onSubmitChoice,
-                        submitting: submitting || answered,
-                        answered: answered,
-                        result: result,
-                        responseOverride: item.responseOverride,
-                      ),
-                      SizedBox(height: 24 + bottomInset),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _FeedQuestionHeader(question: question),
+                    const SizedBox(height: 12),
+                    _QuestionComposer(
+                      question: question,
+                      answerController: answerController,
+                      answerFocusNode: answerFocusNode,
+                      selectedChoice: selectedChoice,
+                      onChoiceSelected: onChoiceSelected,
+                      onSubmit: () async => onSubmit(),
+                      onSubmitChoice: onSubmitChoice,
+                      submitting: submitting || answered,
+                      answered: answered,
+                      result: result,
+                      responseOverride: item.responseOverride,
+                    ),
+                    if (answered && showCompletionHint) ...[
+                      const SizedBox(height: 24),
+                      const _CompletionSwipeHint(),
                     ],
-                  ),
+                    const _KeyboardInsetSpacer(baseHeight: 24),
+                  ],
+                ),
               ),
             ),
             Positioned(
@@ -1326,7 +1389,8 @@ class _StudyFeedPage extends StatelessWidget {
                   _RoundActionButton(
                     tooltip: 'Hint',
                     icon: Icons.lightbulb_outline,
-                    onPressed: onEditHint,
+                    onPressed: onHintPressed,
+                    active: question.hasHint,
                   ),
                   const SizedBox(height: 16),
                   _RoundActionButton(
@@ -1355,6 +1419,44 @@ class _StudyFeedPage extends StatelessWidget {
     );
   }
 }
+
+class _CompletionSwipeHint extends StatelessWidget {
+  const _CompletionSwipeHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 22,
+                color: Colors.black54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '下滑查看本轮总结',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FeedProgressPill extends StatelessWidget {
   const _FeedProgressPill({required this.progress});
 
@@ -1372,14 +1474,15 @@ class _FeedProgressPill extends StatelessWidget {
         child: Text(
           '${progress.current}/${progress.total}',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
         ),
       ),
     );
   }
 }
+
 class _FeedQuestionHeader extends StatelessWidget {
   const _FeedQuestionHeader({required this.question});
 
@@ -1394,19 +1497,19 @@ class _FeedQuestionHeader extends StatelessWidget {
         Text(
           hero.title,
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                height: 1.06,
-                color: Colors.black,
-              ),
+            fontWeight: FontWeight.w800,
+            height: 1.06,
+            color: Colors.black,
+          ),
         ),
         if (hero.subtitle != null) ...[
           const SizedBox(height: 8),
           Text(
             hero.subtitle!,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ],
@@ -1419,23 +1522,30 @@ class _RoundActionButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    this.active = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabledColor = active ? theme.colorScheme.primary : Colors.black87;
+    final backgroundColor = active
+        ? theme.colorScheme.primary.withValues(alpha: 0.12)
+        : Colors.transparent;
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      color: Colors.black87,
+      color: enabledColor,
       disabledColor: Colors.black.withValues(alpha: 0.24),
       iconSize: 30,
       icon: Icon(icon),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
+        backgroundColor: backgroundColor,
         disabledBackgroundColor: Colors.transparent,
         shape: const CircleBorder(),
         padding: const EdgeInsets.all(4),
@@ -1444,6 +1554,80 @@ class _RoundActionButton extends StatelessWidget {
     );
   }
 }
+
+class _StudyCompletionFeedPage extends StatelessWidget {
+  const _StudyCompletionFeedPage({
+    required this.item,
+    required this.onRestart,
+    required this.onClose,
+    required this.onContinueNextRound,
+  });
+
+  final _StudyFeedItem item;
+  final Future<void> Function() onRestart;
+  final VoidCallback onClose;
+  final Future<void> Function() onContinueNextRound;
+
+  @override
+  Widget build(BuildContext context) {
+    final completion = item.completion;
+    if (completion == null) return const SizedBox.shrink();
+    final summary = completion.summary;
+    final wrongWords = _wrongWordSummaries(item.answeredQuestions);
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 24;
+
+    return ColoredBox(
+      color: const Color(0xFFF9FAF7),
+      child: SafeArea(
+        top: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            MediaQuery.paddingOf(context).top + 78,
+            24,
+            bottomPadding,
+          ),
+          children: [
+            Text(
+              'Session summary',
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                height: 1.05,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _summarySubtitle(summary),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 28),
+            _AccuracyPanel(summary: summary),
+            const SizedBox(height: 18),
+            _SummaryGrid(summary: summary),
+            const SizedBox(height: 20),
+            _WrongWordsPanel(wrongWords: wrongWords),
+            const SizedBox(height: 24),
+            FilledButton(onPressed: onClose, child: const Text('返回今日')),
+            const SizedBox(height: 10),
+            OutlinedButton(onPressed: onRestart, child: const Text('重学本模式')),
+            if (item.nextMode != null) ...[
+              const SizedBox(height: 10),
+              FilledButton.tonal(
+                onPressed: onContinueNextRound,
+                child: Text('继续${_modeLabel(item.nextMode!)}'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 String? _nextModeFrom(String mode) {
   return switch (mode) {
     'newWord' => 'review',
@@ -1459,7 +1643,10 @@ String? _nextModeFrom(String mode) {
     return (title: question.prompt, subtitle: null);
   }
   if (question.questionType == 'wordSkeletonInput') {
-    return (title: question.prompt, subtitle: question.partOfSpeech);
+    return (
+      title: wordSkeletonDisplayForTest(question.prompt, ''),
+      subtitle: question.partOfSpeech,
+    );
   }
   return (title: question.word, subtitle: question.partOfSpeech);
 }
@@ -1555,7 +1742,7 @@ class _SessionHero extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '本轮学习已推�?${progress.current}/${progress.total}',
+              '\u672c\u8f6e\u5b66\u4e60\u5df2\u63a8\u8fdb ${progress.current}/${progress.total}',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: Colors.white70),
@@ -1564,6 +1751,18 @@ class _SessionHero extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _KeyboardInsetSpacer extends StatelessWidget {
+  const _KeyboardInsetSpacer({required this.baseHeight});
+
+  final double baseHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SizedBox(height: baseHeight + bottomInset);
   }
 }
 
@@ -1626,9 +1825,9 @@ class _MaskedHintChipState extends State<_MaskedHintChip> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -1690,17 +1889,16 @@ class _QuestionComposer extends StatelessWidget {
         if ((question.phoneticUs ?? question.phoneticUk) != null)
           Text(
             question.phoneticUs ?? question.phoneticUk ?? '',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: Colors.black54),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
         Text(
           _questionLabel(question.questionType),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
-              ),
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
         ),
         if (displayPrompt != null) ...[
           const SizedBox(height: 4),
@@ -1716,10 +1914,9 @@ class _QuestionComposer extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               question.exampleTranslation!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.black54),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
             ),
           ],
           const SizedBox(height: 10),
@@ -1745,9 +1942,9 @@ class _QuestionComposer extends StatelessWidget {
             Text(
               question.exampleTranslation!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
           const SizedBox(height: 10),
@@ -1797,22 +1994,27 @@ String wordSkeletonDisplayForTest(String prompt, String answer) {
       .toList(growable: false);
   var answerIndex = 0;
   final buffer = StringBuffer();
-  for (final char in prompt.characters) {
+  final promptChars = prompt.characters.toList(growable: false);
+  for (var index = 0; index < promptChars.length; index += 1) {
+    final char = promptChars[index];
     if (char == '_' && answerIndex < answerChars.length) {
       buffer.write(answerChars[answerIndex]);
       answerIndex += 1;
     } else {
       buffer.write(char);
     }
+    if (char == '_' &&
+        answerIndex >= answerChars.length &&
+        index + 1 < promptChars.length &&
+        promptChars[index + 1] == '_') {
+      buffer.write(' ');
+    }
   }
   return buffer.toString();
 }
 
 class _WordSkeletonPreview extends StatelessWidget {
-  const _WordSkeletonPreview({
-    required this.prompt,
-    required this.answer,
-  });
+  const _WordSkeletonPreview({required this.prompt, required this.answer});
 
   final String prompt;
   final String answer;
@@ -1820,9 +2022,9 @@ class _WordSkeletonPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: Colors.black,
-        );
+      fontWeight: FontWeight.w700,
+      color: Colors.black,
+    );
     final answerStyle = baseStyle?.copyWith(
       fontSize: (baseStyle.fontSize ?? 24) + 8,
       fontWeight: FontWeight.w900,
@@ -1834,12 +2036,20 @@ class _WordSkeletonPreview extends StatelessWidget {
         .toList(growable: false);
     var answerIndex = 0;
     final spans = <TextSpan>[];
-    for (final char in prompt.characters) {
+    final promptChars = prompt.characters.toList(growable: false);
+    for (var index = 0; index < promptChars.length; index += 1) {
+      final char = promptChars[index];
       if (char == '_' && answerIndex < answerChars.length) {
         spans.add(TextSpan(text: answerChars[answerIndex], style: answerStyle));
         answerIndex += 1;
       } else {
         spans.add(TextSpan(text: char, style: baseStyle));
+      }
+      if (char == '_' &&
+          answerIndex >= answerChars.length &&
+          index + 1 < promptChars.length &&
+          promptChars[index + 1] == '_') {
+        spans.add(TextSpan(text: ' ', style: baseStyle));
       }
     }
     return Text.rich(TextSpan(children: spans));
@@ -1859,115 +2069,128 @@ List<Widget> _buildChoiceOptions(
   final answered = result != null;
   final correctTextToken = _resolvedCorrectChoiceTextToken(question, result);
 
-  return choices.indexed.map((indexedChoice) {
-    final index = indexedChoice.$1;
-    final choice = indexedChoice.$2;
-    final display = _choiceDisplay(choice, index);
-    final isSelected = selectedChoice == display.value;
-    final state = _choiceState(
-      question,
-      result,
-      display,
-      correctTextToken,
-      responseOverride: responseOverride,
-    );
-    final isCorrect = answered && state.isCorrect;
-    final isUserWrong = answered && state.isUserWrong;
+  return choices.indexed
+      .map((indexedChoice) {
+        final index = indexedChoice.$1;
+        final choice = indexedChoice.$2;
+        final display = _choiceDisplay(choice, index);
+        final isSelected = selectedChoice == display.value;
+        final state = _choiceState(
+          question,
+          result,
+          display,
+          correctTextToken,
+          responseOverride: responseOverride,
+        );
+        final isCorrect = answered && state.isCorrect;
+        final isUserWrong = answered && state.isUserWrong;
 
-    Color bgColor;
-    Color textColor;
-    Color labelColor;
+        Color bgColor;
+        Color textColor;
+        Color labelColor;
 
-    if (answered) {
-      if (isCorrect) {
-        bgColor = const Color(0xFFE8F5E9);
-        textColor = const Color(0xFF2E7D32);
-        labelColor = const Color(0xFF2E7D32);
-      } else if (isUserWrong) {
-        bgColor = const Color(0xFFFFEBEE);
-        textColor = const Color(0xFFC62828);
-        labelColor = const Color(0xFFC62828);
-      } else {
-        bgColor = const Color(0xFFF2F3F5);
-        textColor = const Color(0xFF999999);
-        labelColor = const Color(0xFF999999);
-      }
-    } else {
-      bgColor = isSelected ? const Color(0xFFE8F5E9) : const Color(0xFFF2F3F5);
-      textColor = isSelected ? const Color(0xFF1B5E20) : const Color(0xFF333333);
-      labelColor = isSelected ? const Color(0xFF1B5E20) : const Color(0xFF888888);
-    }
+        if (answered) {
+          if (isCorrect) {
+            bgColor = const Color(0xFFE8F5E9);
+            textColor = const Color(0xFF2E7D32);
+            labelColor = const Color(0xFF2E7D32);
+          } else if (isUserWrong) {
+            bgColor = const Color(0xFFFFEBEE);
+            textColor = const Color(0xFFC62828);
+            labelColor = const Color(0xFFC62828);
+          } else {
+            bgColor = const Color(0xFFF2F3F5);
+            textColor = const Color(0xFF999999);
+            labelColor = const Color(0xFF999999);
+          }
+        } else {
+          bgColor = isSelected
+              ? const Color(0xFFE8F5E9)
+              : const Color(0xFFF2F3F5);
+          textColor = isSelected
+              ? const Color(0xFF1B5E20)
+              : const Color(0xFF333333);
+          labelColor = isSelected
+              ? const Color(0xFF1B5E20)
+              : const Color(0xFF888888);
+        }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: answered || isSelected
-            ? null
-            : () => onChoiceSelected?.call(display.value),
-        onDoubleTap: answered
-            ? null
-            : () {
-                onChoiceSelected?.call(display.value);
-                onSubmitChoice?.call(display.value);
-              },
-        child: Ink(
-          decoration: BoxDecoration(
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: InkWell(
             borderRadius: BorderRadius.circular(8),
-            color: bgColor,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 54,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        display.label,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: labelColor,
-                              fontWeight: FontWeight.w700,
+            onTap: answered || isSelected
+                ? null
+                : () => onChoiceSelected?.call(display.value),
+            onDoubleTap: answered
+                ? null
+                : () {
+                    onChoiceSelected?.call(display.value);
+                    onSubmitChoice?.call(display.value);
+                  },
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: bgColor,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 54,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            display.label,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: labelColor,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          if (answered && isCorrect) ...[
+                            const SizedBox(width: 5),
+                            const Icon(
+                              Icons.check_circle,
+                              size: 20,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ] else if (answered && isUserWrong) ...[
+                            const SizedBox(width: 5),
+                            const Icon(
+                              Icons.cancel,
+                              size: 20,
+                              color: Color(0xFFC62828),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        display.text,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
-                      if (answered && isCorrect) ...[
-                        const SizedBox(width: 5),
-                        const Icon(
-                          Icons.check_circle,
-                          size: 20,
-                          color: Color(0xFF2E7D32),
-                        ),
-                      ] else if (answered && isUserWrong) ...[
-                        const SizedBox(width: 5),
-                        const Icon(
-                          Icons.cancel,
-                          size: 20,
-                          color: Color(0xFFC62828),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    display.text,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: textColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }).toList(growable: false);
+        );
+      })
+      .toList(growable: false);
 }
 
 Widget _buildInputFeedback(
@@ -1978,10 +2201,12 @@ Widget _buildInputFeedback(
   final isCorrect =
       result.outcome == AnswerOutcome.correct ||
       result.outcome == AnswerOutcome.fuzzyCorrect;
-  final answerColor =
-      isCorrect ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
-  final displayResponse =
-      result.userResponse.trim().isEmpty ? '空' : result.userResponse;
+  final answerColor = isCorrect
+      ? const Color(0xFF2E7D32)
+      : const Color(0xFFC62828);
+  final displayResponse = result.userResponse.trim().isEmpty
+      ? '空'
+      : result.userResponse;
 
   return Padding(
     padding: const EdgeInsets.only(top: 8),
@@ -2000,9 +2225,9 @@ Widget _buildInputFeedback(
               child: Text(
                 displayResponse,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: answerColor,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: answerColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -2014,9 +2239,9 @@ Widget _buildInputFeedback(
                 ? question.acceptedMeanings.join(' / ')
                 : 'Correct answer: ${result.correctAnswer}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF2E7D32),
-                  fontWeight: FontWeight.w700,
-                ),
+              color: const Color(0xFF2E7D32),
+              fontWeight: FontWeight.w700,
+            ),
           ),
       ],
     ),
@@ -2033,7 +2258,12 @@ const _fallbackChoiceLabels = ['A', 'B', 'C', 'D'];
       ? _fallbackChoiceLabels[index]
       : '${index + 1}';
   final label =
-      _firstNonEmptyChoiceField(choice, const ['label', 'Label', 'value', 'Value']) ??
+      _firstNonEmptyChoiceField(choice, const [
+        'label',
+        'Label',
+        'value',
+        'Value',
+      ]) ??
       fallbackLabel;
   final text =
       _firstNonEmptyChoiceField(choice, const [
@@ -2084,14 +2314,38 @@ Set<String> _choiceUserAnswerTokens(
 
 bool _shouldShowHeroHintChip(StudyQuestion question) => question.hasHint;
 
+SessionProgress _studyFeedProgress({
+  required StudyQuestion? visibleQuestion,
+  required int visibleIndex,
+  required int itemCount,
+  required int? sessionTotal,
+}) => SessionProgress(
+  current: visibleQuestion != null ? visibleQuestion.questionIndex + 1 : visibleIndex,
+  total: sessionTotal ?? visibleQuestion?.totalQuestions ?? itemCount,
+);
+
 ({String value, String label, String text}) choiceDisplayForTest(
   Map<String, dynamic> choice,
   int index,
-) =>
-    _choiceDisplay(choice, index);
+) => _choiceDisplay(choice, index);
 
 bool shouldShowHeroHintChipForTest(StudyQuestion question) =>
     _shouldShowHeroHintChip(question);
+
+bool questionHasHintForAction(StudyQuestion? question) =>
+    question?.hasHint == true;
+
+SessionProgress studyFeedProgressForTest({
+  required StudyQuestion? visibleQuestion,
+  required int visibleIndex,
+  required int itemCount,
+  required int? sessionTotal,
+}) => _studyFeedProgress(
+  visibleQuestion: visibleQuestion,
+  visibleIndex: visibleIndex,
+  itemCount: itemCount,
+  sessionTotal: sessionTotal,
+);
 
 ({bool isCorrect, bool isUserWrong}) choiceStateForTest(
   StudyQuestion question,
@@ -2125,7 +2379,8 @@ bool shouldShowHeroHintChipForTest(StudyQuestion question) =>
     responseOverride: responseOverride,
   );
   final correctLabelToken = _normalizeChoiceToken(question.correctChoiceLabel);
-  final isCorrect = result != null &&
+  final isCorrect =
+      result != null &&
       _isCorrectChoice(
         question,
         result,
@@ -2156,6 +2411,10 @@ bool _isCorrectChoice(
   String correctTextToken,
 ) {
   final correctLabelToken = _normalizeChoiceToken(question.correctChoiceLabel);
+  if (correctTextToken.isNotEmpty && displayTextToken == correctTextToken) {
+    return true;
+  }
+
   if (correctLabelToken.isNotEmpty &&
       (correctTextToken.isEmpty || displayTextToken == correctTextToken)) {
     return displayLabelToken == correctLabelToken;
@@ -2178,6 +2437,17 @@ String _resolvedCorrectChoiceTextToken(
   StudyResult? result,
 ) {
   final choices = question.choices ?? const [];
+  final correctAnswerToken = _normalizeChoiceToken(result?.correctAnswer);
+  if (correctAnswerToken.isNotEmpty) {
+    for (final indexedChoice in choices.indexed) {
+      final display = _choiceDisplay(indexedChoice.$2, indexedChoice.$1);
+      final textToken = _normalizeChoiceToken(display.text);
+      if (textToken == correctAnswerToken) {
+        return textToken;
+      }
+    }
+  }
+
   final correctLabelToken = _normalizeChoiceToken(question.correctChoiceLabel);
   if (correctLabelToken.isNotEmpty) {
     for (final indexedChoice in choices.indexed) {
@@ -2188,17 +2458,6 @@ String _resolvedCorrectChoiceTextToken(
       }
     }
     return '';
-  }
-
-  final correctAnswerToken = _normalizeChoiceToken(result?.correctAnswer);
-  if (correctAnswerToken.isNotEmpty) {
-    for (final indexedChoice in choices.indexed) {
-      final display = _choiceDisplay(indexedChoice.$2, indexedChoice.$1);
-      final textToken = _normalizeChoiceToken(display.text);
-      if (textToken == correctAnswerToken) {
-        return textToken;
-      }
-    }
   }
 
   if (question.questionType == 'cnToEnChoice') {
@@ -2226,10 +2485,9 @@ class _HighlightedExampleSentence extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Colors.black87,
-      height: 1.35,
-    );
+    final baseStyle = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(color: Colors.black87, height: 1.35);
     final highlightStyle = baseStyle?.copyWith(
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.w800,
@@ -2244,7 +2502,9 @@ class _HighlightedExampleSentence extends StatelessWidget {
       highlightStyle: highlightStyle,
     );
 
-    return RichText(text: TextSpan(style: baseStyle, children: spans));
+    return RichText(
+      text: TextSpan(style: baseStyle, children: spans),
+    );
   }
 
   List<TextSpan> _highlightWordSpans({
@@ -2499,7 +2759,6 @@ List<Map<String, dynamic>>? _questionTypeWeightsForMode(
   return out.isEmpty ? null : out;
 }
 
-
 String _questionLabel(String type) {
   return switch (type) {
     'enToCnChoice' => '根据英文选择中文释义',
@@ -2511,7 +2770,6 @@ String _questionLabel(String type) {
     _ => '回答问题',
   };
 }
-
 
 class _StudyCompletion extends StatelessWidget {
   const _StudyCompletion({
@@ -2642,6 +2900,219 @@ class _SummaryGrid extends StatelessWidget {
     );
   }
 }
+
+class _AccuracyPanel extends StatelessWidget {
+  const _AccuracyPanel({required this.summary});
+
+  final SessionSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final accuracy = (summary.accuracyPercent / 100).clamp(0.0, 1.0).toDouble();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${summary.accuracyPercent.round()}%',
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                color: const Color(0xFF2E7D32),
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Accuracy',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: const Color(0xFF2E7D32),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: accuracy,
+                minHeight: 10,
+                backgroundColor: Colors.white,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF2E7D32),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WrongWordsPanel extends StatelessWidget {
+  const _WrongWordsPanel({required this.wrongWords});
+
+  final List<_WrongWordSummary> wrongWords;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Words to review',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.black,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (wrongWords.isEmpty)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F3F5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'No missed words this round.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          )
+        else
+          ...wrongWords.map(
+            (word) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              word.word,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: const Color(0xFFC62828),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            if (word.meaning.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                word.meaning,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: Colors.black54),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${word.missCount}x',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: const Color(0xFFC62828),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _WrongWordSummary {
+  const _WrongWordSummary({
+    required this.word,
+    required this.meaning,
+    required this.missCount,
+  });
+
+  final String word;
+  final String meaning;
+  final int missCount;
+}
+
+List<_WrongWordSummary> _wrongWordSummaries(
+  List<AnsweredStudyQuestion> answeredQuestions,
+) {
+  final byEntry = <String, _WrongWordAccumulator>{};
+  for (final answered in answeredQuestions) {
+    if (!_isMissedOutcome(answered.result.outcome)) continue;
+    final question = answered.question;
+    final key = question.entrySourceId;
+    final accumulator = byEntry.putIfAbsent(
+      key,
+      () => _WrongWordAccumulator(
+        word: question.word,
+        meaning: answered.result.correctAnswer.isNotEmpty
+            ? answered.result.correctAnswer
+            : question.acceptedMeanings.join(', '),
+      ),
+    );
+    accumulator.missCount += 1;
+  }
+  final out = byEntry.values
+      .map(
+        (value) => _WrongWordSummary(
+          word: value.word,
+          meaning: value.meaning,
+          missCount: value.missCount,
+        ),
+      )
+      .toList(growable: false);
+  out.sort((left, right) => right.missCount.compareTo(left.missCount));
+  return out;
+}
+
+class _WrongWordAccumulator {
+  _WrongWordAccumulator({required this.word, required this.meaning});
+
+  final String word;
+  final String meaning;
+  int missCount = 0;
+}
+
+bool _isMissedOutcome(AnswerOutcome outcome) =>
+    outcome == AnswerOutcome.incorrect || outcome == AnswerOutcome.skipped;
+
+String _summarySubtitle(SessionSummary summary) =>
+    '${summary.correctCount + summary.fuzzyCorrectCount}/${summary.totalQuestions} correct, ${summary.wrongWordCount} words need review';
+
+String _modeLabel(String mode) => switch (mode) {
+  'newWord' => 'new words',
+  'review' => 'review',
+  'mixedTest' => 'mixed test',
+  'wrongWordReinforcement' => 'wrong words',
+  'rootAffix' => 'roots',
+  _ => mode,
+};
 
 class _StudyMessage extends StatelessWidget {
   const _StudyMessage({

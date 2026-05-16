@@ -97,6 +97,28 @@ class WordAdminAuthService implements SupabaseAuthGateway {
   }
 
   @override
+  Future<void> resendSignupConfirmation({
+    required String email,
+  }) async {
+    throw UnsupportedError('Word Admin does not support email verification yet.');
+  }
+
+  @override
+  Future<void> requestPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    throw UnsupportedError('Word Admin does not support password reset yet.');
+  }
+
+  @override
+  Future<void> updatePassword({
+    required String password,
+  }) async {
+    throw UnsupportedError('Word Admin does not support password update yet.');
+  }
+
+  @override
   Future<AuthResponse> refreshSession() async {
     final prefs = await SharedPreferences.getInstance();
     final refreshToken = prefs.getString(_refreshTokenKey);

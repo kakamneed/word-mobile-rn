@@ -178,6 +178,10 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    implementation("androidx.core:core-ktx:1.13.1")
+}
+
 tasks.register<Exec>("buildRustDebugArm64") {
     onlyIf { rustBuildEnabled() }
     workingDir = rustCrateDir

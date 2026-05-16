@@ -13,6 +13,9 @@ enum AuthAccountPhase {
   checking,
   notConfigured,
   guestLocalOnly,
+  emailVerificationPending,
+  passwordResetEmailSent,
+  passwordUpdated,
   signedInNeedsBind,
   signedInActive,
   signedInExpired,
@@ -46,6 +49,15 @@ class AuthAccountState {
   const AuthAccountState.guestLocalOnly([
     String message = 'Guest local-only mode',
   ]) : this._(phase: AuthAccountPhase.guestLocalOnly, message: message);
+
+  const AuthAccountState.emailVerificationPending(String message)
+    : this._(phase: AuthAccountPhase.emailVerificationPending, message: message);
+
+  const AuthAccountState.passwordResetEmailSent(String message)
+    : this._(phase: AuthAccountPhase.passwordResetEmailSent, message: message);
+
+  const AuthAccountState.passwordUpdated(String message)
+    : this._(phase: AuthAccountPhase.passwordUpdated, message: message);
 
   const AuthAccountState.signedOutRetainedLocal()
     : this._(
@@ -156,7 +168,53 @@ class AuthSessionManager {
       return _stateFromSession(
         session,
         emptyMessage:
-            'Signup request completed. Check email confirmation before cloud sync is enabled.',
+            'Verification email sent. Check your inbox before cloud sync is enabled.',
+      );
+    } catch (error) {
+      return _stateFromAuthFailure(error);
+    }
+  }
+
+  Future<AuthAccountState> resendSignupConfirmation({
+    required String email,
+  }) async {
+    try {
+      await _auth.resendSignupConfirmation(email: email);
+      return AuthAccountState.emailVerificationPending(
+        'Verification email resent. Check your inbox.',
+      );
+    } catch (error) {
+      return _stateFromAuthFailure(error);
+    }
+  }
+
+  Future<AuthAccountState> requestPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    try {
+      await _auth.requestPasswordReset(email: email, redirectTo: redirectTo);
+      return AuthAccountState.passwordResetEmailSent(
+        'Password reset email sent. Check your inbox.',
+      );
+    } catch (error) {
+      return _stateFromAuthFailure(error);
+    }
+  }
+
+  Future<AuthAccountState> updatePassword({
+    required String password,
+  }) async {
+    try {
+      await _auth.updatePassword(password: password);
+      final session = await _auth.restoreSession();
+      if (session != null && !session.isExpired) {
+        return AuthAccountState.passwordUpdated(
+          'Password updated. You can continue using this account.',
+        );
+      }
+      return AuthAccountState.passwordUpdated(
+        'Password updated. Sign in again with the new password.',
       );
     } catch (error) {
       return _stateFromAuthFailure(error);
@@ -192,9 +250,10 @@ class AuthSessionManager {
   }) async {
     if (session == null) {
       await _localDataOwner?.preserveGuestLocalData();
-      return emptyMessage == null
-          ? const AuthAccountState.guestLocalOnly()
-          : AuthAccountState.guestLocalOnly(emptyMessage);
+      if (emptyMessage != null) {
+        return AuthAccountState.emailVerificationPending(emptyMessage);
+      }
+      return const AuthAccountState.guestLocalOnly();
     }
 
     if (!session.isExpired) {

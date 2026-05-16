@@ -83,21 +83,43 @@ void main() {
     );
   });
 
-  test('review row remains visible from today plan when review pool target is zero', () {
-    final snapshot = <String, dynamic>{
-      'newWordsTarget': 0,
-      'newWordsCompleted': 0,
-      'reviewWordsTarget': 0,
-      'reviewWordsCompleted': 0,
-      'mixedTestTarget': 0,
-      'mixedTestCompleted': 0,
-      'wrongWordTestTarget': 0,
-      'wrongWordTestCompleted': 0,
-      'rootAffixTarget': 0,
-      'rootAffixCompleted': 0,
-    };
+  test(
+    'review row remains visible from today plan when review pool target is zero',
+    () {
+      final snapshot = <String, dynamic>{
+        'newWordsTarget': 0,
+        'newWordsCompleted': 0,
+        'reviewWordsTarget': 0,
+        'reviewWordsCompleted': 0,
+        'mixedTestTarget': 0,
+        'mixedTestCompleted': 0,
+        'wrongWordTestTarget': 0,
+        'wrongWordTestCompleted': 0,
+        'rootAffixTarget': 0,
+        'rootAffixCompleted': 0,
+      };
 
-    expect(todayTaskBreakdownModesForTest(snapshot, plan), contains('review'));
-    expect(todayTaskBreakdownRowsForTest(snapshot, plan), contains('review:0/0'));
-  });
+      expect(
+        todayTaskBreakdownModesForTest(snapshot, plan),
+        contains('review'),
+      );
+      expect(
+        todayTaskBreakdownRowsForTest(snapshot, plan),
+        contains('review:0/0'),
+      );
+    },
+  );
+
+  test(
+    'display fallback mirrors the active plan without applying it to Today',
+    () {
+      final fallback = todaySnapshotOrPlanFallbackForTest(const {}, plan);
+
+      expect(fallback['newWordsTarget'], 8);
+      expect(fallback['reviewWordsTarget'], 12);
+      expect(fallback['mixedTestTarget'], 4);
+      expect(fallback['wrongWordTestTarget'], 5);
+      expect(fallback['rootAffixTarget'], 2);
+    },
+  );
 }

@@ -99,20 +99,17 @@ class BridgeError implements Exception {
   }
 
   /// User-friendly description safe to show in the UI.
-  String get userMessage {
-    switch (kind) {
-      case BridgeErrorKind.domain:
-        return message;
-      case BridgeErrorKind.runtime:
-        return '运行时初始化失败，请稍后重试。';
-      case BridgeErrorKind.platform:
-        return '平台桥接不可用，请检查当前设备构建。';
-      case BridgeErrorKind.protocol:
-        return '桥接返回的数据格式不正确。';
-      case BridgeErrorKind.unsupported:
-        return '当前平台暂不支持这个能力。';
-    }
-  }
+  String get userMessage => switch (kind) {
+        BridgeErrorKind.domain => message,
+        BridgeErrorKind.runtime =>
+          '\u672c\u5730\u5b66\u4e60\u6570\u636e\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u8bf7\u91cd\u8bd5\u3002',
+        BridgeErrorKind.platform =>
+          '\u8bbe\u5907\u6865\u63a5\u670d\u52a1\u4e0d\u53ef\u7528\uff0c\u8bf7\u91cd\u542f\u5e94\u7528\u540e\u518d\u8bd5\u3002',
+        BridgeErrorKind.protocol =>
+          '\u672c\u5730\u6570\u636e\u683c\u5f0f\u65e0\u6cd5\u8bc6\u522b\uff0c\u8bf7\u66f4\u65b0\u5e94\u7528\u3002',
+        BridgeErrorKind.unsupported =>
+          '\u5f53\u524d\u8bbe\u5907\u6216\u7248\u672c\u6682\u4e0d\u652f\u6301\u8be5\u529f\u80fd\u3002',
+      };
 
   @override
   String toString() => 'BridgeError($kind, $code): $message';
