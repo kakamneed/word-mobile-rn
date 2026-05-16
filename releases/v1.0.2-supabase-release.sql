@@ -1,3 +1,10 @@
+delete from public.app_releases
+where platform = 'android'
+  and runtime = 'flutter'
+  and channel = 'stable'
+  and version_name = '1.0.2'
+  and version_code = 3;
+
 insert into public.app_releases (
   platform,
   runtime,
@@ -25,3 +32,5 @@ insert into public.app_releases (
   100,
   true
 );
+
+notify pgrst, 'reload schema';
