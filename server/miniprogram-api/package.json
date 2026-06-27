@@ -1,0 +1,28 @@
+{
+  "name": "@word/miniprogram-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "First-party API boundary for the WeChat Mini Program.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "export:study-payloads": "node scripts/export-study-entry-payloads.mjs",
+    "import:study-payloads": "node scripts/import-study-entry-payloads.mjs",
+    "check:auth-flow": "node scripts/auth-flow-check.mjs",
+    "check:all": "node scripts/check-all.mjs",
+    "check:contracts": "node scripts/contract-check.mjs",
+    "check:email-bind": "node scripts/email-bind-check.mjs",
+    "check:http-auth": "node scripts/http-auth-check.mjs",
+    "check:http-learning": "node scripts/http-learning-check.mjs",
+    "check:http-rust-study": "node scripts/http-rust-study-check.mjs",
+    "check:real-adapter": "node scripts/real-adapter-check.mjs",
+    "check:rust-runner-domain": "node scripts/rust-runner-domain-check.mjs",
+    "check:study-domain": "node scripts/study-domain-contract-check.mjs",
+    "check:cloud-study-payloads": "node scripts/cloud-study-payload-check.mjs",
+    "check:study-payload-export": "node scripts/study-entry-payload-export-check.mjs",
+    "check:supabase-client": "node scripts/supabase-client-check.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

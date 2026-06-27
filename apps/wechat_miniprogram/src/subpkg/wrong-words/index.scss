@@ -1,0 +1,284 @@
+.wrong-summary,
+.wrong-card,
+.wrong-word-tile {
+  border-radius: 16px;
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.14);
+}
+
+.wrong-summary {
+  padding: 24px 22px;
+  color: #ffffff;
+  background: var(--flutter-hero-purple, #6b5b95);
+}
+
+.wrong-summary__title {
+  display: block;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.wrong-summary__caption {
+  display: block;
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 19px;
+  line-height: 1.45;
+}
+
+.wrong-summary__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.wrong-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 94px;
+  min-height: 74px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: #211c28;
+  background: #ffffff;
+  font-size: 17px;
+}
+
+.wrong-metric text:first-child {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.wrong-card {
+  margin-top: 18px;
+  padding: 22px 20px;
+  border: 1px solid #eee7f2;
+  background: #ffffff;
+}
+
+.wrong-card__title {
+  display: block;
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.wrong-card__caption {
+  display: block;
+  margin-top: 10px;
+  color: #6f6878;
+  font-size: 17px;
+  line-height: 1.42;
+}
+
+.wrong-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.wrong-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #d7cedd;
+  border-radius: 9px;
+  color: #4d4658;
+  background: #ffffff;
+  font-size: 17px;
+}
+
+.wrong-filter--active {
+  border-color: var(--flutter-soft, #eee6ff);
+  color: var(--flutter-primary, #4f426d);
+  background: var(--flutter-soft, #eee6ff);
+}
+
+.reinforce-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+  margin-top: 28px;
+  border-radius: 999px;
+  color: var(--flutter-primary, #5d4d82);
+  background: var(--flutter-soft, #eee6ff);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.wrong-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.wrong-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wrong-word-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid #eee7f2;
+  background: #ffffff;
+}
+
+.wrong-word-tile--selected {
+  border-color: var(--flutter-soft, #d9c9ef);
+  background: var(--flutter-soft, #fbf8ff);
+}
+
+.wrong-word-tile__copy {
+  min-width: 0;
+}
+
+.wrong-word-tile__word {
+  display: block;
+  color: #211c28;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.wrong-word-tile__phonetic,
+.wrong-word-tile__meaning,
+.wrong-word-tile__meta {
+  display: block;
+  margin-top: 7px;
+  color: #4e4858;
+  font-size: 18px;
+  line-height: 1.32;
+}
+
+.wrong-word-tile__meta {
+  font-size: 16px;
+}
+
+.wrong-word-tile__hint {
+  display: block;
+  margin-top: 10px;
+  color: var(--flutter-primary, #6b5b95);
+  font-size: 16px;
+  line-height: 1.38;
+}
+
+.wrong-word-tile__score {
+  align-self: center;
+  justify-self: end;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #c55764;
+  background: #f7e5ec;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.wrong-detail-card {
+  padding: 20px;
+  border: 1px solid #eee7f2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.1);
+}
+
+.wrong-detail-card__title {
+  display: block;
+  color: #211c28;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.wrong-detail-card__subtitle {
+  display: block;
+  margin-top: 4px;
+  color: #6f6878;
+  font-size: 17px;
+}
+
+.wrong-detail-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #eee7f2;
+}
+
+.wrong-detail-section--hint {
+  padding: 16px;
+  border: 1px solid #d9ede5;
+  border-radius: 12px;
+  background: #f2faf6;
+}
+
+.wrong-detail-section__title {
+  display: block;
+  color: #211c28;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.wrong-detail-section__body {
+  display: block;
+  margin-top: 8px;
+  color: #5c5367;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.wrong-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  color: #5c5367;
+  font-size: 16px;
+}
+
+.wrong-example {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #faf8fd;
+}
+
+.wrong-example__sentence,
+.wrong-example__translation {
+  display: block;
+  color: #211c28;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.wrong-example__translation {
+  margin-top: 8px;
+  color: #6f6878;
+}
+
+.wrong-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.wrong-chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--flutter-primary, #4f426d);
+  background: var(--flutter-soft, #eee6ff);
+  font-size: 15px;
+}
+
+.wrong-chip--root {
+  color: #2f8368;
+  background: #e5f3ed;
+}

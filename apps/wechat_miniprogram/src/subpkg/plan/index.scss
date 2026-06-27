@@ -1,0 +1,324 @@
+.plan-hero,
+.plan-card {
+  border-radius: 16px;
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.14);
+}
+
+.plan-hero {
+  padding: 22px;
+  color: #ffffff;
+  background: var(--flutter-hero-purple, #6b5b95);
+}
+
+.plan-hero__title {
+  display: block;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.plan-hero__caption {
+  display: block;
+  margin-top: 14px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.plan-hero__chips {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.plan-hero__chip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 76px;
+  height: 68px;
+  padding-left: 12px;
+  border-radius: 10px;
+  color: #211c28;
+  background: #ffffff;
+  font-size: 15px;
+}
+
+.plan-hero__chip-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.plan-hero__status {
+  display: block;
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14px;
+}
+
+.plan-card {
+  margin-top: 18px;
+  padding: 22px 18px;
+  border: 1px solid #eee7f2;
+  background: #ffffff;
+}
+
+.plan-card__title {
+  display: block;
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.plan-card__caption {
+  display: block;
+  margin-top: 10px;
+  color: #6f6878;
+  font-size: 17px;
+  line-height: 1.42;
+}
+
+.plan-name-input {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  margin-top: 16px;
+  padding: 0 14px;
+  border: 1px solid #726b78;
+  border-radius: 3px;
+  color: #211c28;
+  font-size: 18px;
+}
+
+.plan-name-count {
+  display: block;
+  margin-top: 6px;
+  color: #6f6878;
+  font-size: 13px;
+  text-align: right;
+}
+
+.target-row,
+.growth-toggle-row,
+.wordbook-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.target-row {
+  margin-top: 20px;
+}
+
+.target-row--compact {
+  margin-top: 16px;
+}
+
+.target-row__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.target-row__title {
+  display: block;
+  color: #211c28;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.target-row__caption {
+  display: block;
+  margin-top: 5px;
+  color: #6f6878;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 42px 72px 42px;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.stepper__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #9c95a4;
+  border-radius: 999px;
+  color: #4c4753;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  background: #ffffff;
+}
+
+.stepper__button::after {
+  border: 0;
+}
+
+.stepper__value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 50px;
+  border: 1px solid #89828f;
+  border-radius: 4px;
+  color: #211c28;
+  font-size: 20px;
+}
+
+.growth-toggle-row {
+  margin-top: 20px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  width: 54px;
+  height: 32px;
+  padding: 3px;
+  border: 2px solid #7a7480;
+  border-radius: 999px;
+  background: #e3dfe7;
+}
+
+.switch view {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #77717b;
+}
+
+.switch--on {
+  justify-content: flex-end;
+  background: #eee6ff;
+}
+
+.segment-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 42px;
+  border: 1px solid #ded6e5;
+  border-radius: 8px;
+  color: #4a4452;
+  background: #ffffff;
+  font-size: 15px;
+}
+
+.segment--active {
+  color: var(--flutter-primary, #4d3f73);
+  border-color: var(--flutter-soft, #eee6ff);
+  background: var(--flutter-soft, #eee6ff);
+}
+
+.growth-box {
+  margin-top: 18px;
+  padding: 18px 14px;
+  border-radius: 14px;
+  background: rgba(251, 247, 255, 0.82);
+}
+
+.growth-box__title {
+  color: #211c28;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.growth-box__caption {
+  display: block;
+  margin-top: 6px;
+  color: #6f6878;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.wordbook-row {
+  justify-content: flex-start;
+  margin-top: 14px;
+  padding: 14px 10px;
+  border-radius: 12px;
+}
+
+.wordbook-row--active {
+  background: #fbf8ff;
+}
+
+.radio-dot {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #585260;
+  border-radius: 999px;
+}
+
+.radio-dot--active {
+  box-shadow: inset 0 0 0 4px #fbf7ff;
+  background: var(--flutter-primary, #6b5b95);
+}
+
+.wordbook-row__copy {
+  min-width: 0;
+}
+
+.wordbook-row__title {
+  display: block;
+  color: #211c28;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.wordbook-row__caption {
+  display: block;
+  margin-top: 5px;
+  color: #6f6878;
+  font-size: 15px;
+}
+
+.plan-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 112px;
+}
+
+.plan-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #5d5368;
+  border: 1px solid #8b8490;
+  background: #ffffff;
+}
+
+.plan-action--primary {
+  color: #ffffff;
+  border-color: var(--flutter-primary, #6b5b95);
+  background: var(--flutter-primary, #6b5b95);
+}
+
+.plan-action--disabled {
+  opacity: 0.58;
+}

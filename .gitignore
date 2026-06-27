@@ -15,6 +15,10 @@ apps/mobile/android/.gradle-home/
 apps/mobile/android/local.properties
 apps/mobile/android/app/build/
 apps/mobile/android_build*/
+apps/wechat_miniprogram/node_modules/
+apps/wechat_miniprogram/dist/
+apps/wechat_miniprogram/.swc/
+server/miniprogram-api/out/
 
 *.log
 *.tmp

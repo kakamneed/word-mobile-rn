@@ -1,0 +1,22 @@
+.primary-button {
+  height: 42px;
+  margin: 0;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 42px;
+}
+
+.primary-button::after {
+  border: 0;
+}
+
+.primary-button--primary {
+  color: #ffffff;
+  background: var(--flutter-primary, #2f7d65);
+}
+
+.primary-button--secondary {
+  color: var(--flutter-primary, #2f7d65);
+  background: var(--flutter-soft, #e8f4ef);
+}

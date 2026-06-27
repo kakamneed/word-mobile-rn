@@ -5,6 +5,7 @@ members = [
     "crates/content-core",
     "crates/storage-core",
     "crates/platform-mobile",
+    "crates/study-domain-runner",
 ]
 resolver = "2"
 

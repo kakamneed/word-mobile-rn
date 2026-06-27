@@ -1,0 +1,42 @@
+[
+  {
+    "entryId": 9001,
+    "sourceId": "fixture-alpha",
+    "word": "alpha",
+    "partOfSpeech": "n",
+    "frequency": 10,
+    "meaningDetails": [
+      {
+        "pos": "n",
+        "meaningCn": "alpha meaning"
+      }
+    ],
+    "meanings": [
+      "alpha meaning"
+    ],
+    "exampleSentence": "alpha example",
+    "exampleTranslation": "alpha translation",
+    "wordbookId": 1,
+    "rankInBook": 1
+  },
+  {
+    "entryId": 9002,
+    "sourceId": "fixture-beta",
+    "word": "beta",
+    "partOfSpeech": "n",
+    "frequency": 9,
+    "meaningDetails": [
+      {
+        "pos": "n",
+        "meaningCn": "beta meaning"
+      }
+    ],
+    "meanings": [
+      "beta meaning"
+    ],
+    "exampleSentence": "beta example",
+    "exampleTranslation": "beta translation",
+    "wordbookId": 1,
+    "rankInBook": 2
+  }
+]

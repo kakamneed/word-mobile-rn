@@ -3,23 +3,25 @@ use jni::sys::jstring;
 use jni::JNIEnv;
 
 use crate::bridge::{
-    analyze_wrong_word_import, apply_saved_plan_to_today, build_reports_overview,
-    build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
-    build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
-    create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill, generate_ai_passage,
-    get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_provider_config,
-    get_bootstrap_state, get_bridge_status, get_croc_bti_profile, get_local_leaderboard,
-    get_reports_overview, get_resume_session_hint, get_reward_image_upload_entitlement,
-    get_settings, get_sync_status, get_today_ai_passage_context, get_today_home_state,
-    get_today_reward_state, get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail,
+    accept_disputed_meaning, analyze_wrong_word_import, apply_saved_plan_to_today,
+    build_reports_overview, build_today_ai_passage_context, build_today_home_state,
+    build_wrong_word_detail, build_wrong_words, cancel_study_session, commit_wrong_word_import,
+    complete_study_session, create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill,
+    generate_ai_passage, get_active_plan, get_ai_passage, get_ai_passage_history,
+    get_ai_passage_style_preference, get_ai_provider_config, get_bootstrap_state,
+    get_bridge_status, get_croc_bti_profile, get_local_leaderboard, get_reports_overview,
+    get_resume_session_hint, get_reward_image_upload_entitlement, get_settings, get_sync_status,
+    get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
+    get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail, get_wrong_word_graph,
     get_wrong_words, initialize_mobile_runtime, list_reward_images, mark_onboarding_completed,
     mark_study_entry_mastered, moderate_reward_image, reconcile_local_data_owner,
     record_cloud_restore_attempt, record_sync_result, refresh_local_leaderboard_summary,
     refresh_reward_image_upload_entitlement, restore_cloud_ai_passage_snapshot,
-    restore_cloud_data_snapshot, save_ai_passage, save_ai_provider_config, save_croc_bti_profile,
-    save_plan, save_word_hint, seed_local_leaderboard_demo, select_leaderboard_reward_image_tag,
-    start_study_session, submit_study_answer, switch_to_guest_local_data, toggle_wordbook,
-    vote_reward_image,
+    restore_cloud_data_snapshot, save_ai_passage, save_ai_passage_style_preference,
+    save_ai_provider_config, save_croc_bti_profile, save_plan, save_word_hint,
+    save_wrong_word_graph_position, seed_local_leaderboard_demo,
+    select_leaderboard_reward_image_tag, start_study_session, submit_study_answer,
+    switch_to_guest_local_data, toggle_wordbook, vote_reward_image,
 };
 
 fn to_java_string(env: &mut JNIEnv, value: &str) -> jstring {
@@ -395,6 +397,28 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWrongWords(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWrongWordGraph(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_wrong_word_graph() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSaveWrongWordGraphPosition(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(save_wrong_word_graph_position) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+#[no_mangle]
 pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetWrongWordDetail(
     mut env: JNIEnv,
     _class: JClass,
@@ -628,6 +652,29 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetAiPassage(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetAiPassageStylePreference(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_ai_passage_style_preference() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSaveAiPassageStylePreference(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(save_ai_passage_style_preference) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGenerateAiPassage(
     mut env: JNIEnv,
     _class: JClass,
@@ -694,6 +741,18 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeMarkStudyEntryMaster
     request_json: JString,
 ) -> jstring {
     match string_arg(&mut env, request_json).and_then(mark_study_entry_mastered) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeAcceptDisputedMeaning(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(accept_disputed_meaning) {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }

@@ -1,4 +1,4 @@
-import { request } from '@tarojs/taro';
+﻿import { request } from '@tarojs/taro';
 
 import {
   LeaderboardMetric,
@@ -22,6 +22,8 @@ export interface ApiErrorPayload {
   message: string;
   requestId?: string;
   retryable?: boolean;
+  routeKey?: ApiRouteKey;
+  path?: string;
 }
 
 export class ApiError extends Error {
@@ -39,6 +41,7 @@ export class ApiError extends Error {
 export interface ApiTransportConfig {
   baseUrl: string;
   getToken?: () => string | undefined | Promise<string | undefined>;
+  ensureSession?: () => Promise<void>;
   refreshSession?: () => Promise<void>;
 }
 
@@ -50,6 +53,9 @@ export async function apiRequest<TResponse>(
   options: { hasRetried?: boolean } = {},
 ): Promise<TResponse> {
   const route = apiRoutes[routeKey];
+  if (route.authRequired && !publicRouteKeys.has(routeKey)) {
+    await config.ensureSession?.();
+  }
   const token = await config.getToken?.();
   const path = applyParams(route.path, params);
   const response = await request<TResponse | ApiErrorPayload>({
@@ -57,6 +63,7 @@ export async function apiRequest<TResponse>(
     method: route.method,
     data,
     header: token ? { Authorization: `Bearer ${token}` } : undefined,
+    timeout: 12000,
   });
 
   if (
@@ -74,9 +81,11 @@ export async function apiRequest<TResponse>(
     const payload = response.data as ApiErrorPayload;
     throw new ApiError(response.statusCode, {
       code: payload.code ?? 'request_failed',
-      message: payload.message ?? 'Request failed',
+      message: payload.message ?? `${routeKey} failed with ${response.statusCode}`,
       requestId: payload.requestId,
       retryable: payload.retryable,
+      routeKey,
+      path,
     });
   }
 

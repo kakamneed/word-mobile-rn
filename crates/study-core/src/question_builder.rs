@@ -20,6 +20,8 @@ pub struct WordForQuestion {
     pub phonetic_uk: Option<String>,
     pub meanings: Vec<MeaningZh>,
     pub examples: Vec<EntryExample>,
+    pub cn_choice_distractors: Vec<String>,
+    pub en_choice_distractors: Vec<String>,
 }
 
 /// Builds question sets from word entries.
@@ -258,6 +260,7 @@ impl QuestionBuilder {
                 let accepted_meanings = vec![Self::sanitize_choice_text(&primary_meaning)];
                 let excluded_meanings = Self::choice_meanings_for_word(word);
                 let (choices, correct_label) = Self::build_cn_choices(
+                    word,
                     &primary_meaning,
                     distractors,
                     &excluded_meanings,
@@ -299,6 +302,7 @@ impl QuestionBuilder {
                 let accepted_meanings = vec![Self::sanitize_choice_text(&contextual_meaning)];
                 let excluded_meanings = Self::choice_meanings_for_word(word);
                 let (choices, correct_label) = Self::build_cn_choices(
+                    word,
                     &contextual_meaning,
                     distractors,
                     &excluded_meanings,
@@ -456,6 +460,7 @@ impl QuestionBuilder {
     }
 
     fn build_cn_choices(
+        word: &WordForQuestion,
         correct_text: &str,
         distractors: &[WordForQuestion],
         accepted_meanings: &[String],
@@ -468,18 +473,31 @@ impl QuestionBuilder {
             .iter()
             .map(|meaning| Self::sanitize_choice_text(meaning))
             .collect();
-        let mut distractor_texts = if target_pos.is_some() {
-            Self::collect_ranked_distractor_texts(
+        let mut distractor_texts = Self::collect_precomputed_distractor_texts(
+            &word.cn_choice_distractors,
+            question_index,
+            &word.source_id,
+            &correct_text,
+            |text| !excluded_meanings.contains(text) && !used_distractors.contains(text),
+        );
+        if distractor_texts.len() < 3 && target_pos.is_some() {
+            let mut seen: HashSet<String> = distractor_texts.iter().cloned().collect();
+            for text in Self::collect_ranked_distractor_texts(
                 distractors,
                 question_index,
                 &correct_text,
                 &correct_text,
                 |candidate| Self::choice_meanings_for_distractor(candidate, target_pos),
                 |text| !excluded_meanings.contains(text) && !used_distractors.contains(text),
-            )
-        } else {
-            Vec::new()
-        };
+            ) {
+                if seen.insert(text.clone()) {
+                    distractor_texts.push(text);
+                }
+                if distractor_texts.len() >= 3 {
+                    break;
+                }
+            }
+        }
 
         for text in &distractor_texts {
             excluded_meanings.insert(text.clone());
@@ -566,23 +584,40 @@ impl QuestionBuilder {
             .first()
             .map(|meaning| meaning.meaning_cn.as_str())
             .unwrap_or("");
-        let mut distractor_texts = Self::collect_ranked_distractor_texts(
-            distractors,
+        let mut distractor_texts = Self::collect_precomputed_distractor_texts(
+            &word.en_choice_distractors,
             question_index,
             &word.source_id,
             correct_meaning,
-            |candidate| {
-                if same_part_of_speech(
-                    word.part_of_speech.as_deref(),
-                    candidate.part_of_speech.as_deref(),
-                ) {
-                    vec![candidate.word.clone()]
-                } else {
-                    Vec::new()
-                }
-            },
             |text| text != &correct_text && !used_distractors.contains(text),
         );
+        if distractor_texts.len() < 3 {
+            let mut seen: HashSet<String> = distractor_texts.iter().cloned().collect();
+            for text in Self::collect_ranked_distractor_texts(
+                distractors,
+                question_index,
+                &word.source_id,
+                correct_meaning,
+                |candidate| {
+                    if same_part_of_speech(
+                        word.part_of_speech.as_deref(),
+                        candidate.part_of_speech.as_deref(),
+                    ) {
+                        vec![candidate.word.clone()]
+                    } else {
+                        Vec::new()
+                    }
+                },
+                |text| text != &correct_text && !used_distractors.contains(text),
+            ) {
+                if seen.insert(text.clone()) {
+                    distractor_texts.push(text);
+                }
+                if distractor_texts.len() >= 3 {
+                    break;
+                }
+            }
+        }
         if distractor_texts.len() < 3 {
             let mut seen: HashSet<String> = distractor_texts.iter().cloned().collect();
             for text in Self::collect_ranked_distractor_texts(
@@ -694,6 +729,45 @@ impl QuestionBuilder {
             left_key.cmp(&right_key).then_with(|| left.1.cmp(&right.1))
         });
         pool.into_iter().take(3).map(|(_, text)| text).collect()
+    }
+
+    fn collect_precomputed_distractor_texts<FFilter>(
+        candidates: &[String],
+        question_index: u32,
+        source_id: &str,
+        correct_hint: &str,
+        should_keep: FFilter,
+    ) -> Vec<String>
+    where
+        FFilter: Fn(&String) -> bool,
+    {
+        let mut ranked = Vec::<(usize, String)>::new();
+        let mut seen = HashSet::new();
+        let correct_norm = normalize_context_text(correct_hint);
+
+        for candidate in candidates {
+            let text = Self::sanitize_choice_text(candidate);
+            if text.trim().is_empty() || !should_keep(&text) || !seen.insert(text.clone()) {
+                continue;
+            }
+            let text_norm = normalize_context_text(&text);
+            let semantic_score = distractor_similarity_score(&correct_norm, &text_norm);
+            ranked.push((semantic_score, text));
+        }
+
+        ranked.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
+        ranked.sort_by(|left, right| {
+            let left_key = Self::stable_distractor_seed(&format!(
+                "{source_id}:{question_index}:{correct_hint}:{}",
+                left.1
+            ));
+            let right_key = Self::stable_distractor_seed(&format!(
+                "{source_id}:{question_index}:{correct_hint}:{}",
+                right.1
+            ));
+            left_key.cmp(&right_key).then_with(|| left.1.cmp(&right.1))
+        });
+        ranked.into_iter().take(3).map(|(_, text)| text).collect()
     }
 
     fn distractor_quality_window(candidates: &[(usize, String)]) -> usize {
@@ -1049,6 +1123,8 @@ mod tests {
                 })
                 .into_iter()
                 .collect(),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         }
     }
 
@@ -1298,6 +1374,95 @@ mod tests {
         );
     }
 
+    #[test]
+    fn en_to_cn_choices_use_precomputed_wordbook_distractors_without_global_pool() {
+        let mut target = build_word(
+            "target",
+            "assimilate",
+            Some("v."),
+            &[("v.", "经消化而吸收，同化")],
+            None,
+        );
+        target.cn_choice_distractors = vec![
+            "吸收，接纳".to_string(),
+            "适应，改编".to_string(),
+            "结合，融合".to_string(),
+            "吞并，合并".to_string(),
+            "吸引，引起".to_string(),
+            "消化，领会".to_string(),
+            "转化，改变".to_string(),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::EnToCnChoice,
+            &[],
+            "sess_precomputed_cn",
+            0,
+            1,
+        );
+
+        let correct_label = question
+            .correct_choice_label
+            .as_deref()
+            .expect("correct label should exist");
+        let choices = question.choices.expect("choices should exist");
+        assert_eq!(choices.len(), 4);
+        assert!(choices.iter().any(|choice| {
+            choice.label == correct_label && choice.text == "经消化而吸收，同化"
+        }));
+        let distractor_count = choices
+            .iter()
+            .filter(|choice| choice.label != correct_label)
+            .filter(|choice| target.cn_choice_distractors.contains(&choice.text))
+            .count();
+        assert_eq!(distractor_count, 3);
+    }
+
+    #[test]
+    fn cn_to_en_choices_use_precomputed_wordbook_distractors_without_global_pool() {
+        let mut target = build_word(
+            "target",
+            "explosive",
+            Some("adj."),
+            &[("adj.", "爆炸的，爆发的")],
+            None,
+        );
+        target.en_choice_distractors = vec![
+            "violent".to_string(),
+            "intense".to_string(),
+            "sudden".to_string(),
+            "rapid".to_string(),
+            "fierce".to_string(),
+            "dramatic".to_string(),
+            "unstable".to_string(),
+        ];
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::CnToEnChoice,
+            &[],
+            "sess_precomputed_en",
+            0,
+            1,
+        );
+
+        let correct_label = question
+            .correct_choice_label
+            .as_deref()
+            .expect("correct label should exist");
+        let choices = question.choices.expect("choices should exist");
+        assert_eq!(choices.len(), 4);
+        assert!(choices
+            .iter()
+            .any(|choice| choice.label == correct_label && choice.text == "explosive"));
+        let distractor_count = choices
+            .iter()
+            .filter(|choice| choice.label != correct_label)
+            .filter(|choice| target.en_choice_distractors.contains(&choice.text))
+            .count();
+        assert_eq!(distractor_count, 3);
+    }
     #[test]
     fn cn_to_en_choices_prefer_same_part_of_speech_distractors() {
         let target = build_word("target", "adapt", Some("v."), &[("v.", "adapt")], None);

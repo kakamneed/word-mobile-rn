@@ -151,6 +151,8 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             meanings: vec!["meaning".into()],
             example_sentence: Some("He abandoned the project.".into()),
             example_translation: Some("example translation".into()),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         },
         StartSessionEntryPayload {
             source_id: "w2".into(),
@@ -167,6 +169,8 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             meanings: vec!["meaning".into()],
             example_sentence: Some("Abstract thinking is important.".into()),
             example_translation: Some("example translation".into()),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         },
         StartSessionEntryPayload {
             source_id: "w3".into(),
@@ -183,6 +187,8 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             meanings: vec!["meaning".into()],
             example_sentence: Some("She has an academic background.".into()),
             example_translation: Some("example translation".into()),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         },
         StartSessionEntryPayload {
             source_id: "w4".into(),
@@ -199,6 +205,8 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             meanings: vec!["meaning".into()],
             example_sentence: Some("We need to accelerate the process.".into()),
             example_translation: Some("example translation".into()),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         },
         StartSessionEntryPayload {
             source_id: "w5".into(),
@@ -215,6 +223,8 @@ fn make_entry_payloads() -> Vec<StartSessionEntryPayload> {
             meanings: vec!["meaning".into()],
             example_sentence: Some("Please accept my apology.".into()),
             example_translation: Some("example translation".into()),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         },
     ]
 }

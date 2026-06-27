@@ -138,10 +138,14 @@ impl AnswerEvaluator {
 
         // Check each accepted meaning
         for meaning in accepted_meanings {
+            if normalized_input == normalize_meaning_segment(meaning) {
+                return (AnswerOutcome::Correct, normalized_input);
+            }
+
             let accepted_parts = normalized_meaning_parts(meaning);
 
             if accepted_parts.iter().any(|part| &normalized_input == part) {
-                return (AnswerOutcome::Correct, normalized_input);
+                return (AnswerOutcome::FuzzyCorrect, normalized_input);
             }
 
             if is_fuzzy_meaning_match(&normalized_input, &accepted_parts) {
@@ -576,7 +580,7 @@ mod tests {
         let result =
             AnswerEvaluator::evaluate(&question, &answer("润滑油"), "2026-04-30T00:00:00Z");
 
-        assert_eq!(result.outcome, AnswerOutcome::Correct);
+        assert_eq!(result.outcome, AnswerOutcome::FuzzyCorrect);
     }
 
     #[test]
@@ -595,6 +599,37 @@ mod tests {
         let result = AnswerEvaluator::evaluate(&question, &answer("取代"), "2026-04-30T00:00:00Z");
 
         assert_eq!(result.outcome, AnswerOutcome::FuzzyCorrect);
+    }
+
+    #[test]
+    fn input_accepts_full_multi_segment_meaning_as_correct() {
+        let question = input_question(vec![
+            "\u{95f4}\u{9694}\u{ff1b}\u{95f4}\u{9699}\u{ff1b}\u{5206}\u{6b67}",
+        ]);
+
+        let result = AnswerEvaluator::evaluate(
+            &question,
+            &answer("\u{95f4}\u{9694}\u{ff1b}\u{95f4}\u{9699}\u{ff1b}\u{5206}\u{6b67}"),
+            "2026-04-30T00:00:00Z",
+        );
+
+        assert_eq!(result.outcome, AnswerOutcome::Correct);
+    }
+
+    #[test]
+    fn input_accepts_independent_synonym_as_correct() {
+        let question = input_question(vec![
+            "\u{95f4}\u{9694}\u{ff1b}\u{95f4}\u{9699}",
+            "\u{7f3a}\u{53e3}",
+        ]);
+
+        let result = AnswerEvaluator::evaluate(
+            &question,
+            &answer("\u{7f3a}\u{53e3}"),
+            "2026-04-30T00:00:00Z",
+        );
+
+        assert_eq!(result.outcome, AnswerOutcome::Correct);
     }
 
     #[test]

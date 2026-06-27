@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 /// Current schema version. Increment when structural changes are needed.
-pub const SCHEMA_VERSION: i64 = 13;
+pub const SCHEMA_VERSION: i64 = 15;
 
 /// Applies all idempotent schema migrations to the database.
 ///
@@ -134,6 +134,8 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
     )
     .map_err(|e| crate::StorageError::Schema(format!("Failed to create wordbook_entries: {e}")))?;
 
+    create_entry_question_prep_tables(conn)?;
+
     // Plan templates
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS plan_templates (
@@ -226,6 +228,7 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
     .map_err(|e| crate::StorageError::Schema(format!("Failed to create word_hints: {e}")))?;
 
     create_mastered_entry_tables(conn)?;
+    create_user_accepted_meaning_tables(conn)?;
 
     // Sync outbox
     conn.execute_batch(
@@ -292,6 +295,8 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
          CREATE INDEX IF NOT EXISTS idx_imported_wrong_words_entry ON imported_wrong_words(entry_id);
          CREATE INDEX IF NOT EXISTS idx_imported_wrong_words_word ON imported_wrong_words(word);
          CREATE INDEX IF NOT EXISTS idx_word_hints_updated ON word_hints(updated_at);
+         CREATE INDEX IF NOT EXISTS idx_user_accepted_meanings_entry ON user_accepted_meanings(entry_id);
+         CREATE INDEX IF NOT EXISTS idx_user_accepted_meanings_source ON user_accepted_meanings(entry_source_id);
          CREATE INDEX IF NOT EXISTS idx_mastered_entries_source ON mastered_entries(source_entry_id);
          CREATE INDEX IF NOT EXISTS idx_mastered_entries_mastered_at ON mastered_entries(mastered_at);
          CREATE INDEX IF NOT EXISTS idx_sync_outbox_domain ON sync_outbox(domain);
@@ -387,6 +392,57 @@ fn run_migrations(conn: &Connection, from_version: i64) -> Result<(), crate::Sto
     if from_version < 13 {
         create_mastered_entry_tables(conn)?;
     }
+    if from_version < 14 {
+        create_user_accepted_meaning_tables(conn)?;
+    }
+    if from_version < 15 {
+        create_entry_question_prep_tables(conn)?;
+    }
+    Ok(())
+}
+
+fn create_entry_question_prep_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS entry_question_preps (
+            entry_id INTEGER NOT NULL PRIMARY KEY,
+            cn_choice_distractors_json TEXT NOT NULL DEFAULT '[]',
+            en_choice_distractors_json TEXT NOT NULL DEFAULT '[]',
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_entry_question_preps_updated ON entry_question_preps(updated_at);",
+    )
+    .map_err(|e| {
+        crate::StorageError::Schema(format!(
+            "Failed to create entry question prep tables: {e}"
+        ))
+    })?;
+    Ok(())
+}
+fn create_user_accepted_meaning_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS user_accepted_meanings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            entry_source_id TEXT NOT NULL DEFAULT '',
+            meaning_cn TEXT NOT NULL DEFAULT '',
+            source TEXT NOT NULL DEFAULT 'user_dispute',
+            question_id TEXT NOT NULL DEFAULT '',
+            question_type TEXT NOT NULL DEFAULT '',
+            submitted_answer TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(entry_id, meaning_cn),
+            FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_accepted_meanings_entry ON user_accepted_meanings(entry_id);
+        CREATE INDEX IF NOT EXISTS idx_user_accepted_meanings_source ON user_accepted_meanings(entry_source_id);",
+    )
+    .map_err(|e| {
+        crate::StorageError::Schema(format!(
+            "Failed to create user accepted meaning tables: {e}"
+        ))
+    })?;
     Ok(())
 }
 

@@ -54,6 +54,24 @@ The order is intentionally conservative:
   - Add crash-safe lifecycle handling, release build validation, observability hooks, and app-store readiness work
   - Finalize icons, permissions, privacy text, packaging, and QA passes
 
+- [ ] **Phase 12: WeChat Mini Program Flutter UI Pixel Parity**
+  - Restore the Taro mini program visual shell, cards, navigation, drawer, and major learning surfaces to match the Flutter screenshots
+  - Treat Flutter as the visual source of truth while keeping backend and business logic boundaries unchanged
+  - Skip AI-related mini program UI in this release; AI remains a later-version capability
+  - Add UI contract checks so the mini program cannot silently drift back to the sparse placeholder layouts
+
+- [ ] **Phase 13: WeChat Mini Program Flutter Behavior and Interaction Parity**
+  - Restore Flutter-derived button behavior, card proportions, Reports chart interactions, Croc BTI tuning, Plan save/apply logic, and Study vertical feed flow
+  - Treat Flutter SDK calls and page state machines as the behavior source of truth while keeping shared backend contracts intact
+  - Continue skipping AI-related mini program UI in the first mini-program release
+  - Add focused contract checks for report data, Croc BTI weights, plan payloads, study feed construction, and WeChat runtime stability
+
+- [ ] **Phase 14: WeChat Mini Program Flutter Source Parity Correction**
+  - Correct the shallow Phase 13 implementation by re-reading Flutter source as the source of truth for Croc BTI, Study answering, Reports charts, Plan apply, and Today progress
+  - Replace mini-program mock-only question repetition, option feedback, and Today progress mutation with Flutter/backend-equivalent session semantics
+  - Preserve AI omission for the first mini-program release
+  - Add regression tests that prove question advancement, four-option choice rendering, answer feedback, Croc BTI completion gating, chart node selection, and plan/state sync
+
 ## Phase Details
 
 ### Phase 1: Shared Rust Core Extraction Baseline
@@ -117,7 +135,7 @@ Success criteria:
 **Goal:** Replace the remaining mobile stub/runtime truth gaps with desktop-backed behavior, finish AI passage/history integration, and define a trustworthy local-data continuity strategy.
 **Requirements**: [ARCH-02, MOB-02, MOB-05, STUD-02, STUD-04, PLAN-01, RPT-01, AI-01, AI-02, AI-03]
 **Depends on:** Phase 7
-**Plans:** 4 plans
+**Plans:** 5 plans
 
 Plans:
 - [ ] 07.3-01 - Replace Android/mobile stub truth with real bridge-backed contracts
@@ -230,3 +248,73 @@ Success criteria:
 2. Future agents can modify Today, answering, AI, and persistence without needing to rediscover which historical paths are stale.
 3. Regression guards cover the two named hard bugs and the broader layer-cleanup risks from Phase 10.
 4. Project planning docs point to the new skills and structure docs as the default entry points for future learning-flow work.
+
+### Phase 12: WeChat Mini Program Flutter UI Pixel Parity
+
+**Goal:** Make the WeChat Mini Program UI visually match the Flutter reference screenshots across Today, Plan, Wrong Words, Reports, Reward/diagnostics sections, and the account drawer before continuing deeper feature work, while deliberately skipping AI-related UI for the first mini program version.
+**Requirements:** [MOB-01, STUD-01, STUD-05, PLAN-01, PLAN-02, WRNG-02, RPT-01]
+**Depends on:** WeChat Mini Program migration and Phase 11 learning-flow guardrails
+**Plans:** 5 plans
+
+Plans:
+- [ ] 12-01 - Build the Flutter-like mini program app shell, custom navigation, bottom tabs, and account drawer
+- [ ] 12-02 - Restore Today, reward, diagnostics, and task-breakdown visuals to the Flutter reference while omitting AI UI
+- [ ] 12-03 - Restore Plan editor cards, controls, wordbook management, and sticky actions to the Flutter reference
+- [ ] 12-04 - Restore Wrong Words and Reports surfaces to the Flutter reference
+- [ ] 12-05 - Add UI contract verification and screenshot QA workflow for mini program Flutter parity
+
+Success criteria:
+1. The mini program no longer shows native WeChat page-title chrome, sparse English placeholder cards, or Account as a bottom tab.
+2. Today, Plan, Wrong Words, Reports, and drawer surfaces use the Flutter visual hierarchy, Chinese copy, purple/lavender palette, card radii, controls, and spacing shown in the paired screenshots.
+3. Reward and diagnostics sections are visually present as in Flutter; AI tab, AI page, AI summary cards, and AI generation controls are absent from the mini program build.
+4. Typecheck, WeChat build, and UI contract checks pass, followed by manual WeChat DevTools screenshot comparison against the six supplied references.
+
+### Phase 13: WeChat Mini Program Flutter Behavior and Interaction Parity
+
+**Goal:** Finish the next layer of mini-program parity by restoring Flutter's behavior models for layout proportions, button logic, Reports charts, Croc BTI tuning, Plan save/apply, and Study vertical answering, while continuing to omit AI UI from the first mini-program release.
+**Requirements:** [MOB-01, MOB-02, STUD-01, STUD-02, STUD-03, STUD-04, STUD-05, PLAN-01, PLAN-02, PLAN-03, RPT-01]
+**Depends on:** Phase 12
+**Plans:** 6 plans
+
+Plans:
+- [ ] 13-01 - Shared layout proportions and button action parity
+- [ ] 13-02 - Reports chart data and interaction parity
+- [ ] 13-03 - Croc BTI question, result, plan, and weight parity
+- [ ] 13-04 - Plan editor real save/apply/wordbook/growth behavior
+- [ ] 13-05 - Study TikTok-style vertical answering flow
+- [ ] 13-06 - Phase 13 verification contracts and DevTools QA
+
+Success criteria:
+1. Every visible mini-program button in Today, Plan, Wrong Words, Reports, Croc BTI, and Study either performs a real action or has an explicit disabled state.
+2. Reports uses backend-backed `dailySeries`, `modeBreakdown`, and `modeSeries` data to render tappable daily and mode line charts with Flutter-equivalent colors and selected states.
+3. Croc BTI uses Flutter's canonical scoring and tuning model, saves profile data, preserves question-type weights, saves the plan, and applies it to Today.
+4. Plan editor persists wordbook, growth-rule, count, and question-type-weight fields through the shared backend-facing SDK without affecting Flutter-side contracts.
+5. Study starts sessions with active-plan question-type weights and renders the Flutter-style vertical feed of answered, current, and completion pages.
+6. AI tabs, AI pages, AI summary cards, and AI generation controls remain absent from the mini-program build.
+7. Typecheck, focused contract tests, WeChat build, and manual DevTools smoke checks pass without the previous blank-page `n[e] is not a function` or timeout regressions.
+
+### Phase 14: WeChat Mini Program Flutter Source Parity Correction
+
+**Goal:** Repair the Phase 13 mini-program behavior gaps by copying the real Flutter source semantics for Study, Croc BTI, Reports, Plan, and Today state rather than approximating from screenshots.
+**Requirements:** [MOB-01, MOB-02, STUD-02, STUD-03, STUD-04, STUD-05, PLAN-01, PLAN-02, PLAN-03, WRNG-01, RPT-01]
+**Depends on:** Phase 13
+**Plans:** 4 plans
+
+Plans:
+- [ ] 14-01 - Replace Study mock session and answer semantics with Flutter/backend parity
+- [ ] 14-02 - Correct Study feed UI, side actions, icons, proportions, and answer feedback
+- [ ] 14-03 - Correct Croc BTI result/apply flow, Plan coverage, and Today sync semantics
+- [ ] 14-04 - Correct Reports chart selection and add source-parity regression gates
+- [ ] 14-05 - Function-level mini-program rewrite from Flutter gap analysis
+- [ ] 14-06 - Patch post-14-05 parity regressions from Flutter source
+- [ ] 14-07 - Rebuild full function-level Flutter/mini-program gap map and apply surgical parity fixes
+
+Success criteria:
+1. Study no longer repeats the same word/question when the plan count is greater than the available mini mock bank; session questions come from backend/source payloads or a deterministic Flutter-equivalent varied fixture.
+2. Choice questions render all backend-provided choices, preserve A/B/C/D labels, clean duplicate/empty options before display, and never submit on the first tap.
+3. Flutter answer feedback is copied: choice rows turn selected/correct/wrong colors with check/cancel indicators; the mini program no longer uses a separate card summary for choice-answer feedback.
+4. Today progress changes only through the same session completion/result pathways as Flutter/backend contracts; answering one question cannot mark the whole daily task complete unless the backend summary says the mode is complete.
+5. Croc BTI uses the canonical Flutter questions, profile names, profile assets, result gating, result layout, question-type rebalance, plan save, apply-to-today, and sync flush sequence.
+6. Reports charts use backend-backed `dailySeries`, `modeBreakdown`, and `modeSeries`; daily points and mode cards are selectable with the same selected-detail behavior and compact chart sizing as Flutter.
+7. AI tabs, AI pages, AI summary cards, and AI generation controls remain absent from the mini-program build.
+8. `npm.cmd run typecheck`, `npm.cmd run test:study-flow`, `npm.cmd run test:croc-bti`, `npm.cmd run test:reports`, `npm.cmd run test:plan-flow`, `npm.cmd run test:ui-contract`, and `npm.cmd run build:weapp` pass.

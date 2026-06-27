@@ -1,4 +1,4 @@
-﻿/// Study client - typed SDK for the study session API.
+/// Study client - typed SDK for the study session API.
 library;
 
 import '../bridge/bridge.dart';
@@ -21,12 +21,12 @@ class StudySession {
   });
 
   factory StudySession.fromJson(Map<String, dynamic> json) => StudySession(
-        sessionId: json['sessionId'] as String,
-        mode: json['mode'] as String,
-        totalWords: json['totalWords'] as int,
-        wordbookId: json['wordbookId'] as int?,
-        startedAt: json['startedAt'] as String,
-      );
+    sessionId: json['sessionId'] as String,
+    mode: json['mode'] as String,
+    totalWords: json['totalWords'] as int,
+    wordbookId: json['wordbookId'] as int?,
+    startedAt: json['startedAt'] as String,
+  );
 }
 
 /// Entry payload for starting a session without relying on a preloaded local selector.
@@ -56,17 +56,17 @@ class StartSessionEntryPayload {
   });
 
   Map<String, dynamic> toJson() => {
-        'sourceId': sourceId,
-        'word': word,
-        'partOfSpeech': partOfSpeech,
-        'frequency': frequency,
-        'phoneticUs': phoneticUs,
-        'phoneticUk': phoneticUk,
-        'meaningDetails': meaningDetails,
-        'meanings': meanings,
-        'exampleSentence': exampleSentence,
-        'exampleTranslation': exampleTranslation,
-      };
+    'sourceId': sourceId,
+    'word': word,
+    'partOfSpeech': partOfSpeech,
+    'frequency': frequency,
+    'phoneticUs': phoneticUs,
+    'phoneticUk': phoneticUk,
+    'meaningDetails': meaningDetails,
+    'meanings': meanings,
+    'exampleSentence': exampleSentence,
+    'exampleTranslation': exampleTranslation,
+  };
 }
 
 /// Study question.
@@ -178,27 +178,26 @@ class StudyQuestion {
     String? userHint,
     bool? hasHint,
     List<WordHintSuggestion>? hintSuggestions,
-  }) =>
-      StudyQuestion(
-        questionId: questionId,
-        questionType: questionType,
-        entrySourceId: entrySourceId,
-        word: word,
-        prompt: prompt,
-        partOfSpeech: partOfSpeech,
-        phoneticUs: phoneticUs,
-        phoneticUk: phoneticUk,
-        exampleSentence: exampleSentence,
-        exampleTranslation: exampleTranslation,
-        acceptedMeanings: acceptedMeanings,
-        choices: choices,
-        correctChoiceLabel: correctChoiceLabel,
-        questionIndex: questionIndex,
-        totalQuestions: totalQuestions,
-        userHint: userHint ?? this.userHint,
-        hasHint: hasHint ?? this.hasHint,
-        hintSuggestions: hintSuggestions ?? this.hintSuggestions,
-      );
+  }) => StudyQuestion(
+    questionId: questionId,
+    questionType: questionType,
+    entrySourceId: entrySourceId,
+    word: word,
+    prompt: prompt,
+    partOfSpeech: partOfSpeech,
+    phoneticUs: phoneticUs,
+    phoneticUk: phoneticUk,
+    exampleSentence: exampleSentence,
+    exampleTranslation: exampleTranslation,
+    acceptedMeanings: acceptedMeanings,
+    choices: choices,
+    correctChoiceLabel: correctChoiceLabel,
+    questionIndex: questionIndex,
+    totalQuestions: totalQuestions,
+    userHint: userHint ?? this.userHint,
+    hasHint: hasHint ?? this.hasHint,
+    hintSuggestions: hintSuggestions ?? this.hintSuggestions,
+  );
 }
 
 class HintPrompt {
@@ -217,15 +216,15 @@ class HintPrompt {
   });
 
   factory HintPrompt.fromJson(Map<String, dynamic> json) => HintPrompt(
-        entryId: _jsonInt(json['entryId']),
-        word: _jsonString(json['word']),
-        errorCount: _jsonInt(json['errorCount']),
-        triggerOutcome: _jsonString(json['triggerOutcome']),
-        suggestions: (json['suggestions'] as List<dynamic>? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(WordHintSuggestion.fromJson)
-            .toList(growable: false),
-      );
+    entryId: _jsonInt(json['entryId']),
+    word: _jsonString(json['word']),
+    errorCount: _jsonInt(json['errorCount']),
+    triggerOutcome: _jsonString(json['triggerOutcome']),
+    suggestions: (json['suggestions'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(WordHintSuggestion.fromJson)
+        .toList(growable: false),
+  );
 }
 
 /// Session progress.
@@ -235,7 +234,8 @@ class SessionProgress {
 
   const SessionProgress({required this.current, required this.total});
 
-  factory SessionProgress.fromJson(Map<String, dynamic> json) => SessionProgress(
+  factory SessionProgress.fromJson(Map<String, dynamic> json) =>
+      SessionProgress(
         current: _jsonInt(json['current']),
         total: _jsonInt(json['total']),
       );
@@ -257,7 +257,8 @@ class ResumeSessionHint {
     this.word,
   });
 
-  factory ResumeSessionHint.fromJson(Map<String, dynamic> json) => ResumeSessionHint(
+  factory ResumeSessionHint.fromJson(Map<String, dynamic> json) =>
+      ResumeSessionHint(
         hasResume: json['hasResume'] as bool? ?? false,
         mode: json['mode'] as String?,
         current: json['current'] as int?,
@@ -265,6 +266,7 @@ class ResumeSessionHint {
         word: json['word'] as String?,
       );
 }
+
 /// Answer outcome enum.
 enum AnswerOutcome { correct, fuzzyCorrect, incorrect, skipped }
 
@@ -293,29 +295,26 @@ class StudyResult {
   });
 
   factory StudyResult.fromJson(Map<String, dynamic> json) => StudyResult(
-        questionId: _jsonString(json['questionId']),
-        entrySourceId: _jsonString(json['entrySourceId']),
-        questionType: _jsonString(json['questionType'], fallback: 'unknown'),
-        userResponse: _jsonString(json['userResponse']),
-        normalizedResponse: json['normalizedResponse'] as String?,
-        correctAnswer: _jsonString(json['correctAnswer']),
-        outcome: _parseOutcome(_jsonString(json['outcome'])),
-        responseTimeMs: _jsonInt(json['responseTimeMs']),
-        answeredAt: _jsonString(
-          json['answeredAt'],
-          fallback: DateTime.now().toIso8601String(),
-        ),
-      );
+    questionId: _jsonString(json['questionId']),
+    entrySourceId: _jsonString(json['entrySourceId']),
+    questionType: _jsonString(json['questionType'], fallback: 'unknown'),
+    userResponse: _jsonString(json['userResponse']),
+    normalizedResponse: json['normalizedResponse'] as String?,
+    correctAnswer: _jsonString(json['correctAnswer']),
+    outcome: _parseOutcome(_jsonString(json['outcome'])),
+    responseTimeMs: _jsonInt(json['responseTimeMs']),
+    answeredAt: _jsonString(
+      json['answeredAt'],
+      fallback: DateTime.now().toIso8601String(),
+    ),
+  );
 }
 
 class AnsweredStudyQuestion {
   final StudyQuestion question;
   final StudyResult result;
 
-  const AnsweredStudyQuestion({
-    required this.question,
-    required this.result,
-  });
+  const AnsweredStudyQuestion({required this.question, required this.result});
 
   factory AnsweredStudyQuestion.fromJson(Map<String, dynamic> json) =>
       AnsweredStudyQuestion(
@@ -371,20 +370,20 @@ List<String> _jsonStringList(Object? value) {
 
 List<Map<String, dynamic>>? _jsonMapListOrNull(Object? value) {
   if (value is! List) return null;
-  return value
-      .whereType<Map<String, dynamic>>()
-      .toList(growable: false);
+  return value.whereType<Map<String, dynamic>>().toList(growable: false);
 }
 
 List<Map<String, dynamic>>? _choiceListOrNull(Object? value) {
   final choices = _jsonMapListOrNull(value);
   if (choices == null) return null;
   return choices
-      .map((choice) => {
-            ...choice,
-            'label': _requiredString(choice, 'label'),
-            'text': _requiredString(choice, 'text'),
-          })
+      .map(
+        (choice) => {
+          ...choice,
+          'label': _requiredString(choice, 'label'),
+          'text': _requiredString(choice, 'text'),
+        },
+      )
       .toList(growable: false);
 }
 
@@ -420,12 +419,12 @@ bool _hasCompleteStudyQuestion(Object? value) {
 }
 
 AnswerOutcome _parseOutcome(String s) => switch (s) {
-      'correct' => AnswerOutcome.correct,
-      'fuzzyCorrect' => AnswerOutcome.fuzzyCorrect,
-      'incorrect' => AnswerOutcome.incorrect,
-      'skipped' => AnswerOutcome.skipped,
-      _ => AnswerOutcome.incorrect,
-    };
+  'correct' => AnswerOutcome.correct,
+  'fuzzyCorrect' => AnswerOutcome.fuzzyCorrect,
+  'incorrect' => AnswerOutcome.incorrect,
+  'skipped' => AnswerOutcome.skipped,
+  _ => AnswerOutcome.incorrect,
+};
 
 /// Session summary.
 class SessionSummary {
@@ -456,21 +455,21 @@ class SessionSummary {
   });
 
   factory SessionSummary.fromJson(Map<String, dynamic> json) => SessionSummary(
-        sessionId: _jsonString(json['sessionId']),
-        totalQuestions: _jsonInt(json['totalQuestions']),
-        correctCount: _jsonInt(json['correctCount']),
-        fuzzyCorrectCount: _jsonInt(json['fuzzyCorrectCount']),
-        incorrectCount: _jsonInt(json['incorrectCount']),
-        skippedCount: _jsonInt(json['skippedCount']),
-        totalWords: _jsonInt(json['totalWords']),
-        wrongWordCount: _jsonInt(json['wrongWordCount']),
-        accuracyPercent: _jsonDouble(json['accuracyPercent']),
-        totalTimeMs: _jsonInt(json['totalTimeMs']),
-        completedAt: _jsonString(
-          json['completedAt'],
-          fallback: DateTime.now().toIso8601String(),
-        ),
-      );
+    sessionId: _jsonString(json['sessionId']),
+    totalQuestions: _jsonInt(json['totalQuestions']),
+    correctCount: _jsonInt(json['correctCount']),
+    fuzzyCorrectCount: _jsonInt(json['fuzzyCorrectCount']),
+    incorrectCount: _jsonInt(json['incorrectCount']),
+    skippedCount: _jsonInt(json['skippedCount']),
+    totalWords: _jsonInt(json['totalWords']),
+    wrongWordCount: _jsonInt(json['wrongWordCount']),
+    accuracyPercent: _jsonDouble(json['accuracyPercent']),
+    totalTimeMs: _jsonInt(json['totalTimeMs']),
+    completedAt: _jsonString(
+      json['completedAt'],
+      fallback: DateTime.now().toIso8601String(),
+    ),
+  );
 }
 
 /// Response from starting a study session.
@@ -490,11 +489,15 @@ class StartSessionResponse {
   factory StartSessionResponse.fromJson(Map<String, dynamic> json) =>
       StartSessionResponse(
         session: StudySession.fromJson(json['session'] as Map<String, dynamic>),
-        currentQuestion:
-            StudyQuestion.fromJson(json['currentQuestion'] as Map<String, dynamic>),
-        progress:
-            SessionProgress.fromJson(json['progress'] as Map<String, dynamic>),
-        answeredQuestions: _answeredStudyQuestionList(json['answeredQuestions']),
+        currentQuestion: StudyQuestion.fromJson(
+          json['currentQuestion'] as Map<String, dynamic>,
+        ),
+        progress: SessionProgress.fromJson(
+          json['progress'] as Map<String, dynamic>,
+        ),
+        answeredQuestions: _answeredStudyQuestionList(
+          json['answeredQuestions'],
+        ),
       );
 }
 
@@ -525,7 +528,9 @@ class SubmitAnswerResponse {
         result: StudyResult.fromJson(json['result'] as Map<String, dynamic>),
         isComplete: _jsonBool(json['isComplete']),
         currentQuestion: _hasCompleteStudyQuestion(json['currentQuestion'])
-            ? StudyQuestion.fromJson(json['currentQuestion'] as Map<String, dynamic>)
+            ? StudyQuestion.fromJson(
+                json['currentQuestion'] as Map<String, dynamic>,
+              )
             : null,
         summary: json['summary'] is Map<String, dynamic>
             ? SessionSummary.fromJson(json['summary'] as Map<String, dynamic>)
@@ -533,12 +538,47 @@ class SubmitAnswerResponse {
         nextAction: json['nextAction'] == null
             ? null
             : _jsonString(json['nextAction']),
-        progress:
-            SessionProgress.fromJson(json['progress'] as Map<String, dynamic>),
+        progress: SessionProgress.fromJson(
+          json['progress'] as Map<String, dynamic>,
+        ),
         hintPrompt: json['hintPrompt'] is Map<String, dynamic>
             ? HintPrompt.fromJson(json['hintPrompt'] as Map<String, dynamic>)
             : null,
-        answeredQuestions: _answeredStudyQuestionList(json['answeredQuestions']),
+        answeredQuestions: _answeredStudyQuestionList(
+          json['answeredQuestions'],
+        ),
+      );
+}
+
+class AcceptDisputedMeaningResponse {
+  final StudyResult result;
+  final SessionProgress progress;
+  final List<AnsweredStudyQuestion> answeredQuestions;
+  final String entrySourceId;
+  final String word;
+  final String acceptedMeaning;
+
+  const AcceptDisputedMeaningResponse({
+    required this.result,
+    required this.progress,
+    this.answeredQuestions = const [],
+    required this.entrySourceId,
+    required this.word,
+    required this.acceptedMeaning,
+  });
+
+  factory AcceptDisputedMeaningResponse.fromJson(Map<String, dynamic> json) =>
+      AcceptDisputedMeaningResponse(
+        result: StudyResult.fromJson(json['result'] as Map<String, dynamic>),
+        progress: SessionProgress.fromJson(
+          json['progress'] as Map<String, dynamic>,
+        ),
+        answeredQuestions: _answeredStudyQuestionList(
+          json['answeredQuestions'],
+        ),
+        entrySourceId: _jsonString(json['entrySourceId']),
+        word: _jsonString(json['word']),
+        acceptedMeaning: _jsonString(json['acceptedMeaning']),
       );
 }
 
@@ -580,7 +620,9 @@ class MarkStudyEntryMasteredResponse {
         prunedQuestionCount: _jsonInt(json['prunedQuestionCount']),
         isComplete: _jsonBool(json['isComplete']),
         currentQuestion: _hasCompleteStudyQuestion(json['currentQuestion'])
-            ? StudyQuestion.fromJson(json['currentQuestion'] as Map<String, dynamic>)
+            ? StudyQuestion.fromJson(
+                json['currentQuestion'] as Map<String, dynamic>,
+              )
             : null,
         summary: json['summary'] is Map<String, dynamic>
             ? SessionSummary.fromJson(json['summary'] as Map<String, dynamic>)
@@ -588,9 +630,12 @@ class MarkStudyEntryMasteredResponse {
         nextAction: json['nextAction'] == null
             ? null
             : _jsonString(json['nextAction']),
-        progress:
-            SessionProgress.fromJson(json['progress'] as Map<String, dynamic>),
-        answeredQuestions: _answeredStudyQuestionList(json['answeredQuestions']),
+        progress: SessionProgress.fromJson(
+          json['progress'] as Map<String, dynamic>,
+        ),
+        answeredQuestions: _answeredStudyQuestionList(
+          json['answeredQuestions'],
+        ),
       );
 }
 
@@ -599,13 +644,17 @@ class CompleteSessionResponse {
   final SessionSummary summary;
   final String nextAction;
 
-  const CompleteSessionResponse({required this.summary, required this.nextAction});
+  const CompleteSessionResponse({
+    required this.summary,
+    required this.nextAction,
+  });
 
-  factory CompleteSessionResponse.fromJson(Map<String, dynamic> json) =>
-      CompleteSessionResponse(
-        summary: SessionSummary.fromJson(json['summary'] as Map<String, dynamic>),
-        nextAction: _jsonString(json['nextAction'], fallback: 'Return to today'),
-      );
+  factory CompleteSessionResponse.fromJson(
+    Map<String, dynamic> json,
+  ) => CompleteSessionResponse(
+    summary: SessionSummary.fromJson(json['summary'] as Map<String, dynamic>),
+    nextAction: _jsonString(json['nextAction'], fallback: 'Return to today'),
+  );
 }
 
 /// Client for study session operations.
@@ -630,17 +679,23 @@ class StudyClient {
     };
     if (wordbookId != null) request['wordbookId'] = wordbookId;
     if (entryPayloads != null) {
-      request['entryPayloads'] = entryPayloads.map((payload) => payload.toJson()).toList();
+      request['entryPayloads'] = entryPayloads
+          .map((payload) => payload.toJson())
+          .toList();
     }
     if (distractorPayloads != null) {
-      request['distractorPayloads'] =
-          distractorPayloads.map((payload) => payload.toJson()).toList();
+      request['distractorPayloads'] = distractorPayloads
+          .map((payload) => payload.toJson())
+          .toList();
     }
     if (questionTypeWeights != null) {
       request['questionTypeWeights'] = questionTypeWeights;
     }
 
-    final raw = await _bridge.call('startStudySession', _codec.encodeRequest(request));
+    final raw = await _bridge.call(
+      'startStudySession',
+      _codec.encodeRequest(request),
+    );
     final json = _codec.decodeResponse(raw);
     return StartSessionResponse.fromJson(json);
   }
@@ -650,6 +705,7 @@ class StudyClient {
     final json = _codec.decodeResponse(raw);
     return ResumeSessionHint.fromJson(json);
   }
+
   /// Submit an answer for the current question.
   Future<SubmitAnswerResponse> submitAnswer({
     required String questionId,
@@ -662,7 +718,10 @@ class StudyClient {
       'responseTimeMs': responseTimeMs,
     };
 
-    final raw = await _bridge.call('submitStudyAnswer', _codec.encodeRequest(request));
+    final raw = await _bridge.call(
+      'submitStudyAnswer',
+      _codec.encodeRequest(request),
+    );
     final json = _codec.decodeResponse(raw);
     return SubmitAnswerResponse.fromJson(json);
   }
@@ -681,6 +740,22 @@ class StudyClient {
     );
     final json = _codec.decodeResponse(raw);
     return MarkStudyEntryMasteredResponse.fromJson(json);
+  }
+
+  Future<AcceptDisputedMeaningResponse> acceptDisputedMeaning({
+    required String questionId,
+    required String submittedAnswer,
+  }) async {
+    final request = <String, dynamic>{
+      'questionId': questionId,
+      'submittedAnswer': submittedAnswer,
+    };
+    final raw = await _bridge.call(
+      'acceptDisputedMeaning',
+      _codec.encodeRequest(request),
+    );
+    final json = _codec.decodeResponse(raw);
+    return AcceptDisputedMeaningResponse.fromJson(json);
   }
 
   /// Complete the active study session.

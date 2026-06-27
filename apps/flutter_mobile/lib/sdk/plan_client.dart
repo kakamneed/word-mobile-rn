@@ -13,6 +13,7 @@ class PlanSummary {
   final int? rootAffixPerDay;
   final int growthIntervalDays;
   final int growthIncrement;
+  final bool growthRuleEnabled;
   final String growthRuleMode;
   final Map<String, dynamic>? sharedGrowthRule;
   final Map<String, dynamic>? growthRulesByMode;
@@ -28,6 +29,7 @@ class PlanSummary {
     this.rootAffixPerDay,
     required this.growthIntervalDays,
     required this.growthIncrement,
+    this.growthRuleEnabled = true,
     required this.growthRuleMode,
     this.sharedGrowthRule,
     this.growthRulesByMode,
@@ -69,11 +71,12 @@ class PlanSummary {
       growthIncrement:
           (sharedRule['increment'] as num?)?.toInt() ??
           (json['growthIncrement'] as int? ?? 5),
+      growthRuleEnabled: json['growthRuleEnabled'] as bool? ?? true,
       growthRuleMode: mode,
       sharedGrowthRule: sharedRule,
       growthRulesByMode: modes,
-      questionTypeWeightsByMode:
-          (json['questionTypeWeightsByMode'] as Map?)?.cast<String, dynamic>(),
+      questionTypeWeightsByMode: (json['questionTypeWeightsByMode'] as Map?)
+          ?.cast<String, dynamic>(),
     );
   }
 }
@@ -95,7 +98,8 @@ class WordbookSummary {
     required this.isActive,
   });
 
-  factory WordbookSummary.fromJson(Map<String, dynamic> json) => WordbookSummary(
+  factory WordbookSummary.fromJson(Map<String, dynamic> json) =>
+      WordbookSummary(
         id: json['id'] as int,
         code: json['code'] as String,
         name: json['name'] as String,

@@ -1,0 +1,32 @@
+[
+  {
+    "wordRank": 1,
+    "headWord": "cancel",
+    "content": {
+      "word": {
+        "wordHead": "cancel",
+        "wordId": "CET4_3_1",
+        "content": {
+          "usphone": "'kansl",
+          "ukphone": "'kansl",
+          "sentence": {
+            "sentences": [
+              {
+                "sContent": "Our flight was cancelled.",
+                "sCn": "我们的航班取消了。"
+              }
+            ]
+          },
+          "trans": [
+            {
+              "tranCn": "取消",
+              "pos": "vt",
+              "tranOther": "to decide that something planned will not happen"
+            }
+          ]
+        }
+      }
+    },
+    "bookId": "CET4_3"
+  }
+]

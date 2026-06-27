@@ -253,6 +253,14 @@ public final class RustBridge {
     return requirePayload(nativeGetWrongWordDetail(entryId), "getWrongWordDetail");
   }
 
+  public static String getWrongWordGraph() {
+    return requirePayload(nativeGetWrongWordGraph(), "getWrongWordGraph");
+  }
+
+  public static String saveWrongWordGraphPosition(String requestJson) {
+    return requirePayload(nativeSaveWrongWordGraphPosition(requestJson), "saveWrongWordGraphPosition");
+  }
+
   public static String saveWordHint(String requestJson) {
     return requirePayload(nativeSaveWordHint(requestJson), "saveWordHint");
   }
@@ -271,6 +279,14 @@ public final class RustBridge {
 
   public static String getAiPassage(String passageId) {
     return requirePayload(nativeGetAiPassage(passageId), "getAiPassage");
+  }
+
+  public static String getAiPassageStylePreference() {
+    return requirePayload(nativeGetAiPassageStylePreference(), "getAiPassageStylePreference");
+  }
+
+  public static String saveAiPassageStylePreference(String requestJson) {
+    return requirePayload(nativeSaveAiPassageStylePreference(requestJson), "saveAiPassageStylePreference");
   }
 
   public static String generateAiPassage(String requestJson) {
@@ -302,6 +318,10 @@ public final class RustBridge {
 
   public static String markStudyEntryMastered(String requestJson) {
     return requirePayload(nativeMarkStudyEntryMastered(requestJson), "markStudyEntryMastered");
+  }
+
+  public static String acceptDisputedMeaning(String requestJson) {
+    return requirePayload(nativeAcceptDisputedMeaning(requestJson), "acceptDisputedMeaning");
   }
 
   public static String completeStudySession(String sessionId) {
@@ -401,6 +421,10 @@ public final class RustBridge {
 
   private static native String nativeGetWrongWordDetail(int entryId);
 
+  private static native String nativeGetWrongWordGraph();
+
+  private static native String nativeSaveWrongWordGraphPosition(String requestJson);
+
   private static native String nativeSaveWordHint(String requestJson);
 
   private static native String nativeGetWordHintSuggestions(int entryId);
@@ -410,6 +434,10 @@ public final class RustBridge {
   private static native String nativeGetAiPassageHistory();
 
   private static native String nativeGetAiPassage(String passageId);
+
+  private static native String nativeGetAiPassageStylePreference();
+
+  private static native String nativeSaveAiPassageStylePreference(String requestJson);
 
   private static native String nativeGenerateAiPassage(String requestJson);
 
@@ -422,6 +450,8 @@ public final class RustBridge {
   private static native String nativeSubmitStudyAnswer(String requestJson);
 
   private static native String nativeMarkStudyEntryMastered(String requestJson);
+
+  private static native String nativeAcceptDisputedMeaning(String requestJson);
 
   private static native String nativeCompleteStudySession(String sessionId);
 

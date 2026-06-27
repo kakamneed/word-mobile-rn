@@ -1,0 +1,352 @@
+.screen {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 42px 16px 110px;
+  background: var(--flutter-page-bg, #fbf7ff);
+}
+
+.screen__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 66px;
+  margin-bottom: 8px;
+}
+
+.screen__title-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.screen__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-left: -8px;
+  border-radius: 999px;
+  color: #211c28;
+  font-size: 38px;
+  line-height: 1;
+}
+
+.screen__title {
+  color: #211c28;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.screen__avatar,
+.account-drawer__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  color: #3f384c;
+  background: var(--flutter-soft, #e7e1eb);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.screen__body {
+  position: relative;
+  z-index: 1;
+}
+
+.section {
+  margin-top: 16px;
+}
+
+.section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.section__title {
+  color: #211c28;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(52, 43, 64, 0.06);
+  background: rgba(251, 247, 255, 0.96);
+}
+
+.bottom-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #4d4658;
+}
+
+.bottom-nav__pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 34px;
+  border-radius: 999px;
+}
+
+.bottom-nav__item--active .bottom-nav__pill {
+  background: var(--flutter-soft, #eee6ff);
+}
+
+.bottom-nav__icon {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  font-size: 0;
+  line-height: 1;
+}
+
+.bottom-nav__label {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.account-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.account-drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.56);
+  touch-action: none;
+}
+
+.account-drawer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 82vw;
+  max-width: 330px;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 82px 22px calc(88px + env(safe-area-inset-bottom));
+  border-radius: 0 0 0 24px;
+  background: #fbf7ff;
+  box-shadow: -12px 0 32px rgba(36, 30, 43, 0.18);
+}
+
+.account-drawer__profile {
+  padding-bottom: 26px;
+  border-bottom: 1px solid #d9d1df;
+}
+
+.account-drawer__name {
+  display: block;
+  margin-top: 22px;
+  color: #211c28;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.account-drawer__state {
+  display: block;
+  margin-top: 12px;
+  color: #3f384c;
+  font-size: 22px;
+}
+
+.account-drawer__login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  margin-top: 18px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--flutter-primary, #6b5b95);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.account-drawer__list {
+  padding: 22px 0;
+  border-bottom: 1px solid #d9d1df;
+}
+
+.account-drawer__item,
+.account-drawer__logout {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
+  padding: 15px 0;
+}
+
+.account-drawer__icon {
+  position: relative;
+  color: #4a4452;
+  font-size: 0;
+  line-height: 1;
+}
+
+.app-icon {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  color: currentColor;
+  font-size: 0;
+  line-height: 1;
+}
+
+.app-icon::before,
+.app-icon::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: "";
+}
+
+.app-icon--today::before {
+  left: 5px;
+  top: 5px;
+  width: 18px;
+  height: 18px;
+  border: 3px solid currentColor;
+  border-radius: 3px;
+}
+
+.app-icon--today::after {
+  left: 8px;
+  top: 2px;
+  width: 12px;
+  height: 8px;
+  border-top: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+}
+
+.app-icon--tune::before {
+  left: 4px;
+  top: 7px;
+  width: 20px;
+  height: 3px;
+  background: currentColor;
+  box-shadow: 0 7px 0 currentColor, 0 14px 0 currentColor;
+}
+
+.app-icon--tune::after {
+  left: 8px;
+  top: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 9px 7px 0 currentColor, -1px 14px 0 currentColor;
+}
+
+.app-icon--menu_book::before {
+  left: 4px;
+  top: 6px;
+  width: 20px;
+  height: 17px;
+  border: 3px solid currentColor;
+  border-radius: 3px;
+}
+
+.app-icon--menu_book::after {
+  left: 13px;
+  top: 7px;
+  width: 3px;
+  height: 15px;
+  background: currentColor;
+}
+
+.app-icon--query_stats::before {
+  left: 4px;
+  top: 16px;
+  width: 22px;
+  height: 3px;
+  background: currentColor;
+  transform: rotate(-28deg);
+  transform-origin: left center;
+}
+
+.app-icon--query_stats::after {
+  left: 5px;
+  top: 16px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 9px -5px 0 currentColor, 18px -11px 0 currentColor;
+}
+
+.app-icon--emoji_objects::before,
+.app-icon--psychology::before,
+.app-icon--account_circle::before,
+.app-icon--leaderboard::before,
+.app-icon--settings::before,
+.app-icon--system_update_alt::before,
+.app-icon--logout::before {
+  left: 5px;
+  top: 5px;
+  width: 18px;
+  height: 18px;
+  border: 3px solid currentColor;
+  border-radius: 999px;
+}
+
+.app-icon--leaderboard::after {
+  left: 8px;
+  bottom: 5px;
+  width: 3px;
+  height: 8px;
+  background: currentColor;
+  box-shadow: 6px -5px 0 currentColor, 12px -10px 0 currentColor;
+}
+
+.app-icon--settings::after {
+  left: 12px;
+  top: 12px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.account-drawer__copy {
+  min-width: 0;
+}
+
+.account-drawer__title {
+  color: #211c28;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.account-drawer__caption {
+  display: block;
+  margin-top: 5px;
+  color: #5f5968;
+  font-size: 17px;
+  line-height: 1.35;
+}

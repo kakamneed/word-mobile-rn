@@ -8,7 +8,7 @@ pub mod persistence;
 
 pub use models::*;
 pub use persistence::{
-    entry_repo, mastered_entry_repo, plan_repo, study_repo, word_hint_repo, wordbook_repo,
-    StorageError,
+    entry_repo, mastered_entry_repo, plan_repo, study_repo, user_accepted_meaning_repo,
+    word_hint_repo, wordbook_repo, StorageError,
 };
 pub use rusqlite::Connection;

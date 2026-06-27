@@ -6,18 +6,18 @@ use crate::bridge::{
     build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
     build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
     create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill, generate_ai_passage,
-    get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_provider_config,
-    get_bootstrap_state, get_bridge_status, get_local_leaderboard, get_reports_overview,
-    get_reward_image_upload_entitlement, get_settings, get_sync_status,
+    get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_passage_style_preference,
+    get_ai_provider_config, get_bootstrap_state, get_bridge_status, get_local_leaderboard,
+    get_reports_overview, get_reward_image_upload_entitlement, get_settings, get_sync_status,
     get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
-    get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail, get_wrong_words,
-    initialize_mobile_runtime, list_reward_images, mark_onboarding_completed,
+    get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail, get_wrong_word_graph,
+    get_wrong_words, initialize_mobile_runtime, list_reward_images, mark_onboarding_completed,
     moderate_reward_image, reconcile_local_data_owner, record_cloud_restore_attempt,
     record_sync_result, refresh_local_leaderboard_summary, refresh_reward_image_upload_entitlement,
-    restore_cloud_data_snapshot, save_ai_passage, save_ai_provider_config, save_plan,
-    save_word_hint, seed_local_leaderboard_demo, select_leaderboard_reward_image_tag,
-    start_study_session, submit_study_answer, switch_to_guest_local_data, toggle_wordbook,
-    vote_reward_image,
+    restore_cloud_data_snapshot, save_ai_passage, save_ai_passage_style_preference,
+    save_ai_provider_config, save_plan, save_word_hint, save_wrong_word_graph_position,
+    seed_local_leaderboard_demo, select_leaderboard_reward_image_tag, start_study_session,
+    submit_study_answer, switch_to_guest_local_data, toggle_wordbook, vote_reward_image,
 };
 
 const IOS_ERROR_PREFIX: &str = "__WORDMOBILE_ERROR__:";
@@ -331,6 +331,18 @@ pub extern "C" fn word_mobile_ios_get_wrong_words(filter: *const c_char) -> *mut
 }
 
 #[no_mangle]
+pub extern "C" fn word_mobile_ios_get_wrong_word_graph() -> *mut c_char {
+    encode_string_result(get_wrong_word_graph())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_save_wrong_word_graph_position(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(save_wrong_word_graph_position);
+    encode_string_result(result)
+}
+#[no_mangle]
 pub extern "C" fn word_mobile_ios_get_wrong_word_detail(entry_id: i64) -> *mut c_char {
     encode_string_result(get_wrong_word_detail(entry_id))
 }
@@ -377,6 +389,14 @@ pub extern "C" fn word_mobile_ios_mark_study_entry_mastered(
 }
 
 #[no_mangle]
+pub extern "C" fn word_mobile_ios_accept_disputed_meaning(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(accept_disputed_meaning);
+    encode_string_result(result)
+}
+
+#[no_mangle]
 pub extern "C" fn word_mobile_ios_complete_study_session(session_id: *const c_char) -> *mut c_char {
     let result = decode_arg("session_id", session_id).and_then(complete_study_session);
     encode_string_result(result)
@@ -402,6 +422,20 @@ pub extern "C" fn word_mobile_ios_get_ai_passage_history() -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn word_mobile_ios_get_ai_passage(passage_id: *const c_char) -> *mut c_char {
     let result = decode_arg("passage_id", passage_id).and_then(get_ai_passage);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_ai_passage_style_preference() -> *mut c_char {
+    encode_string_result(get_ai_passage_style_preference())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_save_ai_passage_style_preference(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let result =
+        decode_arg("request_json", request_json).and_then(save_ai_passage_style_preference);
     encode_string_result(result)
 }
 

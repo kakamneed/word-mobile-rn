@@ -111,52 +111,107 @@ class AiPassage {
   }
 }
 
+class AiPassageStylePreference {
+  final String style;
+  final String? updatedAt;
+
+  const AiPassageStylePreference({required this.style, this.updatedAt});
+
+  factory AiPassageStylePreference.fromJson(Map<String, dynamic> json) {
+    return AiPassageStylePreference(
+      style: '${json['style'] ?? ''}'.trim(),
+      updatedAt: json['updatedAt'] as String?,
+    );
+  }
+}
+
 List<dynamic> _normalizePassageBlocks(
   List<dynamic> blocks,
   List<dynamic> wrongWords,
 ) {
-  if (_hasWordSegments(blocks) || wrongWords.isEmpty) return blocks;
-  final lookup = <String, Map<String, dynamic>>{};
+  if (wrongWords.isEmpty) return blocks;
+  final wordLookup = <String, Map<String, dynamic>>{};
+  final idLookup = <int, Map<String, dynamic>>{};
   for (final item in wrongWords) {
     final normalized = _normalizeWrongWord(item);
-    final word = '${normalized?['word'] ?? ''}'.trim();
-    if (word.isNotEmpty && normalized != null) {
-      lookup[word.toLowerCase()] = normalized;
+    if (normalized == null) continue;
+    final word = '${normalized['word'] ?? ''}'.trim();
+    final entryId = (normalized['entryId'] as num?)?.toInt() ?? 0;
+    if (word.isNotEmpty) {
+      wordLookup[word.toLowerCase()] = normalized;
+    }
+    if (entryId > 0) {
+      idLookup[entryId] = normalized;
     }
   }
-  if (lookup.isEmpty) return blocks;
+  if (wordLookup.isEmpty && idLookup.isEmpty) return blocks;
 
   return blocks.map((block) {
-    if (block is Map && block['segments'] is List) return block;
-    final text = block is String
-        ? block
-        : block is Map
-        ? '${block['text'] ?? block['content'] ?? ''}'
-        : '';
+    final text = _blockPlainText(block);
     if (text.trim().isEmpty) return block;
+    final reparsedSegments = _highlightMarkerSegments(text, idLookup);
+    final segments = reparsedSegments.isNotEmpty
+        ? reparsedSegments
+        : _highlightTextSegments(text, wordLookup);
+    if (segments.isEmpty) return block;
     return {
       'blockType': block is Map ? block['blockType'] ?? 'paragraph' : 'paragraph',
-      'segments': _highlightTextSegments(text, lookup),
+      'segments': segments,
     };
   }).toList(growable: false);
 }
 
-bool _hasWordSegments(List<dynamic> blocks) {
-  for (final block in blocks) {
-    if (block is! Map) continue;
-    final segments = block['segments'];
-    if (segments is! List) continue;
-    for (final segment in segments) {
-      if (segment is Map && segment['type'] == 'word') return true;
-    }
+String _blockPlainText(dynamic block) {
+  if (block is String) return block;
+  if (block is! Map) return '';
+  final segments = block['segments'];
+  if (segments is List) {
+    return segments
+        .map((segment) => segment is Map ? '${segment['text'] ?? ''}' : '$segment')
+        .join();
   }
-  return false;
+  return '${block['text'] ?? block['content'] ?? ''}';
 }
 
+List<Map<String, dynamic>> _highlightMarkerSegments(
+  String text,
+  Map<int, Map<String, dynamic>> wrongWordsById,
+) {
+  if (wrongWordsById.isEmpty) return const [];
+  final marker = RegExp(r'\[\[[A-Za-z][A-Za-z_-]*:(-?\d+)\]\]');
+  final matches = marker.allMatches(text).toList(growable: false);
+  if (matches.isEmpty) return const [];
+  final segments = <Map<String, dynamic>>[];
+  var cursor = 0;
+  for (final match in matches) {
+    if (match.start > cursor) {
+      segments.add({'type': 'text', 'text': text.substring(cursor, match.start)});
+    }
+    final entryId = int.tryParse(match.group(1) ?? '') ?? 0;
+    final metadata = wrongWordsById[entryId];
+    if (metadata == null) {
+      segments.add({'type': 'text', 'text': match.group(0) ?? ''});
+    } else {
+      segments.add({
+        'type': 'word',
+        'text': '${metadata['word'] ?? ''}',
+        'entryId': entryId,
+        'glossZh': '${metadata['primaryGloss'] ?? metadata['glossZh'] ?? ''}',
+        'highlighted': true,
+      });
+    }
+    cursor = match.end;
+  }
+  if (cursor < text.length) {
+    segments.add({'type': 'text', 'text': text.substring(cursor)});
+  }
+  return segments;
+}
 List<Map<String, dynamic>> _highlightTextSegments(
   String text,
   Map<String, Map<String, dynamic>> wrongWords,
 ) {
+  if (wrongWords.isEmpty) return const [];
   final lower = text.toLowerCase();
   var cursor = 0;
   final segments = <Map<String, dynamic>>[];
@@ -194,7 +249,6 @@ List<Map<String, dynamic>> _highlightTextSegments(
   }
   return segments;
 }
-
 class AiWrongWordImportCandidate {
   final String candidateId;
   final String word;
@@ -370,6 +424,23 @@ class AiClient {
       return AiPassage.fromJson(decoded);
     }
     return null;
+  }
+
+  Future<AiPassageStylePreference> getAiPassageStylePreference() async {
+    final raw = await _bridge.call('getAiPassageStylePreference');
+    final json = _codec.decodeResponse(raw);
+    return AiPassageStylePreference.fromJson(json);
+  }
+
+  Future<AiPassageStylePreference> saveAiPassageStylePreference(
+    String style,
+  ) async {
+    final raw = await _bridge.call(
+      'saveAiPassageStylePreference',
+      _codec.encodeRequest({'style': style.trim()}),
+    );
+    final json = _codec.decodeResponse(raw);
+    return AiPassageStylePreference.fromJson(json);
   }
 
   Future<AiPassage> generateAiPassage({

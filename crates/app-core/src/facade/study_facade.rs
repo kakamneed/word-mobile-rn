@@ -8,6 +8,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 use word_storage_core::models::{
+    AcceptDisputedMeaningRequest, AcceptDisputedMeaningResponse, AnswerOutcome,
     AnsweredStudyQuestion, CompleteSessionResponse, EntryExample, MarkStudyEntryMasteredRequest,
     MarkStudyEntryMasteredResponse, MeaningZh, QuestionTypeWeight, SessionProgress,
     StartSessionEntryPayload, StartSessionRequest, StartSessionResponse, StudyQuestion,
@@ -179,6 +180,8 @@ pub fn start_study_session(
                 phonetic_uk: None,
                 meanings: vec![],
                 examples: vec![],
+                cn_choice_distractors: Vec::new(),
+                en_choice_distractors: Vec::new(),
             })
             .collect()
     };
@@ -279,6 +282,8 @@ fn payloads_to_words(payloads: &[StartSessionEntryPayload]) -> Vec<WordForQuesti
                     sentence_cn: payload.example_translation.clone().unwrap_or_default(),
                 })
                 .collect(),
+            cn_choice_distractors: payload.cn_choice_distractors.clone(),
+            en_choice_distractors: payload.en_choice_distractors.clone(),
         })
         .collect()
 }
@@ -291,6 +296,68 @@ pub fn get_active_study_session() -> Result<StartSessionResponse, StudyError> {
 }
 
 /// Submit an answer for the current question.
+pub fn accept_disputed_meaning(
+    conn: &Connection,
+    request: AcceptDisputedMeaningRequest,
+) -> Result<AcceptDisputedMeaningResponse, StudyError> {
+    let mut guard = lock_sessions();
+    let active = guard
+        .values_mut()
+        .find(|session| session.question_map.contains_key(&request.question_id))
+        .ok_or(StudyError::NoActiveSession)?;
+    let question_index = active
+        .question_map
+        .get(&request.question_id)
+        .copied()
+        .ok_or(StudyError::NoActiveSession)?;
+    let question = active.questions[question_index].clone();
+    let accepted_meaning = request.submitted_answer.trim().to_string();
+    if accepted_meaning.is_empty() {
+        return Err(StudyError::InvalidMode(
+            "accepted meaning cannot be empty".to_string(),
+        ));
+    }
+    let answered_at = chrono::Utc::now().to_rfc3339();
+    let result = StudyResult {
+        question_id: request.question_id,
+        entry_source_id: question.entry_source_id.clone(),
+        question_type: question.question_type.clone(),
+        user_response: accepted_meaning.clone(),
+        normalized_response: Some(accepted_meaning.clone()),
+        correct_answer: accepted_meaning.clone(),
+        outcome: AnswerOutcome::FuzzyCorrect,
+        response_time_ms: 0,
+        answered_at,
+    };
+
+    if let Some(existing) = active
+        .results
+        .iter_mut()
+        .find(|item| item.question_id == result.question_id)
+    {
+        *existing = result.clone();
+    } else {
+        active.results.push(result.clone());
+    }
+    persist_active_session(conn, active)?;
+    if let Err(error) =
+        persistence::study_repo::save_session_progress(conn, &active.session, &active.results)
+    {
+        eprintln!("study progress persistence failed after disputed meaning accept: {error}");
+    }
+
+    Ok(AcceptDisputedMeaningResponse {
+        result,
+        progress: SessionProgress {
+            current: (active.current_index as u32 + 1).min(active.questions.len() as u32),
+            total: active.questions.len() as u32,
+        },
+        answered_questions: answered_questions(active),
+        entry_source_id: question.entry_source_id,
+        word: question.word,
+        accepted_meaning,
+    })
+}
 pub fn submit_study_answer(
     conn: &Connection,
     request: SubmitAnswerRequest,
@@ -360,11 +427,30 @@ pub fn submit_study_answer(
         answered_questions: answered_questions(active),
     };
 
-    persist_active_session(conn, active)?;
-    if let Err(error) =
-        persistence::study_repo::save_session_progress(conn, &active.session, &active.results)
-    {
-        eprintln!("study progress persistence failed but active session was saved: {error}");
+    if is_complete {
+        if let Some(summary) = response.summary.as_ref() {
+            if let Some(next_action) = response.next_action.as_ref() {
+                if let Err(error) = persistence::study_repo::save_completed_session(
+                    conn,
+                    &active.session,
+                    summary,
+                    &active.results,
+                    next_action,
+                ) {
+                    eprintln!("study persistence failed but submitted session will still complete: {error}");
+                }
+            }
+        }
+        let mode_key = mode_storage_key(&active.session.mode);
+        clear_persisted_session(conn, &active.session.mode)?;
+        guard.remove(&mode_key);
+    } else {
+        persist_active_session(conn, active)?;
+        if let Err(error) =
+            persistence::study_repo::save_session_progress(conn, &active.session, &active.results)
+        {
+            eprintln!("study progress persistence failed but active session was saved: {error}");
+        }
     }
 
     Ok(response)
@@ -759,6 +845,8 @@ mod tests {
             meanings: vec![meaning.to_string()],
             example_sentence: Some(format!("{word} example")),
             example_translation: Some(format!("{meaning} translation")),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         }
     }
 
@@ -828,6 +916,8 @@ mod tests {
                     meanings: vec!["again".to_string()],
                     example_sentence: None,
                     example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
                 }],
                 distractor_payloads: vec![
                     StartSessionEntryPayload {
@@ -845,6 +935,8 @@ mod tests {
                         meanings: vec!["做手势；用动作示意".to_string()],
                         example_sentence: Some("I gestured toward the boathouse.".to_string()),
                         example_translation: Some("我朝船屋做了个手势。".to_string()),
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                     StartSessionEntryPayload {
                         source_id: "delete".to_string(),
@@ -861,6 +953,8 @@ mod tests {
                         meanings: vec!["取消；删去；划掉；把...作废".to_string()],
                         example_sentence: None,
                         example_translation: None,
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                 ],
                 question_type_weights: Vec::new(),
@@ -936,6 +1030,8 @@ mod tests {
                     meanings: vec!["across".to_string()],
                     example_sentence: None,
                     example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
                 }],
                 distractor_payloads: vec![StartSessionEntryPayload {
                     source_id: "delete".to_string(),
@@ -946,12 +1042,14 @@ mod tests {
                     phonetic_uk: None,
                     meaning_details: vec![StartSessionMeaningPayload {
                         pos: "vi".to_string(),
-                        meaning_cn: "鍙栨秷锛涘垹鍘伙紱鍒掓帀锛涙妸...浣滃簾".to_string(),
+                        meaning_cn: "\u{53d6}\u{6d88}\u{ff1b}\u{5220}\u{53bb}\u{ff1b}\u{5212}\u{6389}\u{ff1b}\u{628a}...\u{4f5c}\u{5e9f}".to_string(),
                         meaning_en: None,
                     }],
-                    meanings: vec!["鍙栨秷锛涘垹鍘伙紱鍒掓帀锛涙妸...浣滃簾".to_string()],
+                    meanings: vec!["\u{53d6}\u{6d88}\u{ff1b}\u{5220}\u{53bb}\u{ff1b}\u{5212}\u{6389}\u{ff1b}\u{628a}...\u{4f5c}\u{5e9f}".to_string()],
                     example_sentence: None,
                     example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
                 }],
                 question_type_weights: Vec::new(),
             },
@@ -993,6 +1091,8 @@ mod tests {
                     meanings: vec!["alpha meaning".to_string()],
                     example_sentence: None,
                     example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
                 }],
                 distractor_payloads: Vec::new(),
                 question_type_weights: Vec::new(),
@@ -1021,6 +1121,8 @@ mod tests {
                     meanings: vec!["beta meaning".to_string()],
                     example_sentence: None,
                     example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
                 }],
                 distractor_payloads: Vec::new(),
                 question_type_weights: Vec::new(),
@@ -1055,6 +1157,8 @@ mod tests {
             meanings: vec!["冰箱".to_string()],
             example_sentence: Some("Put the milk in the fridge.".to_string()),
             example_translation: Some("把牛奶放进冰箱。".to_string()),
+            cn_choice_distractors: Vec::new(),
+            en_choice_distractors: Vec::new(),
         };
 
         let first = start_study_session(
@@ -1202,6 +1306,8 @@ mod tests {
                         meanings: vec!["condemn meaning".to_string()],
                         example_sentence: None,
                         example_translation: None,
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                     StartSessionEntryPayload {
                         source_id: "spoil".to_string(),
@@ -1218,6 +1324,8 @@ mod tests {
                         meanings: vec!["spoil meaning".to_string()],
                         example_sentence: None,
                         example_translation: None,
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                 ],
                 distractor_payloads: Vec::new(),
@@ -1280,6 +1388,8 @@ mod tests {
                         meanings: vec!["alpha meaning".to_string()],
                         example_sentence: None,
                         example_translation: None,
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                     StartSessionEntryPayload {
                         source_id: "beta".to_string(),
@@ -1296,6 +1406,8 @@ mod tests {
                         meanings: vec!["beta meaning".to_string()],
                         example_sentence: None,
                         example_translation: None,
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                 ],
                 distractor_payloads: Vec::new(),
@@ -1363,6 +1475,95 @@ mod tests {
     }
 
     #[test]
+    fn final_submit_persists_completed_session_and_clears_resume_snapshot() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let start = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec!["alpha".to_string()],
+                entry_payloads: vec![StartSessionEntryPayload {
+                    source_id: "alpha".to_string(),
+                    word: "alpha".to_string(),
+                    part_of_speech: Some("n".to_string()),
+                    frequency: 1.0,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    meaning_details: vec![StartSessionMeaningPayload {
+                        pos: "n".to_string(),
+                        meaning_cn: "alpha meaning".to_string(),
+                        meaning_en: None,
+                    }],
+                    meanings: vec!["alpha meaning".to_string()],
+                    example_sentence: None,
+                    example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
+                }],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: word_storage_core::models::QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("start session");
+
+        assert_eq!(start.progress.total, 1);
+        let submit = submit_study_answer(
+            &conn,
+            SubmitAnswerRequest {
+                question_id: start.current_question.question_id.clone(),
+                response: "wrong".to_string(),
+                response_time_ms: 10,
+            },
+        )
+        .expect("submit final answer");
+
+        assert!(submit.is_complete);
+        assert_eq!(submit.progress.current, 1);
+        assert_eq!(submit.progress.total, 1);
+        assert_eq!(submit.result.correct_answer, "alpha meaning");
+
+        let completed_at: Option<String> = conn
+            .query_row(
+                "SELECT completed_at FROM study_sessions WHERE session_id = ?1",
+                [&start.session.session_id],
+                |row| row.get(0),
+            )
+            .expect("completed session row");
+        assert!(completed_at.is_some());
+
+        let snapshot_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM app_settings WHERE key = ?1",
+                ["active_study_session_mixedTest"],
+                |row| row.get(0),
+            )
+            .expect("snapshot count");
+        assert_eq!(snapshot_count, 0);
+
+        clear_all_active_sessions();
+        let error = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect_err("completed submit must not leave a resumable snapshot");
+        assert!(matches!(error, super::StudyError::NotEnoughWords));
+    }
+
+    #[test]
     fn submit_choice_returns_wrong_label_and_unique_correct_answer() {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
@@ -1390,6 +1591,8 @@ mod tests {
                         meanings: vec!["做手势；用动作示意".to_string()],
                         example_sentence: Some("I gestured toward the boathouse.".to_string()),
                         example_translation: Some("我朝船屋做了个手势。".to_string()),
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                     StartSessionEntryPayload {
                         source_id: "delete".to_string(),
@@ -1406,6 +1609,8 @@ mod tests {
                         meanings: vec!["取消；删去；划掉；把...作废".to_string()],
                         example_sentence: None,
                         example_translation: None,
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                 ],
                 distractor_payloads: Vec::new(),
@@ -1766,6 +1971,8 @@ mod tests {
                         meanings: vec!["alpha meaning".to_string()],
                         example_sentence: Some("alpha example".to_string()),
                         example_translation: Some("alpha translation".to_string()),
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                     StartSessionEntryPayload {
                         source_id: "beta".to_string(),
@@ -1782,6 +1989,8 @@ mod tests {
                         meanings: vec!["beta meaning".to_string()],
                         example_sentence: Some("beta example".to_string()),
                         example_translation: Some("beta translation".to_string()),
+                        cn_choice_distractors: Vec::new(),
+                        en_choice_distractors: Vec::new(),
                     },
                 ],
                 distractor_payloads: Vec::new(),
@@ -1836,6 +2045,8 @@ mod tests {
                     meanings: vec!["alpha meaning".to_string()],
                     example_sentence: None,
                     example_translation: None,
+                    cn_choice_distractors: Vec::new(),
+                    en_choice_distractors: Vec::new(),
                 }],
                 distractor_payloads: Vec::new(),
                 question_type_weights: Vec::new(),

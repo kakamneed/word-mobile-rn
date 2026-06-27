@@ -1,0 +1,188 @@
+.drawer-header {
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--flutter-hero-purple, #2f7d65);
+  box-shadow: 0 10px 24px rgba(47, 125, 101, 0.22);
+}
+
+.drawer-header__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  color: var(--flutter-primary, #2f7d65);
+  background: #ffffff;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.drawer-header__label {
+  display: block;
+  margin-top: 12px;
+  color: #c8ddd2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-error {
+  padding: 16px;
+  border: 1px solid #f1b8ad;
+  border-radius: 12px;
+  background: #fff5f2;
+}
+
+.account-error__title {
+  color: #8b2f22;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.account-error__message {
+  margin-top: 6px;
+  color: #6f3f38;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.account-card__label {
+  color: #c8ddd2;
+  font-size: 12px;
+}
+
+.account-card__id {
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.account-card__state {
+  margin-top: 8px;
+  color: #e4efe8;
+  font-size: 13px;
+}
+
+.binding-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid #ecefed;
+  border-bottom: 0;
+  background: #ffffff;
+  color: #111817;
+  font-size: 14px;
+}
+
+.binding-row:first-child {
+  border-radius: 12px 12px 0 0;
+}
+
+.binding-row:last-child {
+  border-bottom: 1px solid #ecefed;
+  border-radius: 0 0 12px 12px;
+}
+
+.binding-row__status {
+  color: var(--flutter-primary, #2f7d65);
+  font-weight: 700;
+}
+
+.drawer-list {
+  overflow: hidden;
+  border: 1px solid #ecefed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(23, 31, 28, 0.06);
+}
+
+.drawer-tile {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid #edf0e9;
+}
+
+.drawer-tile:last-child {
+  border-bottom: 0;
+}
+
+.drawer-tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  color: var(--flutter-primary, #2f7d65);
+  background: var(--flutter-soft, #e8f4ef);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.drawer-tile__title {
+  color: #111817;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.drawer-tile__caption {
+  margin-top: 4px;
+  color: #667062;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #ecefed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(23, 31, 28, 0.06);
+}
+
+.action-card__title {
+  color: #111817;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.action-card__caption {
+  margin-top: 4px;
+  color: #667062;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.account-email-bind {
+  display: block;
+}
+
+.account-email-bind__copy {
+  margin-bottom: 12px;
+}
+
+.account-email-bind__input {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #d8d0df;
+  border-radius: 8px;
+  color: #211c28;
+  font-size: 14px;
+}
+
+.account-email-bind__message {
+  display: block;
+  margin-top: 10px;
+  color: var(--flutter-primary, #6b5b95);
+  font-size: 13px;
+  line-height: 1.35;
+}

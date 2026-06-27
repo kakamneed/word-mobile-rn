@@ -14,6 +14,7 @@ import 'ai_screen.dart';
 import 'auth_screen.dart';
 import 'plan_screen.dart';
 import 'reports_screen.dart';
+import 'shell_page_data_cache.dart';
 import 'study_screen.dart';
 import 'wrong_words_screen.dart';
 
@@ -25,6 +26,7 @@ class TodayShellScreen extends StatefulWidget {
     super.key,
     required this.appState,
     this.refreshSeed = 0,
+    this.dataCache,
     this.onOpenPlan,
     this.onOpenStudy,
     this.onOpenReports,
@@ -35,6 +37,7 @@ class TodayShellScreen extends StatefulWidget {
 
   final AppState appState;
   final int refreshSeed;
+  final ShellPageDataCache? dataCache;
   final Future<void> Function()? onOpenPlan;
   final Future<void> Function(String mode, ResumeSessionHint? hint)?
   onOpenStudy;
@@ -54,6 +57,7 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
   Object? _loadError;
   int _loadGeneration = 0;
   bool _loading = true;
+  bool _secondaryLoading = false;
   bool _aiGenerating = false;
   String? _aiMessage;
 
@@ -71,16 +75,52 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     }
   }
 
-  Future<_TodayHomeBundle> _loadHomeBundle() async {
-    final todayFuture = widget.appState.sdk.today.getTodayHomeState();
+  _TodayHomeBundle _partialBundleFromToday(
+    TodayHomeState today,
+    _TodayHomeBundle? previous,
+  ) {
+    return _TodayHomeBundle(
+      today: today,
+      activePlan: _activePlanFromToday(today) ?? previous?.activePlan,
+      aiContext: previous?.aiContext,
+      aiHistory: previous?.aiHistory ?? const <AiPassageHistoryItem>[],
+      rewardState: previous?.rewardState,
+      announcements: previous?.announcements ?? const <CloudAnnouncement>[],
+      syncStatus: previous?.syncStatus,
+    );
+  }
+
+  Future<void> _refreshHomeBundle({bool showFullLoading = false, bool forceRefresh = false}) async {
+    final generation = ++_loadGeneration;
+    final previousBundle = _cachedBundle;
+    if (showFullLoading && mounted && previousBundle == null) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    } else if (mounted) {
+      setState(() {
+        _loadError = null;
+      });
+    }
+
+    final todayFuture =
+        widget.dataCache?.loadToday(refresh: showFullLoading || forceRefresh) ??
+        widget.appState.sdk.today.getTodayHomeState();
     final activePlanFuture = _optionalLoad(
-      widget.appState.sdk.plan.getActivePlan,
+      () =>
+          widget.dataCache?.loadActivePlan(refresh: showFullLoading || forceRefresh) ??
+          widget.appState.sdk.plan.getActivePlan(),
     );
     final aiContextFuture = _optionalLoad(
-      widget.appState.sdk.ai.getTodayAiPassageContext,
+      () =>
+          widget.dataCache?.loadTodayAiContext(refresh: showFullLoading || forceRefresh) ??
+          widget.appState.sdk.ai.getTodayAiPassageContext(),
     );
     final aiHistoryFuture = _optionalLoad(
-      widget.appState.sdk.ai.getAiPassageHistory,
+      () =>
+          widget.dataCache?.loadAiHistory(refresh: showFullLoading || forceRefresh) ??
+          widget.appState.sdk.ai.getAiPassageHistory(),
       fallback: const <AiPassageHistoryItem>[],
     );
     final rewardStateFuture = _optionalLoad(
@@ -90,32 +130,59 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       _announcementService.fetchVisibleAnnouncements,
       fallback: const <CloudAnnouncement>[],
     );
-    final syncStatusFuture = _optionalLoad(() async {
-      if (widget.appState.authState.allowsCloudWork) {
-        return widget.appState.sdk.sync.flushPendingToCloud();
-      }
-      return widget.appState.sdk.sync.getSyncStatus();
-    });
-
-    final today = await todayFuture;
-    final activePlan = _activePlanFromToday(today) ?? await activePlanFuture;
-
-    final aiContext = await aiContextFuture;
-    final aiHistory = await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
-    final rewardState = await rewardStateFuture;
-    final announcements =
-        await announcementsFuture ?? const <CloudAnnouncement>[];
-    final syncStatus = await syncStatusFuture;
-
-    return _TodayHomeBundle(
-      today: today,
-      activePlan: activePlan,
-      aiContext: aiContext,
-      aiHistory: aiHistory,
-      rewardState: rewardState,
-      announcements: announcements,
-      syncStatus: syncStatus,
+    if (widget.appState.authState.allowsCloudWork) {
+      widget.appState.sdk.sync.flushPendingToCloud().ignore();
+    }
+    final syncStatusFuture = _optionalLoad(
+      widget.appState.sdk.sync.getSyncStatus,
     );
+
+    try {
+      final today = await todayFuture;
+      if (!mounted || generation != _loadGeneration) return;
+      final partialBundle = _partialBundleFromToday(today, previousBundle);
+      setState(() {
+        _cachedBundle = partialBundle;
+        _loadError = null;
+        _loading = false;
+        _secondaryLoading = true;
+      });
+      widget.dataCache?.preload(ShellPageDataScope.plan);
+      widget.dataCache?.preload(ShellPageDataScope.ai);
+
+      final activePlan =
+          _activePlanFromToday(today) ?? await activePlanFuture;
+      final aiContext = await aiContextFuture;
+      final aiHistory = await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
+      final rewardState = await rewardStateFuture;
+      final announcements =
+          await announcementsFuture ?? const <CloudAnnouncement>[];
+      final syncStatus = await syncStatusFuture;
+
+      if (!mounted || generation != _loadGeneration) return;
+      final current = _cachedBundle;
+      if (current == null) return;
+      setState(() {
+        _cachedBundle = current.copyWith(
+          activePlan: activePlan,
+          aiContext: aiContext,
+          aiHistory: aiHistory,
+          rewardState: rewardState,
+          announcements: announcements,
+          syncStatus: syncStatus,
+        );
+        _loadError = null;
+        _loading = false;
+        _secondaryLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _loadError = error;
+        _loading = false;
+        _secondaryLoading = false;
+      });
+    }
   }
 
   Future<void> _dismissAnnouncement(CloudAnnouncement announcement) async {
@@ -140,32 +207,6 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       return await loader();
     } catch (_) {
       return fallback;
-    }
-  }
-
-  Future<void> _refreshHomeBundle({bool showFullLoading = false}) async {
-    final generation = ++_loadGeneration;
-    if (showFullLoading && mounted) {
-      setState(() {
-        _loading = true;
-        _loadError = null;
-      });
-    }
-
-    try {
-      final bundle = await _loadHomeBundle();
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _cachedBundle = bundle;
-        _loadError = null;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _loadError = error;
-        _loading = false;
-      });
     }
   }
 
@@ -213,7 +254,8 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       if (widget.appState.authState.allowsCloudWork) {
         await widget.appState.sdk.sync.flushPendingToCloud();
       }
-      _triggerReload();
+      widget.dataCache?.invalidate(ShellPageDataScope.ai);
+      await _refreshHomeBundle(forceRefresh: true);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -244,13 +286,13 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     ResumeSessionHint? resumeHint,
   ]) async {
     final navigator = Navigator.of(context);
-    final effectiveHint =
-        resumeHint ?? await widget.appState.sdk.study.getResumeSessionHint();
     if (!mounted) return;
     final effectiveMode = mode;
     final hintForScreen =
-        effectiveHint.hasResume && effectiveHint.mode == effectiveMode
-        ? effectiveHint
+        resumeHint != null &&
+            resumeHint.hasResume &&
+            resumeHint.mode == effectiveMode
+        ? resumeHint
         : null;
     if (widget.onOpenStudy != null) {
       await widget.onOpenStudy!.call(effectiveMode, hintForScreen);
@@ -405,7 +447,8 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       return _SectionCard(title: '今日页加载失败', child: Text(message));
     }
 
-    final bundle = snapshot.data;
+    // ignore: unnecessary_nullable_for_final_variable_declarations
+    final _TodayHomeBundle? bundle = cachedBundle;
     if (bundle == null) {
       return const _SectionCard(title: '暂无今日数据', child: Text('学习引擎没有返回今日页数据。'));
     }
@@ -453,6 +496,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          if (_secondaryLoading) ...[
+            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 12),
+          ],
           if (bundle.announcements.isNotEmpty)
             _AnnouncementBanner(
               announcement: bundle.announcements.first,
@@ -567,15 +614,22 @@ class _TodayHomeBundle {
   final List<CloudAnnouncement> announcements;
   final SyncStatus? syncStatus;
 
-  _TodayHomeBundle copyWith({List<CloudAnnouncement>? announcements}) {
+  _TodayHomeBundle copyWith({
+    PlanSummary? activePlan,
+    TodayAiPassageContext? aiContext,
+    List<AiPassageHistoryItem>? aiHistory,
+    TodayRewardState? rewardState,
+    List<CloudAnnouncement>? announcements,
+    SyncStatus? syncStatus,
+  }) {
     return _TodayHomeBundle(
       today: today,
-      activePlan: activePlan,
-      aiContext: aiContext,
-      aiHistory: aiHistory,
-      rewardState: rewardState,
+      activePlan: activePlan ?? this.activePlan,
+      aiContext: aiContext ?? this.aiContext,
+      aiHistory: aiHistory ?? this.aiHistory,
+      rewardState: rewardState ?? this.rewardState,
       announcements: announcements ?? this.announcements,
-      syncStatus: syncStatus,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 }
@@ -971,6 +1025,7 @@ String _accountPhaseLabel(AuthAccountPhase phase, String? userEmail) {
     AuthAccountPhase.guestLocalOnly => 'guest local-only',
     AuthAccountPhase.emailVerificationPending => 'email verification pending',
     AuthAccountPhase.passwordResetEmailSent => 'password reset email sent',
+    AuthAccountPhase.passwordResetOtpVerified => 'password reset code verified',
     AuthAccountPhase.passwordUpdated => 'password updated',
     AuthAccountPhase.signedInNeedsBind => 'signed in, checking data',
     AuthAccountPhase.signedInActive => userEmail ?? 'signed in',
@@ -1473,7 +1528,7 @@ class _TodayAiPassagePreview extends StatelessWidget {
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 6),
-        Text('状态：${passage.validationStatus}'),
+        Text('\u72b6\u6001\uff1a${passage.validationStatus}'),
         if (passage.failureReason != null) ...[
           const SizedBox(height: 6),
           Text(
@@ -1538,7 +1593,7 @@ class _TodayAiBlockView extends StatelessWidget {
                       ),
                       if (gloss.isNotEmpty)
                         TextSpan(
-                          text: '（$gloss）',
+                          text: '\uff08$gloss\uff09',
                           style: const TextStyle(
                             color: Color(0xFFB64A4A),
                             fontWeight: FontWeight.w600,

@@ -98,7 +98,9 @@ void main() {
 
     expect(state.phase, AuthAccountPhase.passwordResetEmailSent);
     expect(fakeAuth.passwordResetRequests, ['user@example.com']);
-    expect(fakeAuth.passwordResetRedirects, ['wordmobile://auth/reset-password']);
+    expect(fakeAuth.passwordResetRedirects, [
+      'wordmobile://auth/reset-password',
+    ]);
   });
 
   test('update password delegates to gateway', () async {
@@ -112,6 +114,42 @@ void main() {
 
     expect(state.phase, AuthAccountPhase.passwordUpdated);
     expect(fakeAuth.updatedPasswords, ['new-secret']);
+  });
+
+  test('verify signup otp resolves the returned session', () async {
+    final fakeAuth = _FakeAuthGateway(
+      verifySignupOtpResponse: AuthResponse(session: _validSession()),
+      cloudDataAccessAvailable: true,
+    );
+    final manager = AuthSessionManager(
+      auth: fakeAuth,
+      localDataOwner: _FakeLocalDataOwnerGateway(),
+      isConfigured: () => true,
+    );
+
+    final state = await manager.verifySignupOtp(
+      email: 'new@example.com',
+      token: '123456',
+    );
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(fakeAuth.verifiedSignupOtps, ['new@example.com:123456']);
+  });
+
+  test('verify password recovery otp allows setting a new password', () async {
+    final fakeAuth = _FakeAuthGateway();
+    final manager = AuthSessionManager(
+      auth: fakeAuth,
+      isConfigured: () => true,
+    );
+
+    final state = await manager.verifyPasswordRecoveryOtp(
+      email: 'user@example.com',
+      token: '654321',
+    );
+
+    expect(state.phase, AuthAccountPhase.passwordResetOtpVerified);
+    expect(fakeAuth.verifiedRecoveryOtps, ['user@example.com:654321']);
   });
 
   test('valid restored session waits for bind before cloud work', () async {
@@ -349,6 +387,7 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
     this.restoredSession,
     this.restoreError,
     this.verifyError,
+    this.verifySignupOtpResponse,
     this.cloudDataAccessAvailable = false,
   });
 
@@ -356,11 +395,14 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
   final Session? restoredSession;
   final Object? restoreError;
   final Object? verifyError;
+  final AuthResponse? verifySignupOtpResponse;
   final bool cloudDataAccessAvailable;
   final resentSignupEmails = <String>[];
   final passwordResetRequests = <String>[];
   final passwordResetRedirects = <String?>[];
   final updatedPasswords = <String>[];
+  final verifiedSignupOtps = <String>[];
+  final verifiedRecoveryOtps = <String>[];
 
   @override
   Future<AuthResponse> refreshSession() async => AuthResponse();
@@ -397,6 +439,24 @@ class _FakeAuthGateway implements SupabaseAuthGateway {
   @override
   Future<void> updatePassword({required String password}) async {
     updatedPasswords.add(password);
+  }
+
+  @override
+  Future<AuthResponse> verifySignupOtp({
+    required String email,
+    required String token,
+  }) async {
+    verifiedSignupOtps.add('$email:$token');
+    return verifySignupOtpResponse ?? AuthResponse();
+  }
+
+  @override
+  Future<AuthResponse> verifyPasswordRecoveryOtp({
+    required String email,
+    required String token,
+  }) async {
+    verifiedRecoveryOtps.add('$email:$token');
+    return AuthResponse(session: restoredSession);
   }
 
   @override

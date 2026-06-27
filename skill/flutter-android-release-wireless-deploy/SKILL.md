@@ -78,6 +78,11 @@ Distinguish test packages from staged stable packages:
 - Test packages are for the developer's device only. Install them with wireless
   adb (`adb install -r`) and do not create an enabled `app_releases` row for
   them. They must not be delivered through the client self-update flow.
+- After a version has been uploaded/published through GitHub Releases as a
+  staged stable package, the next local test package should bump
+  `apps/flutter_mobile/pubspec.yaml` `version:` by one patch and one
+  `versionCode` before building. For example, after `1.0.2+3` is uploaded,
+  the default next test build is `1.0.3+4`.
 - Staged stable packages are the only APKs that may be uploaded to GitHub
   Releases and enabled in `public.app_releases` for automatic client update
   checks.

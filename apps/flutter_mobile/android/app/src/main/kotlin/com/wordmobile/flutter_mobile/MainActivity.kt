@@ -1,4 +1,4 @@
-﻿package com.wordmobile
+package com.wordmobile
 
 import android.content.ContentValues
 import android.content.Intent
@@ -242,6 +242,16 @@ class MainActivity : FlutterActivity() {
                                 }
                             }
                         }
+                        "getWrongWordGraph" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getWrongWordGraph()
+                            }
+                        }
+                        "saveWrongWordGraphPosition" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveWrongWordGraphPosition(call.arguments as? String ?: "")
+                            }
+                        }
                         "saveWordHint" -> {
                             runBridgeCall(result) {
                                 RustBridge.saveWordHint(call.arguments as? String ?: "")
@@ -270,6 +280,16 @@ class MainActivity : FlutterActivity() {
                         "getAiPassage" -> {
                             runBridgeCall(result) {
                                 RustBridge.getAiPassage(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getAiPassageStylePreference" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getAiPassageStylePreference()
+                            }
+                        }
+                        "saveAiPassageStylePreference" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveAiPassageStylePreference(call.arguments as? String ?: "")
                             }
                         }
                         "generateAiPassage" -> {
@@ -313,6 +333,11 @@ class MainActivity : FlutterActivity() {
                         "markStudyEntryMastered" -> {
                             runBridgeCall(result) {
                                 RustBridge.markStudyEntryMastered(call.arguments as? String ?: "")
+                            }
+                        }
+                        "acceptDisputedMeaning" -> {
+                            runBridgeCall(result) {
+                                RustBridge.acceptDisputedMeaning(call.arguments as? String ?: "")
                             }
                         }
                         "completeStudySession" -> {

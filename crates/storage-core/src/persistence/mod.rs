@@ -13,6 +13,7 @@ pub mod schema;
 mod schema_tests;
 pub mod study_repo;
 pub mod sync_repo;
+pub mod user_accepted_meaning_repo;
 pub mod word_hint_repo;
 pub mod wordbook_repo;
 pub use rusqlite::Connection;

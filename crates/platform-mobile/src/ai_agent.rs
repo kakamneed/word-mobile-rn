@@ -27,6 +27,38 @@ impl AiAgent {
         Self { config }
     }
 
+    pub fn run_ai_passage_json(
+        &self,
+        system_message: &str,
+        user_message: &str,
+    ) -> Result<String, String> {
+        self.call_anthropic_passage_tool(
+            "Primary AI passage",
+            &self.config.primary,
+            system_message,
+            user_message,
+        )
+        .or_else(|primary_error| {
+            self.call_anthropic_fallback_passage_tool(system_message, user_message, &primary_error)
+                .or_else(|anthropic_fallback_error| {
+                    self.call_backup_passage_tool(
+                        system_message,
+                        user_message,
+                        &primary_error,
+                        &anthropic_fallback_error,
+                    )
+                })
+        })
+        .or_else(|tool_error| {
+            self.run_text_json(system_message, user_message)
+                .map_err(|text_error| {
+                    format!(
+                        "AI passage tool request failed. Tool: {tool_error}. Text fallback: {text_error}"
+                    )
+                })
+        })
+    }
+
     pub fn run_text_json(
         &self,
         system_message: &str,
@@ -120,6 +152,43 @@ impl AiAgent {
             .ok_or_else(|| format!("{label} response missing text content from {url}"))
     }
 
+    fn call_anthropic_passage_tool(
+        &self,
+        label: &str,
+        profile: &AiProviderProfile,
+        system_message: &str,
+        user_message: &str,
+    ) -> Result<String, String> {
+        let client = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .build()
+            .map_err(|e| format!("{label} client failed: {e}"))?;
+        let url = self.anthropic_url(profile);
+        let payload = serde_json::json!({
+            "model": &profile.model,
+            "max_tokens": 2048,
+            "system": system_message,
+            "messages": [{ "role": "user", "content": user_message }],
+            "tools": [ai_passage_tool_schema_for_anthropic()],
+            "tool_choice": { "type": "tool", "name": AI_PASSAGE_TOOL_NAME },
+        });
+        let response = send_ai_request_with_retry(label, &url, || {
+            client
+                .post(&url)
+                .header("x-api-key", &profile.auth_token)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send()
+        })?;
+        let json: serde_json::Value = response
+            .json()
+            .map_err(|e| format!("{label} response decode failed from {url}: {e}"))?;
+        extract_anthropic_tool_input(&json, AI_PASSAGE_TOOL_NAME).ok_or_else(|| {
+            format!("{label} response missing {AI_PASSAGE_TOOL_NAME} tool input from {url}")
+        })
+    }
+
     fn call_anthropic_image(
         &self,
         label: &str,
@@ -178,6 +247,29 @@ impl AiAgent {
             Some(profile) => self
                 .call_anthropic_text(
                     "Secondary Anthropic AI",
+                    profile,
+                    system_message,
+                    user_message,
+                )
+                .map_err(|fallback_error| {
+                    format!("Primary: {primary_error}. Secondary Anthropic: {fallback_error}")
+                }),
+            None => Err(format!(
+                "Primary: {primary_error}. Secondary Anthropic: not configured"
+            )),
+        }
+    }
+
+    fn call_anthropic_fallback_passage_tool(
+        &self,
+        system_message: &str,
+        user_message: &str,
+        primary_error: &str,
+    ) -> Result<String, String> {
+        match &self.config.anthropic_fallback {
+            Some(profile) => self
+                .call_anthropic_passage_tool(
+                    "Secondary Anthropic AI passage",
                     profile,
                     system_message,
                     user_message,
@@ -258,6 +350,53 @@ impl AiAgent {
             .map_err(|e| format!("Backup AI response decode failed from {url}. Anthropic fallback: {anthropic_fallback_error}. Backup decode error: {e}"))?;
         extract_openai_responses_text(&json).ok_or_else(|| {
             format!("Backup AI response missing output_text from {url}. Anthropic fallback: {anthropic_fallback_error}")
+        })
+    }
+
+    fn call_backup_passage_tool(
+        &self,
+        system_message: &str,
+        user_message: &str,
+        primary_error: &str,
+        anthropic_fallback_error: &str,
+    ) -> Result<String, String> {
+        let client = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .build()
+            .map_err(|e| {
+                format!(
+                    "Backup AI passage client failed. {anthropic_fallback_error}. Backup client error: {e}"
+                )
+            })?;
+        let url = self.backup_url();
+        let payload = serde_json::json!({
+            "model": &self.config.backup.model,
+            "instructions": system_message,
+            "reasoning": { "effort": "low" },
+            "input": user_message,
+            "tools": [ai_passage_tool_schema_for_openai()],
+            "tool_choice": { "type": "function", "name": AI_PASSAGE_TOOL_NAME },
+            "store": false
+        });
+        let response = send_ai_request_with_retry("Backup AI passage", &url, || {
+            client
+                .post(&url)
+                .header(
+                    "Authorization",
+                    format!("Bearer {}", self.config.backup.auth_token),
+                )
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send()
+        })
+        .map_err(|backup_error| {
+            format!("All AI passage tool providers failed. Primary: {primary_error}. Anthropic fallback: {anthropic_fallback_error}. OpenAI backup: {backup_error}")
+        })?;
+        let json: serde_json::Value = response.json().map_err(|e| {
+            format!("Backup AI passage response decode failed from {url}. Anthropic fallback: {anthropic_fallback_error}. Backup decode error: {e}")
+        })?;
+        extract_openai_tool_input(&json, AI_PASSAGE_TOOL_NAME).ok_or_else(|| {
+            format!("Backup AI passage response missing {AI_PASSAGE_TOOL_NAME} tool input from {url}. Anthropic fallback: {anthropic_fallback_error}")
         })
     }
 
@@ -369,8 +508,49 @@ fn response_body_suffix(body: &str) -> String {
     }
 }
 
+const AI_PASSAGE_TOOL_NAME: &str = "write_ai_passage";
+
 pub const ANTHROPIC_MESSAGES_PATH: &str = "/v1/messages";
 pub const OPENAI_RESPONSES_PATH: &str = "/v1/responses";
+
+fn ai_passage_parameters_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "A short Chinese title for the passage."
+            },
+            "paragraphs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "string"
+                },
+                "description": "Chinese paragraphs. Put every target word marker inside the paragraph text as [[word:ENTRY_ID]]."
+            }
+        },
+        "required": ["title", "paragraphs"],
+        "additionalProperties": false
+    })
+}
+
+fn ai_passage_tool_schema_for_anthropic() -> serde_json::Value {
+    serde_json::json!({
+        "name": AI_PASSAGE_TOOL_NAME,
+        "description": "Write one Chinese AI reading passage around the supplied wrong words. The tool input is the final passage payload.",
+        "input_schema": ai_passage_parameters_schema()
+    })
+}
+
+fn ai_passage_tool_schema_for_openai() -> serde_json::Value {
+    serde_json::json!({
+        "type": "function",
+        "name": AI_PASSAGE_TOOL_NAME,
+        "description": "Write one Chinese AI reading passage around the supplied wrong words. The arguments are the final passage payload.",
+        "parameters": ai_passage_parameters_schema()
+    })
+}
 
 pub fn normalize_provider_url(base_url: &str, path_suffix: &str) -> String {
     let trimmed = base_url.trim_end_matches('/');
@@ -472,4 +652,107 @@ fn extract_openai_responses_text(json: &serde_json::Value) -> Option<String> {
             })
         })
         .map(str::to_string)
+}
+
+fn extract_anthropic_tool_input(json: &serde_json::Value, tool_name: &str) -> Option<String> {
+    json.get("content")
+        .and_then(|value| value.as_array())
+        .and_then(|items| {
+            items.iter().find_map(|item| {
+                let is_tool_use =
+                    item.get("type").and_then(|value| value.as_str()) == Some("tool_use");
+                let name_matches =
+                    item.get("name").and_then(|value| value.as_str()) == Some(tool_name);
+                if is_tool_use && name_matches {
+                    item.get("input").map(json_value_to_payload_string)
+                } else {
+                    None
+                }
+            })
+        })
+}
+
+fn extract_openai_tool_input(json: &serde_json::Value, tool_name: &str) -> Option<String> {
+    json.get("output")
+        .and_then(|value| value.as_array())
+        .and_then(|items| {
+            items.iter().find_map(|item| {
+                extract_openai_tool_input_from_item(item, tool_name).or_else(|| {
+                    item.get("content")
+                        .and_then(|value| value.as_array())
+                        .and_then(|content| {
+                            content.iter().find_map(|part| {
+                                extract_openai_tool_input_from_item(part, tool_name)
+                            })
+                        })
+                })
+            })
+        })
+}
+
+fn extract_openai_tool_input_from_item(
+    item: &serde_json::Value,
+    tool_name: &str,
+) -> Option<String> {
+    let item_type = item.get("type").and_then(|value| value.as_str());
+    let type_matches = matches!(item_type, Some("function_call") | Some("tool_call"));
+    let name_matches = item.get("name").and_then(|value| value.as_str()) == Some(tool_name);
+    if type_matches && name_matches {
+        item.get("arguments")
+            .or_else(|| item.get("input"))
+            .map(json_value_to_payload_string)
+    } else {
+        None
+    }
+}
+
+fn json_value_to_payload_string(value: &serde_json::Value) -> String {
+    value
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| value.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_anthropic_passage_tool_input() {
+        let response = serde_json::json!({
+            "content": [{
+                "type": "tool_use",
+                "name": "write_ai_passage",
+                "input": {
+                    "title": "海底计划",
+                    "paragraphs": ["第一段 [[word:101]]。"]
+                }
+            }]
+        });
+
+        let payload =
+            extract_anthropic_tool_input(&response, AI_PASSAGE_TOOL_NAME).expect("tool payload");
+        let parsed: serde_json::Value = serde_json::from_str(&payload).expect("json payload");
+
+        assert_eq!(parsed["title"], "海底计划");
+        assert_eq!(parsed["paragraphs"][0], "第一段 [[word:101]]。");
+    }
+
+    #[test]
+    fn extracts_openai_passage_tool_arguments() {
+        let response = serde_json::json!({
+            "output": [{
+                "type": "function_call",
+                "name": "write_ai_passage",
+                "arguments": "{\"title\":\"风暴花园\",\"paragraphs\":[\"第二段 [[word:202]]。\"]}"
+            }]
+        });
+
+        let payload =
+            extract_openai_tool_input(&response, AI_PASSAGE_TOOL_NAME).expect("tool payload");
+        let parsed: serde_json::Value = serde_json::from_str(&payload).expect("json payload");
+
+        assert_eq!(parsed["title"], "风暴花园");
+        assert_eq!(parsed["paragraphs"][0], "第二段 [[word:202]]。");
+    }
 }

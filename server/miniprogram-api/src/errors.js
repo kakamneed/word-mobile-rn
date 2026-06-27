@@ -1,0 +1,26 @@
+export const errorCodes = {
+  WECHAT_CODE_INVALID: 'WECHAT_CODE_INVALID',
+  WECHAT_RESPONSE_INVALID: 'WECHAT_RESPONSE_INVALID',
+  AUTH_RATE_LIMITED: 'AUTH_RATE_LIMITED',
+  AUTH_REQUIRED: 'AUTH_REQUIRED',
+  SESSION_EXPIRED: 'SESSION_EXPIRED',
+  ACCOUNT_DISABLED: 'ACCOUNT_DISABLED',
+  EMAIL_BIND_CHALLENGE_INVALID: 'EMAIL_BIND_CHALLENGE_INVALID',
+  MERGE_DECISION_REQUIRED: 'MERGE_DECISION_REQUIRED',
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  DOMAIN_CONFLICT: 'DOMAIN_CONFLICT',
+  REQUEST_FAILED: 'REQUEST_FAILED',
+};
+
+export function apiError(code, message, statusCode = 400, details = undefined) {
+  return {
+    statusCode,
+    body: {
+      error: {
+        code,
+        message,
+        details,
+      },
+    },
+  };
+}

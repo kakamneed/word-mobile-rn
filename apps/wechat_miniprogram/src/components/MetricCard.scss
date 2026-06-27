@@ -1,0 +1,31 @@
+.metric {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #ecefed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(23, 31, 28, 0.06);
+}
+
+.metric--good {
+  border-color: #b7d8c5;
+  background: #f1f8f3;
+}
+
+.metric--warn {
+  border-color: #ead3ac;
+  background: #fff8ea;
+}
+
+.metric__value {
+  color: #111817;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.metric__label {
+  margin-top: 6px;
+  color: #667062;
+  font-size: 12px;
+}

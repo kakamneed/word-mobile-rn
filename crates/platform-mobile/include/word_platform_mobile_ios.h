@@ -51,6 +51,8 @@ char *word_mobile_ios_get_wordbooks(void);
 char *word_mobile_ios_get_reports_overview(void);
 char *word_mobile_ios_get_wrong_words(const char *filter);
 char *word_mobile_ios_get_wrong_word_detail(long long entry_id);
+char *word_mobile_ios_get_wrong_word_graph(void);
+char *word_mobile_ios_save_wrong_word_graph_position(const char *request_json);
 char *word_mobile_ios_save_word_hint(const char *request_json);
 char *word_mobile_ios_get_word_hint_suggestions(long long entry_id);
 char *word_mobile_ios_get_today_ai_passage_context(void);

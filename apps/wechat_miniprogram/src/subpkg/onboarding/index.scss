@@ -1,0 +1,164 @@
+.onboarding-hero {
+  padding: 28px 24px;
+  border-radius: 16px;
+  color: #ffffff;
+  background: var(--flutter-hero-purple, #6b5b95);
+  box-shadow: 0 4px 12px rgba(42, 34, 52, 0.18);
+}
+
+.onboarding-hero__eyebrow,
+.onboarding-hero__title,
+.onboarding-hero__caption {
+  display: block;
+}
+
+.onboarding-hero__eyebrow {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 17px;
+}
+
+.onboarding-hero__title {
+  margin-top: 14px;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.22;
+}
+
+.onboarding-hero__caption {
+  margin-top: 18px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.onboarding-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 22px 0;
+}
+
+.onboarding-progress__dot {
+  width: 28px;
+  height: 8px;
+  border-radius: 999px;
+  background: #e8e0ef;
+}
+
+.onboarding-progress__dot--active {
+  background: var(--flutter-primary, #6b5b95);
+}
+
+.onboarding-card {
+  padding: 24px 22px;
+  border: 1px solid #eee7f2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(42, 34, 52, 0.12);
+}
+
+.onboarding-card__title {
+  display: block;
+  color: #211c28;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.onboarding-card__body {
+  display: block;
+  margin-top: 14px;
+  color: #625b6d;
+  font-size: 18px;
+  line-height: 1.52;
+}
+
+.onboarding-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 156px;
+  gap: 12px;
+  align-items: center;
+  padding: 18px 0;
+  border-bottom: 1px solid #eee7f2;
+}
+
+.onboarding-row:last-child {
+  border-bottom: 0;
+}
+
+.onboarding-row__title,
+.onboarding-row__caption {
+  display: block;
+}
+
+.onboarding-row__title {
+  color: #211c28;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.onboarding-row__caption {
+  margin-top: 6px;
+  color: #777080;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.onboarding-stepper {
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  gap: 7px;
+}
+
+.onboarding-stepper__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid #9c95a4;
+  border-radius: 999px;
+  color: #4e4658;
+  background: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.onboarding-stepper__value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 48px;
+  border: 1px solid #b8b0bf;
+  border-radius: 6px;
+  color: #4d4658;
+  font-size: 18px;
+}
+
+.onboarding-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 40px;
+}
+
+.onboarding-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 54px;
+  border: 1px solid #8b8490;
+  border-radius: 999px;
+  color: #5d5368;
+  background: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.onboarding-action--primary {
+  color: #ffffff;
+  border-color: var(--flutter-primary, #6b5b95);
+  background: var(--flutter-primary, #6b5b95);
+}

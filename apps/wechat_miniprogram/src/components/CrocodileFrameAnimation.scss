@@ -1,0 +1,125 @@
+.croc-frame {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+}
+
+.croc-frame--roll {
+  width: 172px;
+  height: 132px;
+}
+
+.croc-frame--crawl {
+  width: 92px;
+  height: 46px;
+}
+
+.croc-frame__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  animation: croc-frame-step 690ms steps(1, end) infinite;
+}
+
+.croc-frame--roll .croc-frame__image {
+  animation-duration: 1040ms;
+  animation-name: croc-roll-frame-step;
+}
+
+.croc-frame__image--1 {
+  animation-delay: 0ms;
+}
+
+.croc-frame__image--2 {
+  animation-delay: 115ms;
+}
+
+.croc-frame__image--3 {
+  animation-delay: 230ms;
+}
+
+.croc-frame__image--4 {
+  animation-delay: 345ms;
+}
+
+.croc-frame__image--5 {
+  animation-delay: 460ms;
+}
+
+.croc-frame__image--6 {
+  animation-delay: 575ms;
+}
+
+.croc-frame--roll .croc-frame__image--2 {
+  animation-delay: 130ms;
+}
+
+.croc-frame--roll .croc-frame__image--3 {
+  animation-delay: 260ms;
+}
+
+.croc-frame--roll .croc-frame__image--4 {
+  animation-delay: 390ms;
+}
+
+.croc-frame--roll .croc-frame__image--5 {
+  animation-delay: 520ms;
+}
+
+.croc-frame--roll .croc-frame__image--6 {
+  animation-delay: 650ms;
+}
+
+.croc-frame--roll .croc-frame__image--7 {
+  animation-delay: 780ms;
+}
+
+.croc-frame--roll .croc-frame__image--8 {
+  animation-delay: 910ms;
+}
+
+@keyframes croc-frame-step {
+  0%,
+  16.666% {
+    opacity: 1;
+  }
+
+  16.667%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes croc-roll-frame-step {
+  0%,
+  12.5% {
+    opacity: 1;
+  }
+
+  12.501%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.croc-refresh-popup {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 16px 8px 14px;
+  border: 1px solid rgba(107, 91, 149, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+
+.croc-refresh-popup__label {
+  margin-left: 8px;
+  color: #211c28;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}

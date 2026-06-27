@@ -11,6 +11,7 @@ import 'features/theme_settings.dart';
 import 'sdk/sdk.dart';
 import 'state/app_state.dart';
 import 'supabase/auth_session_manager.dart';
+import 'supabase/auth_deep_link_handler.dart';
 import 'supabase/supabase_auth_service.dart';
 import 'supabase/supabase_config.dart';
 import 'widgets/crocodile_frame_animation.dart';
@@ -87,6 +88,7 @@ class AppRoot extends StatefulWidget {
 class _AppRootState extends State<AppRoot> {
   late final AppState _appState;
   StreamSubscription<AuthState>? _authStateSubscription;
+  AuthDeepLinkHandler? _authDeepLinkHandler;
   bool _openingPasswordReset = false;
 
   @override
@@ -107,12 +109,16 @@ class _AppRootState extends State<AppRoot> {
     if (_authStateSubscription != null || !SupabaseConfig.isConfigured) return;
     try {
       await SupabaseAuthService().ensureInitialized();
-      _authStateSubscription =
-          Supabase.instance.client.auth.onAuthStateChange.listen((state) {
-        if (state.event == AuthChangeEvent.passwordRecovery) {
-          _openPasswordReset();
-        }
-      });
+      _authDeepLinkHandler = AuthDeepLinkHandler(
+        onPasswordRecovery: _openPasswordReset,
+      );
+      _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange
+          .listen((state) {
+            if (state.event == AuthChangeEvent.passwordRecovery) {
+              _openPasswordReset();
+            }
+          });
+      await _authDeepLinkHandler?.start();
     } catch (_) {
       // Auth recovery is optional; normal local-first startup must not fail here.
     }
@@ -139,6 +145,7 @@ class _AppRootState extends State<AppRoot> {
   @override
   void dispose() {
     _authStateSubscription?.cancel();
+    _authDeepLinkHandler?.dispose();
     _appState.dispose();
     super.dispose();
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../sdk/sdk.dart';
 import '../supabase/word_comment_service.dart';
+import '../supabase/word_disputed_meaning_service.dart';
 import '../widgets/crocodile_frame_animation.dart';
 
 class StudyScreen extends StatefulWidget {
@@ -29,6 +31,8 @@ class _StudyScreenState extends State<StudyScreen> {
   final FocusNode _answerFocusNode = FocusNode();
   final PageController _pageController = PageController();
   final WordCommentService _commentService = WordCommentService();
+  final WordDisputedMeaningService _disputeService =
+      WordDisputedMeaningService();
   final ValueNotifier<bool> _hasTypedAnswer = ValueNotifier(false);
   final Stopwatch _responseStopwatch = Stopwatch();
   String? _selectedChoice;
@@ -108,6 +112,7 @@ class _StudyScreenState extends State<StudyScreen> {
       });
       _jumpToCurrentFeedPage();
       _restartResponseTimer();
+      _focusAnswerInputForCurrentQuestion();
     } catch (error) {
       _error = error.toString();
     } finally {
@@ -185,6 +190,7 @@ class _StudyScreenState extends State<StudyScreen> {
         });
       } else if (response.currentQuestion != null) {
         _restartResponseTimer();
+        _focusAnswerInputForCurrentQuestion();
       }
       await _maybeShowHintPrompt(response);
     } catch (error) {
@@ -236,6 +242,7 @@ class _StudyScreenState extends State<StudyScreen> {
       });
       if (!response.isComplete) {
         _restartResponseTimer();
+        _focusAnswerInputForCurrentQuestion();
       }
     } catch (error) {
       if (mounted) {
@@ -259,6 +266,70 @@ class _StudyScreenState extends State<StudyScreen> {
       _selectedChoice = null;
     });
     await _submit(questionOverride: question, allowEmpty: true);
+  }
+
+  Future<void> _acceptDispute(_StudyFeedItem item) async {
+    final question = item.question;
+    final result = item.result;
+    final submitted = item.responseOverride ?? result?.userResponse ?? '';
+    if (question == null ||
+        result == null ||
+        _submitting ||
+        !_canDisputeAnsweredQuestion(question, result, submitted)) {
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final response = await widget.sdk.study.acceptDisputedMeaning(
+        questionId: question.questionId,
+        submittedAnswer: submitted,
+      );
+      final cloudRecorded = await _disputeService.recordDispute(
+        entrySourceId: response.entrySourceId,
+        word: response.word,
+        submittedMeaning: response.acceptedMeaning,
+        questionId: response.result.questionId,
+        questionType: response.result.questionType,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (_session != null) {
+          _session = StartSessionResponse(
+            session: _session!.session,
+            currentQuestion: _session!.currentQuestion,
+            progress: response.progress,
+            answeredQuestions: response.answeredQuestions,
+          );
+        }
+        _lastSubmittedQuestion = question;
+        _lastSubmittedResult = response.result;
+        _lastSubmittedResponse = submitted;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            cloudRecorded
+                ? '\u5df2\u63a5\u53d7\u5f02\u8bae'
+                : '\u5df2\u63a5\u53d7\u5f02\u8bae\uff0c\u672c\u673a\u5df2\u751f\u6548\uff0c\u4e91\u7aef\u8bb0\u5f55\u7a0d\u540e\u540c\u6b65',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
   }
 
   // ignore: unused_element
@@ -287,6 +358,7 @@ class _StudyScreenState extends State<StudyScreen> {
         _selectedChoice = null;
       });
       _restartResponseTimer();
+      _focusAnswerInputForCurrentQuestion();
     }
   }
 
@@ -415,11 +487,11 @@ class _StudyScreenState extends State<StudyScreen> {
                 selectedSource = 'user';
                 setDialogState(() {});
               },
-              child: const Text('清空'),
+              child: const Text('\u6e05\u7a7a'),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('稍后再说'),
+              child: const Text('\u7a0d\u540e\u518d\u8bf4'),
             ),
             FilledButton(
               onPressed: () async {
@@ -431,7 +503,7 @@ class _StudyScreenState extends State<StudyScreen> {
                 );
                 if (context.mounted) Navigator.of(context).pop(saved);
               },
-              child: const Text('保存'),
+              child: const Text('\u4fdd\u5b58'),
             ),
           ],
         ),
@@ -444,6 +516,22 @@ class _StudyScreenState extends State<StudyScreen> {
   void _settleAnswerInputBeforeSubmit() {
     if (!_answerFocusNode.hasFocus) return;
     _answerFocusNode.unfocus();
+  }
+
+  void _focusAnswerInputForCurrentQuestion() {
+    final question = _currentQuestion;
+    if (question == null || question.isChoiceType) {
+      _settleAnswerInputBeforeSubmit();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _submitting) return;
+      final current = _currentQuestion;
+      if (current == null || current.isChoiceType) return;
+      if (!_answerFocusNode.hasFocus) {
+        _answerFocusNode.requestFocus();
+      }
+    });
   }
 
   Future<void> _complete({bool closeAfter = false}) async {
@@ -515,15 +603,15 @@ class _StudyScreenState extends State<StudyScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop('continue'),
-            child: const Text('继续学习'),
+            child: const Text('\u7ee7\u7eed\u5b66\u4e60'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('today'),
-            child: const Text('返回今日'),
+            child: const Text('\u8fd4\u56de\u4eca\u65e5'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('end'),
-            child: const Text('结束本轮'),
+            child: const Text('\u7ed3\u675f\u672c\u8f6e'),
           ),
         ],
       ),
@@ -700,6 +788,7 @@ class _StudyScreenState extends State<StudyScreen> {
                         itemQuestion.questionId ==
                             _currentQuestion?.questionId) {
                       _restartResponseTimer();
+                      _focusAnswerInputForCurrentQuestion();
                     } else {
                       _settleAnswerInputBeforeSubmit();
                     }
@@ -768,6 +857,9 @@ class _StudyScreenState extends State<StudyScreen> {
                         if (question == null) return;
                         _revealCurrentAnswer(question);
                       },
+                      onDispute: _canDisputeFeedItem(item)
+                          ? () => _acceptDispute(item)
+                          : null,
                       onMastered: () {
                         if (item.isAnswered) return;
                         _markCurrentEntryMastered();
@@ -822,6 +914,14 @@ class _StudyScreenState extends State<StudyScreen> {
       itemCount: feedItems.length,
       sessionTotal: sessionTotal,
     );
+  }
+
+  bool _canDisputeFeedItem(_StudyFeedItem item) {
+    final question = item.question;
+    final result = item.result;
+    final response = item.responseOverride ?? result?.userResponse ?? '';
+    if (question == null || result == null || !item.isAnswered) return false;
+    return _canDisputeAnsweredQuestion(question, result, response);
   }
 
   Future<void> _editHintForQuestion(StudyQuestion question) async {
@@ -1026,9 +1126,9 @@ class _WordCommentsHeader extends StatelessWidget {
             ),
             Row(
               children: [
-                _CommentTab(label: '评论 $count', active: true),
+                _CommentTab(label: '\u8bc4\u8bba $count', active: true),
                 const SizedBox(width: 28),
-                _CommentTab(label: 'AI 解析', active: false),
+                _CommentTab(label: 'AI \u89e3\u6790', active: false),
                 const Spacer(),
               ],
             ),
@@ -1079,7 +1179,7 @@ class _WordCommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final author = comment.authorName ?? 'Vico 用户';
+    final author = comment.authorName ?? 'Vico \u7528\u6237';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1316,6 +1416,7 @@ class _StudyFeedPage extends StatelessWidget {
     required this.onHintPressed,
     required this.onComments,
     required this.onRevealAnswer,
+    required this.onDispute,
     required this.onMastered,
   });
 
@@ -1332,6 +1433,7 @@ class _StudyFeedPage extends StatelessWidget {
   final VoidCallback? onHintPressed;
   final VoidCallback onComments;
   final VoidCallback onRevealAnswer;
+  final VoidCallback? onDispute;
   final VoidCallback onMastered;
 
   @override
@@ -1390,7 +1492,7 @@ class _StudyFeedPage extends StatelessWidget {
                     tooltip: 'Hint',
                     icon: Icons.lightbulb_outline,
                     onPressed: onHintPressed,
-                    active: question.hasHint,
+                    active: questionHasHintForAction(question),
                   ),
                   const SizedBox(height: 16),
                   _RoundActionButton(
@@ -1403,6 +1505,12 @@ class _StudyFeedPage extends StatelessWidget {
                     tooltip: 'Show answer',
                     icon: Icons.visibility_outlined,
                     onPressed: answered || submitting ? null : onRevealAnswer,
+                  ),
+                  const SizedBox(height: 16),
+                  _RoundActionButton(
+                    tooltip: 'Dispute',
+                    icon: Icons.gavel_outlined,
+                    onPressed: onDispute,
                   ),
                   const SizedBox(height: 16),
                   _RoundActionButton(
@@ -1611,9 +1719,9 @@ class _StudyCompletionFeedPage extends StatelessWidget {
             const SizedBox(height: 20),
             _WrongWordsPanel(wrongWords: wrongWords),
             const SizedBox(height: 24),
-            FilledButton(onPressed: onClose, child: const Text('返回今日')),
+            FilledButton(onPressed: onClose, child: const Text('\u8fd4\u56de\u4eca\u65e5')),
             const SizedBox(height: 10),
-            OutlinedButton(onPressed: onRestart, child: const Text('重学本模式')),
+            OutlinedButton(onPressed: onRestart, child: const Text('\u91cd\u5b66\u672c\u6a21\u5f0f')),
             if (item.nextMode != null) ...[
               const SizedBox(height: 10),
               FilledButton.tonal(
@@ -1790,7 +1898,7 @@ class _MaskedHintChipState extends State<_MaskedHintChip> {
     final hasHint = text != null && text.isNotEmpty;
     final label = hasHint
         ? (_revealed ? text : 'Hint ...')
-        : (widget.hasAiSuggestion ? 'AI提示' : '提示');
+        : (widget.hasAiSuggestion ? 'AI\u63d0\u793a' : '\u63d0\u793a');
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 190),
       child: Material(
@@ -1965,6 +2073,12 @@ class _QuestionComposer extends StatelessWidget {
               controller: answerController,
               focusNode: answerFocusNode,
               readOnly: submitting,
+              keyboardType: TextInputType.text,
+              inputFormatters: isWordSkeleton
+                  ? [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]'))]
+                  : null,
+              enableSuggestions: !isWordSkeleton,
+              autocorrect: !isWordSkeleton,
               onSubmitted: (_) {
                 if (!submitting && answerController.text.trim().isNotEmpty) {
                   onSubmit();
@@ -2205,7 +2319,7 @@ Widget _buildInputFeedback(
       ? const Color(0xFF2E7D32)
       : const Color(0xFFC62828);
   final displayResponse = result.userResponse.trim().isEmpty
-      ? '空'
+      ? '\u672a\u4f5c\u7b54'
       : result.userResponse;
 
   return Padding(
@@ -2233,11 +2347,9 @@ Widget _buildInputFeedback(
           ),
           const SizedBox(height: 8),
         ],
-        if (!isCorrect)
+        if (!isCorrect && inputCorrectAnswerTextForTest(result, question).isNotEmpty)
           Text(
-            result.correctAnswer.isEmpty
-                ? question.acceptedMeanings.join(' / ')
-                : 'Correct answer: ${result.correctAnswer}',
+            'Correct answer: ${inputCorrectAnswerTextForTest(result, question)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: const Color(0xFF2E7D32),
               fontWeight: FontWeight.w700,
@@ -2248,6 +2360,14 @@ Widget _buildInputFeedback(
   );
 }
 
+String inputCorrectAnswerTextForTest(StudyResult result, StudyQuestion question) {
+  final resultAnswer = result.correctAnswer.trim();
+  if (resultAnswer.isNotEmpty) return resultAnswer;
+  return question.acceptedMeanings
+      .map((meaning) => meaning.trim())
+      .where((meaning) => meaning.isNotEmpty)
+      .join(' / ');
+}
 const _fallbackChoiceLabels = ['A', 'B', 'C', 'D'];
 
 ({String value, String label, String text}) _choiceDisplay(
@@ -2312,7 +2432,8 @@ Set<String> _choiceUserAnswerTokens(
   };
 }
 
-bool _shouldShowHeroHintChip(StudyQuestion question) => question.hasHint;
+bool _shouldShowHeroHintChip(StudyQuestion question) =>
+    questionHasHintForAction(question);
 
 SessionProgress _studyFeedProgress({
   required StudyQuestion? visibleQuestion,
@@ -2320,7 +2441,9 @@ SessionProgress _studyFeedProgress({
   required int itemCount,
   required int? sessionTotal,
 }) => SessionProgress(
-  current: visibleQuestion != null ? visibleQuestion.questionIndex + 1 : visibleIndex,
+  current: visibleQuestion != null
+      ? visibleQuestion.questionIndex + 1
+      : visibleIndex,
   total: sessionTotal ?? visibleQuestion?.totalQuestions ?? itemCount,
 );
 
@@ -2333,7 +2456,9 @@ bool shouldShowHeroHintChipForTest(StudyQuestion question) =>
     _shouldShowHeroHintChip(question);
 
 bool questionHasHintForAction(StudyQuestion? question) =>
-    question?.hasHint == true;
+    question?.hasHint == true || question?.hintSuggestions.isNotEmpty == true;
+
+String questionLabelForTest(String type) => _questionLabel(type);
 
 SessionProgress studyFeedProgressForTest({
   required StudyQuestion? visibleQuestion,
@@ -2761,13 +2886,17 @@ List<Map<String, dynamic>>? _questionTypeWeightsForMode(
 
 String _questionLabel(String type) {
   return switch (type) {
-    'enToCnChoice' => '根据英文选择中文释义',
-    'exampleToCnChoice' => '根据例句选择中文释义',
-    'cnToEnChoice' => '根据中文选择英文单词',
-    'enToCnInput' => '根据英文填写中文释义',
-    'glossToRootInput' => '根据含义填写词根/词缀',
-    'rootToGlossInput' => '根据词根/词缀填写含义',
-    _ => '回答问题',
+    'exampleToCnChoiceNoTranslation' =>
+      '\u6839\u636e\u82f1\u6587\u4f8b\u53e5\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
+    'wordSkeletonInput' =>
+      '\u6839\u636e\u82f1\u6587\u8865\u5168\u7f3a\u5931\u5b57\u6bcd',
+    'enToCnChoice' => '\u6839\u636e\u82f1\u6587\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
+    'exampleToCnChoice' => '\u6839\u636e\u4f8b\u53e5\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
+    'cnToEnChoice' => '\u6839\u636e\u4e2d\u6587\u9009\u62e9\u82f1\u6587\u5355\u8bcd',
+    'enToCnInput' => '\u6839\u636e\u82f1\u6587\u586b\u5199\u4e2d\u6587\u91ca\u4e49',
+    'glossToRootInput' => '\u6839\u636e\u542b\u4e49\u586b\u5199\u8bcd\u6839/\u8bcd\u7f00',
+    'rootToGlossInput' => '\u6839\u636e\u8bcd\u6839/\u8bcd\u7f00\u586b\u5199\u542b\u4e49',
+    _ => '\u56de\u7b54\u95ee\u9898'
   };
 }
 
@@ -2825,7 +2954,7 @@ class _StudyCompletion extends StatelessWidget {
             Expanded(
               child: FilledButton(
                 onPressed: onClose,
-                child: const Text('返回今日'),
+                child: const Text('\u8fd4\u56de\u4eca\u65e5'),
               ),
             ),
             const SizedBox(width: 12),
@@ -3101,6 +3230,15 @@ class _WrongWordAccumulator {
 
 bool _isMissedOutcome(AnswerOutcome outcome) =>
     outcome == AnswerOutcome.incorrect || outcome == AnswerOutcome.skipped;
+
+bool _canDisputeAnsweredQuestion(
+  StudyQuestion question,
+  StudyResult result,
+  String submitted,
+) =>
+    !question.isChoiceType &&
+    result.outcome == AnswerOutcome.incorrect &&
+    submitted.trim().isNotEmpty;
 
 String _summarySubtitle(SessionSummary summary) =>
     '${summary.correctCount + summary.fuzzyCorrectCount}/${summary.totalQuestions} correct, ${summary.wrongWordCount} words need review';

@@ -17,18 +17,24 @@ abstract class SupabaseAuthGateway {
     required String password,
   });
 
-  Future<void> resendSignupConfirmation({
-    required String email,
-  });
+  Future<void> resendSignupConfirmation({required String email});
 
   Future<void> requestPasswordReset({
     required String email,
     String? redirectTo,
   });
 
-  Future<void> updatePassword({
-    required String password,
+  Future<AuthResponse> verifySignupOtp({
+    required String email,
+    required String token,
   });
+
+  Future<AuthResponse> verifyPasswordRecoveryOtp({
+    required String email,
+    required String token,
+  });
+
+  Future<void> updatePassword({required String password});
 
   Future<AuthResponse> refreshSession();
 
@@ -47,10 +53,7 @@ class SupabaseAuthService implements SupabaseAuthGateway {
       throw StateError('Supabase environment is not configured.');
     }
 
-    await Supabase.initialize(
-      url: config.url,
-      anonKey: config.anonKey,
-    );
+    await Supabase.initialize(url: config.url, anonKey: config.anonKey);
     _initialized = true;
   }
 
@@ -81,9 +84,7 @@ class SupabaseAuthService implements SupabaseAuthGateway {
   }
 
   @override
-  Future<void> resendSignupConfirmation({
-    required String email,
-  }) async {
+  Future<void> resendSignupConfirmation({required String email}) async {
     await ensureInitialized();
     await client.auth.resend(type: OtpType.signup, email: email);
   }
@@ -98,9 +99,33 @@ class SupabaseAuthService implements SupabaseAuthGateway {
   }
 
   @override
-  Future<void> updatePassword({
-    required String password,
+  Future<AuthResponse> verifySignupOtp({
+    required String email,
+    required String token,
   }) async {
+    await ensureInitialized();
+    return client.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: OtpType.signup,
+    );
+  }
+
+  @override
+  Future<AuthResponse> verifyPasswordRecoveryOtp({
+    required String email,
+    required String token,
+  }) async {
+    await ensureInitialized();
+    return client.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: OtpType.recovery,
+    );
+  }
+
+  @override
+  Future<void> updatePassword({required String password}) async {
     await ensureInitialized();
     await client.auth.updateUser(UserAttributes(password: password));
   }
@@ -120,7 +145,15 @@ class SupabaseAuthService implements SupabaseAuthGateway {
   @override
   Future<void> verifyCloudDataAccess(String userId) async {
     await ensureInitialized();
-    await client.from('profiles').select('user_id').eq('user_id', userId).limit(1);
-    await client.from('plan_configs').select('plan_id').eq('user_id', userId).limit(1);
+    await client
+        .from('profiles')
+        .select('user_id')
+        .eq('user_id', userId)
+        .limit(1);
+    await client
+        .from('plan_configs')
+        .select('plan_id')
+        .eq('user_id', userId)
+        .limit(1);
   }
 }

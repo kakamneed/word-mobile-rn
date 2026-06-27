@@ -4,42 +4,43 @@ import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
+import 'wrong_word_graph_screen.dart';
 
-enum _AiToolMode { passage, import }
+enum _AiToolMode { passage, import, graph }
 
 enum _AiChatMessageKind { text, passage, history, importReview, loading }
 
 class _AiChatMessage {
   const _AiChatMessage.text(this.text)
-      : kind = _AiChatMessageKind.text,
-        passage = null,
-        history = null,
-        analysis = null;
+    : kind = _AiChatMessageKind.text,
+      passage = null,
+      history = null,
+      analysis = null;
 
   const _AiChatMessage.passage(this.passage)
-      : kind = _AiChatMessageKind.passage,
-        text = null,
-        history = null,
-        analysis = null;
+    : kind = _AiChatMessageKind.passage,
+      text = null,
+      history = null,
+      analysis = null;
 
   const _AiChatMessage.history(this.history)
-      : kind = _AiChatMessageKind.history,
-        text = null,
-        passage = null,
-        analysis = null;
+    : kind = _AiChatMessageKind.history,
+      text = null,
+      passage = null,
+      analysis = null;
 
   const _AiChatMessage.importReview(this.analysis)
-      : kind = _AiChatMessageKind.importReview,
-        text = null,
-        passage = null,
-        history = null;
+    : kind = _AiChatMessageKind.importReview,
+      text = null,
+      passage = null,
+      history = null;
 
   const _AiChatMessage.loading()
-      : kind = _AiChatMessageKind.loading,
-        text = null,
-        passage = null,
-        history = null,
-        analysis = null;
+    : kind = _AiChatMessageKind.loading,
+      text = null,
+      passage = null,
+      history = null,
+      analysis = null;
 
   final _AiChatMessageKind kind;
   final String? text;
@@ -56,6 +57,7 @@ class AiScreen extends StatefulWidget {
     this.generateOnOpen = false,
     this.showPassageFirst = false,
     this.onWrongWordsImported,
+    this.onAiPassageGenerated,
   });
 
   final WordSdk sdk;
@@ -63,6 +65,7 @@ class AiScreen extends StatefulWidget {
   final bool generateOnOpen;
   final bool showPassageFirst;
   final VoidCallback? onWrongWordsImported;
+  final VoidCallback? onAiPassageGenerated;
 
   @override
   State<AiScreen> createState() => _AiScreenState();
@@ -75,6 +78,7 @@ class _AiScreenState extends State<AiScreen> {
   TodayAiPassageContext? _context;
   List<AiPassageHistoryItem> _history = const [];
   AiPassage? _passage;
+  String _stylePreference = '';
   final List<_AiChatMessage> _messages = [];
   final Set<String> _selectedImportCandidateIds = {};
 
@@ -105,6 +109,7 @@ class _AiScreenState extends State<AiScreen> {
         history = await widget.sdk.ai.getAiPassageHistory();
       }
       final context = await widget.sdk.ai.getTodayAiPassageContext();
+      final stylePreference = await widget.sdk.ai.getAiPassageStylePreference();
       final todayItem = _todayHistoryItem(context, history);
       final latest = todayItem == null
           ? null
@@ -114,6 +119,7 @@ class _AiScreenState extends State<AiScreen> {
         _context = context;
         _history = history;
         _passage = latest;
+        _stylePreference = stylePreference.style;
       });
       if (widget.showPassageFirst && latest != null && _messages.isEmpty) {
         _appendMessage(_AiChatMessage.passage(latest));
@@ -132,23 +138,39 @@ class _AiScreenState extends State<AiScreen> {
   Future<int> _restoreCloudAiPassageHistory({bool announce = false}) async {
     if (!widget.isSignedIn) {
       if (announce) {
-        _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u4ece\u4e91\u7aef\u6062\u590d AI \u77ed\u6587\u5386\u53f2\u3002');
+        _appendText(
+          '\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u4ece\u4e91\u7aef\u6062\u590d AI \u77ed\u6587\u5386\u53f2\u3002',
+        );
       }
       return 0;
     }
     try {
       final rows = await widget.sdk.sync.fetchCloudAiPassages();
       if (rows.isEmpty) {
-        if (announce) _appendText('\u4e91\u7aef\u6ca1\u6709\u53ef\u6062\u590d\u7684 AI \u77ed\u6587\u5386\u53f2\u3002');
+        if (announce) {
+          _appendText(
+            '\u4e91\u7aef\u6ca1\u6709\u53ef\u6062\u590d\u7684 AI \u77ed\u6587\u5386\u53f2\u3002',
+          );
+        }
         return 0;
       }
-      final restored = await widget.sdk.sync.restoreCloudAiPassagesToLocal(rows);
+      final restored = await widget.sdk.sync.restoreCloudAiPassagesToLocal(
+        rows,
+      );
       final history = await widget.sdk.ai.getAiPassageHistory();
       if (mounted) setState(() => _history = history);
-      if (announce) _appendText('\u5df2\u4ece\u4e91\u7aef\u6062\u590d $restored \u7bc7 AI \u77ed\u6587\u3002');
+      if (announce) {
+        _appendText(
+          '\u5df2\u4ece\u4e91\u7aef\u6062\u590d $restored \u7bc7 AI \u77ed\u6587\u3002',
+        );
+      }
       return restored;
     } catch (error) {
-      if (announce) _appendText('\u4e91\u7aef AI \u77ed\u6587\u6062\u590d\u5931\u8d25\uff1a$error');
+      if (announce) {
+        _appendText(
+          '\u4e91\u7aef AI \u77ed\u6587\u6062\u590d\u5931\u8d25\uff1a$error',
+        );
+      }
       return 0;
     }
   }
@@ -172,6 +194,98 @@ class _AiScreenState extends State<AiScreen> {
     });
   }
 
+  bool _looksLikeGenerateIntent(String text) {
+    final lower = text.toLowerCase();
+    if (text.isEmpty) return true;
+    return text.contains('\u751f\u6210') ||
+        text.contains('\u5199\u4e00\u7bc7') ||
+        text.contains('\u6765\u4e00\u7bc7') ||
+        text.contains('\u51fa\u4e00\u7bc7') ||
+        lower.contains('generate') ||
+        lower.contains('write');
+  }
+
+  String _extractStyleInstruction(String text) {
+    var style = text.trim();
+    final replacements = <String>[
+      '\u4ee5\u540e',
+      '\u4eca\u540e',
+      '\u4e0b\u6b21',
+      '\u4ee5\u540e\u7684',
+      '\u4eca\u540e\u7684',
+      '\u4e0b\u6b21\u7684',
+      '\u77ed\u6587',
+      'AI \u77ed\u6587',
+      'ai \u77ed\u6587',
+      '\u98ce\u683c',
+      '\u6539\u6210',
+      '\u8bbe\u4e3a',
+      '\u6309',
+      '\u7528',
+      '\u5199',
+      '\u4e00\u70b9',
+    ];
+    for (final item in replacements) {
+      style = style.replaceAll(item, ' ');
+    }
+    style = style
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[闁挎稑琚埀?.!闁?闁挎稓鍣︾槐?闁?]+'), ' ')
+        .trim();
+    return style.isEmpty ? text.trim() : style;
+  }
+
+  Future<void> _saveStylePreferenceFromChat(String text) async {
+    if (!widget.isSignedIn) {
+      _appendText(
+        '\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u4fdd\u5b58 AI \u77ed\u6587\u98ce\u683c\u504f\u597d\u3002',
+      );
+      return;
+    }
+    final style = _extractStyleInstruction(text);
+    if (style.isEmpty) {
+      _appendText(
+        '\u53ef\u4ee5\u544a\u8bc9\u6211\u60f3\u8981\u7684\u77ed\u6587\u98ce\u683c\uff0c\u6bd4\u5982\u201c\u79d1\u5e7b\u63a2\u9669\u201d\u6216\u201c\u6e29\u67d4\u65e5\u8bb0\u201d\u3002',
+      );
+      return;
+    }
+    try {
+      final saved = await widget.sdk.ai.saveAiPassageStylePreference(style);
+      if (!mounted) return;
+      setState(() => _stylePreference = saved.style);
+      _appendText(
+        '\u5df2\u8bb0\u4f4f\u77ed\u6587\u98ce\u683c\uff1a${saved.style}\n'
+        '\u4eca\u5929\u5982\u679c\u5df2\u7ecf\u751f\u6210\u8fc7\uff0c\u4f1a\u4ece\u4e0b\u4e00\u6b21\u751f\u6210\u5f00\u59cb\u751f\u6548\u3002',
+      );
+    } catch (error) {
+      _appendText(
+        '\u4fdd\u5b58\u77ed\u6587\u98ce\u683c\u5931\u8d25\uff1a$error',
+      );
+    }
+  }
+
+  Future<void> _handlePassageChat(String text) async {
+    final lower = text.toLowerCase();
+    if (text.contains('\u5386\u53f2') || lower.contains('history')) {
+      await _showHistoryInChat();
+      return;
+    }
+    final explicitGenerate = _looksLikeGenerateIntent(text);
+    final hasTodayPassage =
+        _passage != null ||
+        (_context != null && _todayHistoryItem(_context!, _history) != null);
+    if (text.isNotEmpty && (!explicitGenerate || hasTodayPassage)) {
+      await _saveStylePreferenceFromChat(text);
+      if (explicitGenerate && hasTodayPassage) {
+        _appendText(
+          '\u4eca\u5929\u7684 AI \u77ed\u6587\u5df2\u7ecf\u751f\u6210\u8fc7\uff0c\u4e3a\u4e86\u4fdd\u6301\u6bcf\u5929\u4e00\u7bc7\uff0c\u65b0\u98ce\u683c\u4f1a\u7528\u5728\u4e0b\u6b21\u751f\u6210\u3002',
+        );
+      }
+      return;
+    }
+    await _generatePassage(styleInstruction: text.isEmpty ? null : text);
+  }
+
   Future<void> _showHistoryInChat() async {
     if (_history.isEmpty) {
       await _restoreCloudAiPassageHistory();
@@ -190,7 +304,9 @@ class _AiScreenState extends State<AiScreen> {
     if (!mounted) return;
     setState(() => _messages.removeLast());
     if (passage == null) {
-      _appendText('\u672a\u80fd\u8bfb\u53d6\u8fd9\u7bc7\u5386\u53f2\u77ed\u6587\u6b63\u6587\uff0c\u8bf7\u91cd\u65b0\u540c\u6b65\u540e\u518d\u8bd5\u3002');
+      _appendText(
+        '\u672a\u80fd\u8bfb\u53d6\u8fd9\u7bc7\u5386\u53f2\u77ed\u6587\u6b63\u6587\uff0c\u8bf7\u91cd\u65b0\u540c\u6b65\u540e\u518d\u8bd5\u3002',
+      );
       return;
     }
     setState(() {
@@ -203,19 +319,25 @@ class _AiScreenState extends State<AiScreen> {
 
   Future<void> _generatePassage({String? styleInstruction}) async {
     if (!widget.isSignedIn) {
-      _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002');
+      _appendText(
+        '\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002',
+      );
       return;
     }
     final context = _context;
     if (context == null) return;
     if (!context.tasksComplete) {
-      _appendText('\u8bf7\u5148\u5b8c\u6210\u4eca\u65e5\u5b66\u4e60\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002');
+      _appendText(
+        '\u8bf7\u5148\u5b8c\u6210\u4eca\u65e5\u5b66\u4e60\uff0c\u518d\u751f\u6210 AI \u77ed\u6587\u3002',
+      );
       return;
     }
     final wrongWords = context.generationWrongWords.toList(growable: false);
     final targetWords = context.generationTargetWords.toList(growable: false);
     if (wrongWords.isEmpty && targetWords.isEmpty) {
-      _appendText('\u4eca\u5929\u8fd8\u6ca1\u6709\u53ef\u7528\u4e8e\u751f\u6210\u77ed\u6587\u7684\u9519\u8bcd\u3002');
+      _appendText(
+        '\u4eca\u5929\u8fd8\u6ca1\u6709\u53ef\u7528\u4e8e\u751f\u6210\u77ed\u6587\u7684\u9519\u8bcd\u3002',
+      );
       return;
     }
 
@@ -231,7 +353,7 @@ class _AiScreenState extends State<AiScreen> {
         targetWords: targetWords,
         level: 'intermediate',
         date: context.date,
-        style: styleInstruction,
+        style: styleInstruction ?? _stylePreference,
       );
       if (!mounted) return;
       setState(() {
@@ -240,6 +362,7 @@ class _AiScreenState extends State<AiScreen> {
         _messages.add(_AiChatMessage.passage(generated));
       });
       _scrollToBottom();
+      widget.onAiPassageGenerated?.call();
       await widget.sdk.sync.flushPendingToCloud();
       await _load(showFullLoading: false);
     } catch (error) {
@@ -251,12 +374,25 @@ class _AiScreenState extends State<AiScreen> {
     }
   }
 
+  Future<void> _openWrongWordGraph() async {
+    setState(() => _mode = _AiToolMode.graph);
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => WrongWordGraphScreen(sdk: widget.sdk)),
+    );
+  }
+
   Future<void> _submitComposer() async {
+    if (_mode == _AiToolMode.graph) {
+      await _openWrongWordGraph();
+      return;
+    }
     final text = _input.text.trim();
     _input.clear();
     if (_mode == _AiToolMode.import) {
       if (text.isEmpty) {
-        _appendText('\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u7528\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002');
+        _appendText(
+          '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u7528\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002',
+        );
         return;
       }
       await _runWrongWordImport(
@@ -268,17 +404,14 @@ class _AiScreenState extends State<AiScreen> {
       );
       return;
     }
-    final lower = text.toLowerCase();
-    if (text.contains('\u5386\u53f2') || lower.contains('history')) {
-      await _showHistoryInChat();
-      return;
-    }
-    await _generatePassage(styleInstruction: text.isEmpty ? null : text);
+    await _handlePassageChat(text);
   }
 
   Future<void> _startImageWrongWordImport() async {
     if (!widget.isSignedIn) {
-      _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u5bfc\u5165\u9519\u8bcd\u3002');
+      _appendText(
+        '\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u5bfc\u5165\u9519\u8bcd\u3002',
+      );
       return;
     }
     final importSource = await widget.sdk.ai.pickWrongWordImportSource(
@@ -290,7 +423,9 @@ class _AiScreenState extends State<AiScreen> {
 
   Future<void> _runWrongWordImport(AiWrongWordImportSource source) async {
     if (!widget.isSignedIn) {
-      _appendText('\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u5bfc\u5165\u9519\u8bcd\u3002');
+      _appendText(
+        '\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u5bfc\u5165\u9519\u8bcd\u3002',
+      );
       return;
     }
     setState(() {
@@ -328,7 +463,9 @@ class _AiScreenState extends State<AiScreen> {
       });
       _scrollToBottom();
       if (analysis.candidates.isEmpty) {
-        _appendText('\u6ca1\u6709\u8bc6\u522b\u5230\u53ef\u5bfc\u5165\u7684\u9519\u8bcd\u3002');
+        _appendText(
+          '\u6ca1\u6709\u8bc6\u522b\u5230\u53ef\u5bfc\u5165\u7684\u9519\u8bcd\u3002',
+        );
       }
     } catch (error) {
       if (!mounted) return;
@@ -341,7 +478,9 @@ class _AiScreenState extends State<AiScreen> {
 
   Future<void> _commitSelectedImport(AiWrongWordImportAnalysis analysis) async {
     if (_selectedImportCandidateIds.isEmpty) {
-      _appendText('\u8bf7\u5148\u52fe\u9009\u8981\u52a0\u5165\u9519\u8bcd\u672c\u7684\u8bcd\u3002');
+      _appendText(
+        '\u8bf7\u5148\u52fe\u9009\u8981\u52a0\u5165\u9519\u8bcd\u672c\u7684\u8bcd\u3002',
+      );
       return;
     }
     final result = await widget.sdk.ai.commitWrongWordImport(
@@ -398,7 +537,13 @@ class _AiScreenState extends State<AiScreen> {
                   ),
                   _ToolSelector(
                     selected: _mode,
-                    onSelected: (mode) => setState(() => _mode = mode),
+                    onSelected: (mode) {
+                      if (mode == _AiToolMode.graph) {
+                        _openWrongWordGraph();
+                        return;
+                      }
+                      setState(() => _mode = mode);
+                    },
                   ),
                   _ComposerBar(
                     mode: _mode,
@@ -429,9 +574,7 @@ class _AiScreenState extends State<AiScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              _mode == _AiToolMode.passage
-                  ? '\u8f93\u5165\u60f3\u8981\u7684\u77ed\u6587\u98ce\u683c\uff0c\u6216\u8f93\u5165\u5386\u53f2\u67e5\u770b AI \u77ed\u6587\u5386\u53f2\u3002'
-                  : '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u70b9\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002',
+              _emptyStateMessage(),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.onSurface.withValues(alpha: 0.42),
@@ -444,7 +587,9 @@ class _AiScreenState extends State<AiScreen> {
               TextButton.icon(
                 onPressed: () => _restoreCloudAiPassageHistory(announce: true),
                 icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                label: const Text('\u6062\u590d\u4e91\u7aef AI \u77ed\u6587\u5386\u53f2'),
+                label: const Text(
+                  '\u6062\u590d\u4e91\u7aef AI \u77ed\u6587\u5386\u53f2',
+                ),
               ),
             ],
           ],
@@ -453,30 +598,43 @@ class _AiScreenState extends State<AiScreen> {
     );
   }
 
+  String _emptyStateMessage() {
+    return switch (_mode) {
+      _AiToolMode.passage =>
+        _stylePreference.isEmpty
+            ? '\u8f93\u5165\u60f3\u8981\u7684\u77ed\u6587\u98ce\u683c\uff0c\u6216\u8f93\u5165\u5386\u53f2\u67e5\u770b AI \u77ed\u6587\u5386\u53f2\u3002'
+            : '\u5f53\u524d\u77ed\u6587\u98ce\u683c\uff1a$_stylePreference\u3002\u53ef\u4ee5\u7ee7\u7eed\u544a\u8bc9\u6211\u4e0b\u6b21\u60f3\u600e\u4e48\u5199\u3002',
+      _AiToolMode.import =>
+        '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u70b9\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002',
+      _AiToolMode.graph =>
+        '\u70b9\u4e0b\u65b9\u77e5\u8bc6\u56fe\u8c31\u5165\u53e3\uff0c\u67e5\u770b\u9519\u8bcd\u5173\u8054\u7f51\u7edc\u3002',
+    };
+  }
+
   Widget _buildMessage(BuildContext context, _AiChatMessage message) {
     return switch (message.kind) {
       _AiChatMessageKind.text => _TextBubble(text: message.text ?? ''),
       _AiChatMessageKind.passage => _PassageBubble(passage: message.passage!),
       _AiChatMessageKind.history => _HistoryBubble(
-          history: message.history ?? const [],
-          selectedPassageId: _passage?.passageId,
-          onOpen: _openHistoryItem,
-        ),
+        history: message.history ?? const [],
+        selectedPassageId: _passage?.passageId,
+        onOpen: _openHistoryItem,
+      ),
       _AiChatMessageKind.importReview => _ImportReviewBubble(
-          analysis: message.analysis!,
-          selectedIds: _selectedImportCandidateIds,
-          onToggle: (candidateId, selected) {
-            setState(() {
-              if (selected) {
-                _selectedImportCandidateIds.add(candidateId);
-              } else {
-                _selectedImportCandidateIds.remove(candidateId);
-              }
-            });
-          },
-          onCommit: () => _commitSelectedImport(message.analysis!),
-          candidateSummary: _candidateSummary,
-        ),
+        analysis: message.analysis!,
+        selectedIds: _selectedImportCandidateIds,
+        onToggle: (candidateId, selected) {
+          setState(() {
+            if (selected) {
+              _selectedImportCandidateIds.add(candidateId);
+            } else {
+              _selectedImportCandidateIds.remove(candidateId);
+            }
+          });
+        },
+        onCommit: () => _commitSelectedImport(message.analysis!),
+        candidateSummary: _candidateSummary,
+      ),
       _AiChatMessageKind.loading => const _StreamLoadingBubble(),
     };
   }
@@ -531,7 +689,9 @@ class _StreamLoadingBubbleState extends State<_StreamLoadingBubble>
           return Text(
             '\u6b63\u5728\u601d\u8003$dots',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
               fontStyle: FontStyle.italic,
             ),
           );
@@ -554,10 +714,9 @@ class _PassageBubble extends StatelessWidget {
         children: [
           Text(
             passage.title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
           for (final block in passage.blocks)
@@ -590,10 +749,9 @@ class _HistoryBubble extends StatelessWidget {
         children: [
           Text(
             '\u5386\u53f2 AI \u77ed\u6587',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           for (final item in history.take(8))
@@ -642,18 +800,18 @@ class _ImportReviewBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final highFrequency =
-        analysis.candidates.where((candidate) => candidate.isHighFrequency).length;
+    final highFrequency = analysis.candidates
+        .where((candidate) => candidate.isHighFrequency)
+        .length;
     return _BubbleShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '\u8bc6\u522b\u5230 ${analysis.candidates.length} \u4e2a\u5019\u9009\u9519\u8bcd',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
@@ -710,36 +868,38 @@ class _AiBlockView extends StatelessWidget {
         return RichText(
           text: TextSpan(
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  height: 1.65,
-                ),
-            children: segments.map<InlineSpan>((segment) {
-              if (segment is! Map) return TextSpan(text: '$segment');
-              final segmentMap = Map<String, dynamic>.from(segment);
-              final text = '${segmentMap['text'] ?? ''}';
-              final gloss = segmentMap['glossZh'];
-              if (segmentMap['type'] != 'word') return TextSpan(text: text);
-              final colorScheme = Theme.of(context).colorScheme;
-              return TextSpan(
-                children: [
-                  TextSpan(
-                    text: text,
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (gloss != null && '$gloss'.isNotEmpty)
-                    TextSpan(
-                      text: '($gloss)',
-                      style: const TextStyle(
-                        color: Color(0xFFB64A4A),
-                        fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+              height: 1.65,
+            ),
+            children: segments
+                .map<InlineSpan>((segment) {
+                  if (segment is! Map) return TextSpan(text: '$segment');
+                  final segmentMap = Map<String, dynamic>.from(segment);
+                  final text = '${segmentMap['text'] ?? ''}';
+                  final gloss = segmentMap['glossZh'];
+                  if (segmentMap['type'] != 'word') return TextSpan(text: text);
+                  final colorScheme = Theme.of(context).colorScheme;
+                  return TextSpan(
+                    children: [
+                      TextSpan(
+                        text: text,
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                ],
-              );
-            }).toList(growable: false),
+                      if (gloss != null && '$gloss'.isNotEmpty)
+                        TextSpan(
+                          text: '($gloss)',
+                          style: const TextStyle(
+                            color: Color(0xFFB64A4A),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  );
+                })
+                .toList(growable: false),
           ),
         );
       }
@@ -810,6 +970,13 @@ class _ToolSelector extends StatelessWidget {
               selected: selected == _AiToolMode.import,
               onTap: () => onSelected(_AiToolMode.import),
             ),
+            const SizedBox(width: 8),
+            _ToolChip(
+              icon: Icons.hub_outlined,
+              label: '\u77e5\u8bc6\u56fe\u8c31',
+              selected: selected == _AiToolMode.graph,
+              onTap: () => onSelected(_AiToolMode.graph),
+            ),
           ],
         ),
       ),
@@ -870,6 +1037,7 @@ class _ComposerBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final importMode = mode == _AiToolMode.import;
+    final graphMode = mode == _AiToolMode.graph;
     return Material(
       color: colorScheme.surface,
       elevation: 8,
@@ -888,7 +1056,9 @@ class _ComposerBar extends StatelessWidget {
                 width: 42,
                 height: 44,
                 child: IconButton(
-                  tooltip: importMode ? '\u62cd\u7167\u8bc6\u522b' : '\u5207\u6362\u5230\u9519\u8bcd\u5bfc\u5165\u540e\u4f7f\u7528',
+                  tooltip: importMode
+                      ? '\u62cd\u7167\u8bc6\u522b'
+                      : '\u5207\u6362\u5230\u9519\u8bcd\u5bfc\u5165\u540e\u4f7f\u7528',
                   onPressed: busy || !signedIn || !importMode ? null : onCamera,
                   icon: Icon(
                     Icons.photo_camera_rounded,
@@ -910,8 +1080,10 @@ class _ComposerBar extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: signedIn
                         ? importMode
-                            ? '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55...'
-                            : '\u8f93\u5165\u77ed\u6587\u98ce\u683c\uff0c\u6216\u8f93\u5165\u5386\u53f2...'
+                              ? '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55...'
+                              : graphMode
+                              ? '\u6253\u5f00\u9519\u8bcd\u77e5\u8bc6\u56fe\u8c31...'
+                              : '\u8bf4\u4e0b\u6b21\u60f3\u8981\u7684\u77ed\u6587\u98ce\u683c...'
                         : '\u8bf7\u5148\u767b\u5f55\u540e\u4f7f\u7528 AI',
                     hintStyle: TextStyle(
                       fontSize: 13,
@@ -929,7 +1101,11 @@ class _ComposerBar extends StatelessWidget {
                 width: 42,
                 height: 44,
                 child: IconButton(
-                  tooltip: importMode ? '\u5bfc\u5165' : '\u751f\u6210',
+                  tooltip: graphMode
+                      ? '\u6253\u5f00\u77e5\u8bc6\u56fe\u8c31'
+                      : importMode
+                      ? '\u5bfc\u5165'
+                      : '\u751f\u6210',
                   onPressed: busy || !signedIn ? null : onSubmit,
                   icon: busy
                       ? const SizedBox(
@@ -959,7 +1135,8 @@ AiPassageHistoryItem? _todayHistoryItem(
   List<AiPassageHistoryItem> history,
 ) {
   for (final item in history) {
-    if (item.date == context.date || item.generatedAt.startsWith(context.date)) {
+    if (item.date == context.date ||
+        item.generatedAt.startsWith(context.date)) {
       return item;
     }
   }

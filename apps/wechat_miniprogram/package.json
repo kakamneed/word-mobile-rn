@@ -1,0 +1,51 @@
+{
+  "name": "@word/wechat-miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WeChat Mini Program shell for Word Mobile, built with Taro + React + TypeScript.",
+  "scripts": {
+    "build:weapp": "taro build --type weapp && node scripts/patch-weapp-entry-requires.mjs && node scripts/remove-dist-project-config.mjs",
+    "build:weapp:http": "set TARO_APP_SDK_MODE=http&& taro build --type weapp && node scripts/patch-weapp-entry-requires.mjs && node scripts/remove-dist-project-config.mjs",
+    "dev:weapp": "taro build --type weapp --watch",
+    "dev:weapp:http": "set TARO_APP_SDK_MODE=http&& taro build --type weapp --watch",
+    "test:croc-bti": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/croc-bti-golden.ts",
+    "test:reports": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/reports-golden.ts",
+    "test:plan-flow": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/plan-flow-golden.ts",
+    "test:api-contract": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/api-contract-golden.ts",
+    "test:study-flow": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/study-flow-golden.ts",
+    "test:ui-contract": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/ui-contract.ts",
+    "test:source-integrity": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/source-integrity-check.ts",
+    "test:today-store": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/today-store-golden.ts",
+    "test:package-size": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/package-size-check.ts",
+    "test:runtime-entry": "node scripts/weapp-runtime-entry-check.mjs",
+    "test:http-build-output": "node scripts/http-build-output-check.mjs",
+    "test:supabase-function": "node scripts/supabase-function-contract.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tarojs/components": "4.2.0",
+    "@tarojs/helper": "4.2.0",
+    "@tarojs/plugin-framework-react": "4.2.0",
+    "@tarojs/plugin-platform-weapp": "4.2.0",
+    "@tarojs/react": "4.2.0",
+    "@tarojs/runtime": "4.2.0",
+    "@tarojs/shared": "4.2.0",
+    "@tarojs/taro": "4.2.0",
+    "@tarojs/webpack5-runner": "^4.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
+    "@tarojs/cli": "4.2.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "babel-preset-taro": "^4.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

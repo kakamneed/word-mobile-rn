@@ -1,0 +1,203 @@
+.croc-hero,
+.result-card,
+.minutes-card,
+.question-card {
+  border: 1px solid #ecefed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(23, 31, 28, 0.06);
+}
+
+.croc-hero {
+  padding: 18px;
+  background: var(--flutter-hero-purple, #2f7d65);
+  box-shadow: 0 10px 24px rgba(47, 125, 101, 0.22);
+}
+
+.croc-hero__title {
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.croc-hero__caption {
+  margin-top: 8px;
+  color: #e4efe8;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.minutes-card {
+  padding: 14px;
+}
+
+.minutes-card__value {
+  color: #111817;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.question-card {
+  padding: 14px;
+}
+
+.question-card__text {
+  color: #111817;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.answer-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.answer-row--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.answer-pill {
+  height: 34px;
+  margin: 0;
+  border: 1px solid #dde3d6;
+  border-radius: 999px;
+  color: #111817;
+  background: #f5f6f7;
+  font-size: 14px;
+  line-height: 34px;
+}
+
+.answer-pill::after {
+  border: 0;
+}
+
+.answer-pill--selected {
+  border-color: var(--flutter-primary, #2f7d65);
+  color: #ffffff;
+  background: var(--flutter-primary, #2f7d65);
+}
+
+.result-card {
+  padding: 14px;
+}
+
+.result-card--large {
+  padding: 18px;
+}
+
+.result-card__code {
+  display: block;
+  margin-top: 14px;
+  color: var(--flutter-primary, #2f7d65);
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.result-card__image {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  background: #f0edf6;
+}
+
+.result-card__title {
+  display: block;
+  margin-top: 6px;
+  color: #111817;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.result-card__caption {
+  display: block;
+  margin-top: 8px;
+  color: #4d584d;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.tuning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tuning-row,
+.growth-toggle-row,
+.weight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.tuning-row__title,
+.weight-card__title {
+  color: #111817;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.tuning-row__caption {
+  display: block;
+  margin-top: 4px;
+  color: #6c746e;
+  font-size: 12px;
+}
+
+.tuning-row__controls {
+  display: grid;
+  grid-template-columns: 34px 54px 34px;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.tuning-row__controls button {
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  border-radius: 999px;
+  line-height: 34px;
+}
+
+.weight-card {
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.weight-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 44px;
+  margin-top: 10px;
+}
+
+.croc-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}

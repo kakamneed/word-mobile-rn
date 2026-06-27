@@ -28,6 +28,10 @@ pub struct StartSessionEntryPayload {
     pub meanings: Vec<String>,
     pub example_sentence: Option<String>,
     pub example_translation: Option<String>,
+    #[serde(default)]
+    pub cn_choice_distractors: Vec<String>,
+    #[serde(default)]
+    pub en_choice_distractors: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -87,6 +91,26 @@ pub struct SubmitAnswerResponse {
     pub progress: SessionProgress,
     #[serde(default)]
     pub answered_questions: Vec<AnsweredStudyQuestion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptDisputedMeaningRequest {
+    pub question_id: String,
+    #[serde(default)]
+    pub submitted_answer: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptDisputedMeaningResponse {
+    pub result: StudyResult,
+    pub progress: SessionProgress,
+    #[serde(default)]
+    pub answered_questions: Vec<AnsweredStudyQuestion>,
+    pub entry_source_id: String,
+    pub word: String,
+    pub accepted_meaning: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

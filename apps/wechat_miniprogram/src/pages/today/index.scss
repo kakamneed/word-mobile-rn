@@ -1,0 +1,388 @@
+.today-hero,
+.flutter-card {
+  border-radius: 16px;
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.14);
+}
+
+.today-refresh-overlay {
+  position: fixed;
+  top: 86px;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.today-refresh-overlay--active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.today-hero {
+  display: flex;
+  flex-direction: column;
+  padding: 26px 24px 24px;
+  background: var(--flutter-hero-purple, #6b5b95);
+}
+
+.today-hero__date {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.today-hero__title {
+  margin-top: 20px;
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.14;
+}
+
+.today-hero__subtitle {
+  margin-top: 22px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 21px;
+  line-height: 1.35;
+}
+
+.today-hero__rail,
+.task-line__rail {
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(228, 222, 233, 0.82);
+}
+
+.today-hero__rail {
+  height: 12px;
+  margin-top: 30px;
+}
+
+.today-hero__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.today-hero__meta {
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.today-hero__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  margin-top: 30px;
+  border-radius: 999px;
+  color: var(--flutter-primary, #5f5285);
+  background: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.flutter-card {
+  margin-top: 18px;
+  padding: 22px 20px;
+  border: 1px solid #eee7f2;
+  background: #ffffff;
+}
+
+.flutter-card__title {
+  display: block;
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.flutter-card__subtitle {
+  display: block;
+  margin-top: 14px;
+  color: #5f5968;
+  font-size: 18px;
+  line-height: 1.38;
+}
+
+.task-breakdown__header,
+.task-line__top,
+.diagnostics-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.task-breakdown__edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--flutter-primary, #6b5b95);
+  font-size: 18px;
+}
+
+.task-breakdown__edit-icon {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.task-line {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.task-line__dot {
+  width: 16px;
+  height: 16px;
+  margin-top: 10px;
+  border-radius: 999px;
+}
+
+.task-line__dot--new,
+.task-line__fill--new {
+  background: #4ca77f;
+}
+
+.task-line__dot--review,
+.task-line__fill--review {
+  background: #3b83a5;
+}
+
+.task-line__dot--mixed,
+.task-line__fill--mixed {
+  background: #9a6a2f;
+}
+
+.task-line__dot--wrong,
+.task-line__fill--wrong {
+  background: #9f3f55;
+}
+
+.task-line__dot--root,
+.task-line__fill--root {
+  background: var(--flutter-primary, #6b5aa0);
+}
+
+.task-line__title {
+  display: block;
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.task-line__subtitle {
+  display: block;
+  margin-top: 9px;
+  color: #6f6878;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.task-line__count {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: #211c28;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.task-line__chevron {
+  font-size: 38px;
+  font-weight: 700;
+}
+
+.task-line__chevron--new {
+  color: #4ca77f;
+}
+
+.task-line__chevron--review {
+  color: #3b83a5;
+}
+
+.task-line__chevron--mixed {
+  color: #9a6a2f;
+}
+
+.task-line__chevron--wrong {
+  color: #9f3f55;
+}
+
+.task-line__chevron--root {
+  color: var(--flutter-primary, #6b5aa0);
+}
+
+.task-line__rail {
+  height: 10px;
+  margin-top: 18px;
+}
+
+.task-line__fill {
+  width: 0;
+  height: 100%;
+}
+
+.reward-card__stage {
+  display: grid;
+  grid-template-columns: 34% minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.reward-machine {
+  position: relative;
+  height: 178px;
+}
+
+.reward-machine__body {
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  width: 76px;
+  height: 142px;
+  border-radius: 12px;
+  background: #c8c4ca;
+  box-shadow: 0 6px 16px rgba(36, 30, 43, 0.18);
+}
+
+.reward-machine__knob {
+  position: absolute;
+  top: 18px;
+  left: 72px;
+  z-index: 2;
+  width: 54px;
+  height: 54px;
+  border: 4px solid #f1edf4;
+  border-radius: 999px;
+  background: #b7b2ba;
+}
+
+.reward-machine--ready .reward-machine__knob {
+  background: var(--flutter-primary, #6b5aa0);
+  transform: rotate(10deg);
+}
+
+.reward-machine--ready .reward-machine__body {
+  background: #d9d1e8;
+}
+
+.reward-machine__slot {
+  width: 48px;
+  height: 15px;
+  margin: 26px auto 18px;
+  border-radius: 999px;
+  background: #a9a4ac;
+}
+
+.reward-machine__window {
+  width: 54px;
+  height: 58px;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: #eeeaf0;
+}
+
+.reward-machine__feet {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 22px;
+}
+
+.reward-machine__feet view {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #9b969e;
+}
+
+.reward-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 164px;
+  border: 1px solid var(--flutter-soft, rgba(107, 91, 149, 0.2));
+  border-radius: 14px;
+  background: linear-gradient(90deg, #e8f3f2 0%, #5aa07e 55%, #efd663 100%);
+}
+
+.reward-lock--claimed {
+  overflow: hidden;
+  background: #f6f3fa;
+}
+
+.reward-lock__image {
+  width: 100%;
+  height: 132px;
+}
+
+.reward-lock__icon {
+  color: #17251e;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.reward-lock__caption {
+  margin-top: 12px;
+  color: rgba(23, 37, 30, 0.72);
+  font-size: 13px;
+  text-align: center;
+}
+
+.reward-card__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  margin-top: 18px;
+  border-radius: 999px;
+  color: #6f6878;
+  background: #eeeaf0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.reward-card__button--enabled {
+  color: #ffffff;
+  background: var(--flutter-primary, #6b5aa0);
+}
+
+.diagnostics-card {
+  padding-right: 22px;
+}
+
+.diagnostics-card__chevron {
+  color: #4b4554;
+  font-size: 34px;
+}
+
+.resume-strip {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--flutter-soft, #eee6ff);
+}
+
+.resume-strip__title {
+  color: var(--flutter-primary, #211c28);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.resume-strip__text {
+  display: block;
+  margin-top: 6px;
+  color: #5f5968;
+  font-size: 14px;
+}

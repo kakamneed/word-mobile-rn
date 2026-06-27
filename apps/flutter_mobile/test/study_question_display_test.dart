@@ -1,5 +1,6 @@
 import 'package:flutter_mobile/features/study_screen.dart';
 import 'package:flutter_mobile/sdk/study_client.dart';
+import 'package:flutter_mobile/sdk/wrong_words_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -130,7 +131,7 @@ void main() {
     expect(shouldShowHeroHintChipForTest(question), isTrue);
   });
 
-  test('hint action is disabled until a saved hint exists', () {
+  test('hint action opens for saved hints or AI suggestions', () {
     const withoutHint = StudyQuestion(
       questionId: 'q8',
       questionType: 'enToCnChoice',
@@ -141,6 +142,20 @@ void main() {
       questionIndex: 17,
       totalQuestions: 20,
       hasHint: false,
+    );
+    const withSuggestion = StudyQuestion(
+      questionId: 'q10',
+      questionType: 'enToCnChoice',
+      entrySourceId: 'ambition',
+      word: 'ambition',
+      prompt: 'ambition',
+      acceptedMeanings: ['雄心'],
+      questionIndex: 17,
+      totalQuestions: 20,
+      hasHint: false,
+      hintSuggestions: [
+        WordHintSuggestion(id: 'h1', word: 'ambition', style: 'mnemonic', label: 'link', text: 'aim + ambition'),
+      ],
     );
     const withHint = StudyQuestion(
       questionId: 'q9',
@@ -156,7 +171,24 @@ void main() {
     );
 
     expect(questionHasHintForAction(withoutHint), isFalse);
+    expect(questionHasHintForAction(withSuggestion), isTrue);
     expect(questionHasHintForAction(withHint), isTrue);
+  });
+
+  test('all active special question types have explicit labels', () {
+    expect(
+      questionLabelForTest('wordSkeletonInput'),
+      '\u6839\u636e\u82f1\u6587\u8865\u5168\u7f3a\u5931\u5b57\u6bcd',
+    );
+    expect(
+      questionLabelForTest('exampleToCnChoiceNoTranslation'),
+      '\u6839\u636e\u82f1\u6587\u4f8b\u53e5\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
+    );
+    expect(questionLabelForTest('wordSkeletonInput'), isNot('回答问题'));
+    expect(
+      questionLabelForTest('exampleToCnChoiceNoTranslation'),
+      isNot('回答问题'),
+    );
   });
 
   test(
@@ -185,6 +217,30 @@ void main() {
     },
   );
 
+  test('input feedback correct answer falls back to accepted meanings', () {
+    const question = StudyQuestion(
+      questionId: 'q11',
+      questionType: 'enToCnInput',
+      entrySourceId: 'debate',
+      word: 'debate',
+      prompt: 'debate',
+      acceptedMeanings: ['\u8fa9\u8bba\uff1b\u4e89\u8bba\uff1b\u8ba8\u8bba'],
+      questionIndex: 8,
+      totalQuestions: 34,
+    );
+    const result = StudyResult(
+      questionId: 'q11',
+      entrySourceId: 'debate',
+      questionType: 'enToCnInput',
+      userResponse: '\u9700\u6c42',
+      correctAnswer: '',
+      outcome: AnswerOutcome.incorrect,
+      responseTimeMs: 100,
+      answeredAt: '2026-06-25T00:00:00Z',
+    );
+
+    expect(inputCorrectAnswerTextForTest(result, question), '\u8fa9\u8bba\uff1b\u4e89\u8bba\uff1b\u8ba8\u8bba');
+  });
   test(
     'wrong choice state marks correct option green and selected option red',
     () {
@@ -194,12 +250,12 @@ void main() {
         entrySourceId: 'coalition',
         word: 'coalition',
         prompt: 'coalition',
-        acceptedMeanings: ['结合体，同盟；结合，联合'],
+      acceptedMeanings: ['\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'],
         choices: [
-          {'label': 'A', 'text': '抓，搔；抓痕；起跑线'},
-          {'label': 'B', 'text': '结合体，同盟；结合，联合'},
-          {'label': 'C', 'text': '螺旋；螺旋式的上升'},
-          {'label': 'D', 'text': '失事的船，残骸；失事'},
+          {'label': 'A', 'text': '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf'},
+          {'label': 'B', 'text': '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'},
+          {'label': 'C', 'text': '\u87ba\u65cb\uff1b\u87ba\u65cb\u5f0f\u7684\u4e0a\u5347'},
+          {'label': 'D', 'text': '\u5931\u4e8b\u7684\u8239\uff0c\u6b8b\u9ab8\uff1b\u5931\u4e8b'},
         ],
         questionIndex: 2,
         totalQuestions: 20,
@@ -209,7 +265,7 @@ void main() {
         entrySourceId: 'coalition',
         questionType: 'enToCnChoice',
         userResponse: 'A',
-        correctAnswer: '结合体，同盟；结合，联合',
+        correctAnswer: '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
         outcome: AnswerOutcome.incorrect,
         responseTimeMs: 100,
         answeredAt: '2026-05-12T00:00:00Z',
@@ -232,10 +288,10 @@ void main() {
       entrySourceId: 'coalition',
       word: 'coalition',
       prompt: 'coalition',
-      acceptedMeanings: ['结合体，同盟；结合，联合'],
+      acceptedMeanings: ['\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'],
       choices: [
-        {'label': 'A', 'text': '抓，搔；抓痕；起跑线'},
-        {'label': 'B', 'text': '结合体，同盟；结合，联合'},
+          {'label': 'A', 'text': '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf'},
+          {'label': 'B', 'text': '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'},
       ],
       questionIndex: 2,
       totalQuestions: 20,
@@ -244,8 +300,8 @@ void main() {
       questionId: 'q7',
       entrySourceId: 'coalition',
       questionType: 'enToCnChoice',
-      userResponse: '抓，搔；抓痕；起跑线',
-      correctAnswer: '结合体，同盟；结合，联合',
+      userResponse: '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf',
+      correctAnswer: '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
       outcome: AnswerOutcome.incorrect,
       responseTimeMs: 100,
       answeredAt: '2026-05-12T00:00:00Z',
@@ -267,12 +323,12 @@ void main() {
         entrySourceId: 'famine',
         word: 'famine',
         prompt: 'famine',
-        acceptedMeanings: ['饥荒，饥馑'],
+        acceptedMeanings: ['\u9965\u8352\uff0c\u9965\u9991'],
         choices: [
-          {'label': 'A', 'text': '姿势，体态；看法，态度'},
-          {'label': 'B', 'text': '想象，幻想；幻想的产物'},
-          {'label': 'C', 'text': '饥荒，饥馑'},
-          {'label': 'D', 'text': '职业，行业'},
+          {'label': 'A', 'text': '\u59ff\u52bf\uff0c\u4f53\u6001\uff1b\u770b\u6cd5\uff0c\u6001\u5ea6'},
+          {'label': 'B', 'text': '\u60f3\u8c61\uff0c\u5e7b\u60f3\uff1b\u5e7b\u60f3\u7684\u4ea7\u7269'},
+          {'label': 'C', 'text': '\u9965\u8352\uff0c\u9965\u9991'},
+          {'label': 'D', 'text': '\u804c\u4e1a\uff0c\u884c\u4e1a'},
         ],
         correctChoiceLabel: 'C',
         questionIndex: 3,
@@ -283,7 +339,7 @@ void main() {
         entrySourceId: 'famine',
         questionType: 'enToCnChoice',
         userResponse: '',
-        correctAnswer: '饥荒，饥馑',
+        correctAnswer: '\u9965\u8352\uff0c\u9965\u9991',
         outcome: AnswerOutcome.incorrect,
         responseTimeMs: 100,
         answeredAt: '2026-05-12T00:00:00Z',
@@ -320,11 +376,11 @@ void main() {
         entrySourceId: 'gesture',
         word: 'gesture',
         prompt: 'gesture',
-        acceptedMeanings: ['取消；删去；划掉；把...作废', '做手势；用动作示意'],
+        acceptedMeanings: ['\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f', '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'],
         choices: [
-          {'label': 'A', 'text': '取消；删去；划掉；把...作废'},
-          {'label': 'B', 'text': '做手势；用动作示意'},
-          {'label': 'C', 'text': '概述；简述；勾画'},
+          {'label': 'A', 'text': '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f'},
+          {'label': 'B', 'text': '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'},
+          {'label': 'C', 'text': '\u6982\u8ff0\uff1b\u7b80\u8ff0\uff1b\u52fe\u753b'},
         ],
         correctChoiceLabel: 'B',
         questionIndex: 14,
@@ -335,7 +391,7 @@ void main() {
         entrySourceId: 'gesture',
         questionType: 'enToCnChoice',
         userResponse: 'A',
-        correctAnswer: '做手势；用动作示意',
+        correctAnswer: '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
         outcome: AnswerOutcome.incorrect,
         responseTimeMs: 100,
         answeredAt: '2026-05-12T00:00:00Z',
@@ -358,10 +414,10 @@ void main() {
       entrySourceId: 'gesture',
       word: 'gesture',
       prompt: 'gesture',
-      acceptedMeanings: ['做手势；用动作示意'],
+      acceptedMeanings: ['\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'],
       choices: [
-        {'label': 'A', 'text': '取消；删去；划掉；把...作废'},
-        {'label': 'B', 'text': '做手势；用动作示意'},
+        {'label': 'A', 'text': '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f'},
+        {'label': 'B', 'text': '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'},
       ],
       correctChoiceLabel: 'A',
       questionIndex: 14,
@@ -372,7 +428,7 @@ void main() {
       entrySourceId: 'gesture',
       questionType: 'enToCnChoice',
       userResponse: 'B',
-      correctAnswer: '做手势；用动作示意',
+      correctAnswer: '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
       outcome: AnswerOutcome.incorrect,
       responseTimeMs: 100,
       answeredAt: '2026-05-12T00:00:00Z',
@@ -396,7 +452,7 @@ void main() {
         entrySourceId: 'famine',
         word: 'famine',
         prompt: 'famine',
-        acceptedMeanings: ['饥荒，饥馑'],
+        acceptedMeanings: ['\u9965\u8352\uff0c\u9965\u9991'],
         questionIndex: 3,
         totalQuestions: 20,
       );
@@ -405,7 +461,7 @@ void main() {
         entrySourceId: 'famine',
         questionType: 'enToCnChoice',
         userResponse: 'A',
-        correctAnswer: '饥荒，饥馑',
+        correctAnswer: '\u9965\u8352\uff0c\u9965\u9991',
         outcome: AnswerOutcome.incorrect,
         responseTimeMs: 100,
         answeredAt: '2026-05-12T00:00:00Z',

@@ -11,7 +11,7 @@ import 'supabase_auth_service.dart';
 
 class WordAdminAuthService implements SupabaseAuthGateway {
   WordAdminAuthService({CloudBackendConfig? config})
-      : _config = config ?? CloudBackendConfig.fromEnvironment();
+    : _config = config ?? CloudBackendConfig.fromEnvironment();
 
   static const _accessTokenKey = 'word_admin.auth.access_token';
   static const _refreshTokenKey = 'word_admin.auth.refresh_token';
@@ -44,15 +44,14 @@ class WordAdminAuthService implements SupabaseAuthGateway {
         // Fall back to probing the stored access token below.
       }
     }
-    if (accessToken == null || accessToken.isEmpty || userId == null || userId.isEmpty) {
+    if (accessToken == null ||
+        accessToken.isEmpty ||
+        userId == null ||
+        userId.isEmpty) {
       return null;
     }
 
-    final me = await _request(
-      'GET',
-      '/v1/me',
-      accessToken: accessToken,
-    );
+    final me = await _request('GET', '/v1/me', accessToken: accessToken);
     final user = _userFromJson(me['user'] as Map<String, dynamic>);
     await _storeUser(user);
     return _sessionFromStoredValues(
@@ -72,10 +71,7 @@ class WordAdminAuthService implements SupabaseAuthGateway {
     final response = await _request(
       'POST',
       '/v1/auth/signup',
-      body: {
-        'email': email,
-        'password': password,
-      },
+      body: {'email': email, 'password': password},
     );
     return _authResponseFromJson(response);
   }
@@ -88,19 +84,16 @@ class WordAdminAuthService implements SupabaseAuthGateway {
     final response = await _request(
       'POST',
       '/v1/auth/login',
-      body: {
-        'email': email,
-        'password': password,
-      },
+      body: {'email': email, 'password': password},
     );
     return _authResponseFromJson(response);
   }
 
   @override
-  Future<void> resendSignupConfirmation({
-    required String email,
-  }) async {
-    throw UnsupportedError('Word Admin does not support email verification yet.');
+  Future<void> resendSignupConfirmation({required String email}) async {
+    throw UnsupportedError(
+      'Word Admin does not support email verification yet.',
+    );
   }
 
   @override
@@ -112,9 +105,25 @@ class WordAdminAuthService implements SupabaseAuthGateway {
   }
 
   @override
-  Future<void> updatePassword({
-    required String password,
+  Future<AuthResponse> verifySignupOtp({
+    required String email,
+    required String token,
   }) async {
+    throw UnsupportedError(
+      'Word Admin does not support email verification yet.',
+    );
+  }
+
+  @override
+  Future<AuthResponse> verifyPasswordRecoveryOtp({
+    required String email,
+    required String token,
+  }) async {
+    throw UnsupportedError('Word Admin does not support password reset yet.');
+  }
+
+  @override
+  Future<void> updatePassword({required String password}) async {
     throw UnsupportedError('Word Admin does not support password update yet.');
   }
 
@@ -128,9 +137,7 @@ class WordAdminAuthService implements SupabaseAuthGateway {
     final response = await _request(
       'POST',
       '/v1/auth/refresh',
-      body: {
-        'refreshToken': refreshToken,
-      },
+      body: {'refreshToken': refreshToken},
     );
     final storedUser = await _storedUser();
     return _authResponseFromJson(response, fallbackUser: storedUser);
@@ -192,10 +199,7 @@ class WordAdminAuthService implements SupabaseAuthGateway {
       'POST',
       '/v1/sync/flush',
       accessToken: accessToken,
-      body: {
-        'domain': domain,
-        'payload': payload,
-      },
+      body: {'domain': domain, 'payload': payload},
     );
   }
 
@@ -211,7 +215,10 @@ class WordAdminAuthService implements SupabaseAuthGateway {
       final request = await client.openUrl(method, uri);
       request.headers.contentType = ContentType.json;
       if (accessToken != null && accessToken.isNotEmpty) {
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $accessToken');
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          'Bearer $accessToken',
+        );
       }
       if (body != null) {
         request.write(jsonEncode(body));
@@ -227,7 +234,9 @@ class WordAdminAuthService implements SupabaseAuthGateway {
         if (error is Map) {
           throw StateError('${error['code']}: ${error['message']}');
         }
-        throw StateError('Word Admin API request failed: ${response.statusCode}');
+        throw StateError(
+          'Word Admin API request failed: ${response.statusCode}',
+        );
       }
       return json;
     } finally {

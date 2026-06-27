@@ -5,13 +5,10 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
 import 'study_screen.dart';
+import 'wrong_word_graph_screen.dart';
 
 class WrongWordsScreen extends StatefulWidget {
-  const WrongWordsScreen({
-    super.key,
-    required this.sdk,
-    this.onStartStudy,
-  });
+  const WrongWordsScreen({super.key, required this.sdk, this.onStartStudy});
 
   final WordSdk sdk;
   final Future<void> Function(String mode)? onStartStudy;
@@ -72,7 +69,9 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       if (!context.mounted) return;
       await Scrollable.ensureVisible(
         context,
-        duration: attempt == 0 ? Duration.zero : const Duration(milliseconds: 180),
+        duration: attempt == 0
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         alignment: 0,
         alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
@@ -109,8 +108,11 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       if (!mounted) return;
       setState(() {
         _words = words;
-        _wordKeys.removeWhere((entryId, _) => !words.any((word) => word.entryId == entryId));
-        if (_selectedId != null && !words.any((word) => word.entryId == _selectedId)) {
+        _wordKeys.removeWhere(
+          (entryId, _) => !words.any((word) => word.entryId == entryId),
+        );
+        if (_selectedId != null &&
+            !words.any((word) => word.entryId == _selectedId)) {
           _selectedId = null;
           _detail = null;
         }
@@ -146,7 +148,9 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     final scrollGeneration = _detailScrollGeneration;
     _scrollToDetail(generation: scrollGeneration);
     try {
-      final detail = await widget.sdk.wrongWords.getWrongWordDetail(entry.entryId);
+      final detail = await widget.sdk.wrongWords.getWrongWordDetail(
+        entry.entryId,
+      );
       if (!mounted) return;
       setState(() {
         _detail = detail;
@@ -175,10 +179,8 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     }
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => StudyScreen(
-          sdk: widget.sdk,
-          mode: 'wrongWordReinforcement',
-        ),
+        builder: (_) =>
+            StudyScreen(sdk: widget.sdk, mode: 'wrongWordReinforcement'),
       ),
     );
     await _loadAll();
@@ -196,13 +198,16 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('编辑提示词'),
+          title: const Text('\u7f16\u8f91\u63d0\u793a\u8bcd'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(detail.word, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  detail.word,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
                 if (detail.hintSuggestions.isNotEmpty) ...[
                   Wrap(
@@ -269,7 +274,9 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     if (saved == null || !mounted) return;
     await _loadAll();
     if (!mounted) return;
-    final refreshed = await widget.sdk.wrongWords.getWrongWordDetail(detail.entryId);
+    final refreshed = await widget.sdk.wrongWords.getWrongWordDetail(
+      detail.entryId,
+    );
     if (!mounted) return;
     setState(() {
       _detail = refreshed;
@@ -310,7 +317,10 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
   }
 
   String _historyContextLabel(String context) {
-    final parts = context.split('/').map((part) => part.trim()).toList(growable: false);
+    final parts = context
+        .split('/')
+        .map((part) => part.trim())
+        .toList(growable: false);
     if (parts.length >= 2) {
       return '${_questionTypeLabel(parts.first)} / ${_outcomeLabel(parts.sublist(1).join('/'))}';
     }
@@ -326,7 +336,9 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     } catch (_) {
       // Some older rows are plain enum strings; leave those as-is.
     }
-    if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    if (trimmed.length >= 2 &&
+        trimmed.startsWith('"') &&
+        trimmed.endsWith('"')) {
       return trimmed.substring(1, trimmed.length - 1);
     }
     return trimmed;
@@ -346,8 +358,15 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       fontWeight: FontWeight.w700,
       backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
     );
-    final spans = _highlightWordSpans(sentence, word, baseStyle, highlightStyle);
-    return RichText(text: TextSpan(style: baseStyle, children: spans));
+    final spans = _highlightWordSpans(
+      sentence,
+      word,
+      baseStyle,
+      highlightStyle,
+    );
+    return RichText(
+      text: TextSpan(style: baseStyle, children: spans),
+    );
   }
 
   List<TextSpan> _highlightWordSpans(
@@ -372,9 +391,19 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     var cursor = 0;
     for (final match in matches) {
       if (match.start > cursor) {
-        spans.add(TextSpan(text: sentence.substring(cursor, match.start), style: baseStyle));
+        spans.add(
+          TextSpan(
+            text: sentence.substring(cursor, match.start),
+            style: baseStyle,
+          ),
+        );
       }
-      spans.add(TextSpan(text: sentence.substring(match.start, match.end), style: highlightStyle));
+      spans.add(
+        TextSpan(
+          text: sentence.substring(match.start, match.end),
+          style: highlightStyle,
+        ),
+      );
       cursor = match.end;
     }
     if (cursor < sentence.length) {
@@ -396,8 +425,9 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     final selectedEntry = _selectedEntry();
     final detailErrorCount = _detail?.errorCount ?? 0;
     final listErrorCount = selectedEntry?.errorCount ?? 0;
-    final effectiveErrorCount =
-        detailErrorCount > listErrorCount ? detailErrorCount : listErrorCount;
+    final effectiveErrorCount = detailErrorCount > listErrorCount
+        ? detailErrorCount
+        : listErrorCount;
     final detailCanEditHint =
         _detail != null && (_detail!.hasHint || effectiveErrorCount >= 5);
     return _SectionCard(
@@ -413,108 +443,107 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
               ),
             )
           : _detail == null
-              ? const Text('暂无详情')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _detail!.word,
-                      style: Theme.of(context).textTheme.headlineSmall,
+          ? const Text('暂无详情')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _detail!.word,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                if ((_detail!.phoneticUs ?? _detail!.phoneticUk) != null)
+                  Text(
+                    _detail!.phoneticUs ?? _detail!.phoneticUk ?? '',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                  ),
+                if (_detail!.partOfSpeech.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text('词性：${_detail!.partOfSpeech}'),
+                ],
+                if (_detail!.meanings.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    '释义：${_detail!.meanings.map((item) => item is Map<String, dynamic> ? item['meaningCn'] ?? '' : item.toString()).where((item) => '$item'.trim().isNotEmpty).join(' / ')}',
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text('题型情况', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                if (detailCanEditHint) ...[
+                  _HintDetailBox(
+                    hint: _detail!.userHint,
+                    hasSuggestions: _detail!.hintSuggestions.isNotEmpty,
+                    onEdit: () => _editHint(
+                      _detail!,
+                      effectiveErrorCount: effectiveErrorCount,
                     ),
-                    const SizedBox(height: 8),
-                    if ((_detail!.phoneticUs ?? _detail!.phoneticUk) != null)
-                      Text(
-                        _detail!.phoneticUs ?? _detail!.phoneticUk ?? '',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.black54,
-                            ),
-                      ),
-                    if (_detail!.partOfSpeech.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text('词性：${_detail!.partOfSpeech}'),
-                    ],
-                    if (_detail!.meanings.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        '释义：${_detail!.meanings.map((item) => item is Map<String, dynamic> ? item['meaningCn'] ?? '' : item.toString()).where((item) => '$item'.trim().isNotEmpty).join(' / ')}',
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Text('题型情况', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    if (detailCanEditHint) ...[
-                      _HintDetailBox(
-                        hint: _detail!.userHint,
-                        hasSuggestions: _detail!.hintSuggestions.isNotEmpty,
-                        onEdit: () => _editHint(
-                          _detail!,
-                          effectiveErrorCount: effectiveErrorCount,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (_detail!.riskBreakdown.isEmpty)
+                  const Text('暂无分题型数据')
+                else
+                  for (final item in _detail!.riskBreakdown)
+                    if (item is Map<String, dynamic>)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          '${_questionTypeLabel('${item['questionType'] ?? ''}')}：${(item['incorrect'] ?? 0) + (item['skipped'] ?? 0)}/${item['attempts'] ?? 0} 次出错',
                         ),
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (_detail!.riskBreakdown.isEmpty)
-                      const Text('暂无分题型数据')
-                    else
-                      for (final item in _detail!.riskBreakdown)
-                        if (item is Map<String, dynamic>)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              '${_questionTypeLabel('${item['questionType'] ?? ''}')}：${(item['incorrect'] ?? 0) + (item['skipped'] ?? 0)}/${item['attempts'] ?? 0} 次出错',
-                            ),
-                          ),
-                    const SizedBox(height: 16),
-                    Text('最近错误', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    if (_detail!.errorHistory.isEmpty)
-                      const Text('暂无错误历史')
-                    else
-                      for (final item in _detail!.errorHistory)
-                        if (item is Map<String, dynamic>)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              '${_historyDate('${item['date'] ?? ''}')}  ${_historyContextLabel('${item['context'] ?? ''}')}',
-                            ),
-                          ),
-                    if (_detail!.examples.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text('例句', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      for (final item in _detail!.examples)
-                        if (item is Map<String, dynamic>)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _highlightedExampleSentence(
-                                  '${item['sentenceEn'] ?? ''}',
-                                  _detail!.word,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${item['sentenceCn'] ?? ''}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Colors.black54,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                    ],
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FilledButton.tonalIcon(
-                        onPressed: _scrollToSelectedWord,
-                        icon: const Icon(Icons.arrow_upward_rounded),
-                        label: const Text('返回所选错词'),
+                const SizedBox(height: 16),
+                Text('最近错误', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                if (_detail!.errorHistory.isEmpty)
+                  const Text('暂无错误历史')
+                else
+                  for (final item in _detail!.errorHistory)
+                    if (item is Map<String, dynamic>)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          '${_historyDate('${item['date'] ?? ''}')}  ${_historyContextLabel('${item['context'] ?? ''}')}',
+                        ),
                       ),
-                    ),
-                  ],
+                if (_detail!.examples.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('例句', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  for (final item in _detail!.examples)
+                    if (item is Map<String, dynamic>)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _highlightedExampleSentence(
+                              '${item['sentenceEn'] ?? ''}',
+                              _detail!.word,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item['sentenceCn'] ?? ''}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+                ],
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: _scrollToSelectedWord,
+                    icon: const Icon(Icons.arrow_upward_rounded),
+                    label: const Text('返回所选错词'),
+                  ),
                 ),
+              ],
+            ),
     );
   }
 
@@ -552,116 +581,149 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalErrors = _words.fold<int>(0, (sum, item) => sum + item.errorCount);
-    final wordEntries = _words.where((entry) => !entry.isRootAffix).toList(growable: false);
-    final rootAffixEntries = _words.where((entry) => entry.isRootAffix).toList(growable: false);
+    final totalErrors = _words.fold<int>(
+      0,
+      (sum, item) => sum + item.errorCount,
+    );
+    final wordEntries = _words
+        .where((entry) => !entry.isRootAffix)
+        .toList(growable: false);
+    final rootAffixEntries = _words
+        .where((entry) => entry.isRootAffix)
+        .toList(growable: false);
     final averagePriority = _words.isEmpty
         ? '0.0'
-        : (_words.fold<double>(0, (sum, item) => sum + item.priorityScore) / _words.length)
-            .toStringAsFixed(1);
+        : (_words.fold<double>(0, (sum, item) => sum + item.priorityScore) /
+                  _words.length)
+              .toStringAsFixed(1);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('错词本')),
+      appBar: AppBar(
+        title: const Text('\u9519\u8bcd\u672c'),
+        actions: [
+          IconButton(
+            tooltip: 'Wrong word graph',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => WrongWordGraphScreen(sdk: widget.sdk),
+                ),
+              );
+            },
+            icon: const Icon(Icons.hub_outlined),
+          ),
+        ],
+      ),
       body: _loading
           ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
-              ? _WrongWordsMessage(message: _error!, onRetry: _loadAll)
-              : CrocodileRefreshIndicator(
-                  onRefresh: () => _loadAll(showFullLoading: false),
-                  child: ListView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      color: Theme.of(context).colorScheme.primary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '错词本',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '这里会聚合历史和今天暴露出来的薄弱点，并给出强化优先级。',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.88),
-                                  ),
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: [
-                                _StatPill(label: '错词数', value: '${wordEntries.length}'),
-                                _StatPill(label: '词根词缀', value: '${rootAffixEntries.length}'),
-                                _StatPill(label: '累计错误', value: '$totalErrors'),
-                                _StatPill(label: '平均优先级', value: averagePriority),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    _SectionCard(
-                      title: '筛选',
-                      subtitle: '先缩小范围，再打开词条详情看风险拆解和错误记录。',
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: _filters.entries
-                            .map(
-                              (entry) => ChoiceChip(
-                                label: Text(entry.value),
-                                selected: _filter == entry.key,
-                                onSelected: (_) {
-                                  setState(() {
-                                    _filter = entry.key;
-                                  });
-                                  _loadAll();
-                                },
+          ? _WrongWordsMessage(message: _error!, onRetry: _loadAll)
+          : CrocodileRefreshIndicator(
+              onRefresh: () => _loadAll(showFullLoading: false),
+              child: ListView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    color: Theme.of(context).colorScheme.primary,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '错词本',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '这里会聚合历史和今天暴露出来的薄弱点，并给出强化优先级。',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                ),
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              _StatPill(
+                                label: '错词数',
+                                value: '${wordEntries.length}',
                               ),
-                            )
-                            .toList(growable: false),
+                              _StatPill(
+                                label: '词根词缀',
+                                value: '${rootAffixEntries.length}',
+                              ),
+                              _StatPill(label: '累计错误', value: '$totalErrors'),
+                              _StatPill(label: '平均优先级', value: averagePriority),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    if (_words.isNotEmpty)
-                      _SectionCard(
-                        title: '强化入口',
-                        subtitle: '按当前筛选结果进入错词强化，优先回收高风险词条。',
-                        child: FilledButton.tonal(
-                          onPressed: _startReinforcement,
-                          child: Text('开始错词强化（最多 ${_words.length.clamp(0, 20)} 个）'),
+                  ),
+                  _SectionCard(
+                    title: '筛选',
+                    subtitle: '先缩小范围，再打开词条详情看风险拆解和错误记录。',
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _filters.entries
+                          .map(
+                            (entry) => ChoiceChip(
+                              label: Text(entry.value),
+                              selected: _filter == entry.key,
+                              onSelected: (_) {
+                                setState(() {
+                                  _filter = entry.key;
+                                });
+                                _loadAll();
+                              },
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                  if (_words.isNotEmpty)
+                    _SectionCard(
+                      title: '强化入口',
+                      subtitle: '按当前筛选结果进入错词强化，优先回收高风险词条。',
+                      child: FilledButton.tonal(
+                        onPressed: _startReinforcement,
+                        child: Text(
+                          '开始错词强化（最多 ${_words.length.clamp(0, 20)} 个）',
                         ),
                       ),
-                    if (_words.isEmpty)
-                      const _SectionCard(
-                        title: '当前为空',
-                        subtitle: '错词会在学习过程中逐步累积到这里。',
-                        child: Text('还没有错词，先去今日页开始学习。'),
-                      ),
-                    if (wordEntries.isNotEmpty)
-                      _buildWrongEntrySection(
-                        title: '错词列表',
-                        subtitle: '普通单词的错误记录；点击某个词条展开详情，再次点击可收起。',
-                        entries: wordEntries,
-                      ),
-                    if (rootAffixEntries.isNotEmpty)
-                      _buildWrongEntrySection(
-                        title: '词根词缀错题',
-                        subtitle: '词根、前缀、后缀和词缀题的错误记录单独归档。',
-                        entries: rootAffixEntries,
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  if (_words.isEmpty)
+                    const _SectionCard(
+                      title: '当前为空',
+                      subtitle: '错词会在学习过程中逐步累积到这里。',
+                      child: Text('还没有错词，先去今日页开始学习。'),
+                    ),
+                  if (wordEntries.isNotEmpty)
+                    _buildWrongEntrySection(
+                      title: '错词列表',
+                      subtitle: '普通单词的错误记录；点击某个词条展开详情，再次点击可收起。',
+                      entries: wordEntries,
+                    ),
+                  if (rootAffixEntries.isNotEmpty)
+                    _buildWrongEntrySection(
+                      title: '词根词缀错题',
+                      subtitle: '词根、前缀、后缀和词缀题的错误记录单独归档。',
+                      entries: rootAffixEntries,
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -684,8 +746,8 @@ class _WrongWordTile extends StatelessWidget {
     final priorityColor = entry.priorityScore >= 8
         ? const Color(0xFFD64545)
         : entry.priorityScore >= 5
-            ? const Color(0xFFE69229)
-            : const Color(0xFF2F8F6A);
+        ? const Color(0xFFE69229)
+        : const Color(0xFF2F8F6A);
 
     final colorScheme = Theme.of(context).colorScheme;
     final needsHint = entry.errorCount >= 5 && !entry.hasHint;
@@ -695,36 +757,40 @@ class _WrongWordTile extends StatelessWidget {
       child: Stack(
         children: [
           ListTile(
-        contentPadding: EdgeInsetsDirectional.fromSTEB(
-          needsHint ? 36 : 16,
-          8,
-          16,
-          8,
-        ),
-        onTap: onTap,
-        title: Text(entry.word),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if ((entry.phoneticUs ?? entry.phoneticUk) != null)
-              Text(entry.phoneticUs ?? entry.phoneticUk ?? ''),
-            Text(primaryMeaning),
-            if (entry.hasHint)
-              const Text('提示词  •••'),
-            Text('错误 ${entry.errorCount} 次 · 优先级 ${entry.priorityScore.toStringAsFixed(1)}'),
-          ],
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: priorityColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            entry.priorityScore.toStringAsFixed(1),
-            style: TextStyle(color: priorityColor, fontWeight: FontWeight.w700),
-          ),
-        ),
+            contentPadding: EdgeInsetsDirectional.fromSTEB(
+              needsHint ? 36 : 16,
+              8,
+              16,
+              8,
+            ),
+            onTap: onTap,
+            title: Text(entry.word),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if ((entry.phoneticUs ?? entry.phoneticUk) != null)
+                  Text(entry.phoneticUs ?? entry.phoneticUk ?? ''),
+                Text(primaryMeaning),
+                if (entry.hasHint) const Text('提示词  •••'),
+                Text(
+                  '错误 ${entry.errorCount} 次 · 优先级 ${entry.priorityScore.toStringAsFixed(1)}',
+                ),
+              ],
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: priorityColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                entry.priorityScore.toStringAsFixed(1),
+                style: TextStyle(
+                  color: priorityColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
           if (needsHint)
             const PositionedDirectional(
@@ -792,7 +858,10 @@ class _HintDetailBoxState extends State<_HintDetailBox> {
                 Icon(Icons.lightbulb_outline, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('提示词', style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    '提示词',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 TextButton(
                   onPressed: widget.onEdit,
@@ -838,7 +907,9 @@ class _StatPill extends StatelessWidget {
         children: [
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           Text(label),
         ],
@@ -872,7 +943,11 @@ class _WrongWordsMessage extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.subtitle, required this.child});
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   final String title;
   final String subtitle;
@@ -891,7 +966,9 @@ class _SectionCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
             ),
             const SizedBox(height: 16),
             child,

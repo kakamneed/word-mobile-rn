@@ -1,0 +1,86 @@
+page {
+  --flutter-page-bg: #fbf7ff;
+  --flutter-card-bg: #ffffff;
+  --flutter-hero-purple: #68579a;
+  --flutter-primary: #6b5aa0;
+  --flutter-soft: #eee6ff;
+  --flutter-green: #2f8b70;
+  --flutter-page-padding: 16px;
+  --flutter-card-radius: 16px;
+  --flutter-card-padding: 20px;
+  --flutter-bottom-nav-height: 76px;
+  --flutter-touch-target: 44px;
+  background: #fbf7ff;
+  color: #211c28;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+view,
+text {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
+
+.flutter-page {
+  min-height: 100vh;
+  padding: var(--flutter-page-padding);
+  background: var(--flutter-page-bg);
+}
+
+.flutter-card {
+  padding: var(--flutter-card-padding);
+  border-radius: var(--flutter-card-radius);
+  background: var(--flutter-card-bg);
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.14);
+}
+
+.flutter-section-title {
+  display: block;
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.flutter-primary-button,
+.flutter-secondary-button {
+  min-height: var(--flutter-touch-target);
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: var(--flutter-touch-target);
+}
+
+.flutter-primary-button {
+  color: #ffffff;
+  background: var(--flutter-primary);
+}
+
+.flutter-secondary-button {
+  color: var(--flutter-primary);
+  background: var(--flutter-soft);
+}
+
+.flutter-round-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--flutter-touch-target);
+  height: var(--flutter-touch-target);
+  border-radius: 999px;
+  background: var(--flutter-soft);
+}
+
+.flutter-bottom-action-bar {
+  position: fixed;
+  right: 0;
+  bottom: var(--flutter-bottom-nav-height);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(251, 247, 255, 0.92);
+}

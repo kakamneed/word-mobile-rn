@@ -1,4 +1,4 @@
-﻿import Flutter
+import Flutter
 import Photos
 import UIKit
 import UniformTypeIdentifiers
@@ -170,6 +170,16 @@ import UniformTypeIdentifiers
         return
       }
       handleString(result: result) { word_mobile_ios_get_wrong_word_detail(entryId) }
+    case "getWrongWordGraph":
+      handleString(result: result) { word_mobile_ios_get_wrong_word_graph() }
+    case "saveWrongWordGraphPosition":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "saveWrongWordGraphPosition requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_save_wrong_word_graph_position(pointer) }
+      }
     case "saveWordHint":
       guard let request = call.arguments as? String else {
         result(FlutterError(code: "INVALID_ARGS", message: "saveWordHint requires JSON string", details: nil))
@@ -195,6 +205,16 @@ import UniformTypeIdentifiers
       }
       passageId.withCString { pointer in
         handleString(result: result) { word_mobile_ios_get_ai_passage(pointer) }
+      }
+    case "getAiPassageStylePreference":
+      handleString(result: result) { word_mobile_ios_get_ai_passage_style_preference() }
+    case "saveAiPassageStylePreference":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "saveAiPassageStylePreference requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_save_ai_passage_style_preference(pointer) }
       }
     case "generateAiPassage":
       guard let request = call.arguments as? String else {
@@ -257,6 +277,14 @@ import UniformTypeIdentifiers
       }
       request.withCString { pointer in
         handleString(result: result) { word_mobile_ios_mark_study_entry_mastered(pointer) }
+      }
+    case "acceptDisputedMeaning":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "acceptDisputedMeaning requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_accept_disputed_meaning(pointer) }
       }
     case "completeStudySession":
       guard let sessionId = call.arguments as? String else {

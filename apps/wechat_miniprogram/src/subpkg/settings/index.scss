@@ -1,0 +1,76 @@
+.settings-card,
+.settings-row {
+  border: 1px solid #eee7f2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.12);
+}
+
+.settings-card {
+  padding: 22px 20px;
+}
+
+.settings-card__title,
+.settings-card__caption,
+.settings-row__title,
+.settings-row__caption {
+  display: block;
+}
+
+.settings-card__title {
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.settings-card__caption {
+  margin-top: 10px;
+  color: #6f6878;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 28px;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+}
+
+.settings-row--active {
+  border-color: var(--flutter-primary, #6b5b95);
+  background: var(--flutter-soft, #fbf8ff);
+}
+
+.settings-row__color {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+}
+
+.settings-row__title {
+  color: #211c28;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.settings-row__caption {
+  margin-top: 5px;
+  color: #6f6878;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.settings-row__check {
+  color: var(--flutter-primary, #6b5b95);
+  font-size: 22px;
+  font-weight: 800;
+}

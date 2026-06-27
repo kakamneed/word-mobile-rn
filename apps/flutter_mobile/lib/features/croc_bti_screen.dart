@@ -29,6 +29,7 @@ class _CrocBtiScreenState extends State<CrocBtiScreen> {
   String? _editedResultCode;
   PlanSummary? _plan;
   int _dailyLearningMinutes = 40;
+  bool _growthRuleEnabled = true;
   bool _loading = true;
   bool _saving = false;
   bool _showResult = false;
@@ -100,6 +101,7 @@ class _CrocBtiScreenState extends State<CrocBtiScreen> {
       for (final mode in result.questionTypeWeightsByMode.entries)
         mode.key: Map<String, int>.from(mode.value),
     };
+    _growthRuleEnabled = _plan?.growthRuleEnabled ?? true;
   }
 
   void _updateDailyLearningMinutes(CrocBtiResult result, int minutes) {
@@ -130,6 +132,10 @@ class _CrocBtiScreenState extends State<CrocBtiScreen> {
         value.clamp(0, 100).toInt(),
       );
     });
+  }
+
+  void _updateGrowthRuleEnabled(bool value) {
+    setState(() => _growthRuleEnabled = value);
   }
 
   Future<void> _applyResult(CrocBtiResult result) async {
@@ -169,6 +175,7 @@ class _CrocBtiScreenState extends State<CrocBtiScreen> {
           result,
           planInput: planInput,
           questionTypeWeightsByMode: questionTypeWeightsByMode,
+          growthRuleEnabled: _growthRuleEnabled,
         ),
       );
       final applied = await widget.sdk.plan.applySavedPlanToToday();
@@ -213,6 +220,7 @@ class _CrocBtiScreenState extends State<CrocBtiScreen> {
       'planInput': planInput,
       'questionTypeWeightsByMode': questionTypeWeightsByMode,
       'dailyLearningMinutes': _dailyLearningMinutes,
+      'growthRuleEnabled': _growthRuleEnabled,
       'source': 'croc_bti',
       'version': DateTime.now().millisecondsSinceEpoch,
       'evaluatedAt': DateTime.now().toUtc().toIso8601String(),
@@ -255,6 +263,8 @@ class _CrocBtiScreenState extends State<CrocBtiScreen> {
                   _updateDailyLearningMinutes(result, minutes),
               onPlanInputChanged: _updatePlanInput,
               onQuestionTypeWeightChanged: _updateQuestionTypeWeight,
+              growthRuleEnabled: _growthRuleEnabled,
+              onGrowthRuleEnabledChanged: _updateGrowthRuleEnabled,
               onRetake: () async {
                 await clearSavedCrocBtiAnswers(userId: widget.userId);
                 if (!mounted) return;
@@ -499,10 +509,12 @@ class _ResultView extends StatelessWidget {
     required this.dailyLearningMinutes,
     required this.planInput,
     required this.questionTypeWeightsByMode,
+    required this.growthRuleEnabled,
     required this.saving,
     required this.onDailyLearningMinutesChanged,
     required this.onPlanInputChanged,
     required this.onQuestionTypeWeightChanged,
+    required this.onGrowthRuleEnabledChanged,
     required this.onRetake,
     required this.onApply,
   });
@@ -511,11 +523,13 @@ class _ResultView extends StatelessWidget {
   final int dailyLearningMinutes;
   final Map<String, int> planInput;
   final Map<String, Map<String, int>> questionTypeWeightsByMode;
+  final bool growthRuleEnabled;
   final bool saving;
   final void Function(int minutes) onDailyLearningMinutesChanged;
   final void Function(String key, int value) onPlanInputChanged;
   final void Function(String mode, String questionType, int value)
   onQuestionTypeWeightChanged;
+  final ValueChanged<bool> onGrowthRuleEnabledChanged;
   final VoidCallback onRetake;
   final VoidCallback onApply;
 
@@ -592,9 +606,11 @@ class _ResultView extends StatelessWidget {
         _PlanInputCard(
           dailyLearningMinutes: dailyLearningMinutes,
           planInput: planInput,
+          growthRuleEnabled: growthRuleEnabled,
           enabled: !saving,
           onDailyLearningMinutesChanged: onDailyLearningMinutesChanged,
           onPlanInputChanged: onPlanInputChanged,
+          onGrowthRuleEnabledChanged: onGrowthRuleEnabledChanged,
         ),
         const SizedBox(height: 12),
         _QuestionTypeWeightsCard(
@@ -621,16 +637,20 @@ class _PlanInputCard extends StatelessWidget {
   const _PlanInputCard({
     required this.dailyLearningMinutes,
     required this.planInput,
+    required this.growthRuleEnabled,
     required this.enabled,
     required this.onDailyLearningMinutesChanged,
     required this.onPlanInputChanged,
+    required this.onGrowthRuleEnabledChanged,
   });
 
   final int dailyLearningMinutes;
   final Map<String, int> planInput;
+  final bool growthRuleEnabled;
   final bool enabled;
   final void Function(int minutes) onDailyLearningMinutesChanged;
   final void Function(String key, int value) onPlanInputChanged;
+  final ValueChanged<bool> onGrowthRuleEnabledChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +669,16 @@ class _PlanInputCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 14),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('\u542f\u7528\u589e\u957f\u63a8\u8350'),
+              subtitle: const Text(
+                '\u548c\u8ba1\u5212\u9875\u4e00\u81f4\uff0c\u5f00\u542f\u540e\u4f1a\u9010\u6b65\u63d0\u9ad8\u4eca\u65e5\u76ee\u6807',
+              ),
+              value: growthRuleEnabled,
+              onChanged: enabled ? onGrowthRuleEnabledChanged : null,
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 const SizedBox(width: 112, child: Text('每日时间')),

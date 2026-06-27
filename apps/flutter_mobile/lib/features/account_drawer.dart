@@ -253,6 +253,7 @@ class _AccountDrawerState extends State<AccountDrawer> {
       AuthAccountPhase.guestLocalOnly => '本地游客模式',
       AuthAccountPhase.emailVerificationPending => '等待邮箱验证',
       AuthAccountPhase.passwordResetEmailSent => '重置邮件已发送',
+      AuthAccountPhase.passwordResetOtpVerified => '验证码已通过',
       AuthAccountPhase.passwordUpdated => '密码已更新',
       AuthAccountPhase.signedInNeedsBind => '已登录，等待数据绑定检查',
       AuthAccountPhase.signedInActive => '已登录',

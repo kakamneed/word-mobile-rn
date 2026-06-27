@@ -1,0 +1,140 @@
+.profile-preview,
+.profile-card {
+  border: 1px solid #eee7f2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 3px 9px rgba(42, 34, 52, 0.12);
+}
+
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  color: #104e3d;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.profile-preview__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-preview__name,
+.profile-preview__caption,
+.profile-card__title,
+.profile-card__caption {
+  display: block;
+}
+
+.profile-preview__name {
+  color: #211c28;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.profile-preview__caption,
+.profile-preview__state,
+.profile-card__caption {
+  margin-top: 8px;
+  color: #6f6878;
+  font-size: 15px;
+  line-height: 1.42;
+}
+
+.profile-preview__state {
+  color: var(--flutter-primary, #6b5b95);
+  font-weight: 700;
+}
+
+.profile-card {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.profile-card__title {
+  color: #211c28;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.profile-input {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  margin-top: 16px;
+  padding: 0 14px;
+  border: 1px solid #8b8490;
+  border-radius: 6px;
+  color: #211c28;
+  font-size: 18px;
+}
+
+.profile-bind-message {
+  display: block;
+  margin-top: 10px;
+  color: var(--flutter-primary, #6b5b95);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.avatar-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.avatar-color {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  color: #104e3d;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.avatar-color--active {
+  border-color: var(--flutter-primary, #6b5b95);
+}
+
+.profile-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 54px;
+  margin-top: 22px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--flutter-primary, #6b5b95);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.profile-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  margin-top: 16px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--flutter-primary, #6b5b95);
+  font-size: 16px;
+  font-weight: 700;
+}

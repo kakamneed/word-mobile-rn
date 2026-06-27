@@ -25,3 +25,6 @@ enable_signup = true
 [storage]
 enabled = true
 file_size_limit = "10MiB"
+
+[functions.v1]
+verify_jwt = false

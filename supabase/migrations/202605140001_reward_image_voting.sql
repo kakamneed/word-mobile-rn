@@ -117,6 +117,8 @@ for delete using (
   and auth.uid()::text = (storage.foldername(name))[1]
 );
 
+drop function if exists public.get_reward_image_vote_leaderboard(date, integer);
+
 create or replace function public.get_reward_image_vote_leaderboard(
   p_week_start date default current_date,
   p_limit integer default 50

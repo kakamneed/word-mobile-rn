@@ -15,6 +15,7 @@ enum AuthAccountPhase {
   guestLocalOnly,
   emailVerificationPending,
   passwordResetEmailSent,
+  passwordResetOtpVerified,
   passwordUpdated,
   signedInNeedsBind,
   signedInActive,
@@ -51,10 +52,19 @@ class AuthAccountState {
   ]) : this._(phase: AuthAccountPhase.guestLocalOnly, message: message);
 
   const AuthAccountState.emailVerificationPending(String message)
-    : this._(phase: AuthAccountPhase.emailVerificationPending, message: message);
+    : this._(
+        phase: AuthAccountPhase.emailVerificationPending,
+        message: message,
+      );
 
   const AuthAccountState.passwordResetEmailSent(String message)
     : this._(phase: AuthAccountPhase.passwordResetEmailSent, message: message);
+
+  const AuthAccountState.passwordResetOtpVerified(String message)
+    : this._(
+        phase: AuthAccountPhase.passwordResetOtpVerified,
+        message: message,
+      );
 
   const AuthAccountState.passwordUpdated(String message)
     : this._(phase: AuthAccountPhase.passwordUpdated, message: message);
@@ -202,9 +212,34 @@ class AuthSessionManager {
     }
   }
 
-  Future<AuthAccountState> updatePassword({
-    required String password,
+  Future<AuthAccountState> verifySignupOtp({
+    required String email,
+    required String token,
   }) async {
+    try {
+      final response = await _auth.verifySignupOtp(email: email, token: token);
+      final session = response.session ?? await _auth.restoreSession();
+      return _stateFromSession(session);
+    } catch (error) {
+      return _stateFromAuthFailure(error);
+    }
+  }
+
+  Future<AuthAccountState> verifyPasswordRecoveryOtp({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      await _auth.verifyPasswordRecoveryOtp(email: email, token: token);
+      return const AuthAccountState.passwordResetOtpVerified(
+        'Password reset code verified. Set a new password.',
+      );
+    } catch (error) {
+      return _stateFromAuthFailure(error);
+    }
+  }
+
+  Future<AuthAccountState> updatePassword({required String password}) async {
     try {
       await _auth.updatePassword(password: password);
       final session = await _auth.restoreSession();

@@ -16,6 +16,7 @@ import 'plan_screen.dart';
 import 'profile_settings_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
+import 'shell_page_data_cache.dart';
 import 'study_screen.dart';
 import 'theme_settings.dart';
 import 'today_shell_screen.dart';
@@ -83,6 +84,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
   bool _loginPromptShown = false;
   LocalProfileSettings _profileSettings = const LocalProfileSettings();
   String? _loadedProfileUserId;
+  late ShellPageDataCache _dataCache;
 
   bool _showingStudy = false;
   String _studyMode = 'newWord';
@@ -93,10 +95,12 @@ class _MobileRootShellState extends State<MobileRootShell> {
   @override
   void initState() {
     super.initState();
+    _dataCache = ShellPageDataCache(sdk: widget.appState.sdk);
     widget.appState.addListener(_handleAppStateChanged);
     _loadProfileSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowLoginPrompt();
+      _dataCache.preload(ShellPageDataScope.today);
     });
   }
 
@@ -105,6 +109,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.appState == widget.appState) return;
     oldWidget.appState.removeListener(_handleAppStateChanged);
+    _dataCache = ShellPageDataCache(sdk: widget.appState.sdk);
     widget.appState.addListener(_handleAppStateChanged);
     _loadProfileSettings();
   }
@@ -125,6 +130,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
         );
     if (mounted) {
       setState(() {
+        _dataCache.invalidateAll();
         _todayReloadSeed++;
         _wrongReloadSeed++;
         _reportsReloadSeed++;
@@ -177,11 +183,20 @@ class _MobileRootShellState extends State<MobileRootShell> {
     setState(() {
       _showingStudy = false;
       if (wasShowingStudy) {
+        _dataCache.invalidate(ShellPageDataScope.today);
+        _dataCache.invalidate(ShellPageDataScope.wrongWords);
+        _dataCache.invalidate(ShellPageDataScope.reports);
         _todayReloadSeed++;
         _wrongReloadSeed++;
         _reportsReloadSeed++;
       } else if (index == 0 && _mainIndex != 0) {
+        _dataCache.invalidate(ShellPageDataScope.today);
         _todayReloadSeed++;
+      }
+      if (index == 1) {
+        _dataCache.preload(ShellPageDataScope.plan);
+      } else if (index == 4) {
+        _dataCache.preload(ShellPageDataScope.ai);
       }
       if (index == 4) {
         _aiGenerateOnOpen = false;
@@ -213,14 +228,11 @@ class _MobileRootShellState extends State<MobileRootShell> {
 
   Future<void> _openStudy(String mode, ResumeSessionHint? hint) async {
     if (!mounted) return;
-    final effectiveHint =
-        hint ?? await widget.appState.sdk.study.getResumeSessionHint();
     final effectiveMode = mode;
     final hintForScreen =
-        effectiveHint.hasResume && effectiveHint.mode == effectiveMode
-        ? effectiveHint
+        hint != null && hint.hasResume && hint.mode == effectiveMode
+        ? hint
         : null;
-    if (!mounted) return;
     setState(() {
       _studyReloadSeed++;
       _studyMode = effectiveMode;
@@ -248,6 +260,10 @@ class _MobileRootShellState extends State<MobileRootShell> {
     setState(() {
       _showingStudy = false;
       _mainIndex = 0;
+      _dataCache.invalidate(ShellPageDataScope.today);
+      _dataCache.invalidate(ShellPageDataScope.wrongWords);
+      _dataCache.invalidate(ShellPageDataScope.reports);
+      _dataCache.invalidate(ShellPageDataScope.ai);
       _todayReloadSeed++;
       _wrongReloadSeed++;
       _reportsReloadSeed++;
@@ -273,6 +289,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
       widget.appState.applyAuthState(authState);
       await _loadProfileSettings();
       setState(() {
+        _dataCache.invalidateAll();
         _todayReloadSeed++;
         _wrongReloadSeed++;
         _reportsReloadSeed++;
@@ -410,9 +427,22 @@ class _MobileRootShellState extends State<MobileRootShell> {
   void _handleWrongWordsImported() {
     if (!mounted) return;
     setState(() {
+      _dataCache.invalidate(ShellPageDataScope.today);
+      _dataCache.invalidate(ShellPageDataScope.ai);
       _wrongReloadSeed++;
       _reportsReloadSeed++;
       _todayReloadSeed++;
+      _aiReloadSeed++;
+    });
+  }
+
+  void _handleAiPassageGenerated() {
+    if (!mounted) return;
+    setState(() {
+      _dataCache.invalidate(ShellPageDataScope.today);
+      _dataCache.invalidate(ShellPageDataScope.ai);
+      _todayReloadSeed++;
+      _aiReloadSeed++;
     });
   }
 
@@ -423,6 +453,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
         key: const ValueKey('today'),
         appState: widget.appState,
         refreshSeed: _todayReloadSeed,
+        dataCache: _dataCache,
         onOpenPlan: () => _switchToMain(1),
         onOpenStudy: _openStudy,
         onOpenWrongWords: () => _switchToMain(2),
@@ -433,6 +464,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
       PlanScreen(
         key: ValueKey('plan-$_planReloadSeed'),
         sdk: widget.appState.sdk,
+        dataCache: _dataCache,
         onTodayPlanApplied: () {
           if (!mounted) return;
           setState(() {
@@ -467,6 +499,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
         generateOnOpen: _aiGenerateOnOpen,
         showPassageFirst: _aiShowPassageFirst,
         onWrongWordsImported: _handleWrongWordsImported,
+        onAiPassageGenerated: _handleAiPassageGenerated,
       ),
       StudyScreen(
         key: ValueKey(

@@ -6,7 +6,14 @@ import '../widgets/crocodile_frame_animation.dart';
 
 enum AuthEntryMode { signIn, signUp, resetPassword }
 
-enum _AuthFormMode { signIn, signUp, forgotPassword, resetPassword }
+enum _AuthFormMode {
+  signIn,
+  signUp,
+  verifySignupOtp,
+  forgotPassword,
+  verifyPasswordResetOtp,
+  resetPassword,
+}
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
@@ -29,6 +36,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _otpController = TextEditingController();
   final _newPasswordController = TextEditingController();
   late final AuthSessionManager _sessionManager;
 
@@ -60,6 +68,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _otpController.dispose();
     _newPasswordController.dispose();
     super.dispose();
   }
@@ -70,12 +79,11 @@ class _AuthScreenState extends State<AuthScreen> {
       _authState = const AuthAccountState.checking();
     });
     final authState = await _sessionManager.resolveStartupState();
-    if (mounted) {
-      setState(() {
-        _authState = authState;
-        _loading = false;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _authState = authState;
+      _loading = false;
+    });
   }
 
   Future<void> _submit() async {
@@ -86,43 +94,64 @@ class _AuthScreenState extends State<AuthScreen> {
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final otp = _otpController.text.trim();
     final newPassword = _newPasswordController.text;
 
     final authState = switch (_mode) {
-      _AuthFormMode.signUp =>
-        await _sessionManager.signUp(email: email, password: password),
-      _AuthFormMode.signIn =>
-        await _sessionManager.signIn(email: email, password: password),
+      _AuthFormMode.signUp => await _sessionManager.signUp(
+        email: email,
+        password: password,
+      ),
+      _AuthFormMode.verifySignupOtp => await _sessionManager.verifySignupOtp(
+        email: email,
+        token: otp,
+      ),
+      _AuthFormMode.signIn => await _sessionManager.signIn(
+        email: email,
+        password: password,
+      ),
       _AuthFormMode.forgotPassword =>
         await _sessionManager.requestPasswordReset(
           email: email,
           redirectTo: _passwordResetRedirect,
         ),
-      _AuthFormMode.resetPassword =>
-        await _sessionManager.updatePassword(password: newPassword),
+      _AuthFormMode.verifyPasswordResetOtp =>
+        await _sessionManager.verifyPasswordRecoveryOtp(
+          email: email,
+          token: otp,
+        ),
+      _AuthFormMode.resetPassword => await _sessionManager.updatePassword(
+        password: newPassword,
+      ),
     };
 
     if (!mounted) return;
     setState(() {
       _authState = authState;
+      _submitting = false;
+      if (authState.phase == AuthAccountPhase.emailVerificationPending &&
+          _mode == _AuthFormMode.signUp) {
+        _mode = _AuthFormMode.verifySignupOtp;
+      } else if (authState.phase == AuthAccountPhase.passwordResetEmailSent &&
+          _mode == _AuthFormMode.forgotPassword) {
+        _mode = _AuthFormMode.verifyPasswordResetOtp;
+      } else if (authState.phase == AuthAccountPhase.passwordResetOtpVerified) {
+        _mode = _AuthFormMode.resetPassword;
+      }
     });
     widget.onAuthChanged?.call(authState);
 
-    if (authState.isSignedIn || authState.phase == AuthAccountPhase.passwordUpdated) {
+    if (authState.isSignedIn ||
+        authState.phase == AuthAccountPhase.passwordUpdated) {
       Navigator.of(context).pop(authState);
-      return;
     }
-
-    setState(() {
-      _submitting = false;
-    });
   }
 
   Future<void> _resendVerification() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
       setState(() {
-        _authState = const AuthAccountState.error('请输入邮箱后再重发验证邮件。');
+        _authState = const AuthAccountState.error('请先输入邮箱。');
       });
       return;
     }
@@ -130,7 +159,9 @@ class _AuthScreenState extends State<AuthScreen> {
       _submitting = true;
       _authState = const AuthAccountState.checking();
     });
-    final authState = await _sessionManager.resendSignupConfirmation(email: email);
+    final authState = await _sessionManager.resendSignupConfirmation(
+      email: email,
+    );
     if (!mounted) return;
     setState(() {
       _authState = authState;
@@ -143,6 +174,10 @@ class _AuthScreenState extends State<AuthScreen> {
       _mode = mode;
       _authState = const AuthAccountState.guestLocalOnly();
       _passwordController.clear();
+      if (mode != _AuthFormMode.verifySignupOtp &&
+          mode != _AuthFormMode.verifyPasswordResetOtp) {
+        _otpController.clear();
+      }
       if (mode != _AuthFormMode.resetPassword) {
         _newPasswordController.clear();
       }
@@ -157,7 +192,7 @@ class _AuthScreenState extends State<AuthScreen> {
         body: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            '账号服务尚未配置。本地学习仍可使用，但登录、注册、邮箱验证和云同步需要先配置 SUPABASE_URL 与 SUPABASE_ANON_KEY。',
+            '账号服务尚未配置。本地学习仍可使用，但登录和云同步需要先配置 SUPABASE_URL 与 SUPABASE_ANON_KEY。',
           ),
         ),
       );
@@ -166,13 +201,16 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       appBar: _AuthAppBar(title: _title),
       body: _loading
-          ? const Center(child: CrocodileLoadingAnimation(label: '正在检查账号状态...'))
+          ? const Center(child: CrocodileLoadingAnimation(label: '正在检查账号...'))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 _StatusCard(
                   title: _accountTitle,
-                  message: _authMessage(_authState) ?? _authState.userEmail ?? _defaultHint,
+                  message:
+                      _authMessage(_authState) ??
+                      _authState.userEmail ??
+                      _defaultHint,
                   allowsLocalStudy: _authState.allowsLocalStudy,
                   allowsCloudWork: _authState.allowsCloudWork,
                 ),
@@ -200,6 +238,18 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
+                if (_mode == _AuthFormMode.verifySignupOtp ||
+                    _mode == _AuthFormMode.verifyPasswordResetOtp) ...[
+                  TextField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '验证码',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (_mode == _AuthFormMode.resetPassword) ...[
                   TextField(
                     controller: _newPasswordController,
@@ -216,38 +266,41 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Text(_submitting ? '处理中...' : _primaryButtonLabel),
                 ),
                 const SizedBox(height: 8),
-                if (_authState.phase == AuthAccountPhase.emailVerificationPending)
+                if (_mode == _AuthFormMode.verifySignupOtp)
                   OutlinedButton(
                     onPressed: _submitting ? null : _resendVerification,
-                    child: const Text('重新发送验证邮件'),
+                    child: const Text('重新发送验证码'),
                   ),
                 if (_mode == _AuthFormMode.signIn)
                   TextButton(
                     onPressed: _submitting
                         ? null
                         : () => _switchMode(_AuthFormMode.forgotPassword),
-                    child: const Text('忘记密码？'),
+                    child: const Text('忘记密码'),
                   ),
                 if (_mode == _AuthFormMode.forgotPassword)
                   TextButton(
                     onPressed: _submitting
                         ? null
-                        : () => _switchMode(_AuthFormMode.resetPassword),
-                    child: const Text('已打开重置链接，设置新密码'),
+                        : () =>
+                              _switchMode(_AuthFormMode.verifyPasswordResetOtp),
+                    child: const Text('已有验证码'),
                   ),
                 TextButton(
                   onPressed: _submitting
                       ? null
                       : () => _switchMode(
-                            _mode == _AuthFormMode.signUp
-                                ? _AuthFormMode.signIn
-                                : _AuthFormMode.signUp,
-                          ),
+                          _mode == _AuthFormMode.signUp
+                              ? _AuthFormMode.signIn
+                              : _AuthFormMode.signUp,
+                        ),
                   child: Text(
                     _mode == _AuthFormMode.signUp ? '已有账号，去登录' : '没有账号，去注册',
                   ),
                 ),
                 if (_mode == _AuthFormMode.forgotPassword ||
+                    _mode == _AuthFormMode.verifySignupOtp ||
+                    _mode == _AuthFormMode.verifyPasswordResetOtp ||
                     _mode == _AuthFormMode.resetPassword)
                   TextButton(
                     onPressed: _submitting
@@ -275,7 +328,9 @@ class _AuthScreenState extends State<AuthScreen> {
     return switch (_mode) {
       _AuthFormMode.signIn => '登录',
       _AuthFormMode.signUp => '注册',
+      _AuthFormMode.verifySignupOtp => '验证邮箱',
       _AuthFormMode.forgotPassword => '找回密码',
+      _AuthFormMode.verifyPasswordResetOtp => '验证邮箱',
       _AuthFormMode.resetPassword => '设置新密码',
     };
   }
@@ -284,17 +339,21 @@ class _AuthScreenState extends State<AuthScreen> {
     return switch (_mode) {
       _AuthFormMode.signIn => '登录',
       _AuthFormMode.signUp => '注册账号',
-      _AuthFormMode.forgotPassword => '发送重置邮件',
+      _AuthFormMode.verifySignupOtp => '验证并登录',
+      _AuthFormMode.forgotPassword => '发送验证码',
+      _AuthFormMode.verifyPasswordResetOtp => '验证验证码',
       _AuthFormMode.resetPassword => '保存新密码',
     };
   }
 
   String get _defaultHint {
     return switch (_mode) {
-      _AuthFormMode.signIn => '使用已验证的邮箱账号登录。',
-      _AuthFormMode.signUp => '注册后请先查收验证邮件，验证完成后再登录。',
-      _AuthFormMode.forgotPassword => '输入邮箱，我们会发送一封密码重置邮件。',
-      _AuthFormMode.resetPassword => '打开邮件中的重置链接后，在这里设置新密码。',
+      _AuthFormMode.signIn => '请输入邮箱和密码登录。',
+      _AuthFormMode.signUp => '注册后会向邮箱发送验证码，验证后才开启账号能力。',
+      _AuthFormMode.verifySignupOtp => '请输入邮箱收到的验证码，验证成功后会自动进入账号。',
+      _AuthFormMode.forgotPassword => '输入注册邮箱，我们会发送密码重置验证码。',
+      _AuthFormMode.verifyPasswordResetOtp => '请输入邮箱收到的验证码，验证后即可设置新密码。',
+      _AuthFormMode.resetPassword => '请输入新密码并保存。',
     };
   }
 
@@ -305,9 +364,10 @@ class _AuthScreenState extends State<AuthScreen> {
       AuthAccountPhase.notConfigured => '账号服务未配置',
       AuthAccountPhase.guestLocalOnly => '游客本地模式',
       AuthAccountPhase.emailVerificationPending => '等待邮箱验证',
-      AuthAccountPhase.passwordResetEmailSent => '重置邮件已发送',
+      AuthAccountPhase.passwordResetEmailSent => '验证码已发送',
+      AuthAccountPhase.passwordResetOtpVerified => '验证码已通过',
       AuthAccountPhase.passwordUpdated => '密码已更新',
-      AuthAccountPhase.signedInNeedsBind => '已登录，正在检查云端数据',
+      AuthAccountPhase.signedInNeedsBind => '已登录，正在检查数据',
       AuthAccountPhase.signedInActive => '已登录',
       AuthAccountPhase.signedInExpired => '登录已过期',
       AuthAccountPhase.signedOutRetainedLocal => '已退出登录',
@@ -327,19 +387,22 @@ class _AuthScreenState extends State<AuthScreen> {
     if (lower.contains('verification email sent') ||
         lower.contains('signup request completed') ||
         lower.contains('email confirmation')) {
-      return '验证邮件已发送，请到邮箱完成验证。验证完成后再回到应用登录。';
+      return '验证码已发送到邮箱，请回到这里输入验证码完成注册。';
     }
     if (lower.contains('verification email resent')) {
-      return '验证邮件已重新发送，请查看邮箱。';
+      return '验证码已重新发送，请查看邮箱。';
     }
     if (lower.contains('password reset email sent')) {
-      return '密码重置邮件已发送，请打开邮件中的链接后设置新密码。';
+      return '验证码已发送到邮箱，请回到这里输入验证码。';
+    }
+    if (lower.contains('password reset code verified')) {
+      return '验证码已通过，请设置新密码。';
     }
     if (lower.contains('password updated')) {
       return '密码已更新，请使用新密码登录。';
     }
     if (lower.contains('email not confirmed')) {
-      return '邮箱还没有验证，请先打开验证邮件完成确认。';
+      return '邮箱还没有验证，请先输入邮箱验证码完成验证。';
     }
     if (lower.contains('invalid login credentials') ||
         lower.contains('invalid credentials')) {
@@ -350,27 +413,27 @@ class _AuthScreenState extends State<AuthScreen> {
         lower.contains('already exists')) {
       return '这个邮箱已经注册过，请直接登录或找回密码。';
     }
+    if (lower.contains('otp') ||
+        lower.contains('token') ||
+        lower.contains('expired') ||
+        lower.contains('invalid_grant')) {
+      return '验证码无效或已过期，请重新获取后再试。';
+    }
     if (lower.contains('password') &&
         (lower.contains('weak') ||
             lower.contains('short') ||
             lower.contains('at least'))) {
-      return '密码强度不够，请至少使用 6 位字符。';
+      return '密码强度不够，请至少输入 6 位。';
     }
     if (lower.contains('email') &&
         (lower.contains('invalid') || lower.contains('format'))) {
       return '邮箱格式不正确，请检查后重试。';
     }
     if (lower.contains('signup') && lower.contains('disabled')) {
-      return '注册功能尚未在 Supabase 后台开启。';
+      return '注册功能暂未开启，请在 Supabase 后台开启注册。';
     }
     if (lower.contains('rate') || lower.contains('too many')) {
-      return '操作太频繁，请稍后再试。';
-    }
-    if (lower.contains('expired') ||
-        lower.contains('invalid refresh') ||
-        lower.contains('invalid_grant') ||
-        lower.contains('token')) {
-      return '链接或登录状态已过期，请重新发送邮件后再试。';
+      return '请求太频繁，请稍后再试。';
     }
     if (lower.contains('network') ||
         lower.contains('socket') ||
@@ -380,13 +443,13 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     if (lower.contains('supabase environment is not configured') ||
         lower.contains('supabase not configured')) {
-      return '账号服务尚未配置，需要在构建时提供 SUPABASE_URL 和 SUPABASE_ANON_KEY。';
+      return '账号服务尚未配置，请确认已提供 SUPABASE_URL 和 SUPABASE_ANON_KEY。';
     }
     if (lower.contains('cloud data') || lower.contains('bound')) {
-      return '已登录，但云端数据检查尚未完成，本地学习仍可继续。';
+      return '已登录，正在检查本地和云端数据绑定。';
     }
     if (lower.contains('word admin does not support')) {
-      return '当前后端暂不支持这个账号操作。';
+      return '当前账号后端暂不支持这个操作。';
     }
     return message
         .replaceFirst('Exception: ', '')
