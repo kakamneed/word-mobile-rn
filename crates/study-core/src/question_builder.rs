@@ -298,7 +298,16 @@ impl QuestionBuilder {
                     })
                     .unwrap_or(primary_meaning);
                 let example_sentence = example.map(|e| e.sentence_en.clone());
-                let example_translation = example.map(|e| e.sentence_cn.clone());
+                let example_translation =
+                    example
+                        .map(|e| e.sentence_cn.clone())
+                        .filter(|translation| {
+                            !Self::is_synthetic_example_translation(
+                                translation,
+                                &word.word,
+                                &contextual_meaning,
+                            )
+                        });
                 let accepted_meanings = vec![Self::sanitize_choice_text(&contextual_meaning)];
                 let excluded_meanings = Self::choice_meanings_for_word(word);
                 let (choices, correct_label) = Self::build_cn_choices(
@@ -993,6 +1002,20 @@ impl QuestionBuilder {
         ordered
     }
 
+    fn is_synthetic_example_translation(translation: &str, word: &str, meaning: &str) -> bool {
+        let normalized = normalize_context_text(translation);
+        let normalized_word = normalize_context_text(word);
+        let normalized_meaning = normalize_context_text(meaning);
+        let marker = "\u{5728}\u{6b64}\u{5904}\u{8868}\u{793a}";
+        let means_marker = "\u{8868}\u{793a}";
+        normalized.contains(marker)
+            || (!normalized_word.is_empty()
+                && !normalized_meaning.is_empty()
+                && normalized.starts_with(&normalized_word)
+                && normalized.contains(means_marker)
+                && normalized.contains(&normalized_meaning))
+    }
+
     fn word_skeleton_prompt(word: &str) -> String {
         Self::word_skeleton_parts(word).0
     }
@@ -1003,12 +1026,16 @@ impl QuestionBuilder {
 
     fn word_skeleton_parts(word: &str) -> (String, String) {
         let chars = word.chars().collect::<Vec<_>>();
-        if chars.len() < 5 {
-            return (word.to_string(), word.to_string());
+        if chars.is_empty() {
+            return (String::new(), String::new());
         }
-        let hide_start = 1usize;
-        let hide_count = ((chars.len() / 3).max(2)).min(chars.len().saturating_sub(2));
-        let hide_end = hide_start + hide_count;
+        let hide_start = if chars.len() <= 2 { 0usize } else { 1usize };
+        let hide_count = if chars.len() <= 4 {
+            chars.len().saturating_sub(2).max(1)
+        } else {
+            ((chars.len() / 3).max(2)).min(chars.len().saturating_sub(2))
+        };
+        let hide_end = (hide_start + hide_count).min(chars.len());
         let mut skeleton = String::with_capacity(word.len());
         let mut missing = String::new();
         for (index, ch) in chars.iter().enumerate() {
@@ -1756,6 +1783,59 @@ mod tests {
 
         assert_eq!(question.prompt, "f__dge");
         assert_eq!(question.accepted_meanings, vec!["ri".to_string()]);
+    }
+
+    #[test]
+    fn word_skeleton_input_masks_short_words() {
+        let target = build_word(
+            "target",
+            "ruby",
+            Some("n."),
+            &[("n.", "ruby meaning")],
+            None,
+        );
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::WordSkeletonInput,
+            &[],
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(question.prompt, "r__y");
+        assert_eq!(question.accepted_meanings, vec!["ub".to_string()]);
+        assert_ne!(question.prompt, question.word);
+    }
+
+    #[test]
+    fn example_question_hides_synthetic_meaning_explanation_translation() {
+        let target = build_word_with_examples(
+            "target",
+            "zoom",
+            Some("vi"),
+            &[("vi", "\u{6025}\u{901f}\u{79fb}\u{52a8}\u{ff1b}\u{6025}\u{5347}\u{ff0c}\u{731b}\u{6da8}")],
+            &[(
+                "They need to zoom the idea in a clear way.",
+                "zoom \u{5728}\u{6b64}\u{5904}\u{8868}\u{793a}\u{ff1a}\u{6025}\u{901f}\u{79fb}\u{52a8}\u{ff1b}\u{6025}\u{5347}\u{ff0c}\u{731b}\u{6da8}",
+            )],
+        );
+
+        let question = QuestionBuilder::build_single_question(
+            &target,
+            &QuestionType::ExampleToCnChoice,
+            &[],
+            "sess",
+            0,
+            1,
+        );
+
+        assert_eq!(
+            question.example_sentence.as_deref(),
+            Some("They need to zoom the idea in a clear way.")
+        );
+        assert_eq!(question.example_translation, None);
     }
 
     #[test]

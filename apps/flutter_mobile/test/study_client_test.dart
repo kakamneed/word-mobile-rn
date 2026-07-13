@@ -123,56 +123,82 @@ void main() {
     expect(question.choices?[2]['text'], 'food shortage');
   });
 
-  test('choice question decode fails instead of guessing A when correct label is missing', () {
-    expect(
-      () => StudyQuestion.fromJson({
-        'questionId': 'q-choice',
-        'questionType': 'enToCnChoice',
-        'entrySourceId': 'famine',
-        'word': 'famine',
-        'prompt': 'famine',
-        'acceptedMeanings': ['food shortage'],
-        'choices': [
-          {'label': 'A', 'text': 'celebration'},
-          {'label': 'B', 'text': 'food shortage'},
-        ],
-        'questionIndex': 2,
-        'totalQuestions': 8,
-      }),
-      throwsA(
-        isA<BridgeError>().having(
-          (error) => error.kind,
-          'kind',
-          BridgeErrorKind.protocol,
+  test(
+    'choice question decode fails instead of guessing A when correct label is missing',
+    () {
+      expect(
+        () => StudyQuestion.fromJson({
+          'questionId': 'q-choice',
+          'questionType': 'enToCnChoice',
+          'entrySourceId': 'famine',
+          'word': 'famine',
+          'prompt': 'famine',
+          'acceptedMeanings': ['food shortage'],
+          'choices': [
+            {'label': 'A', 'text': 'celebration'},
+            {'label': 'B', 'text': 'food shortage'},
+          ],
+          'questionIndex': 2,
+          'totalQuestions': 8,
+        }),
+        throwsA(
+          isA<BridgeError>().having(
+            (error) => error.kind,
+            'kind',
+            BridgeErrorKind.protocol,
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 
-  test('choice question decode fails when correct label does not match choices', () {
-    expect(
-      () => StudyQuestion.fromJson({
-        'questionId': 'q-choice',
-        'questionType': 'enToCnChoice',
-        'entrySourceId': 'famine',
-        'word': 'famine',
-        'prompt': 'famine',
-        'acceptedMeanings': ['food shortage'],
-        'choices': [
-          {'label': 'A', 'text': 'celebration'},
-          {'label': 'B', 'text': 'food shortage'},
-        ],
-        'correctChoiceLabel': 'C',
-        'questionIndex': 2,
-        'totalQuestions': 8,
-      }),
-      throwsA(
-        isA<BridgeError>().having(
-          (error) => error.code,
-          'code',
-          'STUDY_QUESTION_CORRECT_CHOICE_INVALID',
+  test(
+    'choice question decode fails when correct label does not match choices',
+    () {
+      expect(
+        () => StudyQuestion.fromJson({
+          'questionId': 'q-choice',
+          'questionType': 'enToCnChoice',
+          'entrySourceId': 'famine',
+          'word': 'famine',
+          'prompt': 'famine',
+          'acceptedMeanings': ['food shortage'],
+          'choices': [
+            {'label': 'A', 'text': 'celebration'},
+            {'label': 'B', 'text': 'food shortage'},
+          ],
+          'correctChoiceLabel': 'C',
+          'questionIndex': 2,
+          'totalQuestions': 8,
+        }),
+        throwsA(
+          isA<BridgeError>().having(
+            (error) => error.code,
+            'code',
+            'STUDY_QUESTION_CORRECT_CHOICE_INVALID',
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
+
+  test(
+    'study question decode falls back when prompt is empty in stale snapshot',
+    () {
+      final question = StudyQuestion.fromJson({
+        'questionId': 'q-empty-prompt',
+        'questionType': 'wordSkeletonInput',
+        'entrySourceId': 'ruby',
+        'word': 'ruby',
+        'prompt': '',
+        'acceptedMeanings': ['ub'],
+        'questionIndex': 5,
+        'totalQuestions': 28,
+      });
+
+      expect(question.prompt, 'ruby');
+      expect(question.word, 'ruby');
+      expect(question.acceptedMeanings, ['ub']);
+    },
+  );
 }

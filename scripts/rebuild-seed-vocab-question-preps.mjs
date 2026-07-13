@@ -16,8 +16,26 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
 }
 
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function writeJson(filePath, value) {
-  fs.writeFileSync(filePath, `${JSON.stringify(value)}\n`, 'utf8');
+  const payload = `${JSON.stringify(value)}\n`;
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  let lastError;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      fs.writeFileSync(tempPath, payload, 'utf8');
+      fs.renameSync(tempPath, filePath);
+      return;
+    } catch (error) {
+      lastError = error;
+      try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+      sleep(150 * (attempt + 1));
+    }
+  }
+  throw lastError;
 }
 
 function normalizePos(pos) {
@@ -78,6 +96,76 @@ function meaningKey(text) {
     .toLowerCase();
 }
 
+const GENERIC_MEANING_UNITS = new Set([
+  '使', '被', '把', '给', '对', '和', '与', '及', '或', '在', '有', '无', '不', '非', '某',
+  '一种', '一个', '东西', '事情', '进行', '表示', '用于', '关于', '产生', '发生', '成为', '变成',
+]);
+const SEMANTIC_CONFLICT_GROUPS = [
+  ['插入', '嵌入', '插进', '插手', '介入', '注入', '投入', '塞入', '放入', '夹入', '纳入', '镶嵌', '嵌进', '刺入', '戳入', '输入', '安放', '安插', '进入', '透入', '渗入', '侵入', '卷入', '封入', '加插图'],
+  ['取消', '撤销', '删除', '删去', '抵消', '废除', '作废'],
+  ['吸收', '消化', '同化', '并入', '合并', '吸引'],
+  ['爆炸', '爆发', '引爆', '爆破', '猛烈爆发'],
+  ['取代', '代替', '替换', '替代'],
+  ['治疗', '疗法', '医治', '诊治'],
+  ['基础', '根基', '地基', '根本', '基本'],
+];
+const SEMANTIC_CONFLICT_INDEX = new Map();
+for (const group of SEMANTIC_CONFLICT_GROUPS) {
+  for (const unit of group) SEMANTIC_CONFLICT_INDEX.set(unit, group);
+}
+
+function meaningUnits(text) {
+  const raw = cleanMeaning(text)
+    .replace(/^[a-z.]+\s+/iu, '')
+    .replace(/[()（）\[\]【】]/gu, '；');
+  const units = raw
+    .split(/[;,，；、。:：/]|\s{2,}/u)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.replace(/^(使|被|把|给|将|对|与|和|以|为|向|从)\s*/u, '').trim())
+    .map((part) => part.replace(/^(使|被|把|给|将|对|与|和|以|为|向|从)/u, '').trim())
+    .filter((part) => part.length >= 2 && !GENERIC_MEANING_UNITS.has(part));
+  const compact = [];
+  for (const unit of units) {
+    compact.push(unit);
+    const chinese = unit.match(/[\p{Script=Han}]{2,}/gu) ?? [];
+    for (const segment of chinese) {
+      if (segment.length >= 2 && segment.length <= 4 && !GENERIC_MEANING_UNITS.has(segment)) compact.push(segment);
+    }
+  }
+  const expanded = new Set(compact);
+  for (const unit of compact) {
+    for (const group of SEMANTIC_CONFLICT_GROUPS) {
+      if (group.some((knownUnit) => unit.includes(knownUnit) || knownUnit.includes(unit))) {
+        for (const related of group) expanded.add(related);
+      }
+    }
+  }
+  return [...expanded];
+}
+
+function expandConflictUnits(units) {
+  const out = new Set(units);
+  for (const unit of units) {
+    const group = SEMANTIC_CONFLICT_INDEX.get(unit);
+    if (!group) continue;
+    for (const related of group) out.add(related);
+  }
+  return out;
+}
+
+function sharedMeaningUnitArrays(leftUnits, rightUnits) {
+  const right = expandConflictUnits(rightUnits);
+  return [...expandConflictUnits(leftUnits)].filter((unit) => right.has(unit));
+}
+
+function sharedMeaningUnits(left, right) {
+  return sharedMeaningUnitArrays(meaningUnits(left), meaningUnits(right));
+}
+
+function meaningsShareCoreUnit(left, right) {
+  return sharedMeaningUnits(left, right).length > 0;
+}
 function normalizedText(text) {
   return cleanMeaning(text).replace(/[\s,.;:，。；：、]/gu, '');
 }
@@ -114,6 +202,7 @@ function acronymOf(text) {
 
 function candidateLooksEquivalent(target, candidate) {
   if (meaningTooSimilar(target.meaning, candidate.meaning)) return true;
+  if (sharedMeaningUnitArrays(target.meaningUnits ?? meaningUnits(target.meaning), candidate.meaningUnits ?? meaningUnits(candidate.meaning)).length > 0) return true;
   if (wordTooSimilar(target.word, candidate.word)) return true;
   const targetWord = normalizedWord(target.word);
   const candidateWord = normalizedWord(candidate.word);
@@ -227,7 +316,9 @@ function appendRanked(target, ranked, cn, en, seenCn, seenEn, sources) {
     const enText = item.candidate.word;
     const enKey = enText.toLowerCase();
     let used = false;
-    if (cn.length < maxDistractors && cnKey && !seenCn.has(cnKey)) {
+    const candidateMeaningUnits = item.candidate.meaningUnits ?? meaningUnits(cnText);
+    const overlapsExistingCn = cn.some((existing) => sharedMeaningUnitArrays(meaningUnits(existing), candidateMeaningUnits).length > 0);
+    if (cn.length < maxDistractors && cnKey && !seenCn.has(cnKey) && !overlapsExistingCn) {
       seenCn.add(cnKey);
       cn.push(cnText);
       used = true;
@@ -266,6 +357,7 @@ for (const fileName of bookFiles) {
           pos,
           broadPos: broadPos(pos),
           meaning: primaryMeaning(item),
+          meaningUnits: meaningUnits(primaryMeaning(item)),
           key: meaningKey(primaryMeaning(item)),
           rank: Number(item?.wordRank ?? index + 1),
         };

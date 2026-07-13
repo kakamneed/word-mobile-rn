@@ -65,14 +65,37 @@ if ($dartDefines.Count -lt 2) {
 
 Write-Host "[1/6] flutter pub get"
 Set-Location $projectRoot
+$previousApkHash = $null
+$previousApkWriteTimeUtc = $null
+if (Test-Path $apkPath) {
+  $previousApkHash = (Get-FileHash -LiteralPath $apkPath -Algorithm SHA256).Hash
+  $previousApkWriteTimeUtc = (Get-Item -LiteralPath $apkPath).LastWriteTimeUtc
+}
+
 & "$FlutterRoot\bin\flutter.bat" pub get
+if ($LASTEXITCODE -ne 0) {
+  throw "flutter pub get failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "[2/6] flutter build apk --release"
 & "$FlutterRoot\bin\flutter.bat" build apk --release @dartDefines
+if ($LASTEXITCODE -ne 0) {
+  throw "flutter build apk --release failed with exit code $LASTEXITCODE"
+}
 
 if (-not (Test-Path $apkPath)) {
   throw "Release APK not found at $apkPath"
 }
+
+$newApkHash = (Get-FileHash -LiteralPath $apkPath -Algorithm SHA256).Hash
+$newApkWriteTimeUtc = (Get-Item -LiteralPath $apkPath).LastWriteTimeUtc
+if ($previousApkHash -and $newApkHash -eq $previousApkHash) {
+  throw "Release APK was not regenerated; refusing to install or send the previous APK"
+}
+if ($previousApkWriteTimeUtc -and $newApkWriteTimeUtc -le $previousApkWriteTimeUtc) {
+  throw "Release APK timestamp was not refreshed; refusing to install or send the previous APK"
+}
+Write-Host "[verify] New APK generated: SHA256 $newApkHash"
 
 Write-Host "[3/6] verify packaged Rust bridge"
 $apkListing = tar -tf $apkPath
@@ -85,8 +108,14 @@ Write-Host "[4/6] adb devices"
 
 Write-Host "[5/6] adb install -r"
 & $AdbPath install -r $apkPath
+if ($LASTEXITCODE -ne 0) {
+  throw "adb install failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "[6/6] launch app"
 & $AdbPath shell monkey -p $PackageName -c android.intent.category.LAUNCHER 1
+if ($LASTEXITCODE -ne 0) {
+  throw "app launch failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "Done. APK: $apkPath"

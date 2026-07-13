@@ -31,12 +31,16 @@ void main() {
     expect(find.text('syn'), findsOneWidget);
     expect(find.text('7x'), findsOneWidget);
     expect(find.text('1x'), findsNWidgets(2));
+    expect(
+      tester.getTopLeft(find.text('pre')).dy,
+      lessThan(tester.getTopLeft(find.text('sub')).dy),
+    );
     expect(find.text('1 errors'), findsNothing);
     expect(find.byIcon(Icons.drag_indicator_rounded), findsNothing);
     expect(bridge.calls, contains('getWrongWordGraph'));
   });
 
-  testWidgets('selecting a rail word saves a graph position', (tester) async {
+  testWidgets('tapping a rail word does not place it', (tester) async {
     final bridge = _GraphBridge();
 
     await tester.pumpWidget(
@@ -53,12 +57,41 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(bridge.savedEntryIds, [1]);
+    expect(bridge.savedEntryIds, isEmpty);
     expect(find.text('pre'), findsWidgets);
+  });
+  testWidgets('selected graph node shows readable relationship detail', (
+    tester,
+  ) async {
+    final bridge = _GraphBridge(placed: true, withRelations: true);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WrongWordGraphScreen(
+          sdk: WordSdk.bridgeForTesting(bridge: bridge),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(588, 478));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('重叠释义'), findsOneWidget);
+    expect(find.textContaining('同篇 AI 短文'), findsOneWidget);
+    expect(find.textContaining('相同词根词缀'), findsOneWidget);
+    expect(find.textContaining('晨读短文'), findsOneWidget);
+    expect(find.textContaining('2026-06-26T12:39'), findsNothing);
+    expect(find.textContaining('最近 2026-06-26'), findsOneWidget);
+    expect(find.text('开始复习'), findsNothing);
   });
 }
 
 class _GraphBridge extends RustBridge {
+  _GraphBridge({this.placed = false, this.withRelations = false});
+
+  final bool placed;
+  final bool withRelations;
   final calls = <String>[];
   final savedEntryIds = <int>[];
 
@@ -75,7 +108,40 @@ class _GraphBridge extends RustBridge {
             _node('word:2', 2, 'sub'),
             _node('word:3', 3, 'syn'),
           ],
-          'edges': [],
+          'edges': withRelations
+              ? [
+                  {
+                    'id': 'synonym:word:1:word:2:shared',
+                    'sourceNodeId': 'word:1',
+                    'targetNodeId': 'word:2',
+                    'relationType': 'synonym',
+                    'weight': 0.6,
+                    'evidence': [
+                      {'type': 'sharedPrimaryGloss', 'meaning': '向前'},
+                    ],
+                  },
+                  {
+                    'id': 'coOccurrence:word:1:word:3:aiPassage:p1',
+                    'sourceNodeId': 'word:1',
+                    'targetNodeId': 'word:3',
+                    'relationType': 'coOccurrence',
+                    'weight': 0.7,
+                    'evidence': [
+                      {'type': 'aiPassage', 'passageTitle': '晨读短文'},
+                    ],
+                  },
+                  {
+                    'id': 'rootFamily:word:1:word:2:prefix:pre',
+                    'sourceNodeId': 'word:1',
+                    'targetNodeId': 'word:2',
+                    'relationType': 'rootFamily',
+                    'weight': 0.6,
+                    'evidence': [
+                      {'type': 'wordFamilyHeuristic', 'family': 'prefix:pre'},
+                    ],
+                  },
+                ]
+              : [],
           'coordinateSemantics': {},
           'relationLegend': [],
           'viewportHint': {},
@@ -104,12 +170,26 @@ class _GraphBridge extends RustBridge {
     'meanings': [],
     'wrongCountToday': 0,
     'wrongCountTotal': entryId == 1 ? 7 : 1,
-    'lastWrongAt': null,
+    'lastWrongAt': placed && entryId == 1
+        ? '2026-06-26T12:39:48.609927810+00:00'
+        : null,
     'priorityScore': 1,
     'masteryScore': 0,
     'urgencyScore': 0.2,
-    'position': {'x': 0, 'y': 0, 'z': 0},
-    'isUserPlaced': false,
+    'position': {
+      'x': entryId == 1
+          ? -1.2
+          : entryId == 2
+          ? -0.55
+          : -0.1,
+      'y': entryId == 1
+          ? -0.2
+          : entryId == 2
+          ? 0.1
+          : 0.3,
+      'z': 0,
+    },
+    'isUserPlaced': placed,
     'sources': ['wrongWord'],
   };
 

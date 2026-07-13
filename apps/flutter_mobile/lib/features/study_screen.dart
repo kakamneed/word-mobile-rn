@@ -1052,7 +1052,9 @@ class _WordCommentsSheetState extends State<_WordCommentsSheet> {
                       return _WordCommentsMessage(message: _error!);
                     }
                     if (comments.isEmpty) {
-                      return const _WordCommentsMessage(message: '期待你的评论');
+                      return const _WordCommentsMessage(
+                        message: '\u671f\u5f85\u4f60\u7684\u8bc4\u8bba',
+                      );
                     }
                     return ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
@@ -1108,7 +1110,9 @@ class _WordCommentsHeader extends StatelessWidget {
                         color: const Color(0xFF555555),
                       ),
                       children: [
-                        const TextSpan(text: '大家都在搜： '),
+                        const TextSpan(
+                          text: '\u5927\u5bb6\u90fd\u5728\u641c\uff1a ',
+                        ),
                         TextSpan(
                           text: word,
                           style: const TextStyle(color: Color(0xFF1F5E8C)),
@@ -1214,7 +1218,7 @@ class _WordCommentTile extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                '${_relativeCommentTime(comment.createdAt)} · 回复',
+                '${_relativeCommentTime(comment.createdAt)} \u00b7 \u56de\u590d',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.black38,
                   fontWeight: FontWeight.w600,
@@ -1287,7 +1291,7 @@ class _WordCommentComposer extends StatelessWidget {
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => onSend(),
                   decoration: InputDecoration(
-                    hintText: '期待你的评论',
+                    hintText: '\u671f\u5f85\u4f60\u7684\u8bc4\u8bba',
                     filled: true,
                     fillColor: const Color(0xFFF2F3F5),
                     border: OutlineInputBorder(
@@ -1331,13 +1335,13 @@ class _WordCommentComposer extends StatelessWidget {
 }
 
 String _relativeCommentTime(DateTime? value) {
-  if (value == null) return '刚刚';
+  if (value == null) return '\u521a\u521a';
   final diff = DateTime.now().difference(value.toLocal());
-  if (diff.inMinutes < 1) return '刚刚';
-  if (diff.inHours < 1) return '${diff.inMinutes}分钟前';
-  if (diff.inDays < 1) return '${diff.inHours}小时前';
-  if (diff.inDays < 7) return '${diff.inDays}天前';
-  return '${value.month}月${value.day}日';
+  if (diff.inMinutes < 1) return '\u521a\u521a';
+  if (diff.inHours < 1) return '${diff.inMinutes}\u5206\u949f\u524d';
+  if (diff.inDays < 1) return '${diff.inHours}\u5c0f\u65f6\u524d';
+  if (diff.inDays < 7) return '${diff.inDays}\u5929\u524d';
+  return '${value.month}\u6708${value.day}\u65e5';
 }
 
 class _StudyFeedItem {
@@ -1551,7 +1555,7 @@ class _CompletionSwipeHint extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                '下滑查看本轮总结',
+                '\u4e0b\u6ed1\u67e5\u770b\u672c\u8f6e\u603b\u7ed3',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: Colors.black54,
                   fontWeight: FontWeight.w700,
@@ -1719,14 +1723,20 @@ class _StudyCompletionFeedPage extends StatelessWidget {
             const SizedBox(height: 20),
             _WrongWordsPanel(wrongWords: wrongWords),
             const SizedBox(height: 24),
-            FilledButton(onPressed: onClose, child: const Text('\u8fd4\u56de\u4eca\u65e5')),
+            FilledButton(
+              onPressed: onClose,
+              child: const Text('\u8fd4\u56de\u4eca\u65e5'),
+            ),
             const SizedBox(height: 10),
-            OutlinedButton(onPressed: onRestart, child: const Text('\u91cd\u5b66\u672c\u6a21\u5f0f')),
+            OutlinedButton(
+              onPressed: onRestart,
+              child: const Text('\u91cd\u5b66\u672c\u6a21\u5f0f'),
+            ),
             if (item.nextMode != null) ...[
               const SizedBox(height: 10),
               FilledButton.tonal(
                 onPressed: onContinueNextRound,
-                child: Text('继续${_modeLabel(item.nextMode!)}'),
+                child: Text('\u7ee7\u7eed${_modeLabel(item.nextMode!)}'),
               ),
             ],
           ],
@@ -2074,11 +2084,14 @@ class _QuestionComposer extends StatelessWidget {
               focusNode: answerFocusNode,
               readOnly: submitting,
               keyboardType: TextInputType.text,
+              obscureText: false,
+              enableIMEPersonalizedLearning: true,
+              autofillHints: null,
               inputFormatters: isWordSkeleton
                   ? [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]'))]
                   : null,
-              enableSuggestions: !isWordSkeleton,
-              autocorrect: !isWordSkeleton,
+              enableSuggestions: true,
+              autocorrect: false,
               onSubmitted: (_) {
                 if (!submitting && answerController.text.trim().isNotEmpty) {
                   onSubmit();
@@ -2347,7 +2360,8 @@ Widget _buildInputFeedback(
           ),
           const SizedBox(height: 8),
         ],
-        if (!isCorrect && inputCorrectAnswerTextForTest(result, question).isNotEmpty)
+        if (!isCorrect &&
+            inputCorrectAnswerTextForTest(result, question).isNotEmpty)
           Text(
             'Correct answer: ${inputCorrectAnswerTextForTest(result, question)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -2360,7 +2374,10 @@ Widget _buildInputFeedback(
   );
 }
 
-String inputCorrectAnswerTextForTest(StudyResult result, StudyQuestion question) {
+String inputCorrectAnswerTextForTest(
+  StudyResult result,
+  StudyQuestion question,
+) {
   final resultAnswer = result.correctAnswer.trim();
   if (resultAnswer.isNotEmpty) return resultAnswer;
   return question.acceptedMeanings
@@ -2368,6 +2385,7 @@ String inputCorrectAnswerTextForTest(StudyResult result, StudyQuestion question)
       .where((meaning) => meaning.isNotEmpty)
       .join(' / ');
 }
+
 const _fallbackChoiceLabels = ['A', 'B', 'C', 'D'];
 
 ({String value, String label, String text}) _choiceDisplay(
@@ -2426,7 +2444,7 @@ Set<String> _choiceUserAnswerTokens(
   return {
     _normalizeChoiceToken(raw),
     ...raw
-        .split(RegExp(r'[,;/，；、]'))
+        .split(RegExp('[,;/\uFF0C\uFF1B\u3001]'))
         .map(_normalizeChoiceToken)
         .where((token) => token.isNotEmpty),
   };
@@ -2890,13 +2908,19 @@ String _questionLabel(String type) {
       '\u6839\u636e\u82f1\u6587\u4f8b\u53e5\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
     'wordSkeletonInput' =>
       '\u6839\u636e\u82f1\u6587\u8865\u5168\u7f3a\u5931\u5b57\u6bcd',
-    'enToCnChoice' => '\u6839\u636e\u82f1\u6587\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
-    'exampleToCnChoice' => '\u6839\u636e\u4f8b\u53e5\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
-    'cnToEnChoice' => '\u6839\u636e\u4e2d\u6587\u9009\u62e9\u82f1\u6587\u5355\u8bcd',
-    'enToCnInput' => '\u6839\u636e\u82f1\u6587\u586b\u5199\u4e2d\u6587\u91ca\u4e49',
-    'glossToRootInput' => '\u6839\u636e\u542b\u4e49\u586b\u5199\u8bcd\u6839/\u8bcd\u7f00',
-    'rootToGlossInput' => '\u6839\u636e\u8bcd\u6839/\u8bcd\u7f00\u586b\u5199\u542b\u4e49',
-    _ => '\u56de\u7b54\u95ee\u9898'
+    'enToCnChoice' =>
+      '\u6839\u636e\u82f1\u6587\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
+    'exampleToCnChoice' =>
+      '\u6839\u636e\u4f8b\u53e5\u9009\u62e9\u4e2d\u6587\u91ca\u4e49',
+    'cnToEnChoice' =>
+      '\u6839\u636e\u4e2d\u6587\u9009\u62e9\u82f1\u6587\u5355\u8bcd',
+    'enToCnInput' =>
+      '\u6839\u636e\u82f1\u6587\u586b\u5199\u4e2d\u6587\u91ca\u4e49',
+    'glossToRootInput' =>
+      '\u6839\u636e\u542b\u4e49\u586b\u5199\u8bcd\u6839/\u8bcd\u7f00',
+    'rootToGlossInput' =>
+      '\u6839\u636e\u8bcd\u6839/\u8bcd\u7f00\u586b\u5199\u542b\u4e49',
+    _ => '\u56de\u7b54\u95ee\u9898',
   };
 }
 
@@ -2929,7 +2953,7 @@ class _StudyCompletion extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '本轮学习完成',
+                  '\u672c\u8f6e\u5b66\u4e60\u5b8c\u6210',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -2970,7 +2994,7 @@ class _StudyCompletion extends StatelessWidget {
           const SizedBox(height: 12),
           FilledButton.tonal(
             onPressed: onContinueNextRound,
-            child: Text('继续下一轮：${nextMode!}'),
+            child: Text('\u7ee7\u7eed\u4e0b\u4e00\u8f6e\uff1a${nextMode!}'),
           ),
         ],
       ],
@@ -2986,12 +3010,12 @@ class _SummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      ('正确', '${summary.correctCount}'),
-      ('模糊正确', '${summary.fuzzyCorrectCount}'),
-      ('错误', '${summary.incorrectCount}'),
-      ('跳过', '${summary.skippedCount}'),
+      ('\u6b63\u786e', '${summary.correctCount}'),
+      ('\u6a21\u7cca\u6b63\u786e', '${summary.fuzzyCorrectCount}'),
+      ('\u9519\u8bef', '${summary.incorrectCount}'),
+      ('\u8df3\u8fc7', '${summary.skippedCount}'),
       ('Accuracy', '${summary.accuracyPercent.round()}%'),
-      ('错词', '${summary.wrongWordCount}'),
+      ('\u9519\u8bcd', '${summary.wrongWordCount}'),
     ];
 
     return GridView.builder(

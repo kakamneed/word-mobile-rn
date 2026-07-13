@@ -185,10 +185,9 @@ pub fn get_wrong_words(filter: String) -> Result<String, String> {
     with_runtime(|runtime, conn| {
         repair_seed_meaning_noise(conn)?;
         let mut entries = load_wrong_word_entries(conn)?;
-        enrich_root_affix_entries_from_assets(
-            &mut entries,
-            &runtime.paths().bundled_resource_path(""),
-        )?;
+        let bundle_dir = runtime.paths().bundled_resource_path("");
+        enrich_root_affix_entries_from_assets(&mut entries, &bundle_dir)?;
+        enrich_word_graph_relations_from_assets(&mut entries, &bundle_dir)?;
         let payload = wrong_words_domain::build_wrong_words(&mut entries, &filter);
         clean_json_string(&payload)
     })
@@ -226,6 +225,7 @@ pub fn get_wrong_word_graph() -> Result<String, String> {
             .filter(|entry_id| *entry_id > 0)
             .collect::<BTreeSet<_>>();
         let mut edges = load_wrong_word_graph_co_occurrence_edges(conn, &node_entry_ids)?;
+        edges.extend(build_wrong_word_graph_precomputed_relation_edges(&entries));
         edges.extend(build_wrong_word_graph_root_family_edges(&entries));
         edges.extend(build_wrong_word_graph_similar_form_edges(&entries));
         edges.extend(build_wrong_word_graph_synonym_edges(&entries));
@@ -1053,54 +1053,229 @@ fn load_wrong_word_graph_co_occurrence_edges(
     if allowed_entry_ids.len() < 2 {
         return Ok(Vec::new());
     }
-    let mut stmt = conn
-        .prepare(
-            "SELECT a.entry_id, b.entry_id, COUNT(DISTINCT a.session_id) as shared_count
-             FROM study_results a
-             JOIN study_results b ON a.session_id = b.session_id AND a.entry_id < b.entry_id
-             WHERE a.outcome IN ('incorrect', 'skipped', '\"incorrect\"', '\"skipped\"')
-               AND b.outcome IN ('incorrect', 'skipped', '\"incorrect\"', '\"skipped\"')
-             GROUP BY a.entry_id, b.entry_id
-             ORDER BY shared_count DESC
-             LIMIT 120",
-        )
-        .map_err(|e| format!("Failed to prepare wrong-word graph co-occurrence query: {e}"))?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, i64>(2)?,
-            ))
-        })
-        .map_err(|e| format!("Failed to query wrong-word graph co-occurrence: {e}"))?;
-
+    let mut history = get_json_setting(conn, "ai_passage_history_json", &serde_json::json!([]))?;
+    clean_seed_meaning_noise_in_json(&mut history);
+    let mut seen = BTreeSet::new();
     let mut edges = Vec::new();
-    for row in rows {
-        let (source_id, target_id, shared_count) =
-            row.map_err(|e| format!("Failed to decode wrong-word graph edge row: {e}"))?;
-        if !allowed_entry_ids.contains(&source_id) || !allowed_entry_ids.contains(&target_id) {
+    let passages = history.as_array().cloned().unwrap_or_default();
+    for passage in passages {
+        let passage_id = passage
+            .get("passageId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let passage_title = passage
+            .get("title")
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("AI 短文");
+        let covered = passage
+            .get("coveredWordIds")
+            .and_then(|value| value.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let mut ids = covered
+            .iter()
+            .filter_map(|value| value.as_i64())
+            .filter(|entry_id| allowed_entry_ids.contains(entry_id))
+            .collect::<Vec<_>>();
+        ids.sort_unstable();
+        ids.dedup();
+        if ids.len() < 2 {
             continue;
         }
-        let edge_id = format!("coOccurrence:word:{source_id}:word:{target_id}:session");
-        let weight = clamp01(shared_count.max(1) as f64 / 5.0);
+        for source_index in 0..ids.len() {
+            for target_index in (source_index + 1)..ids.len() {
+                let source_id = ids[source_index];
+                let target_id = ids[target_index];
+                let edge_id = format!(
+                    "coOccurrence:word:{source_id}:word:{target_id}:aiPassage:{passage_id}"
+                );
+                if !seen.insert(edge_id.clone()) {
+                    continue;
+                }
+                edges.push(serde_json::json!({
+                    "id": edge_id,
+                    "edgeId": edge_id,
+                    "sourceNodeId": wrong_word_graph_position_key("word", source_id),
+                    "targetNodeId": wrong_word_graph_position_key("word", target_id),
+                    "sourceEntryId": source_id,
+                    "targetEntryId": target_id,
+                    "relation": "coOccurrence",
+                    "relationType": "coOccurrence",
+                    "weight": 0.72,
+                    "sourceRefs": ["aiPassage"],
+                    "evidence": [{
+                        "type": "aiPassage",
+                        "passageId": passage_id,
+                        "passageTitle": passage_title
+                    }],
+                    "label": format!("同篇 AI 短文：{passage_title}"),
+                    "isUserPinned": false
+                }));
+                if edges.len() >= 120 {
+                    return Ok(edges);
+                }
+            }
+        }
+    }
+    Ok(edges)
+}
+fn build_wrong_word_graph_precomputed_relation_edges(
+    entries: &[serde_json::Value],
+) -> Vec<serde_json::Value> {
+    let mut by_source_key = BTreeMap::<String, (&serde_json::Value, i64, String)>::new();
+    for entry in entries {
+        if entry
+            .get("entryKind")
+            .and_then(|value| value.as_str())
+            .unwrap_or("word")
+            != "word"
+        {
+            continue;
+        }
+        let Some(entry_id) = entry.get("entryId").and_then(|value| value.as_i64()) else {
+            continue;
+        };
+        let Some(source_key) = entry.get("sourceEntryKey").and_then(|value| value.as_str()) else {
+            continue;
+        };
+        by_source_key.insert(
+            source_key.to_string(),
+            (
+                entry,
+                entry_id,
+                wrong_word_graph_position_key("word", entry_id),
+            ),
+        );
+    }
+
+    let mut edges = Vec::new();
+    let mut seen = BTreeSet::new();
+    for (source_key, (source_entry, source_entry_id, source_node_id)) in &by_source_key {
+        let Some(relations) = source_entry.get("wordGraphRelations") else {
+            continue;
+        };
+        append_precomputed_relation_edges(
+            &mut edges,
+            &mut seen,
+            &by_source_key,
+            source_key,
+            *source_entry_id,
+            source_node_id,
+            relations.get("rootFamilyWords"),
+            "rootFamily",
+            "seedVocabRootFamily",
+            "shared word family",
+            0.74,
+        );
+        append_precomputed_relation_edges(
+            &mut edges,
+            &mut seen,
+            &by_source_key,
+            source_key,
+            *source_entry_id,
+            source_node_id,
+            relations.get("similarFormWords"),
+            "similarForm",
+            "seedVocabSimilarForm",
+            "similar form",
+            0.62,
+        );
+        append_precomputed_relation_edges(
+            &mut edges,
+            &mut seen,
+            &by_source_key,
+            source_key,
+            *source_entry_id,
+            source_node_id,
+            relations.get("meaningOverlapWords"),
+            "synonym",
+            "seedVocabMeaningOverlap",
+            "shared meaning",
+            0.66,
+        );
+        if edges.len() >= 240 {
+            break;
+        }
+    }
+    edges
+}
+
+fn append_precomputed_relation_edges(
+    edges: &mut Vec<serde_json::Value>,
+    seen: &mut BTreeSet<String>,
+    by_source_key: &BTreeMap<String, (&serde_json::Value, i64, String)>,
+    source_key: &str,
+    source_entry_id: i64,
+    source_node_id: &str,
+    relation_items: Option<&serde_json::Value>,
+    relation_type: &str,
+    evidence_type: &str,
+    label: &str,
+    default_weight: f64,
+) {
+    let Some(items) = relation_items.and_then(|value| value.as_array()) else {
+        return;
+    };
+    for item in items {
+        let Some(target_key) = item.get("sourceId").and_then(|value| value.as_str()) else {
+            continue;
+        };
+        if target_key == source_key {
+            continue;
+        }
+        let Some((_target_entry, target_entry_id, target_node_id)) = by_source_key.get(target_key)
+        else {
+            continue;
+        };
+        let (left_node, right_node, left_entry, right_entry) =
+            if source_node_id <= target_node_id.as_str() {
+                (
+                    source_node_id.to_string(),
+                    target_node_id.clone(),
+                    source_entry_id,
+                    *target_entry_id,
+                )
+            } else {
+                (
+                    target_node_id.clone(),
+                    source_node_id.to_string(),
+                    *target_entry_id,
+                    source_entry_id,
+                )
+            };
+        let edge_key = format!("{relation_type}:{left_node}:{right_node}:{evidence_type}");
+        if !seen.insert(edge_key.clone()) {
+            continue;
+        }
+        let weight = item
+            .get("weight")
+            .and_then(|value| value.as_f64())
+            .unwrap_or(default_weight);
         edges.push(serde_json::json!({
-            "id": edge_id,
-            "edgeId": edge_id,
-            "sourceNodeId": wrong_word_graph_position_key("word", source_id),
-            "targetNodeId": wrong_word_graph_position_key("word", target_id),
-            "sourceEntryId": source_id,
-            "targetEntryId": target_id,
-            "relation": "coOccurrence",
-            "relationType": "coOccurrence",
-            "weight": weight,
-            "sourceRefs": ["studySession"],
-            "evidence": [{"type": "studySession", "sharedCount": shared_count}],
-            "label": "same wrong session",
+            "id": edge_key,
+            "edgeId": edge_key,
+            "sourceNodeId": left_node,
+            "targetNodeId": right_node,
+            "sourceEntryId": left_entry,
+            "targetEntryId": right_entry,
+            "relation": relation_type,
+            "relationType": relation_type,
+            "weight": clamp01(weight),
+            "sourceRefs": [evidence_type],
+            "evidence": [{
+                "type": evidence_type,
+                "targetSourceId": target_key,
+                "targetWord": item.get("word").cloned().unwrap_or(serde_json::Value::Null),
+                "sharedRoots": item.get("sharedRoots").cloned().unwrap_or(serde_json::Value::Null),
+                "sharedMeaningTokens": item.get("sharedMeaningTokens").cloned().unwrap_or(serde_json::Value::Null),
+                "distance": item.get("distance").cloned().unwrap_or(serde_json::Value::Null),
+                "commonPrefix": item.get("commonPrefix").cloned().unwrap_or(serde_json::Value::Null)
+            }],
+            "label": label,
             "isUserPinned": false
         }));
     }
-    Ok(edges)
 }
 fn build_wrong_word_graph_root_family_edges(
     entries: &[serde_json::Value],
@@ -2097,6 +2272,81 @@ fn is_root_affix_part_of_speech(part_of_speech: &str) -> bool {
         .trim_end_matches('.')
         .to_ascii_lowercase();
     matches!(normalized.as_str(), "root" | "prefix" | "suffix" | "affix")
+}
+
+fn enrich_word_graph_relations_from_assets(
+    entries: &mut [serde_json::Value],
+    bundle_dir: &Path,
+) -> Result<(), String> {
+    let relations_by_key = seed_word_graph_relations_by_key(bundle_dir)?;
+    if relations_by_key.is_empty() {
+        return Ok(());
+    }
+    for entry in entries.iter_mut() {
+        if entry
+            .get("entryKind")
+            .and_then(|value| value.as_str())
+            .unwrap_or("word")
+            != "word"
+        {
+            continue;
+        }
+        let Some(source_entry_key) = entry.get("sourceEntryKey").and_then(|value| value.as_str())
+        else {
+            continue;
+        };
+        if let Some(relations) = relations_by_key.get(source_entry_key) {
+            entry["wordGraphRelations"] = relations.clone();
+        }
+    }
+    Ok(())
+}
+
+fn seed_word_graph_relations_by_key(
+    bundle_dir: &Path,
+) -> Result<BTreeMap<String, serde_json::Value>, String> {
+    let book_dir = bundle_dir.join("seed-vocab").join("book");
+    let mut out = BTreeMap::new();
+    if !book_dir.exists() {
+        return Ok(out);
+    }
+    for entry in fs::read_dir(&book_dir).map_err(|e| format!("Failed to read book assets: {e}"))? {
+        let entry = entry.map_err(|e| format!("Failed to inspect book asset: {e}"))?;
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        let content = fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read book asset {}: {e}", path.display()))?;
+        let items: Vec<serde_json::Value> = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse book asset {}: {e}", path.display()))?;
+        for item in items {
+            let Some(relations) = item
+                .get("wordGraphRelations")
+                .or_else(|| item.pointer("/content/word/wordGraphRelations"))
+                .or_else(|| item.pointer("/content/word/content/wordGraphRelations"))
+                .cloned()
+            else {
+                continue;
+            };
+            let keys = [
+                item.pointer("/content/word/wordId")
+                    .and_then(|value| value.as_str()),
+                item.get("displayWord").and_then(|value| value.as_str()),
+                item.get("headWord").and_then(|value| value.as_str()),
+                item.pointer("/content/word/wordHead")
+                    .and_then(|value| value.as_str()),
+            ];
+            for key in keys.into_iter().flatten() {
+                let trimmed = key.trim();
+                if !trimmed.is_empty() {
+                    out.entry(trimmed.to_string())
+                        .or_insert_with(|| relations.clone());
+                }
+            }
+        }
+    }
+    Ok(out)
 }
 
 fn enrich_root_affix_entries_from_assets(

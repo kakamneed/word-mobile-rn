@@ -65,7 +65,23 @@ class _WrongWordGraphScreenState extends State<WrongWordGraphScreen> {
     }
   }
 
-  Future<void> _moveNode(
+  void _previewMoveNode(
+    WrongWordGraphNode node,
+    WrongWordGraphPosition position,
+  ) {
+    final graph = _graph;
+    if (graph == null) return;
+    final updatedNode = node.copyWith(position: position, isUserPlaced: true);
+    setState(() {
+      _graph = graph.copyWith(
+        nodes: graph.nodes
+            .map((item) => item.id == node.id ? updatedNode : item)
+            .toList(growable: false),
+      );
+    });
+  }
+
+  Future<void> _commitMoveNode(
     WrongWordGraphNode node,
     WrongWordGraphPosition position,
   ) async {
@@ -120,6 +136,13 @@ class _WrongWordGraphScreenState extends State<WrongWordGraphScreen> {
     }
   }
 
+  void _clearSelection() {
+    if (_selectedNodeId == null) return;
+    setState(() {
+      _selectedNodeId = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final graph = _graph;
@@ -150,7 +173,9 @@ class _WrongWordGraphScreenState extends State<WrongWordGraphScreen> {
                             _selectedNodeId = node.id;
                           });
                         },
-                        onMoveNode: _moveNode,
+                        onPreviewMoveNode: _previewMoveNode,
+                        onCommitMoveNode: _commitMoveNode,
+                        onClearSelection: _clearSelection,
                       ),
                       SafeArea(
                         child: Padding(
@@ -176,7 +201,14 @@ class _WrongWordGraphScreenState extends State<WrongWordGraphScreen> {
                   ),
                 ),
                 _GraphRail(
-                  nodes: graph.nodes,
+                  nodes: [...graph.nodes]
+                    ..sort((a, b) {
+                      final byWrongCount = b.wrongCountTotal.compareTo(
+                        a.wrongCountTotal,
+                      );
+                      if (byWrongCount != 0) return byWrongCount;
+                      return a.word.compareTo(b.word);
+                    }),
                   selectedNodeId: _selectedNodeId,
                   savingNodeId: _savingNodeId,
                   onDragEnd: (node, offset) {
@@ -200,7 +232,9 @@ class _GraphCanvas extends StatefulWidget {
     required this.selectedNodeId,
     required this.savingNodeId,
     required this.onSelect,
-    required this.onMoveNode,
+    required this.onPreviewMoveNode,
+    required this.onCommitMoveNode,
+    required this.onClearSelection,
   });
 
   final WrongWordGraph graph;
@@ -208,7 +242,10 @@ class _GraphCanvas extends StatefulWidget {
   final String? savingNodeId;
   final ValueChanged<WrongWordGraphNode> onSelect;
   final void Function(WrongWordGraphNode node, WrongWordGraphPosition position)
-  onMoveNode;
+  onPreviewMoveNode;
+  final void Function(WrongWordGraphNode node, WrongWordGraphPosition position)
+  onCommitMoveNode;
+  final VoidCallback onClearSelection;
 
   static const Size _sceneSize = Size(1800, 1000);
 
@@ -218,7 +255,7 @@ class _GraphCanvas extends StatefulWidget {
 
 class _GraphCanvasState extends State<_GraphCanvas> {
   final TransformationController _controller = TransformationController();
-  final GlobalKey _viewerKey = GlobalKey();
+  final GlobalKey _viewportKey = GlobalKey();
   double _scale = 1;
 
   @override
@@ -243,7 +280,7 @@ class _GraphCanvasState extends State<_GraphCanvas> {
   }
 
   bool placeNodeFromGlobal(WrongWordGraphNode node, Offset globalOffset) {
-    final box = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return false;
     final viewportOffset = box.globalToLocal(globalOffset);
     final viewportSize = box.size;
@@ -251,20 +288,65 @@ class _GraphCanvasState extends State<_GraphCanvas> {
         viewportOffset.dy < 0 ||
         viewportOffset.dx > viewportSize.width ||
         viewportOffset.dy > viewportSize.height) {
-      final center = Offset(viewportSize.width / 2, viewportSize.height / 2);
-      final sceneCenter = _controller.toScene(center);
-      widget.onMoveNode(
-        node,
-        _positionFromSceneOffset(sceneCenter, _GraphCanvas._sceneSize),
-      );
-      return true;
+      return false;
     }
     final sceneOffset = _controller.toScene(viewportOffset);
-    widget.onMoveNode(
-      node,
-      _positionFromSceneOffset(sceneOffset, _GraphCanvas._sceneSize),
-    );
+    _commitNodeAtSceneOffset(node, sceneOffset);
     return true;
+  }
+
+  bool previewNodeFromGlobal(WrongWordGraphNode node, Offset globalOffset) {
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return false;
+    final viewportOffset = box.globalToLocal(globalOffset);
+    final viewportSize = box.size;
+    if (viewportOffset.dx < 0 ||
+        viewportOffset.dy < 0 ||
+        viewportOffset.dx > viewportSize.width ||
+        viewportOffset.dy > viewportSize.height) {
+      return false;
+    }
+    _previewNodeAtSceneOffset(node, _controller.toScene(viewportOffset));
+    return true;
+  }
+
+  WrongWordGraphPosition _positionForSceneOffset(
+    WrongWordGraphNode node,
+    Offset sceneOffset,
+  ) {
+    final placedNodes = widget.graph.nodes
+        .where((item) => item.isUserPlaced)
+        .toList(growable: false);
+    final separatedOffset = _resolveSeparatedSceneOffset(
+      target: sceneOffset,
+      movingNode: node,
+      nodes: placedNodes,
+      sceneSize: _GraphCanvas._sceneSize,
+    );
+    return _positionFromSceneOffset(separatedOffset, _GraphCanvas._sceneSize);
+  }
+
+  void _previewNodeAtSceneOffset(WrongWordGraphNode node, Offset sceneOffset) {
+    widget.onPreviewMoveNode(node, _positionForSceneOffset(node, sceneOffset));
+  }
+
+  void _commitNodeAtSceneOffset(WrongWordGraphNode node, Offset sceneOffset) {
+    widget.onCommitMoveNode(node, _positionForSceneOffset(node, sceneOffset));
+  }
+
+  void _focusNode(WrongWordGraphNode node) {
+    final box = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    const targetScale = 1.85;
+    final nodeOffset = _nodeOffset(node, _GraphCanvas._sceneSize);
+    final center = box.size.center(Offset.zero);
+    final x = center.dx - nodeOffset.dx * targetScale;
+    final y = center.dy - nodeOffset.dy * targetScale;
+    _controller.value = Matrix4.identity()
+      ..setEntry(0, 0, targetScale)
+      ..setEntry(1, 1, targetScale)
+      ..setEntry(0, 3, x)
+      ..setEntry(1, 3, y);
   }
 
   @override
@@ -273,15 +355,10 @@ class _GraphCanvasState extends State<_GraphCanvas> {
         .where((node) => node.isUserPlaced)
         .toList(growable: false);
     final selectedNode = _selectedNode(placedNodes, widget.selectedNodeId);
-    final selectedEdgeCount = selectedNode == null
-        ? 0
-        : widget.graph.edges
-              .where(
-                (edge) =>
-                    edge.sourceNodeId == selectedNode.id ||
-                    edge.targetNodeId == selectedNode.id,
-              )
-              .length;
+    final selectedRelations = selectedNode == null
+        ? const <_GraphRelationSummary>[]
+        : _relationSummaries(selectedNode, placedNodes, widget.graph.edges);
+
     return DragTarget<WrongWordGraphNode>(
       hitTestBehavior: HitTestBehavior.opaque,
       onAcceptWithDetails: (details) {
@@ -290,53 +367,71 @@ class _GraphCanvasState extends State<_GraphCanvas> {
       builder: (context, candidateData, rejectedData) {
         final hover = candidateData.isNotEmpty;
         return ColoredBox(
+          key: _viewportKey,
           color: _GraphColors.space,
-          child: InteractiveViewer(
-            key: _viewerKey,
-            transformationController: _controller,
-            constrained: false,
-            clipBehavior: Clip.none,
-            minScale: 0.25,
-            maxScale: 3.4,
-            boundaryMargin: const EdgeInsets.all(1100),
-            child: SizedBox(
-              width: _GraphCanvas._sceneSize.width,
-              height: _GraphCanvas._sceneSize.height,
-              child: Stack(
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                transformationController: _controller,
+                constrained: false,
                 clipBehavior: Clip.none,
-                children: [
-                  CustomPaint(
-                    size: _GraphCanvas._sceneSize,
-                    painter: _GraphBackgroundPainter(
-                      nodes: placedNodes,
-                      edges: widget.graph.edges,
-                      selectedNodeId: widget.selectedNodeId,
-                      dropTargetActive: hover,
-                    ),
-                  ),
-                  if (placedNodes.isEmpty)
-                    const Positioned.fill(child: _GraphEmptySpaceHint()),
-                  for (final node in placedNodes)
-                    _GraphStarNode(
-                      node: node,
-                      selected: node.id == widget.selectedNodeId,
-                      saving: node.id == widget.savingNodeId,
-                      sceneSize: _GraphCanvas._sceneSize,
-                      scale: _scale,
-                      onTap: () => widget.onSelect(node),
-                    ),
-                  if (selectedNode != null)
-                    Positioned(
-                      left: 28,
-                      bottom: 28,
-                      child: _GraphNodeDetailPanel(
-                        node: selectedNode,
-                        relationCount: selectedEdgeCount,
+                minScale: 0.25,
+                maxScale: 3.4,
+                boundaryMargin: const EdgeInsets.all(1100),
+                child: SizedBox(
+                  width: _GraphCanvas._sceneSize.width,
+                  height: _GraphCanvas._sceneSize.height,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CustomPaint(
+                        size: _GraphCanvas._sceneSize,
+                        painter: _GraphBackgroundPainter(
+                          nodes: placedNodes,
+                          edges: widget.graph.edges,
+                          selectedNodeId: widget.selectedNodeId,
+                          dropTargetActive: hover,
+                        ),
                       ),
-                    ),
-                ],
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: widget.onClearSelection,
+                        ),
+                      ),
+                      if (placedNodes.isEmpty)
+                        const Positioned.fill(child: _GraphEmptySpaceHint()),
+                      for (final node in placedNodes)
+                        _GraphStarNode(
+                          node: node,
+                          selected: node.id == widget.selectedNodeId,
+                          saving: node.id == widget.savingNodeId,
+                          sceneSize: _GraphCanvas._sceneSize,
+                          scale: _scale,
+                          onTap: () {
+                            widget.onSelect(node);
+                            _focusNode(node);
+                          },
+                          onPreviewFromGlobal: (offset) =>
+                              previewNodeFromGlobal(node, offset),
+                          onCommitFromGlobal: (offset) =>
+                              placeNodeFromGlobal(node, offset),
+                          onMoveStart: widget.onClearSelection,
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              if (selectedNode != null)
+                Positioned(
+                  left: 84,
+                  bottom: 20,
+                  child: _GraphNodeDetailPanel(
+                    node: selectedNode,
+                    relations: selectedRelations,
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -368,25 +463,22 @@ class _GraphColors {
 }
 
 class _GraphNodeDetailPanel extends StatelessWidget {
-  const _GraphNodeDetailPanel({
-    required this.node,
-    required this.relationCount,
-  });
+  const _GraphNodeDetailPanel({required this.node, required this.relations});
 
   final WrongWordGraphNode node;
-  final int relationCount;
+  final List<_GraphRelationSummary> relations;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      elevation: 12,
+      elevation: 10,
       color: _GraphColors.panel.withValues(alpha: 0.94),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: const BoxConstraints(maxWidth: 300),
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,26 +487,26 @@ class _GraphNodeDetailPanel extends StatelessWidget {
                 node.word,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.headlineSmall?.copyWith(
+                style: theme.textTheme.titleLarge?.copyWith(
                   color: _GraphColors.text,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               if (node.primaryGloss.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   node.primaryGloss,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyLarge?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: _GraphColors.muted,
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 6,
+                runSpacing: 6,
                 children: [
                   _GraphMetricChip(
                     label: '\u4eca\u65e5\u9519',
@@ -426,44 +518,195 @@ class _GraphNodeDetailPanel extends StatelessWidget {
                   ),
                   _GraphMetricChip(
                     label: '\u5173\u7cfb',
-                    value: relationCount.toString(),
+                    value: relations.length.toString(),
                   ),
                   if (node.lastWrongAt != null && node.lastWrongAt!.isNotEmpty)
                     _GraphMetricChip(
                       label: '\u6700\u8fd1',
-                      value: node.lastWrongAt!,
+                      value: _formatGraphDate(node.lastWrongAt!),
                     ),
                 ],
               ),
-              if (node.sources.isNotEmpty) ...[
+              if (relations.isNotEmpty) ...[
                 const SizedBox(height: 10),
+                for (final relation in relations.take(4))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: _GraphRelationLine(summary: relation),
+                  ),
+              ],
+              if (node.sources.isNotEmpty) ...[
+                const SizedBox(height: 4),
                 Text(
                   '\u6765\u6e90\uff1a${node.sources.join(' / ')}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: _GraphColors.muted,
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('\u51c6\u5907\u590d\u4e60 ${node.word}'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('\u5f00\u59cb\u590d\u4e60'),
-              ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _GraphRelationSummary {
+  const _GraphRelationSummary({
+    required this.color,
+    required this.label,
+    required this.detail,
+  });
+
+  final Color color;
+  final String label;
+  final String detail;
+}
+
+class _GraphRelationLine extends StatelessWidget {
+  const _GraphRelationLine({required this.summary});
+
+  final _GraphRelationSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: summary.color,
+              shape: BoxShape.circle,
+            ),
+            child: const SizedBox(width: 7, height: 7),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            '${summary.label}：${summary.detail}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: _GraphColors.text.withValues(alpha: 0.86),
+              height: 1.25,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+List<_GraphRelationSummary> _relationSummaries(
+  WrongWordGraphNode selectedNode,
+  List<WrongWordGraphNode> nodes,
+  List<WrongWordGraphEdge> edges,
+) {
+  final nodeById = {for (final node in nodes) node.id: node};
+  final summaries = <_GraphRelationSummary>[];
+  for (final edge in edges) {
+    if (edge.sourceNodeId != selectedNode.id &&
+        edge.targetNodeId != selectedNode.id) {
+      continue;
+    }
+    final otherId = edge.sourceNodeId == selectedNode.id
+        ? edge.targetNodeId
+        : edge.sourceNodeId;
+    final otherWord = nodeById[otherId]?.word ?? '';
+    final evidence = edge.evidence.whereType<Map<String, dynamic>>().toList(
+      growable: false,
+    );
+    summaries.add(
+      _GraphRelationSummary(
+        color: _relationColor(edge.relationType),
+        label: _relationLabel(edge.relationType),
+        detail: _relationDetail(edge.relationType, evidence, otherWord),
+      ),
+    );
+  }
+  summaries.sort((a, b) => a.label.compareTo(b.label));
+  return summaries;
+}
+
+Color _relationColor(String relationType) {
+  switch (relationType) {
+    case 'synonym':
+      return const Color(0xFF53B87A);
+    case 'coOccurrence':
+      return const Color(0xFFD75B5B);
+    case 'rootFamily':
+      return const Color(0xFF8B5CC6);
+    case 'similarForm':
+      return const Color(0xFF8C929E);
+    default:
+      return _GraphColors.muted;
+  }
+}
+
+String _relationLabel(String relationType) {
+  switch (relationType) {
+    case 'synonym':
+      return '重叠释义';
+    case 'coOccurrence':
+      return '同篇 AI 短文';
+    case 'rootFamily':
+      return '相同词根词缀';
+    case 'similarForm':
+      return '形近拼写';
+    default:
+      return '关系';
+  }
+}
+
+String _relationDetail(
+  String relationType,
+  List<Map<String, dynamic>> evidence,
+  String otherWord,
+) {
+  String field(String key) {
+    for (final item in evidence) {
+      final value = item[key];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+      if (value is num) return value.toString();
+    }
+    return '';
+  }
+
+  final withOther = otherWord.isEmpty ? '' : ' · $otherWord';
+  switch (relationType) {
+    case 'synonym':
+      final meaning = field('meaning');
+      return meaning.isEmpty ? '释义重叠$withOther' : '$meaning$withOther';
+    case 'coOccurrence':
+      final title = field('passageTitle');
+      return title.isEmpty ? '同一篇 AI 短文$withOther' : '$title$withOther';
+    case 'rootFamily':
+      final family = field(
+        'family',
+      ).replaceFirst('prefix:', '前缀 ').replaceFirst('suffix:', '后缀 ');
+      return family.isEmpty ? '同源构词$withOther' : '$family$withOther';
+    case 'similarForm':
+      return '拼写或词形接近$withOther';
+    default:
+      return otherWord;
+  }
+}
+
+String _formatGraphDate(String raw) {
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) {
+    return raw.replaceFirst('T', ' ').split('.').first;
+  }
+  final local = parsed.toLocal();
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
 }
 
 class _GraphMetricChip extends StatelessWidget {
@@ -493,7 +736,7 @@ class _GraphMetricChip extends StatelessWidget {
   }
 }
 
-class _GraphStarNode extends StatelessWidget {
+class _GraphStarNode extends StatefulWidget {
   const _GraphStarNode({
     required this.node,
     required this.selected,
@@ -501,6 +744,9 @@ class _GraphStarNode extends StatelessWidget {
     required this.sceneSize,
     required this.scale,
     required this.onTap,
+    required this.onPreviewFromGlobal,
+    required this.onCommitFromGlobal,
+    required this.onMoveStart,
   });
 
   final WrongWordGraphNode node;
@@ -509,23 +755,55 @@ class _GraphStarNode extends StatelessWidget {
   final Size sceneSize;
   final double scale;
   final VoidCallback onTap;
+  final bool Function(Offset globalOffset) onPreviewFromGlobal;
+  final bool Function(Offset globalOffset) onCommitFromGlobal;
+  final VoidCallback onMoveStart;
+
+  @override
+  State<_GraphStarNode> createState() => _GraphStarNodeState();
+}
+
+class _GraphStarNodeState extends State<_GraphStarNode> {
+  bool _moving = false;
 
   @override
   Widget build(BuildContext context) {
-    final offset = _nodeOffset(node, sceneSize);
-    final errorWeight = (node.wrongCountTotal.clamp(0, 12) / 12).toDouble();
-    final urgencyWeight = node.urgencyScore.clamp(0.0, 1.0);
+    final offset = _nodeOffset(widget.node, widget.sceneSize);
+    final errorWeight = (widget.node.wrongCountTotal.clamp(0, 12) / 12)
+        .toDouble();
+    final urgencyWeight = widget.node.urgencyScore.clamp(0.0, 1.0);
     final diameter = 10.0 + errorWeight * 14.0 + urgencyWeight * 8.0;
-    final labelThreshold = (1.72 - errorWeight * 0.7).clamp(0.92, 1.72);
-    final showLabel = scale >= labelThreshold || selected;
-    final hitSize = math.max(44.0, diameter + 22.0);
+    final labelThreshold = (1.10 - errorWeight * 0.58).clamp(0.46, 1.10);
+    final showLabel =
+        widget.node.wrongCountTotal >= 8 ||
+        widget.scale >= labelThreshold ||
+        widget.selected;
+    final hitSize = math.max(52.0, diameter + 28.0);
     final theme = Theme.of(context);
     return Positioned(
       left: offset.dx - hitSize / 2,
       top: offset.dy - hitSize / 2,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTap: onTap,
+        onTap: widget.onTap,
+        onLongPressStart: (details) {
+          setState(() {
+            _moving = true;
+          });
+          widget.onMoveStart();
+          widget.onPreviewFromGlobal(details.globalPosition);
+        },
+        onLongPressMoveUpdate: (details) {
+          widget.onPreviewFromGlobal(details.globalPosition);
+        },
+        onLongPressEnd: (details) {
+          widget.onCommitFromGlobal(details.globalPosition);
+          if (mounted) {
+            setState(() {
+              _moving = false;
+            });
+          }
+        },
         child: SizedBox(
           width: hitSize,
           height: hitSize + (showLabel ? 30 : 0),
@@ -538,10 +816,10 @@ class _GraphStarNode extends StatelessWidget {
                 child: _StarDot(
                   diameter: diameter,
                   brightness: 0.48 + errorWeight * 0.46,
-                  selected: selected,
+                  selected: widget.selected || _moving,
                 ),
               ),
-              if (saving)
+              if (widget.saving)
                 Positioned(
                   top: (hitSize - 18) / 2,
                   child: const SizedBox(
@@ -559,15 +837,15 @@ class _GraphStarNode extends StatelessWidget {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 150),
                     child: Text(
-                      node.word,
+                      widget.node.word,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: Colors.white.withValues(
-                          alpha: selected ? 1 : 0.84,
+                          alpha: widget.selected ? 1 : 0.84,
                         ),
-                        fontWeight: selected
+                        fontWeight: widget.selected
                             ? FontWeight.w800
                             : FontWeight.w600,
                         shadows: const [
@@ -820,49 +1098,123 @@ class _GraphRailTile extends StatefulWidget {
 class _GraphRailTileState extends State<_GraphRailTile> {
   Offset? _pointerDownGlobalPosition;
   Offset? _lastPointerGlobalPosition;
+  OverlayEntry? _dragOverlay;
   bool _dragging = false;
-  bool _placedDuringDrag = false;
+
+  void _showDragOverlay(Offset position) {
+    _lastPointerGlobalPosition = position;
+    if (_dragOverlay == null) {
+      _dragOverlay = OverlayEntry(builder: _buildDragOverlay);
+      Overlay.of(context).insert(_dragOverlay!);
+    } else {
+      _dragOverlay!.markNeedsBuild();
+    }
+  }
+
+  Widget _buildDragOverlay(BuildContext context) {
+    final position = _lastPointerGlobalPosition ?? Offset.zero;
+    return Positioned(
+      left: position.dx - 44,
+      top: position.dy - 24,
+      child: IgnorePointer(
+        child: Material(
+          color: Colors.transparent,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: _GraphColors.panel.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.38),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                widget.node.word,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _GraphColors.text,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _removeDragOverlay() {
+    _dragOverlay?.remove();
+    _dragOverlay = null;
+  }
 
   void _clearPointer() {
+    _removeDragOverlay();
     if (!mounted) return;
     setState(() {
       _dragging = false;
       _pointerDownGlobalPosition = null;
       _lastPointerGlobalPosition = null;
-      _placedDuringDrag = false;
     });
   }
 
   @override
+  void dispose() {
+    _removeDragOverlay();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final tile = ListTile(
-      dense: true,
-      selected: widget.selected,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      selectedTileColor: Colors.white.withValues(alpha: 0.08),
-      trailing: widget.saving
-          ? const SizedBox(
+    final tile = AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: widget.selected
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.node.word,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _GraphColors.text,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '${widget.node.wrongCountTotal}x',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _GraphColors.muted),
+                ),
+              ],
+            ),
+          ),
+          if (widget.saving)
+            const SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
-      onTap: () => widget.onDragEnd(widget.node, Offset.zero),
-      title: Text(
-        widget.node.word,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: _GraphColors.text,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      subtitle: Text(
-        '${widget.node.wrongCountTotal}x',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: _GraphColors.muted),
+            ),
+        ],
       ),
     );
 
@@ -873,7 +1225,6 @@ class _GraphRailTileState extends State<_GraphRailTile> {
         setState(() {
           _pointerDownGlobalPosition = event.position;
           _lastPointerGlobalPosition = event.position;
-          _placedDuringDrag = false;
           _dragging = false;
         });
       },
@@ -881,12 +1232,13 @@ class _GraphRailTileState extends State<_GraphRailTile> {
         final down = _pointerDownGlobalPosition;
         if (down == null) return;
         final delta = event.position - down;
-        setState(() {
-          _lastPointerGlobalPosition = event.position;
-          _dragging = delta.dx.abs() > 8 || delta.dy.abs() > 8;
-        });
-        if (!_placedDuringDrag && delta.dx < -18) {
-          _placedDuringDrag = widget.onDragEnd(widget.node, event.position);
+        if (delta.dx < -8 || _dragging) {
+          if (!_dragging) {
+            setState(() {
+              _dragging = true;
+            });
+          }
+          _showDragOverlay(event.position);
         }
       },
       onPointerCancel: (_) => _clearPointer(),
@@ -895,13 +1247,12 @@ class _GraphRailTileState extends State<_GraphRailTile> {
         final endOffset = _lastPointerGlobalPosition ?? event.position;
         final wasHorizontalDrag =
             down != null && (endOffset.dx - down.dx) < -18;
-        final shouldPlace = wasHorizontalDrag && !_placedDuringDrag;
-        _clearPointer();
-        if (shouldPlace) {
+        if (wasHorizontalDrag) {
           widget.onDragEnd(widget.node, endOffset);
         }
+        _clearPointer();
       },
-      child: Opacity(opacity: _dragging ? 0.56 : 1, child: tile),
+      child: Opacity(opacity: _dragging ? 0.42 : 1, child: tile),
     );
   }
 }
@@ -932,6 +1283,41 @@ class _GraphMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+Offset _resolveSeparatedSceneOffset({
+  required Offset target,
+  required WrongWordGraphNode movingNode,
+  required List<WrongWordGraphNode> nodes,
+  required Size sceneSize,
+}) {
+  const minDistance = 96.0;
+  var candidate = Offset(
+    target.dx.clamp(80, sceneSize.width - 80).toDouble(),
+    target.dy.clamp(60, sceneSize.height - 60).toDouble(),
+  );
+  final occupied = nodes
+      .where((node) => node.id != movingNode.id)
+      .map((node) => _nodeOffset(node, sceneSize))
+      .toList(growable: false);
+
+  for (var attempt = 0; attempt < 24; attempt++) {
+    final tooClose = occupied.any(
+      (offset) => (offset - candidate).distance < minDistance,
+    );
+    if (!tooClose) return candidate;
+    final angle = attempt * 2.399963229728653;
+    final radius = minDistance * (1 + attempt ~/ 8);
+    candidate = Offset(
+      target.dx + math.cos(angle) * radius,
+      target.dy + math.sin(angle) * radius,
+    );
+    candidate = Offset(
+      candidate.dx.clamp(80, sceneSize.width - 80).toDouble(),
+      candidate.dy.clamp(60, sceneSize.height - 60).toDouble(),
+    );
+  }
+  return candidate;
 }
 
 Offset _nodeOffset(WrongWordGraphNode node, Size sceneSize) {

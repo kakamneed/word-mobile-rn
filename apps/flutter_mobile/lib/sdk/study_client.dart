@@ -142,12 +142,13 @@ class StudyQuestion {
       }
     }
 
+    final word = _requiredString(json, 'word');
     return StudyQuestion(
       questionId: _requiredString(json, 'questionId'),
       questionType: questionType,
       entrySourceId: _requiredString(json, 'entrySourceId'),
-      word: _requiredString(json, 'word'),
-      prompt: _requiredString(json, 'prompt'),
+      word: word,
+      prompt: _studyQuestionPrompt(json, questionType, word),
       partOfSpeech: _jsonNullableString(json['partOfSpeech']),
       phoneticUs: _jsonNullableString(json['phoneticUs']),
       phoneticUk: _jsonNullableString(json['phoneticUk']),
@@ -385,6 +386,24 @@ List<Map<String, dynamic>>? _choiceListOrNull(Object? value) {
         },
       )
       .toList(growable: false);
+}
+
+String _studyQuestionPrompt(
+  Map<String, dynamic> json,
+  String questionType,
+  String word,
+) {
+  final raw = _jsonString(json['prompt']).trim();
+  if (raw.isNotEmpty) return raw;
+  final accepted = _jsonStringList(json['acceptedMeanings']);
+  if (questionType == 'cnToEnChoice' && accepted.isNotEmpty) {
+    return accepted.first;
+  }
+  if (questionType == 'rootToGlossInput' ||
+      questionType == 'glossToRootInput') {
+    return word;
+  }
+  return word;
 }
 
 String _requiredString(Map<String, dynamic> json, String key) {
