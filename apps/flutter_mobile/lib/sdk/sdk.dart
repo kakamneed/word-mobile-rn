@@ -9,6 +9,7 @@ import '../bridge/bridge.dart';
 import 'ai_client.dart';
 import 'bootstrap_client.dart';
 import 'croc_bti_client.dart';
+import 'exam_practice_client.dart';
 import 'local_data_owner_client.dart';
 import 'plan_client.dart';
 import 'reports_client.dart';
@@ -22,6 +23,7 @@ import 'wrong_words_client.dart';
 export 'ai_client.dart';
 export 'bootstrap_client.dart';
 export 'croc_bti_client.dart';
+export 'exam_practice_client.dart';
 export 'local_data_owner_client.dart';
 export 'plan_client.dart';
 export 'reports_client.dart';
@@ -37,6 +39,7 @@ class WordSdk {
   final AiClient ai;
   final BootstrapClient bootstrap;
   final CrocBtiClient crocBti;
+  final ExamPracticeClient examPractice;
   final LocalDataOwnerClient localDataOwner;
   final TodayClient today;
   final PlanClient plan;
@@ -51,6 +54,7 @@ class WordSdk {
     required this.ai,
     required this.bootstrap,
     required this.crocBti,
+    required this.examPractice,
     required this.localDataOwner,
     required this.today,
     required this.plan,
@@ -78,6 +82,7 @@ class WordSdk {
       ai: AiClient(bridge, codec),
       bootstrap: BootstrapClient(bridge, codec),
       crocBti: CrocBtiClient(bridge, codec),
+      examPractice: ExamPracticeClient(bridge, codec),
       localDataOwner: LocalDataOwnerClient(bridge, codec),
       today: TodayClient(bridge, codec),
       plan: PlanClient(bridge, codec),

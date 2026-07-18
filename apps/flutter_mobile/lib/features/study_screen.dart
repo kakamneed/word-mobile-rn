@@ -42,11 +42,15 @@ class _StudyScreenState extends State<StudyScreen> {
   StudyQuestion? _lastSubmittedQuestion;
   StudyResult? _lastSubmittedResult;
   String? _lastSubmittedResponse;
+  String? _activeSubmitQuestionId;
+  StudyQuestion? _pendingNextQuestion;
+  SessionProgress? _pendingNextProgress;
   CompleteSessionResponse? _completion;
   String? _error;
   bool _loading = true;
   bool _submitting = false;
   bool _showingHintPrompt = false;
+  bool _userDraggingFeed = false;
   int _visiblePageIndex = 0;
 
   @override
@@ -100,9 +104,15 @@ class _StudyScreenState extends State<StudyScreen> {
       _lastSubmittedQuestion = null;
       _lastSubmittedResult = null;
       _lastSubmittedResponse = null;
+      _activeSubmitQuestionId = null;
+      _pendingNextQuestion = null;
+      _pendingNextProgress = null;
       _completion = null;
+      _session = null;
       _selectedChoice = null;
       _visiblePageIndex = 0;
+      _userDraggingFeed = false;
+      _submitting = false;
     });
     _answerController.clear();
     try {
@@ -125,16 +135,21 @@ class _StudyScreenState extends State<StudyScreen> {
   }
 
   Future<StartSessionResponse> _startWithBestAvailableSeed() async {
+    if (widget.resumeHint?.hasResume == true ||
+        !_modeUsesQuestionTypeWeights(widget.mode)) {
+      return widget.sdk.study.startSession(
+        mode: widget.mode,
+        entrySourceIds: const [],
+      );
+    }
     final plan = await widget.sdk.plan.getActivePlan();
     return widget.sdk.study.startSession(
       mode: widget.mode,
       entrySourceIds: const [],
-      questionTypeWeights: widget.resumeHint?.hasResume == true
-          ? null
-          : _questionTypeWeightsForMode(
-              plan?.questionTypeWeightsByMode,
-              widget.mode,
-            ),
+      questionTypeWeights: _questionTypeWeightsForMode(
+        plan?.questionTypeWeightsByMode,
+        widget.mode,
+      ),
     );
   }
 
@@ -145,10 +160,18 @@ class _StudyScreenState extends State<StudyScreen> {
   }) async {
     final question = questionOverride ?? _currentQuestion;
     if (question == null) return;
+    if (!_shouldAcceptStudySubmit(
+      submitting: _submitting,
+      activeQuestionId: _activeSubmitQuestionId,
+      questionId: question.questionId,
+    )) {
+      return;
+    }
 
     final responseText =
         (explicitResponse ?? _selectedChoice ?? _answerController.text).trim();
     if (responseText.isEmpty && !allowEmpty) return;
+    _activeSubmitQuestionId = question.questionId;
     setState(() {
       _submitting = true;
       _error = null;
@@ -166,6 +189,14 @@ class _StudyScreenState extends State<StudyScreen> {
         _lastSubmittedQuestion = question;
         _lastSubmittedResult = response.result;
         _lastSubmittedResponse = responseText;
+        _pendingNextQuestion = response.isComplete
+            ? null
+            : response.currentQuestion ?? _pendingNextQuestion;
+        _pendingNextProgress = response.isComplete
+            ? null
+            : response.currentQuestion == null
+            ? _pendingNextProgress
+            : response.progress;
         _selectedChoice = null;
         if (_session != null) {
           final answeredQuestions = mergeLatestAnsweredQuestionForTest(
@@ -175,7 +206,7 @@ class _StudyScreenState extends State<StudyScreen> {
           );
           _session = StartSessionResponse(
             session: _session!.session,
-            currentQuestion: response.currentQuestion ?? question,
+            currentQuestion: question,
             progress: response.progress,
             answeredQuestions: answeredQuestions,
           );
@@ -188,9 +219,8 @@ class _StudyScreenState extends State<StudyScreen> {
             nextAction: response.nextAction ?? 'Return to today',
           );
         });
-      } else if (response.currentQuestion != null) {
-        _restartResponseTimer();
-        _focusAnswerInputForCurrentQuestion();
+      } else {
+        _jumpToQuestionFeedPage(question.questionId);
       }
       await _maybeShowHintPrompt(response);
     } catch (error) {
@@ -201,6 +231,9 @@ class _StudyScreenState extends State<StudyScreen> {
       if (mounted) {
         setState(() {
           _submitting = false;
+          if (_activeSubmitQuestionId == question.questionId) {
+            _activeSubmitQuestionId = null;
+          }
         });
       }
     }
@@ -224,6 +257,8 @@ class _StudyScreenState extends State<StudyScreen> {
         _lastSubmittedQuestion = null;
         _lastSubmittedResult = null;
         _lastSubmittedResponse = null;
+        _pendingNextQuestion = null;
+        _pendingNextProgress = null;
         _answerController.clear();
         if (response.currentQuestion != null && _session != null) {
           _session = StartSessionResponse(
@@ -534,6 +569,67 @@ class _StudyScreenState extends State<StudyScreen> {
     });
   }
 
+  void _advanceToPendingQuestion({bool jumpToCurrentFeedPage = true}) {
+    final pending = _pendingNextQuestion;
+    final pendingProgress = _pendingNextProgress;
+    final session = _session;
+    if (pending == null || session == null || _submitting) return;
+    _answerController.clear();
+    setState(() {
+      _pendingNextQuestion = null;
+      _pendingNextProgress = null;
+      _selectedChoice = null;
+      _session = StartSessionResponse(
+        session: session.session,
+        currentQuestion: pending,
+        progress: pendingProgress ?? session.progress,
+        answeredQuestions: session.answeredQuestions,
+      );
+    });
+    if (jumpToCurrentFeedPage) {
+      _jumpToCurrentFeedPage();
+    }
+    _restartResponseTimer();
+    _focusAnswerInputForCurrentQuestion();
+  }
+
+  void _activatePendingQuestionFromSwipe(StudyQuestion question) {
+    if (_pendingNextQuestion?.questionId != question.questionId) return;
+    _advanceToPendingQuestion(jumpToCurrentFeedPage: false);
+  }
+
+  bool _handleFeedScrollNotification(
+    ScrollNotification notification,
+    List<_StudyFeedItem> feedItems,
+  ) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification) {
+      _userDraggingFeed = notification.dragDetails != null;
+    } else if (notification is ScrollEndNotification) {
+      final wasUserDragging = _userDraggingFeed;
+      _userDraggingFeed = false;
+      if (wasUserDragging) {
+        _activateVisiblePendingQuestion(feedItems);
+      }
+    }
+    return false;
+  }
+
+  void _activateVisiblePendingQuestion(List<_StudyFeedItem> feedItems) {
+    if (!_shouldActivateVisiblePendingQuestion(
+      feedItems: feedItems,
+      visiblePageIndex: _visiblePageIndex,
+      pendingNextQuestion: _pendingNextQuestion,
+      userDrivenScroll: true,
+    )) {
+      return;
+    }
+    final question = feedItems[_visiblePageIndex].question;
+    if (question != null) {
+      _activatePendingQuestionFromSwipe(question);
+    }
+  }
+
   Future<void> _complete({bool closeAfter = false}) async {
     final session = _session;
     if (session == null) return;
@@ -704,6 +800,13 @@ class _StudyScreenState extends State<StudyScreen> {
     if (!currentAlreadyAnswered && _completion == null) {
       answered.add(_StudyFeedItem.unanswered(current));
     }
+    final pending = _pendingNextQuestion;
+    final pendingAlreadyVisible =
+        pending == null ||
+        answered.any((item) => item.question?.questionId == pending.questionId);
+    if (!pendingAlreadyVisible && _completion == null) {
+      answered.add(_StudyFeedItem.unanswered(pending));
+    }
     final completion = _completion;
     if (completion != null) {
       answered.add(
@@ -719,15 +822,41 @@ class _StudyScreenState extends State<StudyScreen> {
 
   void _jumpToCurrentFeedPage() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_shouldAutoJumpToCurrentQuestion(_pendingNextQuestion)) return;
       if (!_pageController.hasClients) return;
-      final target = ((_feedItems.length - 1).clamp(
-        0,
-        _feedItems.length,
-      )).toInt();
+      final feedItems = _feedItems;
+      final currentQuestionId = _currentQuestion?.questionId;
+      final currentIndex = currentQuestionId == null
+          ? -1
+          : feedItems.indexWhere(
+              (item) => item.question?.questionId == currentQuestionId,
+            );
+      final target =
+          (currentIndex >= 0
+                  ? currentIndex
+                  : (feedItems.length - 1).clamp(0, feedItems.length))
+              .toInt();
       if (target <= 0) return;
       setState(() {
         _visiblePageIndex = target;
       });
+      _pageController.jumpToPage(target);
+    });
+  }
+
+  void _jumpToQuestionFeedPage(String questionId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_pageController.hasClients) return;
+      final feedItems = _feedItems;
+      final target = feedItems.indexWhere(
+        (item) => item.question?.questionId == questionId,
+      );
+      if (target < 0) return;
+      if (_visiblePageIndex != target && mounted) {
+        setState(() {
+          _visiblePageIndex = target;
+        });
+      }
       _pageController.jumpToPage(target);
     });
   }
@@ -773,99 +902,109 @@ class _StudyScreenState extends State<StudyScreen> {
             )
           : Stack(
               children: [
-                PageView.builder(
-                  controller: _pageController,
-                  scrollDirection: Axis.vertical,
-                  itemCount: feedItems.length,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _visiblePageIndex = index;
-                    });
-                    final item = feedItems[index];
-                    final itemQuestion = item.question;
-                    if (!item.isAnswered &&
-                        itemQuestion != null &&
-                        itemQuestion.questionId ==
-                            _currentQuestion?.questionId) {
-                      _restartResponseTimer();
-                      _focusAnswerInputForCurrentQuestion();
-                    } else {
-                      _settleAnswerInputBeforeSubmit();
-                    }
-                  },
-                  itemBuilder: (context, index) {
-                    final item = feedItems[index];
-                    if (item.isCompletion) {
-                      return _StudyCompletionFeedPage(
-                        item: item,
-                        onRestart: _start,
-                        onClose: _closeToToday,
-                        onContinueNextRound: _startNextRound,
-                      );
-                    }
-                    return _StudyFeedPage(
-                      item: item,
-                      showCompletionHint:
-                          index + 1 < feedItems.length &&
-                          feedItems[index + 1].isCompletion,
-                      progress: _studyFeedProgress(
-                        visibleQuestion: item.question,
-                        visibleIndex: index + 1,
-                        itemCount: feedItems.length,
-                        sessionTotal: _session?.progress.total,
-                      ),
-                      answerController: _answerController,
-                      answerFocusNode: _answerFocusNode,
-                      selectedChoice: item.isAnswered ? null : _selectedChoice,
-                      submitting: _submitting,
-                      onChoiceSelected: (choice) {
-                        if (item.isAnswered) return;
-                        setState(() {
-                          _selectedChoice = choice;
-                        });
-                      },
-                      onSubmit: () {
-                        if (item.isAnswered) return;
-                        final question = item.question;
-                        if (question == null) return;
-                        _submit(questionOverride: question);
-                      },
-                      onSubmitChoice: (choice) {
-                        if (item.isAnswered) return;
-                        final question = item.question;
-                        if (question == null) return;
-                        _submit(
-                          questionOverride: question,
-                          explicitResponse: choice,
+                NotificationListener<ScrollNotification>(
+                  onNotification: (notification) =>
+                      _handleFeedScrollNotification(notification, feedItems),
+                  child: PageView.builder(
+                    controller: _pageController,
+                    scrollDirection: Axis.vertical,
+                    itemCount: feedItems.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _visiblePageIndex = index;
+                      });
+                      final item = feedItems[index];
+                      final itemQuestion = item.question;
+                      if (!item.isAnswered &&
+                          itemQuestion != null &&
+                          itemQuestion.questionId ==
+                              _currentQuestion?.questionId) {
+                        _restartResponseTimer();
+                        _focusAnswerInputForCurrentQuestion();
+                      } else {
+                        _settleAnswerInputBeforeSubmit();
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      final item = feedItems[index];
+                      if (item.isCompletion) {
+                        return _StudyCompletionFeedPage(
+                          item: item,
+                          onRestart: _start,
+                          onClose: _closeToToday,
+                          onContinueNextRound: _startNextRound,
                         );
-                      },
-                      onHintPressed: questionHasHintForAction(item.question)
-                          ? () {
-                              final question = item.question;
-                              if (question == null) return;
-                              _editHintForQuestion(question);
-                            }
-                          : null,
-                      onComments: () {
-                        final question = item.question;
-                        if (question == null) return;
-                        _showWordComments(question);
-                      },
-                      onRevealAnswer: () {
-                        if (item.isAnswered) return;
-                        final question = item.question;
-                        if (question == null) return;
-                        _revealCurrentAnswer(question);
-                      },
-                      onDispute: _canDisputeFeedItem(item)
-                          ? () => _acceptDispute(item)
-                          : null,
-                      onMastered: () {
-                        if (item.isAnswered) return;
-                        _markCurrentEntryMastered();
-                      },
-                    );
-                  },
+                      }
+                      return _StudyFeedPage(
+                        item: item,
+                        hasPendingNext:
+                            _pendingNextQuestion != null &&
+                            item.question?.questionId ==
+                                _lastSubmittedQuestion?.questionId,
+                        showCompletionHint:
+                            index + 1 < feedItems.length &&
+                            feedItems[index + 1].isCompletion,
+                        progress: _studyFeedProgress(
+                          visibleQuestion: item.question,
+                          visibleIndex: index + 1,
+                          itemCount: feedItems.length,
+                          sessionTotal: _session?.progress.total,
+                        ),
+                        answerController: _answerController,
+                        answerFocusNode: _answerFocusNode,
+                        selectedChoice: item.isAnswered
+                            ? null
+                            : _selectedChoice,
+                        submitting: _submitting,
+                        onChoiceSelected: (choice) {
+                          if (item.isAnswered) return;
+                          setState(() {
+                            _selectedChoice = choice;
+                          });
+                        },
+                        onSubmit: () {
+                          if (item.isAnswered) return;
+                          final question = item.question;
+                          if (question == null) return;
+                          _submit(questionOverride: question);
+                        },
+                        onSubmitChoice: (choice) {
+                          if (item.isAnswered || _submitting) return;
+                          final question = item.question;
+                          if (question == null) return;
+                          _submit(
+                            questionOverride: question,
+                            explicitResponse: choice,
+                          );
+                        },
+                        onHintPressed: questionHasHintForAction(item.question)
+                            ? () {
+                                final question = item.question;
+                                if (question == null) return;
+                                _editHintForQuestion(question);
+                              }
+                            : null,
+                        onComments: () {
+                          final question = item.question;
+                          if (question == null) return;
+                          _showWordComments(question);
+                        },
+                        onRevealAnswer: () {
+                          if (item.isAnswered) return;
+                          final question = item.question;
+                          if (question == null) return;
+                          _revealCurrentAnswer(question);
+                        },
+                        onDispute: _canDisputeFeedItem(item)
+                            ? () => _acceptDispute(item)
+                            : null,
+                        onMastered: () {
+                          if (item.isAnswered) return;
+                          _markCurrentEntryMastered();
+                        },
+                      );
+                    },
+                  ),
                 ),
                 Positioned(
                   top: MediaQuery.paddingOf(context).top + 8,
@@ -908,6 +1047,14 @@ class _StudyScreenState extends State<StudyScreen> {
         _visiblePageIndex >= 0 && _visiblePageIndex < feedItems.length
         ? feedItems[_visiblePageIndex].question
         : null;
+    final visibleCompletion =
+        _visiblePageIndex >= 0 && _visiblePageIndex < feedItems.length
+        ? feedItems[_visiblePageIndex].completion
+        : null;
+    if (visibleCompletion != null) {
+      final total = visibleCompletion.summary.totalQuestions;
+      return SessionProgress(current: total, total: total);
+    }
     return _studyFeedProgress(
       visibleQuestion: visibleQuestion,
       visibleIndex: visibleIndex,
@@ -1409,6 +1556,7 @@ class _StudyFeedPage extends StatelessWidget {
   const _StudyFeedPage({
     required this.item,
     required this.progress,
+    required this.hasPendingNext,
     required this.answerController,
     required this.answerFocusNode,
     required this.showCompletionHint,
@@ -1426,6 +1574,7 @@ class _StudyFeedPage extends StatelessWidget {
 
   final _StudyFeedItem item;
   final SessionProgress progress;
+  final bool hasPendingNext;
   final TextEditingController answerController;
   final FocusNode answerFocusNode;
   final bool showCompletionHint;
@@ -1481,6 +1630,10 @@ class _StudyFeedPage extends StatelessWidget {
                     if (answered && showCompletionHint) ...[
                       const SizedBox(height: 24),
                       const _CompletionSwipeHint(),
+                    ],
+                    if (answered && hasPendingNext) ...[
+                      const SizedBox(height: 24),
+                      const _NextQuestionSwipeHint(),
                     ],
                     const _KeyboardInsetSpacer(baseHeight: 24),
                   ],
@@ -1556,6 +1709,43 @@ class _CompletionSwipeHint extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 '\u4e0b\u6ed1\u67e5\u770b\u672c\u8f6e\u603b\u7ed3',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NextQuestionSwipeHint extends StatelessWidget {
+  const _NextQuestionSwipeHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 22,
+                color: Colors.black54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '\u4e0b\u6ed1\u7ee7\u7eed\u4e0b\u4e00\u9898',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: Colors.black54,
                   fontWeight: FontWeight.w700,
@@ -2076,6 +2266,7 @@ class _QuestionComposer extends StatelessWidget {
             responseOverride,
             onChoiceSelected,
             onSubmitChoice,
+            submitting,
           ),
         if (!isChoice) ...[
           if (!answered)
@@ -2191,6 +2382,7 @@ List<Widget> _buildChoiceOptions(
   String? responseOverride,
   ValueChanged<String>? onChoiceSelected,
   ValueChanged<String>? onSubmitChoice,
+  bool submitting,
 ) {
   final choices = question.choices ?? const [];
   final answered = result != null;
@@ -2246,10 +2438,10 @@ List<Widget> _buildChoiceOptions(
           padding: const EdgeInsets.only(bottom: 8),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: answered || isSelected
+            onTap: answered || submitting || isSelected
                 ? null
                 : () => onChoiceSelected?.call(display.value),
-            onDoubleTap: answered
+            onDoubleTap: answered || submitting
                 ? null
                 : () {
                     onChoiceSelected?.call(display.value);
@@ -2453,6 +2645,34 @@ Set<String> _choiceUserAnswerTokens(
 bool _shouldShowHeroHintChip(StudyQuestion question) =>
     questionHasHintForAction(question);
 
+bool _shouldAutoJumpToCurrentQuestion(StudyQuestion? pendingNextQuestion) =>
+    pendingNextQuestion == null;
+
+bool _shouldActivateVisiblePendingQuestion({
+  required List<_StudyFeedItem> feedItems,
+  required int visiblePageIndex,
+  required StudyQuestion? pendingNextQuestion,
+  required bool userDrivenScroll,
+}) {
+  if (!userDrivenScroll || pendingNextQuestion == null) return false;
+  if (visiblePageIndex < 0 || visiblePageIndex >= feedItems.length) {
+    return false;
+  }
+  final item = feedItems[visiblePageIndex];
+  return !item.isAnswered &&
+      item.question?.questionId == pendingNextQuestion.questionId;
+}
+
+bool _shouldAcceptStudySubmit({
+  required bool submitting,
+  required String? activeQuestionId,
+  required String questionId,
+}) {
+  if (submitting) return false;
+  if (activeQuestionId == null) return true;
+  return activeQuestionId != questionId;
+}
+
 SessionProgress _studyFeedProgress({
   required StudyQuestion? visibleQuestion,
   required int visibleIndex,
@@ -2473,8 +2693,67 @@ SessionProgress _studyFeedProgress({
 bool shouldShowHeroHintChipForTest(StudyQuestion question) =>
     _shouldShowHeroHintChip(question);
 
+bool shouldAutoJumpToCurrentQuestionForTest(
+  StudyQuestion? pendingNextQuestion,
+) => _shouldAutoJumpToCurrentQuestion(pendingNextQuestion);
+
+bool shouldActivateVisiblePendingQuestionForTest({
+  required List<AnsweredStudyQuestion> answeredQuestions,
+  required StudyQuestion currentQuestion,
+  required StudyQuestion pendingNextQuestion,
+  required int visiblePageIndex,
+  required bool userDrivenScroll,
+}) {
+  final feedItems = [
+    ...answeredQuestions.map(_StudyFeedItem.answered),
+    _StudyFeedItem.unanswered(currentQuestion),
+    _StudyFeedItem.unanswered(pendingNextQuestion),
+  ];
+  return _shouldActivateVisiblePendingQuestion(
+    feedItems: feedItems,
+    visiblePageIndex: visiblePageIndex,
+    pendingNextQuestion: pendingNextQuestion,
+    userDrivenScroll: userDrivenScroll,
+  );
+}
+
+int questionFeedIndexForTest({
+  required List<AnsweredStudyQuestion> answeredQuestions,
+  required StudyQuestion currentQuestion,
+  required StudyQuestion? pendingNextQuestion,
+  required String questionId,
+}) {
+  final feedItems = [
+    ...answeredQuestions.map(_StudyFeedItem.answered),
+    if (!answeredQuestions.any(
+      (answered) => answered.question.questionId == currentQuestion.questionId,
+    ))
+      _StudyFeedItem.unanswered(currentQuestion),
+    if (pendingNextQuestion != null &&
+        !answeredQuestions.any(
+          (answered) =>
+              answered.question.questionId == pendingNextQuestion.questionId,
+        ) &&
+        pendingNextQuestion.questionId != currentQuestion.questionId)
+      _StudyFeedItem.unanswered(pendingNextQuestion),
+  ];
+  return feedItems.indexWhere(
+    (item) => item.question?.questionId == questionId,
+  );
+}
+
 bool questionHasHintForAction(StudyQuestion? question) =>
     question?.hasHint == true || question?.hintSuggestions.isNotEmpty == true;
+
+bool shouldAcceptStudySubmitForTest({
+  required bool submitting,
+  required String? activeQuestionId,
+  required String questionId,
+}) => _shouldAcceptStudySubmit(
+  submitting: submitting,
+  activeQuestionId: activeQuestionId,
+  questionId: questionId,
+);
 
 String questionLabelForTest(String type) => _questionLabel(type);
 
@@ -2489,6 +2768,9 @@ SessionProgress studyFeedProgressForTest({
   itemCount: itemCount,
   sessionTotal: sessionTotal,
 );
+
+bool modeUsesQuestionTypeWeightsForTest(String mode) =>
+    _modeUsesQuestionTypeWeights(mode);
 
 ({bool isCorrect, bool isUserWrong}) choiceStateForTest(
   StudyQuestion question,
@@ -2901,6 +3183,9 @@ List<Map<String, dynamic>>? _questionTypeWeightsForMode(
   }
   return out.isEmpty ? null : out;
 }
+
+bool _modeUsesQuestionTypeWeights(String mode) =>
+    mode != 'newWord' && mode != 'rootAffix';
 
 String _questionLabel(String type) {
   return switch (type) {

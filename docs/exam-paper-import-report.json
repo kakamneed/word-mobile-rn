@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-07-15T13:09:30.398Z",
+  "outDir": "apps/flutter_mobile/assets/exam-papers",
+  "totalPapers": 149,
+  "totalQuestions": 6600,
+  "answerBearingQuestions": 6420,
+  "droppedZeroAnswerPapers": [
+    {
+      "id": "cet6-2016-12-1",
+      "exam": "cet6",
+      "title": "CET6 2016-12 Set 1",
+      "year": 2016,
+      "month": 12,
+      "set": 1,
+      "questions": 39,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2016-12-2",
+      "exam": "cet6",
+      "title": "CET6 2016-12 Set 2",
+      "year": 2016,
+      "month": 12,
+      "set": 2,
+      "questions": 28,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2016-12-3",
+      "exam": "cet6",
+      "title": "CET6 2016-12 Set 3",
+      "year": 2016,
+      "month": 12,
+      "set": 3,
+      "questions": 19,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2016-6-1",
+      "exam": "cet6",
+      "title": "CET6 2016-06 Set 1",
+      "year": 2016,
+      "month": 6,
+      "set": 1,
+      "questions": 41,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2016-6-2",
+      "exam": "cet6",
+      "title": "CET6 2016-06 Set 2",
+      "year": 2016,
+      "month": 6,
+      "set": 2,
+      "questions": 30,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2016-6-3",
+      "exam": "cet6",
+      "title": "CET6 2016-06 Set 3",
+      "year": 2016,
+      "month": 6,
+      "set": 3,
+      "questions": 39,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2017-12-1",
+      "exam": "cet6",
+      "title": "CET6 2017-12 Set 1",
+      "year": 2017,
+      "month": 12,
+      "set": 1,
+      "questions": 36,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2017-12-2",
+      "exam": "cet6",
+      "title": "CET6 2017-12 Set 2",
+      "year": 2017,
+      "month": 12,
+      "set": 2,
+      "questions": 41,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2017-12-3",
+      "exam": "cet6",
+      "title": "CET6 2017-12 Set 3",
+      "year": 2017,
+      "month": 12,
+      "set": 3,
+      "questions": 19,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2017-6-1",
+      "exam": "cet6",
+      "title": "CET6 2017-06 Set 1",
+      "year": 2017,
+      "month": 6,
+      "set": 1,
+      "questions": 32,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2017-6-2",
+      "exam": "cet6",
+      "title": "CET6 2017-06 Set 2",
+      "year": 2017,
+      "month": 6,
+      "set": 2,
+      "questions": 26,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2017-6-3",
+      "exam": "cet6",
+      "title": "CET6 2017-06 Set 3",
+      "year": 2017,
+      "month": 6,
+      "set": 3,
+      "questions": 17,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2018-6-1",
+      "exam": "cet6",
+      "title": "CET6 2018-06 Set 1",
+      "year": 2018,
+      "month": 6,
+      "set": 1,
+      "questions": 38,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2018-6-2",
+      "exam": "cet6",
+      "title": "CET6 2018-06 Set 2",
+      "year": 2018,
+      "month": 6,
+      "set": 2,
+      "questions": 27,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    },
+    {
+      "id": "cet6-2018-6-3",
+      "exam": "cet6",
+      "title": "CET6 2018-06 Set 3",
+      "year": 2018,
+      "month": 6,
+      "set": 3,
+      "questions": 15,
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection"
+    }
+  ],
+  "sources": [
+    {
+      "source": "XixiGod7/kaoyan-english",
+      "papers": 28,
+      "latest": 2025,
+      "answerBearingQuestions": 34,
+      "answerSource": "TsekaLuk/Kaoyan-English1-Papers"
+    },
+    {
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection",
+      "papers": 59,
+      "latest": 2025,
+      "answerBearingQuestions": 426,
+      "answerSource": "Drhm1224/cet6-all-in-one"
+    },
+    {
+      "source": "ShepiTT/CET_practice_questions",
+      "papers": 23,
+      "latest": 2025,
+      "skippedEmpty": 0,
+      "unparsedPdfFiles": [],
+      "answerBearingQuestions": 1009,
+      "answerSource": "instance/cet4_v2.db"
+    },
+    {
+      "source": "kaoyansou.cn English API",
+      "papers": 143,
+      "latest": 2026,
+      "answerBearingQuestions": 6206,
+      "answerSource": "https://english.kaoyansou.cn/"
+    }
+  ],
+  "files": [
+    "apps/flutter_mobile/assets/exam-papers/cet4.json",
+    "apps/flutter_mobile/assets/exam-papers/cet6.json",
+    "apps/flutter_mobile/assets/exam-papers/kaoyan-english-1.json",
+    "apps/flutter_mobile/assets/exam-papers/kaoyan-english-2.json"
+  ]
+}

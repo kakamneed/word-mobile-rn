@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T13:09:30.398Z",
+  "sourcePolicy": "Imported from public GitHub repositories for local study data normalization; upstream exam-content rights remain unverified.",
+  "files": [
+    "apps/flutter_mobile/assets/exam-papers/cet4.json",
+    "apps/flutter_mobile/assets/exam-papers/cet6.json",
+    "apps/flutter_mobile/assets/exam-papers/kaoyan-english-1.json",
+    "apps/flutter_mobile/assets/exam-papers/kaoyan-english-2.json"
+  ],
+  "sources": [
+    {
+      "source": "XixiGod7/kaoyan-english",
+      "papers": 28,
+      "latest": 2025,
+      "answerBearingQuestions": 34,
+      "answerSource": "TsekaLuk/Kaoyan-English1-Papers"
+    },
+    {
+      "source": "AndrewYuZhenYu/cet6_exam_questions_txt_collection",
+      "papers": 59,
+      "latest": 2025,
+      "answerBearingQuestions": 426,
+      "answerSource": "Drhm1224/cet6-all-in-one"
+    },
+    {
+      "source": "ShepiTT/CET_practice_questions",
+      "papers": 23,
+      "latest": 2025,
+      "skippedEmpty": 0,
+      "unparsedPdfFiles": [],
+      "answerBearingQuestions": 1009,
+      "answerSource": "instance/cet4_v2.db"
+    },
+    {
+      "source": "kaoyansou.cn English API",
+      "papers": 143,
+      "latest": 2026,
+      "answerBearingQuestions": 6206,
+      "answerSource": "https://english.kaoyansou.cn/"
+    }
+  ],
+  "totalPapers": 149
+}

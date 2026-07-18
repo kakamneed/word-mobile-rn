@@ -81,6 +81,225 @@ void main() {
     expect(wordSkeletonDisplayForTest('e___ution', ''), 'e_ _ _ution');
   });
 
+  test('study submit gate rejects duplicate in-flight submissions', () {
+    expect(
+      shouldAcceptStudySubmitForTest(
+        submitting: false,
+        activeQuestionId: null,
+        questionId: 'q1',
+      ),
+      isTrue,
+    );
+    expect(
+      shouldAcceptStudySubmitForTest(
+        submitting: true,
+        activeQuestionId: 'q1',
+        questionId: 'q1',
+      ),
+      isFalse,
+    );
+    expect(
+      shouldAcceptStudySubmitForTest(
+        submitting: false,
+        activeQuestionId: 'q1',
+        questionId: 'q1',
+      ),
+      isFalse,
+    );
+  });
+
+  test('pending next question disables automatic page jump', () {
+    const pending = StudyQuestion(
+      questionId: 'q-pending',
+      questionType: 'enToCnChoice',
+      entrySourceId: 'debate',
+      word: 'debate',
+      prompt: 'debate',
+      partOfSpeech: 'n',
+      acceptedMeanings: ['debate'],
+      questionIndex: 2,
+      totalQuestions: 20,
+    );
+
+    expect(shouldAutoJumpToCurrentQuestionForTest(null), isTrue);
+    expect(shouldAutoJumpToCurrentQuestionForTest(pending), isFalse);
+  });
+
+  test(
+    'pending next question only activates after user-driven scroll settles',
+    () {
+      const current = StudyQuestion(
+        questionId: 'q-current',
+        questionType: 'enToCnChoice',
+        entrySourceId: 'current',
+        word: 'current',
+        prompt: 'current',
+        acceptedMeanings: ['current'],
+        questionIndex: 20,
+        totalQuestions: 28,
+      );
+      const pending = StudyQuestion(
+        questionId: 'q-pending',
+        questionType: 'enToCnChoice',
+        entrySourceId: 'pending',
+        word: 'pending',
+        prompt: 'pending',
+        acceptedMeanings: ['pending'],
+        questionIndex: 21,
+        totalQuestions: 28,
+      );
+      final answered = List.generate(
+        20,
+        (index) => AnsweredStudyQuestion(
+          question: StudyQuestion(
+            questionId: 'q$index',
+            questionType: 'enToCnChoice',
+            entrySourceId: 'word$index',
+            word: 'word$index',
+            prompt: 'word$index',
+            acceptedMeanings: const ['word'],
+            questionIndex: index,
+            totalQuestions: 28,
+          ),
+          result: StudyResult(
+            questionId: 'q$index',
+            entrySourceId: 'word$index',
+            questionType: 'enToCnChoice',
+            userResponse: 'A',
+            correctAnswer: 'A',
+            outcome: AnswerOutcome.correct,
+            responseTimeMs: 100,
+            answeredAt: '2026-07-17T00:00:00Z',
+          ),
+        ),
+      );
+
+      expect(
+        shouldActivateVisiblePendingQuestionForTest(
+          answeredQuestions: answered,
+          currentQuestion: current,
+          pendingNextQuestion: pending,
+          visiblePageIndex: 21,
+          userDrivenScroll: false,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldActivateVisiblePendingQuestionForTest(
+          answeredQuestions: answered,
+          currentQuestion: current,
+          pendingNextQuestion: pending,
+          visiblePageIndex: 20,
+          userDrivenScroll: true,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldActivateVisiblePendingQuestionForTest(
+          answeredQuestions: answered,
+          currentQuestion: current,
+          pendingNextQuestion: pending,
+          visiblePageIndex: 21,
+          userDrivenScroll: true,
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test('answered current question stays addressable before pending page', () {
+    const current = StudyQuestion(
+      questionId: 'q-current',
+      questionType: 'enToCnChoice',
+      entrySourceId: 'current',
+      word: 'current',
+      prompt: 'current',
+      acceptedMeanings: ['current'],
+      questionIndex: 20,
+      totalQuestions: 28,
+    );
+    const pending = StudyQuestion(
+      questionId: 'q-pending',
+      questionType: 'enToCnChoice',
+      entrySourceId: 'pending',
+      word: 'pending',
+      prompt: 'pending',
+      acceptedMeanings: ['pending'],
+      questionIndex: 21,
+      totalQuestions: 28,
+    );
+    final answered = List.generate(
+      20,
+      (index) => AnsweredStudyQuestion(
+        question: StudyQuestion(
+          questionId: 'q$index',
+          questionType: 'enToCnChoice',
+          entrySourceId: 'word$index',
+          word: 'word$index',
+          prompt: 'word$index',
+          acceptedMeanings: const ['word'],
+          questionIndex: index,
+          totalQuestions: 28,
+        ),
+        result: StudyResult(
+          questionId: 'q$index',
+          entrySourceId: 'word$index',
+          questionType: 'enToCnChoice',
+          userResponse: 'A',
+          correctAnswer: 'A',
+          outcome: AnswerOutcome.correct,
+          responseTimeMs: 100,
+          answeredAt: '2026-07-17T00:00:00Z',
+        ),
+      ),
+    );
+    final submittedCurrent = AnsweredStudyQuestion(
+      question: current,
+      result: const StudyResult(
+        questionId: 'q-current',
+        entrySourceId: 'current',
+        questionType: 'enToCnChoice',
+        userResponse: 'A',
+        correctAnswer: 'A',
+        outcome: AnswerOutcome.correct,
+        responseTimeMs: 100,
+        answeredAt: '2026-07-17T00:00:01Z',
+      ),
+    );
+
+    final feed = [...answered, submittedCurrent];
+
+    expect(
+      questionFeedIndexForTest(
+        answeredQuestions: feed,
+        currentQuestion: current,
+        pendingNextQuestion: pending,
+        questionId: 'q-current',
+      ),
+      20,
+    );
+    expect(
+      questionFeedIndexForTest(
+        answeredQuestions: feed,
+        currentQuestion: current,
+        pendingNextQuestion: pending,
+        questionId: 'q-pending',
+      ),
+      21,
+    );
+  });
+
+  test('study start skips plan weights for resume-fixed modes', () {
+    expect(modeUsesQuestionTypeWeightsForTest('newWord'), isFalse);
+    expect(modeUsesQuestionTypeWeightsForTest('rootAffix'), isFalse);
+    expect(modeUsesQuestionTypeWeightsForTest('review'), isTrue);
+    expect(modeUsesQuestionTypeWeightsForTest('mixedTest'), isTrue);
+    expect(
+      modeUsesQuestionTypeWeightsForTest('wrongWordReinforcement'),
+      isTrue,
+    );
+  });
+
   test(
     'choice display falls back to unique labels when bridge fields are sparse',
     () {
@@ -154,7 +373,13 @@ void main() {
       totalQuestions: 20,
       hasHint: false,
       hintSuggestions: [
-        WordHintSuggestion(id: 'h1', word: 'ambition', style: 'mnemonic', label: 'link', text: 'aim + ambition'),
+        WordHintSuggestion(
+          id: 'h1',
+          word: 'ambition',
+          style: 'mnemonic',
+          label: 'link',
+          text: 'aim + ambition',
+        ),
       ],
     );
     const withHint = StudyQuestion(
@@ -239,47 +464,65 @@ void main() {
       answeredAt: '2026-06-25T00:00:00Z',
     );
 
-    expect(inputCorrectAnswerTextForTest(result, question), '\u8fa9\u8bba\uff1b\u4e89\u8bba\uff1b\u8ba8\u8bba');
+    expect(
+      inputCorrectAnswerTextForTest(result, question),
+      '\u8fa9\u8bba\uff1b\u4e89\u8bba\uff1b\u8ba8\u8bba',
+    );
   });
-  test(
-    'wrong choice state marks correct option green and selected option red',
-    () {
-      const question = StudyQuestion(
-        questionId: 'q6',
-        questionType: 'enToCnChoice',
-        entrySourceId: 'coalition',
-        word: 'coalition',
-        prompt: 'coalition',
-      acceptedMeanings: ['\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'],
-        choices: [
-          {'label': 'A', 'text': '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf'},
-          {'label': 'B', 'text': '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'},
-          {'label': 'C', 'text': '\u87ba\u65cb\uff1b\u87ba\u65cb\u5f0f\u7684\u4e0a\u5347'},
-          {'label': 'D', 'text': '\u5931\u4e8b\u7684\u8239\uff0c\u6b8b\u9ab8\uff1b\u5931\u4e8b'},
-        ],
-        questionIndex: 2,
-        totalQuestions: 20,
-      );
-      const result = StudyResult(
-        questionId: 'q6',
-        entrySourceId: 'coalition',
-        questionType: 'enToCnChoice',
-        userResponse: 'A',
-        correctAnswer: '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
-        outcome: AnswerOutcome.incorrect,
-        responseTimeMs: 100,
-        answeredAt: '2026-05-12T00:00:00Z',
-      );
+  test('wrong choice state marks correct option green and selected option red', () {
+    const question = StudyQuestion(
+      questionId: 'q6',
+      questionType: 'enToCnChoice',
+      entrySourceId: 'coalition',
+      word: 'coalition',
+      prompt: 'coalition',
+      acceptedMeanings: [
+        '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
+      ],
+      choices: [
+        {
+          'label': 'A',
+          'text':
+              '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf',
+        },
+        {
+          'label': 'B',
+          'text':
+              '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
+        },
+        {
+          'label': 'C',
+          'text': '\u87ba\u65cb\uff1b\u87ba\u65cb\u5f0f\u7684\u4e0a\u5347',
+        },
+        {
+          'label': 'D',
+          'text':
+              '\u5931\u4e8b\u7684\u8239\uff0c\u6b8b\u9ab8\uff1b\u5931\u4e8b',
+        },
+      ],
+      questionIndex: 2,
+      totalQuestions: 20,
+    );
+    const result = StudyResult(
+      questionId: 'q6',
+      entrySourceId: 'coalition',
+      questionType: 'enToCnChoice',
+      userResponse: 'A',
+      correctAnswer:
+          '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
+      outcome: AnswerOutcome.incorrect,
+      responseTimeMs: 100,
+      answeredAt: '2026-05-12T00:00:00Z',
+    );
 
-      final a = choiceStateForTest(question, result, question.choices![0], 0);
-      final b = choiceStateForTest(question, result, question.choices![1], 1);
+    final a = choiceStateForTest(question, result, question.choices![0], 0);
+    final b = choiceStateForTest(question, result, question.choices![1], 1);
 
-      expect(a.isUserWrong, isTrue);
-      expect(a.isCorrect, isFalse);
-      expect(b.isCorrect, isTrue);
-      expect(b.isUserWrong, isFalse);
-    },
-  );
+    expect(a.isUserWrong, isTrue);
+    expect(a.isCorrect, isFalse);
+    expect(b.isCorrect, isTrue);
+    expect(b.isUserWrong, isFalse);
+  });
 
   test('wrong choice state also recognizes stored user response text', () {
     const question = StudyQuestion(
@@ -288,10 +531,20 @@ void main() {
       entrySourceId: 'coalition',
       word: 'coalition',
       prompt: 'coalition',
-      acceptedMeanings: ['\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'],
+      acceptedMeanings: [
+        '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
+      ],
       choices: [
-          {'label': 'A', 'text': '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf'},
-          {'label': 'B', 'text': '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408'},
+        {
+          'label': 'A',
+          'text':
+              '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf',
+        },
+        {
+          'label': 'B',
+          'text':
+              '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
+        },
       ],
       questionIndex: 2,
       totalQuestions: 20,
@@ -300,8 +553,10 @@ void main() {
       questionId: 'q7',
       entrySourceId: 'coalition',
       questionType: 'enToCnChoice',
-      userResponse: '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf',
-      correctAnswer: '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
+      userResponse:
+          '\u6293\uff0c\u6414\uff1b\u6293\u75d5\uff1b\u8d77\u8dd1\u7ebf',
+      correctAnswer:
+          '\u7ed3\u5408\u4f53\uff0c\u540c\u76df\uff1b\u7ed3\u5408\uff0c\u8054\u5408',
       outcome: AnswerOutcome.incorrect,
       responseTimeMs: 100,
       answeredAt: '2026-05-12T00:00:00Z',
@@ -325,8 +580,16 @@ void main() {
         prompt: 'famine',
         acceptedMeanings: ['\u9965\u8352\uff0c\u9965\u9991'],
         choices: [
-          {'label': 'A', 'text': '\u59ff\u52bf\uff0c\u4f53\u6001\uff1b\u770b\u6cd5\uff0c\u6001\u5ea6'},
-          {'label': 'B', 'text': '\u60f3\u8c61\uff0c\u5e7b\u60f3\uff1b\u5e7b\u60f3\u7684\u4ea7\u7269'},
+          {
+            'label': 'A',
+            'text':
+                '\u59ff\u52bf\uff0c\u4f53\u6001\uff1b\u770b\u6cd5\uff0c\u6001\u5ea6',
+          },
+          {
+            'label': 'B',
+            'text':
+                '\u60f3\u8c61\uff0c\u5e7b\u60f3\uff1b\u5e7b\u60f3\u7684\u4ea7\u7269',
+          },
           {'label': 'C', 'text': '\u9965\u8352\uff0c\u9965\u9991'},
           {'label': 'D', 'text': '\u804c\u4e1a\uff0c\u884c\u4e1a'},
         ],
@@ -367,45 +630,55 @@ void main() {
     },
   );
 
-  test(
-    'choice state uses the unique correct label instead of broad meanings',
-    () {
-      const question = StudyQuestion(
-        questionId: 'q9',
-        questionType: 'enToCnChoice',
-        entrySourceId: 'gesture',
-        word: 'gesture',
-        prompt: 'gesture',
-        acceptedMeanings: ['\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f', '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'],
-        choices: [
-          {'label': 'A', 'text': '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f'},
-          {'label': 'B', 'text': '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'},
-          {'label': 'C', 'text': '\u6982\u8ff0\uff1b\u7b80\u8ff0\uff1b\u52fe\u753b'},
-        ],
-        correctChoiceLabel: 'B',
-        questionIndex: 14,
-        totalQuestions: 28,
-      );
-      const result = StudyResult(
-        questionId: 'q9',
-        entrySourceId: 'gesture',
-        questionType: 'enToCnChoice',
-        userResponse: 'A',
-        correctAnswer: '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
-        outcome: AnswerOutcome.incorrect,
-        responseTimeMs: 100,
-        answeredAt: '2026-05-12T00:00:00Z',
-      );
+  test('choice state uses the unique correct label instead of broad meanings', () {
+    const question = StudyQuestion(
+      questionId: 'q9',
+      questionType: 'enToCnChoice',
+      entrySourceId: 'gesture',
+      word: 'gesture',
+      prompt: 'gesture',
+      acceptedMeanings: [
+        '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f',
+        '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
+      ],
+      choices: [
+        {
+          'label': 'A',
+          'text':
+              '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f',
+        },
+        {
+          'label': 'B',
+          'text': '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
+        },
+        {
+          'label': 'C',
+          'text': '\u6982\u8ff0\uff1b\u7b80\u8ff0\uff1b\u52fe\u753b',
+        },
+      ],
+      correctChoiceLabel: 'B',
+      questionIndex: 14,
+      totalQuestions: 28,
+    );
+    const result = StudyResult(
+      questionId: 'q9',
+      entrySourceId: 'gesture',
+      questionType: 'enToCnChoice',
+      userResponse: 'A',
+      correctAnswer: '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
+      outcome: AnswerOutcome.incorrect,
+      responseTimeMs: 100,
+      answeredAt: '2026-05-12T00:00:00Z',
+    );
 
-      final a = choiceStateForTest(question, result, question.choices![0], 0);
-      final b = choiceStateForTest(question, result, question.choices![1], 1);
+    final a = choiceStateForTest(question, result, question.choices![0], 0);
+    final b = choiceStateForTest(question, result, question.choices![1], 1);
 
-      expect(a.isCorrect, isFalse);
-      expect(a.isUserWrong, isTrue);
-      expect(b.isCorrect, isTrue);
-      expect(b.isUserWrong, isFalse);
-    },
-  );
+    expect(a.isCorrect, isFalse);
+    expect(a.isUserWrong, isTrue);
+    expect(b.isCorrect, isTrue);
+    expect(b.isUserWrong, isFalse);
+  });
 
   test('choice state uses result text when a stale label points at A', () {
     const question = StudyQuestion(
@@ -414,10 +687,19 @@ void main() {
       entrySourceId: 'gesture',
       word: 'gesture',
       prompt: 'gesture',
-      acceptedMeanings: ['\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'],
+      acceptedMeanings: [
+        '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
+      ],
       choices: [
-        {'label': 'A', 'text': '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f'},
-        {'label': 'B', 'text': '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f'},
+        {
+          'label': 'A',
+          'text':
+              '\u53d6\u6d88\uff1b\u5220\u53bb\uff1b\u5212\u6389\uff1b\u628a...\u4f5c\u5e9f',
+        },
+        {
+          'label': 'B',
+          'text': '\u505a\u624b\u52bf\uff1b\u7528\u52a8\u4f5c\u793a\u610f',
+        },
       ],
       correctChoiceLabel: 'A',
       questionIndex: 14,

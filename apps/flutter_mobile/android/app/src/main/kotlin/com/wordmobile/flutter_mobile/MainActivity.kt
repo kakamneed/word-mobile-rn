@@ -247,6 +247,67 @@ class MainActivity : FlutterActivity() {
                                 RustBridge.getWrongWordGraph()
                             }
                         }
+                        "getExamCatalog" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getExamCatalog()
+                            }
+                        }
+                        "getExamPaper" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getExamPaper(call.arguments as? String ?: "")
+                            }
+                        }
+                        "analyzeExamPaperImport" -> {
+                            runBridgeCall(result) {
+                                RustBridge.analyzeExamPaperImport(call.arguments as? String ?: "")
+                            }
+                        }
+                        "saveUserExamPaper" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveUserExamPaper(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getExamVocabularyPriority" -> {
+                            runBridgeCall(result) { RustBridge.getExamVocabularyPriority() }
+                        }
+                        "getExamPracticeReport" -> {
+                            runBridgeCall(result) { RustBridge.getExamPracticeReport() }
+                        }
+                        "analyzeExamQuestionVocabulary" -> {
+                            runBridgeCall(result) {
+                                RustBridge.analyzeExamQuestionVocabulary(call.arguments as? String ?: "")
+                            }
+                        }
+                        "saveExamAttempt" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveExamAttempt(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getExamAttempt" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getExamAttempt(call.arguments as? String ?: "")
+                            }
+                        }
+                        "tokenizeExamText" -> {
+                            runBridgeCall(result) {
+                                RustBridge.tokenizeExamText(call.arguments as? String ?: "")
+                            }
+                        }
+                        "inspectExamWord" -> {
+                            runBridgeCall(result) {
+                                RustBridge.inspectExamWord(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getExamAnnotationState" -> {
+                            runBridgeCall(result) {
+                                RustBridge.getExamAnnotationState(call.arguments as? String ?: "")
+                            }
+                        }
+                        "saveExamAnnotation" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveExamAnnotation(call.arguments as? String ?: "")
+                            }
+                        }
                         "saveWrongWordGraphPosition" -> {
                             runBridgeCall(result) {
                                 RustBridge.saveWrongWordGraphPosition(call.arguments as? String ?: "")

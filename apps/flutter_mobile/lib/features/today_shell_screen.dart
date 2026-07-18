@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -12,6 +13,7 @@ import '../supabase/supabase_config.dart';
 import '../widgets/crocodile_frame_animation.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
+import 'exam_practice_screen.dart';
 import 'plan_screen.dart';
 import 'reports_screen.dart';
 import 'shell_page_data_cache.dart';
@@ -60,6 +62,7 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
   bool _secondaryLoading = false;
   bool _aiGenerating = false;
   String? _aiMessage;
+  TodayLearningContent _learningContent = TodayLearningContent.words;
 
   @override
   void initState() {
@@ -90,7 +93,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     );
   }
 
-  Future<void> _refreshHomeBundle({bool showFullLoading = false, bool forceRefresh = false}) async {
+  Future<void> _refreshHomeBundle({
+    bool showFullLoading = false,
+    bool forceRefresh = false,
+  }) async {
     final generation = ++_loadGeneration;
     final previousBundle = _cachedBundle;
     if (showFullLoading && mounted && previousBundle == null) {
@@ -105,21 +111,21 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     }
 
     final todayFuture =
-        widget.dataCache?.loadToday(refresh: showFullLoading || forceRefresh) ??
+        widget.dataCache?.loadToday(refresh: forceRefresh) ??
         widget.appState.sdk.today.getTodayHomeState();
     final activePlanFuture = _optionalLoad(
       () =>
-          widget.dataCache?.loadActivePlan(refresh: showFullLoading || forceRefresh) ??
+          widget.dataCache?.loadActivePlan(refresh: forceRefresh) ??
           widget.appState.sdk.plan.getActivePlan(),
     );
     final aiContextFuture = _optionalLoad(
       () =>
-          widget.dataCache?.loadTodayAiContext(refresh: showFullLoading || forceRefresh) ??
+          widget.dataCache?.loadTodayAiContext(refresh: forceRefresh) ??
           widget.appState.sdk.ai.getTodayAiPassageContext(),
     );
     final aiHistoryFuture = _optionalLoad(
       () =>
-          widget.dataCache?.loadAiHistory(refresh: showFullLoading || forceRefresh) ??
+          widget.dataCache?.loadAiHistory(refresh: forceRefresh) ??
           widget.appState.sdk.ai.getAiPassageHistory(),
       fallback: const <AiPassageHistoryItem>[],
     );
@@ -150,8 +156,40 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
       widget.dataCache?.preload(ShellPageDataScope.plan);
       widget.dataCache?.preload(ShellPageDataScope.ai);
 
-      final activePlan =
-          _activePlanFromToday(today) ?? await activePlanFuture;
+      unawaited(
+        _hydrateSecondaryHomeBundle(
+          generation: generation,
+          today: today,
+          activePlanFuture: activePlanFuture,
+          aiContextFuture: aiContextFuture,
+          aiHistoryFuture: aiHistoryFuture,
+          rewardStateFuture: rewardStateFuture,
+          announcementsFuture: announcementsFuture,
+          syncStatusFuture: syncStatusFuture,
+        ),
+      );
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _loadError = error;
+        _loading = false;
+        _secondaryLoading = false;
+      });
+    }
+  }
+
+  Future<void> _hydrateSecondaryHomeBundle({
+    required int generation,
+    required TodayHomeState today,
+    required Future<PlanSummary?> activePlanFuture,
+    required Future<TodayAiPassageContext?> aiContextFuture,
+    required Future<List<AiPassageHistoryItem>?> aiHistoryFuture,
+    required Future<TodayRewardState?> rewardStateFuture,
+    required Future<List<CloudAnnouncement>?> announcementsFuture,
+    required Future<SyncStatus?> syncStatusFuture,
+  }) async {
+    try {
+      final activePlan = _activePlanFromToday(today) ?? await activePlanFuture;
       final aiContext = await aiContextFuture;
       final aiHistory = await aiHistoryFuture ?? const <AiPassageHistoryItem>[];
       final rewardState = await rewardStateFuture;
@@ -175,11 +213,9 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
         _loading = false;
         _secondaryLoading = false;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
-        _loadError = error;
-        _loading = false;
         _secondaryLoading = false;
       });
     }
@@ -403,7 +439,20 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('今日'),
+        title: Row(
+          children: [
+            const Text('今日'),
+            const SizedBox(width: 12),
+            Flexible(
+              child: TodayLearningModeSelector(
+                selected: _learningContent,
+                onChanged: (value) {
+                  setState(() => _learningContent = value);
+                },
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             onPressed: () => widget.appState.retryInitialize(),
@@ -417,6 +466,9 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
+    if (_learningContent == TodayLearningContent.practice) {
+      return ExamPracticeHome(sdk: widget.appState.sdk);
+    }
     final cachedBundle = _cachedBundle;
     if (cachedBundle == null) {
       if (_loading) {

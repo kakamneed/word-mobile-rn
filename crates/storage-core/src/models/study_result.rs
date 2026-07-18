@@ -86,27 +86,48 @@ pub struct SessionSummary {
 impl SessionSummary {
     /// Compute a SessionSummary from a list of results.
     pub fn from_results(session_id: &str, results: &[StudyResult], completed_at: &str) -> Self {
-        let total_questions = results.len() as u32;
-        let correct_count = results
+        Self::from_results_with_total(session_id, results, results.len() as u32, completed_at)
+    }
+
+    /// Compute a SessionSummary using the session question-plan total.
+    ///
+    /// Results are deduped by question_id and capped to the expected question
+    /// count so duplicate submits or stale restored results cannot produce
+    /// summaries such as 34 answered out of a 33-question session.
+    pub fn from_results_with_total(
+        session_id: &str,
+        results: &[StudyResult],
+        expected_total_questions: u32,
+        completed_at: &str,
+    ) -> Self {
+        let mut seen_questions: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        let max_results = expected_total_questions as usize;
+        let summarized_results = results
+            .iter()
+            .filter(|result| seen_questions.insert(result.question_id.as_str()))
+            .take(max_results)
+            .collect::<Vec<_>>();
+        let total_questions = expected_total_questions;
+        let correct_count = summarized_results
             .iter()
             .filter(|r| r.outcome == AnswerOutcome::Correct)
             .count() as u32;
-        let fuzzy_correct_count = results
+        let fuzzy_correct_count = summarized_results
             .iter()
             .filter(|r| r.outcome == AnswerOutcome::FuzzyCorrect)
             .count() as u32;
-        let incorrect_count = results
+        let incorrect_count = summarized_results
             .iter()
             .filter(|r| r.outcome == AnswerOutcome::Incorrect)
             .count() as u32;
-        let skipped_count = results
+        let skipped_count = summarized_results
             .iter()
             .filter(|r| r.outcome == AnswerOutcome::Skipped)
             .count() as u32;
 
         let total_words = {
             let mut words: std::collections::HashSet<String> = std::collections::HashSet::new();
-            for r in results {
+            for r in &summarized_results {
                 words.insert(r.entry_source_id.clone());
             }
             words.len() as u32
@@ -115,7 +136,7 @@ impl SessionSummary {
         let wrong_word_count = {
             let mut wrong_words: std::collections::HashSet<String> =
                 std::collections::HashSet::new();
-            for r in results {
+            for r in &summarized_results {
                 if r.outcome.enters_wrong_pool() {
                     wrong_words.insert(r.entry_source_id.clone());
                 }
@@ -130,7 +151,7 @@ impl SessionSummary {
             0.0
         };
 
-        let total_time_ms: u64 = results.iter().map(|r| r.response_time_ms).sum();
+        let total_time_ms: u64 = summarized_results.iter().map(|r| r.response_time_ms).sum();
 
         SessionSummary {
             session_id: session_id.to_string(),
@@ -145,5 +166,46 @@ impl SessionSummary {
             total_time_ms,
             completed_at: completed_at.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result(question_id: &str, entry_source_id: &str, outcome: AnswerOutcome) -> StudyResult {
+        StudyResult {
+            question_id: question_id.to_string(),
+            entry_source_id: entry_source_id.to_string(),
+            question_type: QuestionType::EnToCnChoice,
+            user_response: "A".to_string(),
+            normalized_response: Some("a".to_string()),
+            correct_answer: "meaning".to_string(),
+            outcome,
+            response_time_ms: 100,
+            answered_at: "2026-07-15T00:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn summary_uses_question_plan_total_and_dedupes_extra_results() {
+        let mut results = (0..33)
+            .map(|index| {
+                result(
+                    &format!("q{index}"),
+                    &format!("entry{index}"),
+                    AnswerOutcome::Correct,
+                )
+            })
+            .collect::<Vec<_>>();
+        results.push(result("q0", "entry0", AnswerOutcome::Correct));
+
+        let summary =
+            SessionSummary::from_results_with_total("s1", &results, 33, "2026-07-15T00:00:01Z");
+
+        assert_eq!(summary.total_questions, 33);
+        assert_eq!(summary.correct_count, 33);
+        assert_eq!(summary.accuracy_percent, 100.0);
+        assert_eq!(summary.total_time_ms, 3300);
     }
 }

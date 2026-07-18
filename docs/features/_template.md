@@ -44,7 +44,9 @@ Prompts, tools, provider routing, model fallbacks, latency, token limits, and fa
 
 ## Implementation Log
 
-- `YYYY-MM-DD`: Initial note.
+- `YYYY-MM-DD` - Modification points: Files, contracts, behavior, UX, routes, or plans changed this turn.
+- `YYYY-MM-DD` - Problems encountered: Symptom, cause when known, workaround or resolution, and remaining risk. Omit when no problem occurred.
+- `YYYY-MM-DD` - Baseline reconciliation: Historical worktree changes mapped to this capability. State provenance limits and never imply unrun verification passed.
 
 ## Mobile Lessons Learned
 
@@ -60,10 +62,10 @@ Document changes to scope, architecture, contracts, or UX.
 
 ## Known Pitfalls
 
-Things future agents should avoid.
+Things future agents should avoid. Include failed approaches, platform-specific traps, unresolved blockers, and assumptions that still need verification.
 
 ## Verification
 
-- Mobile:
-- Desktop:
-- Shared/domain:
+- Mobile: Command or focused check and observed result. Write `not run` with the reason when applicable.
+- Desktop: Command or focused check and observed result. Write `not run` with the reason when applicable.
+- Shared/domain: Command or focused check and observed result. Write `not run` with the reason when applicable.

@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-07-16T14:21:17.907Z",
+  "source": "worktree-runtime",
+  "books": {
+    "CET4_3.json": {
+      "entries": 2607,
+      "problemWords": 0,
+      "conflictingChoices": 0
+    },
+    "CET6_3.json": {
+      "entries": 2345,
+      "problemWords": 0,
+      "conflictingChoices": 0
+    },
+    "KaoYan_3.json": {
+      "entries": 3728,
+      "problemWords": 0,
+      "conflictingChoices": 0
+    },
+    "MEDICAL_RESP.json": {
+      "entries": 2857,
+      "problemWords": 0,
+      "conflictingChoices": 0
+    }
+  },
+  "totalEntries": 11537,
+  "totalProblemWords": 0,
+  "totalConflictingChoices": 0,
+  "findings": []
+}

@@ -2,7 +2,7 @@
 
 > Slug: `word-library`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-07-16`
 
 ## Product Intent
 
@@ -35,6 +35,8 @@ Shared Rust/domain/storage contracts:
   - `en_choice_distractors_json TEXT NOT NULL DEFAULT '[]'`
   - `updated_at TEXT`
 - Seed vocabulary maintenance rebuilds question preps after import or maintenance. Candidate generation should prefer same wordbook + same part of speech, exclude the target entry, skip duplicate/identical meaning keys, cap each side around seven candidates, and serialize the result into `entry_question_preps`.
+- Seed vocabulary entries may include `content.word.content.realExamSentence.sentences[]` generated from bundled exam-paper assets. Each item uses `sContent` for the original English exam sentence, `sCn` for a human-readable exam source label, and `source` for stable provenance such as exam, paper, section, question, and choice identifiers.
+- Real-exam example enrichment must not cross exam families: CET4 books only use `cet4`, CET6 books only use `cet6`, Kaoyan books only use `kaoyan-english-1/2`, and medical books remain empty until a medical exam corpus exists.
 - Runtime question construction uses precomputed pools first. If a payload has enough required distractors for the current question types, mobile should avoid loading the old 96-entry global fallback pool.
 - Fallback global distractors remain a compatibility path for older DBs, incomplete preps, user-imported words, or sparse wordbooks.
 - User-accepted disputed meanings are user data, not seed vocabulary, but must merge into entry payloads so accepted answers remain visible in later study, wrong words, and detail pages.
@@ -106,6 +108,22 @@ Wrong-word image/text import can add candidate words, but imported user words ma
 - `2026-06-25`: Updated `QuestionBuilder` to consume precomputed distractors first, then fall back to same-POS/global distractor pools only when needed.
 - `2026-06-25`: Updated mobile bridge hydration so sessions skip global 96-entry distractor loading when selected payloads already contain enough required precomputed candidates.
 - `2026-06-25`: Added targeted tests for precomputed distractor usage and same-wordbook/same-POS prep generation.
+- `2026-07-15` - Baseline reconciliation: Added seed-vocabulary distractor repair and audit tooling for CET4, CET6, Kaoyan, and medical books. The contract requires seven aligned CN/EN/source distractors, strict same-POS selection, and no semantic overlap with the target or sibling options.
+- `2026-07-15` - Baseline reconciliation: Regenerated the four seed books with versioned question-prep metadata and emitted repair/audit reports. The working tree proves the data changed but not who ran the repair or whether the original conflict set was preserved.
+- `2026-07-15` - Problems encountered: Same part of speech is insufficient for valid distractors; synonyms, overlapping gloss fragments, duplicate source shapes, and semantically equivalent sibling options can still make multiple answers appear correct.
+- `2026-07-15` - Modification points: Added `scripts/repair-seed-vocab-choice-conflicts-strict.mjs` and regenerated CET4, CET6, Kaoyan, and medical seed vocab question preps with stricter semantic filtering. The stricter pass rejects same/contained meaning keys, token containment, Han n-gram overlap, rare Han-character overlap, option-vs-option semantic conflicts, and small-POS sparse pools; medical CT/MRI-like phrase entries are normalized so noun targets do not receive adjective-only distractors.
+- `2026-07-15` - Modification points: Enriched CET4, CET6, Kaoyan, and medical seed vocab books with real-exam examples matched from bundled CET/Kaoyan paper assets via `scripts/enrich-seed-vocab-real-exam-examples.mjs`; added `scripts/check-seed-vocab-real-exam-examples.mjs` and `docs/seed-vocab-real-exam-examples-report.json`.
+- `2026-07-15` - Problems encountered: A naive sentence-by-entry regex scan timed out. The matcher now builds an inverted index of headword forms and inflections before scanning passage/stem/choice sentence tokens.
+- `2026-07-15` - Modification points: Tightened real-exam example enrichment so each wordbook only consumes its own exam-family corpus. This removed cross-family examples such as Kaoyan entries using CET sentences and cleared medical examples until a medical source corpus is available.
+- `2026-07-16` - Diagnosis: `KaoYan_3.json` still contains abbreviation-like headwords such as `a.` and `vs.`. These are vocabulary data-quality issues: they can carry legitimate-looking meanings and distractors, but they should not enter normal Study target selection.
+- `2026-07-16` - Diagnosis: The `1.0.2+3` APK contains the four raw seed books without precomputed choice distractors. On first-run maintenance, `rebuild_seed_question_preps` ranks same-book/same-POS candidates by `Reverse(seed_text_overlap_score)`, so meanings with the greatest textual overlap are selected first. This reproduces the reported `curb`, `displace`, `insert`, and `oven` choices and is the direct cause of ambiguous answers in that APK/runtime path.
+- `2026-07-16` - Modification points: Added `scripts/list-seed-vocab-choice-conflicts.mjs` and focused Node tests. The inventory can audit Git `HEAD`, the current worktree, or reproduce APK runtime ranking directly from an APK without mutating seed data.
+- `2026-07-16` - Inventory result: The `1.0.2+3` APK runtime simulation scanned 11,537 entries and found 7,875 book-entry rows (5,655 distinct normalized headwords) with 26,550 conflicting prepared choices. Directly auditing the current strict-repair JSON fields finds zero conflicts, but the current startup maintenance still overwrites those fields through `rebuild_seed_question_preps`; simulating that current runtime path finds 7,907 book-entry rows (5,663 distinct normalized headwords) with 26,634 conflicting choices.
+- `2026-07-16` - Modification points: `crates/platform-mobile/src/bridge.rs` now uses maintenance key `seed_vocabulary_maintenance_v5_safe_question_preps`, runs the legacy generator only as a compatibility fallback, and then reapplies the audited bundle `cnChoiceDistractors` / `enChoiceDistractors` for all four seed books. Existing v4 databases therefore replace stale ambiguous `entry_question_preps` on their next Today startup, while fresh imports preserve the same audited candidates after import.
+- `2026-07-16` - Modification points: `ensure_seed_vocabulary_available_for_today` no longer returns merely because entries exist. It enters the maintenance-key guarded import path so existing installations receive v5 once; subsequent Today loads still return immediately after reading the completed v5 marker.
+- `2026-07-16` - Modification points: `scripts/list-seed-vocab-choice-conflicts.mjs` now models the effective runtime contract: complete bundled precomputed choices are retained, while the old overlap-ranked generator is used only for entries without at least three precomputed CN and EN candidates.
+- `2026-07-16` - Result: The effective current runtime inventory now scans all 11,537 entries with zero problem words and zero conflicting choices. The strict audit also reports zero target-CN, target-EN, sibling-option, source-shape, source-count, and POS conflicts in every book.
+- `2026-07-16` - Problems encountered: The first parallel full platform test attempt failed at Windows link time with `LNK1104` because the test executable could not be overwritten. No residual test process was present; rerunning the platform suite alone succeeded with all 39 tests, so no product failure was hidden or skipped.
 
 ## Mobile Lessons Learned
 
@@ -115,6 +133,9 @@ Wrong-word image/text import can add candidate words, but imported user words ma
 - High randomness and “no repeats in one round” are compatible if the wordbook stores a larger candidate list, and the runtime samples a subset while tracking used distractors.
 - Root/affix extraction from arbitrary mnemonic text is risky. Shared substrings are not necessarily roots; relevance must be semantic, not only string-based.
 - Medical English wordbooks may be phrase-heavy. Root/affix mode needs explicit availability checks and graceful empty-state/fallback behavior.
+- Keep source word, source meaning, POS, and book aligned by distractor index so audits can explain and reproduce every option.
+- Same POS is only a first-pass filter. Distractor repair must also reject near-synonyms and overlapping Chinese fragments, otherwise users can still see multiple visually correct options.
+- Real exam examples should live in the existing `realExamSentence` field because the mobile bridge already imports that field into `entry_examples`; adding a parallel field would not affect study questions without more runtime work.
 
 ## Desktop Follow-Up Notes
 
@@ -140,12 +161,40 @@ Desktop should turn these mobile lessons into tooling, not just parity:
 - Do not use root/affix cards from arbitrary shared substrings unless examples actually support the meaning.
 - Do not let mobile-only truncation hide long or duplicated glosses; clean and shorten source payloads.
 - Do not sync generated seed caches as if they were user data.
+- Do not treat a zero-conflict generated report as proof of coverage unless every required book, entry, and seven-option source tuple was audited.
+- Do not write raw exam text into seed vocabulary without cleaning Unicode replacement characters; `check-seed-vocab-question-preps` treats `\uFFFD` as a blocking data-quality failure.
+- Do not improve coverage by borrowing examples from another exam family; source relevance is part of the wordbook contract, so lower coverage is preferable to misleading provenance.
+- Do not extend the older corrupted repair script for stricter semantic repair; use the strict repair path and keep punctuation/tokenization rules in ASCII or Unicode escapes to avoid Windows encoding damage.
+- Do not count a seed entry as study-ready just because it has a headword and Chinese meaning. Headword token quality must reject dotted abbreviations and single-letter tokens before study payloads are built.
+- Do not rank distractors by descending Chinese meaning overlap. That strategy systematically chooses synonyms, contained meanings, and identical answer components, making multiple options defensible.
+- Do not use a post-repair zero report to describe what an installed older APK generates. Audit the APK's raw books through the runtime prep algorithm, because installed SQLite question preps may predate current seed JSON fields.
+- Before maintenance v5, repaired seed `cnChoiceDistractors` did not survive startup because `rebuild_seed_question_preps` overwrote them. Preserve the v5 ordering and regression test.
+- A maintenance fix must change the maintenance key. Reusing v4 would leave existing installations marked complete and preserve their old ambiguous SQLite preps.
+- Bundle precomputed candidates must be applied after fallback generation. Applying them before `rebuild_seed_question_preps` silently recreates the original ambiguity bug.
 
 ## Verification
 
+- Choice conflict inventory: `node --test scripts\list-seed-vocab-choice-conflicts.test.mjs` passed 3 tests on 2026-07-16, covering the four reported ambiguity patterns, false-positive guards, and runtime overlap ranking.
+- Current runtime inventory: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=worktree-runtime` scanned 11,537 entries on 2026-07-16 and reported 7,907 problem rows / 26,634 conflicting choices across all four books.
+- APK runtime inventory: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=apk-runtime --apk=releases/word-mobile-1.0.2+3.apk` scanned 11,537 entries on 2026-07-16 and reported 7,875 problem rows / 26,550 conflicting choices across all four books.
+- Git baseline inventory: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=head` scanned 11,537 entries on 2026-07-16 and reported 5,089 problem rows / 17,446 conflicting choices.
+- Current static-field inventory: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=worktree` scanned 11,537 entries on 2026-07-16 and reported zero conflicts.
+- Effective runtime inventory after v5 fix: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=worktree-runtime` scanned all 11,537 entries on 2026-07-16 and reported `problemWords=0` and `conflictingChoices=0` for CET4, CET6, Kaoyan, and medical books.
+- Strict seed audit after v5 fix: `node scripts\audit-seed-vocab-choice-conflicts.mjs` passed on 2026-07-16 with zero target-CN, target-EN, sibling-option, missing-source, source-shape, and POS conflicts across all 11,537 entries.
+- Runtime inventory tests: `node --test scripts\list-seed-vocab-choice-conflicts.test.mjs` passed all 4 tests on 2026-07-16, including preservation of complete bundled safe candidates.
+- Platform regression: `cargo test -p word-platform-mobile --lib -- --test-threads=1` passed all 39 tests on 2026-07-16, including `seed_maintenance_replaces_existing_generated_preps_with_bundled_safe_preps`.
+- Formatting: `rustfmt --edition 2021 --check crates\platform-mobile\src\bridge.rs` passed on 2026-07-16.
+- Compilation: `cargo check -p word-platform-mobile` passed on 2026-07-16 with four pre-existing dead-code warnings in the dirty worktree.
+- Final report assertion: parsed `docs/seed-vocab-choice-conflict-inventory-worktree-runtime.json` and `docs/seed-vocab-choice-conflicts-report.json`; confirmed 11,537 runtime entries, zero problem words, zero conflicting choices, and zero non-entry audit counters.
+
+- Seed audit: `node scripts\audit-seed-vocab-choice-conflicts.mjs` passed on 2026-07-15 with zero target-CN, target-EN, internal-option, missing-source, source-shape, or POS conflicts across 2,607 CET4, 2,345 CET6, 3,728 Kaoyan, and 2,857 medical entries.
+- Strict repair: `node scripts\repair-seed-vocab-choice-conflicts-strict.mjs` passed on 2026-07-15 and rebuilt 11,537 entries across the four bundled seed books with `incomplete=0`.
+- Strict audit: `node scripts\audit-seed-vocab-choice-conflicts.mjs` passed again on 2026-07-15 after the strict repair with zero target-CN, target-EN, internal-option, missing-source, source-shape, or POS conflicts.
+- Real exam example audit: `node scripts\check-seed-vocab-real-exam-examples.mjs` passed on 2026-07-15 with source-family isolation. Coverage is CET4 `2066/2607` with `10,744` examples from `cet4`, CET6 `1808/2345` with `8,896` examples from `cet6`, Kaoyan `2697/3728` with `11,894` examples from `kaoyan-english-1/2`, and medical `0/2857` with no examples because no medical exam corpus is bundled. `crossExam=0` for every book.
 - Mobile: targeted Rust bridge tests pass for same-wordbook/same-POS question prep generation.
 - Desktop: pending; first parity should verify desktop can inspect the same payload fields without reimplementing quiz generation.
 - Shared/domain:
+  - `node -e ...` JSON inspection on 2026-07-16 found `KaoYan_3.json` top-level abbreviation-like entries `resumé`, `vs.`, and `a.`; `resumé` is valid, while `vs.` and `a.` are not normal study targets.
   - `cargo fmt`
   - `cargo test -p word-study-core precomputed_wordbook_distractors`
   - `cargo test -p word-platform-mobile question_preps_are_generated_from_same_wordbook_and_part_of_speech`

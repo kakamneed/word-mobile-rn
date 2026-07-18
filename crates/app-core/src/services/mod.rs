@@ -4,5 +4,6 @@
 //! `platform-mobile/bridge.rs`. Moving them here makes them testable
 //! without depending on the cdylib bridge.
 
+pub mod exam_practice_service;
 pub mod reports_service;
 pub mod wrong_words_service;

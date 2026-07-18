@@ -2,7 +2,7 @@
 
 > Slug: `wrong-words-page`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-07-17`
 
 ## Product Intent
 
@@ -32,6 +32,7 @@ The page should make wrong answers actionable:
   - return button to scroll back to the selected card
 - Ordinary wrong words and wrong root/affix items are displayed in separate sections.
 - Root/affix wrong items must show their examples and meanings by resolving the original virtual card data.
+- The page has `单词学习 / 模拟练习` modes. Practice mode reads only exercise vocabulary marks, orders by red-plus-yellow count descending, and uses red count as the first tie-breaker; study answer error counts do not affect that order.
 
 ## Shared Domain/Data Contract
 
@@ -40,6 +41,7 @@ Primary read contracts:
 - Flutter SDK: `WrongWordsClient.getWrongWords(filter)`
 - Flutter SDK: `WrongWordsClient.getWrongWordDetail(entryId)`
 - Bridge methods: `getWrongWords`, `getWrongWordDetail`
+- Practice-mode SDK source: `ExamPracticeClient.getVocabularyPriority()`; visible rows require `wrongAssociationCount + unknownMarkCount > 0`.
 - Rust domain service: `word_app_core::services::wrong_words_service::build_wrong_words`
 - Mobile bridge loaders: `load_wrong_word_entries`, `load_wrong_word_detail_payload_with_bundle`
 
@@ -131,6 +133,7 @@ Contract rules:
   - return button scrolls back to the selected card
 - First implementation slice: list, filters, inline detail, reinforcement entry.
 - Current status: mobile implemented and actively corrected from user screenshots.
+- Practice mode is a compact local list with red/yellow totals and no reinforcement action; word-study filters, detail, hints, and reinforcement remain isolated in word mode.
 
 Flutter presentation rules:
 
@@ -201,6 +204,8 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - `2026-05-01`: User requested ordinary wrong words and wrong root/affix items be separated. Added `entryKind` and split mobile sections.
 - `2026-05-01`: User reported root/affix wrong items lacked examples and meanings. Bridge enrichment now resolves root/affix assets by `sourceEntryKey`.
 - `2026-06-25`: Ledger created from conversation history using `cross-platform-feature-ledger`.
+- `2026-07-17`: Added the page-level learning-content selector and a separate simulated-practice list. `sortExamPracticeWrongWords` filters unmarked corpus-frequency rows, sorts by total red/yellow marks, then red count, then word, and never reads `study_results.errorCount`.
+- `2026-07-17`: Corrected priority coverage so marked exercise words outside the corpus top-200 frequency slice are appended to the shared priority payload instead of disappearing from the practice wrong-word page.
 
 ## Mobile Lessons Learned
 
@@ -213,6 +218,7 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - Root/affix study cards are virtual. If detail reads only normal entry tables, examples and meanings disappear.
 - Question type strings like `enToCnChoice` and outcomes like `incorrect` must be translated for users; leaking enum names looks broken.
 - Highlighting wrong words in examples helps users connect the detail card to the mistake context.
+- Word-study mistakes and exercise annotations are different evidence streams. Keep their sorting, totals, filters, and empty states separate even when they share one tab.
 
 ## Desktop Follow-Up Notes
 
@@ -229,6 +235,7 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - `2026-05-01`: Wrong-word display identity changed from `word` to `(entryKind, lower(word))` for duplicate merging.
 - `2026-05-01`: Root/affix wrong items split from ordinary wrong words through `entryKind`.
 - `2026-05-01`: Root/affix details changed to enrich from bundled virtual-card assets when normal entry tables are empty.
+- `2026-07-17`: Wrong Words gained an in-page content route: word mode keeps `getWrongWords`, while practice mode switches to exercise mark evidence from `getExamVocabularyPriority`.
 
 ## Known Pitfalls
 
@@ -240,6 +247,8 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - Do not leak enum keys such as `cnToEnChoice`, `rootToGlossInput`, `incorrect`, or `skipped` in user-facing text.
 - Do not assume root/affix entries have normal `entry_meanings` or `entry_examples`.
 - Do not make Flutter the source of wrong-word score or risk truth.
+- Do not rank the practice list by `priorityScore`, corpus frequency, or study error count. Its visible order is explicitly red/yellow mark count.
+- `getExamVocabularyPriority` must retain marked words even when they are outside the frequency-ranked top slice.
 
 ## Verification
 
@@ -261,3 +270,4 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
   - Regression: duplicate word entries merge by kind.
   - Regression: word and root/affix entries with same text stay separate.
   - Regression: root/affix wrong list and detail are enriched from asset-backed card data.
+- `2026-07-17`: `flutter test --no-pub test\wrong_words_screen_test.dart test\exam_practice_wrong_words_test.dart` passed practice-mode rendering and red/yellow ordering coverage; targeted Flutter analysis reported no issues.

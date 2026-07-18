@@ -2,7 +2,7 @@
 
 > Slug: `reports-page`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-07-17`
 
 ## Product Intent
 
@@ -24,12 +24,15 @@ Reports are a read-only reflection of persisted study side effects. Flutter rend
 - Dates must follow the user's local study day. UTC timestamps around midnight must not appear under the previous calendar day in China time.
 - Per-mode card totals and per-mode chart points must use the same aggregation source.
 - Empty modes can show summary cards with zero totals, but their charts should not invent zero-answer history.
+- The page has `单词学习 / 模拟练习` modes. Practice mode first selects an exam family, then shows one whole-paper accuracy line and separate listening, cloze, reading, and new-type lines across attempted papers.
+- Translation and writing are subjective and must never enter practice accuracy totals or type lines.
 
 ## Shared Domain/Data Contract
 
 Primary read contract:
 
 - Flutter SDK: `ReportsClient.getReportsOverview()`
+- Flutter SDK: `ExamPracticeClient.getPracticeReport()`
 - Bridge method: `getReportsOverview`
 - Rust domain aggregator: `word_app_core::services::reports_service::build_reports_overview`
 - Mobile bridge history loader: `load_reports_history`
@@ -85,6 +88,7 @@ Contract rules:
 - Report rows with `totalQuestions == 0` are ignored by aggregate series and study-day counts.
 - Stored enum strings may be JSON-encoded, for example `"\"mixedTest\""`, and must be normalized before aggregation.
 - Flutter must not recompute authoritative totals from partial visible chart data.
+- `getExamPracticeReport` aggregates current `exercise_attempts` rows with non-null correctness. Whole-paper points include all auto-graded objective attempts; type points use normalized section classification and omit absent types instead of drawing 0% points.
 
 ## Flutter Mobile Route
 
@@ -94,6 +98,7 @@ Contract rules:
 - Orientation/gesture constraints: vertical phone layout with horizontally scrollable charts; chart points are touch targets; volume overlays or narrow screens can occlude rightmost points, so trend content must remain horizontally scrollable.
 - First implementation slice: overall cards, daily chart, per-mode cards with expandable compact charts.
 - Current status: mobile implemented and actively corrected for report-history accuracy.
+- Practice reports reuse the existing horizontally scrollable accuracy chart, but paper identity is stable `paperId`; the axis label is derived from the paper year/set title.
 
 Mobile presentation rules:
 
@@ -144,6 +149,8 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - `2026-05-02`: Changed report aggregation to skip rows with `totalQuestions == 0`, so charts begin at actual answer days.
 - `2026-05-02`: Added regression tests for unfinished-session answers and zero-answer series filtering.
 - `2026-06-25`: Ledger created from conversation history using `cross-platform-feature-ledger`.
+- `2026-07-17`: Added `getExamPracticeReport` across Dart, Rust, Android JNI/Java/Kotlin, and iOS C/Swift. The Rust aggregate groups submitted objective attempts by exam, paper, and section, then classifies listening, cloze, reading, and new-type sections.
+- `2026-07-17`: Added the report content selector, exam-family dropdown, whole-paper line, and four fixed type panels. Empty type series say `暂无趋势数据` and do not fabricate failures.
 
 ## Mobile Lessons Learned
 
@@ -152,6 +159,7 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - Filling visual series with zero rows makes charts look like the user performed badly on days they did not study.
 - Per-mode card totals and compact trend charts must share the same domain aggregation, otherwise they visibly disagree.
 - Flutter chart fixes should not patch aggregate meaning; the fix belongs in Rust when the truth is wrong.
+- A paper trend is not a time-series of repeated sessions; the current contract exposes the latest persisted per-question state for each paper. Stable paper identity prevents same-year CET sets from collapsing into one point.
 
 ## Desktop Follow-Up Notes
 
@@ -164,6 +172,7 @@ None for the core report aggregate. AI may later explain trends or suggest study
 
 - `2026-05-02`: Report date semantics changed from `study_sessions.completed_at` to local date derived from `study_results.answered_at`.
 - `2026-05-02`: Series semantics changed from possible zero-answer filler rows to answered-day-only rows for `dailySeries` and `modeSeries`.
+- `2026-07-17`: Reports gained a second aggregate route for exam practice; study-day reports remain unchanged in word mode.
 
 ## Known Pitfalls
 
@@ -173,6 +182,8 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - Do not let Flutter recompute authoritative totals from chart subsets.
 - Do not forget JSON-encoded enum normalization for modes, question types, and outcomes.
 - Do not consider an empty mode chart a report failure; it may simply have no answered questions.
+- Do not include translation/writing reference answers in accuracy. Only attempts with persisted non-null correctness are reportable.
+- Do not use year alone as paper identity; multiple CET sets can share a year and month.
 
 ## Verification
 
@@ -186,3 +197,4 @@ None for the core report aggregate. AI may later explain trends or suggest study
   - `cargo test -p word-app-core reports_service`
   - Regression: unfinished session with `2026-04-30T16:01:00Z` answers groups as local `2026-05-01`.
   - Regression: zero-answer history rows do not create chart points or study days.
+- `2026-07-17`: `flutter test --no-pub test\reports_screen_test.dart` passed exam selection and paper/type trend rendering; `cargo test -p word-platform-mobile exam_report_classifies_supported_objective_sections --lib`, `cargo check -p word-platform-mobile`, and targeted Flutter analysis passed. Native route presence was verified across Dart plus Android/iOS surfaces; an APK/device smoke was not run.

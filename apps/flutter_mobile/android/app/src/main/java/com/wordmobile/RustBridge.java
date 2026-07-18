@@ -44,6 +44,7 @@ public final class RustBridge {
     File bundledResourcesDir = new File(filesDir, "bundled_resources");
     copyBundledAssetDirectory(context.getAssets(), "seed-vocab", new File(bundledResourcesDir, "seed-vocab"));
     copyBundledAssetDirectory(context.getAssets(), "seed-medical", new File(bundledResourcesDir, "seed-medical"));
+    copyBundledAssetDirectory(context.getAssets(), "flutter_assets/assets/exam-papers", new File(bundledResourcesDir, "exam-papers"));
     String result =
         nativeInit(
             filesDir.getAbsolutePath(),
@@ -131,6 +132,58 @@ public final class RustBridge {
 
   public static String getTodayHomeState() {
     return requirePayload(nativeGetTodayHomeState(), "getTodayHomeState");
+  }
+
+  public static String getExamCatalog() {
+    return requirePayload(nativeGetExamCatalog(), "getExamCatalog");
+  }
+
+  public static String getExamPaper(String requestJson) {
+    return requirePayload(nativeGetExamPaper(requestJson), "getExamPaper");
+  }
+
+  public static String analyzeExamPaperImport(String requestJson) {
+    return requirePayload(nativeAnalyzeExamPaperImport(requestJson), "analyzeExamPaperImport");
+  }
+
+  public static String saveUserExamPaper(String requestJson) {
+    return requirePayload(nativeSaveUserExamPaper(requestJson), "saveUserExamPaper");
+  }
+
+  public static String getExamVocabularyPriority() {
+    return requirePayload(nativeGetExamVocabularyPriority(), "getExamVocabularyPriority");
+  }
+
+  public static String getExamPracticeReport() {
+    return requirePayload(nativeGetExamPracticeReport(), "getExamPracticeReport");
+  }
+
+  public static String analyzeExamQuestionVocabulary(String requestJson) {
+    return requirePayload(nativeAnalyzeExamQuestionVocabulary(requestJson), "analyzeExamQuestionVocabulary");
+  }
+
+  public static String saveExamAttempt(String requestJson) {
+    return requirePayload(nativeSaveExamAttempt(requestJson), "saveExamAttempt");
+  }
+
+  public static String getExamAttempt(String requestJson) {
+    return requirePayload(nativeGetExamAttempt(requestJson), "getExamAttempt");
+  }
+
+  public static String tokenizeExamText(String requestJson) {
+    return requirePayload(nativeTokenizeExamText(requestJson), "tokenizeExamText");
+  }
+
+  public static String inspectExamWord(String requestJson) {
+    return requirePayload(nativeInspectExamWord(requestJson), "inspectExamWord");
+  }
+
+  public static String getExamAnnotationState(String requestJson) {
+    return requirePayload(nativeGetExamAnnotationState(requestJson), "getExamAnnotationState");
+  }
+
+  public static String saveExamAnnotation(String requestJson) {
+    return requirePayload(nativeSaveExamAnnotation(requestJson), "saveExamAnnotation");
   }
 
   public static String getTodayRewardState() {
@@ -422,6 +475,30 @@ public final class RustBridge {
   private static native String nativeGetWrongWordDetail(int entryId);
 
   private static native String nativeGetWrongWordGraph();
+
+  private static native String nativeGetExamCatalog();
+
+  private static native String nativeGetExamPaper(String requestJson);
+
+  private static native String nativeAnalyzeExamPaperImport(String requestJson);
+
+  private static native String nativeSaveUserExamPaper(String requestJson);
+
+  private static native String nativeGetExamVocabularyPriority();
+  private static native String nativeGetExamPracticeReport();
+
+  private static native String nativeAnalyzeExamQuestionVocabulary(String requestJson);
+  private static native String nativeSaveExamAttempt(String requestJson);
+
+  private static native String nativeGetExamAttempt(String requestJson);
+
+  private static native String nativeTokenizeExamText(String requestJson);
+
+  private static native String nativeInspectExamWord(String requestJson);
+
+  private static native String nativeGetExamAnnotationState(String requestJson);
+
+  private static native String nativeSaveExamAnnotation(String requestJson);
 
   private static native String nativeSaveWrongWordGraphPosition(String requestJson);
 

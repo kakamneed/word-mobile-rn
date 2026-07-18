@@ -13,6 +13,7 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $projectRoot)
 $apkPath = Join-Path $projectRoot "build\app\outputs\flutter-apk\app-release.apk"
 $supabaseEnvPath = Join-Path $repoRoot ".env.supabase.local"
 $env:GRADLE_USER_HOME = "D:\projects\word-mobile-rn\apps\mobile\.gradle-home"
+$env:GRADLE_OPTS = "-Xmx2g -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8"
 
 $env:JAVA_HOME = $JavaHome
 $env:ANDROID_HOME = $AndroidSdkRoot

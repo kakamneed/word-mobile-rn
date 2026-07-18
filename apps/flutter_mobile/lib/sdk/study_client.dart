@@ -378,13 +378,15 @@ List<Map<String, dynamic>>? _choiceListOrNull(Object? value) {
   final choices = _jsonMapListOrNull(value);
   if (choices == null) return null;
   return choices
-      .map(
-        (choice) => {
-          ...choice,
-          'label': _requiredString(choice, 'label'),
-          'text': _requiredString(choice, 'text'),
-        },
-      )
+      .map((choice) {
+        final label = _jsonString(choice['label']).trim();
+        final text = _jsonString(choice['text']).trim();
+        if (label.isEmpty || text.isEmpty) {
+          return null;
+        }
+        return {...choice, 'label': label, 'text': text};
+      })
+      .whereType<Map<String, dynamic>>()
       .toList(growable: false);
 }
 

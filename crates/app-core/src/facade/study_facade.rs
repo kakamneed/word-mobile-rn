@@ -1,6 +1,7 @@
 //! Study session facade for learning loop.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -41,11 +42,22 @@ struct ActiveSession {
     current_index: usize,
     question_map: HashMap<String, usize>,
     question_type_weights: Vec<QuestionTypeWeight>,
+    entry_source_ids: Vec<String>,
+    entry_payloads: Vec<StartSessionEntryPayload>,
+    distractor_payloads: Vec<StartSessionEntryPayload>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SnapshotRejectionReason {
+    EngineVersion,
+    Shape,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ActiveSessionSnapshot {
+struct ActiveSessionSnapshotV1 {
+    #[serde(default = "default_active_snapshot_schema_version_v1")]
+    schema_version: i64,
     #[serde(default = "default_question_engine_version")]
     question_engine_version: i64,
     session: StudySession,
@@ -56,11 +68,46 @@ struct ActiveSessionSnapshot {
     question_type_weights: Vec<QuestionTypeWeight>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveSessionSnapshotV2 {
+    schema_version: i64,
+    question_engine_version: i64,
+    #[serde(default)]
+    vocabulary_version: Option<String>,
+    session: StudySession,
+    study_date: String,
+    entry_source_ids: Vec<String>,
+    #[serde(default)]
+    entry_payloads: Vec<StartSessionEntryPayload>,
+    #[serde(default)]
+    distractor_payloads: Vec<StartSessionEntryPayload>,
+    #[serde(default)]
+    question_plan_signature: String,
+    current_index: usize,
+    results: Vec<StudyResult>,
+    #[serde(default)]
+    question_type_weights: Vec<QuestionTypeWeight>,
+}
+
+enum LoadedActiveSessionSnapshot {
+    V1(ActiveSessionSnapshotV1),
+    V2(ActiveSessionSnapshotV2),
+}
+
 // Global in-memory session storage
 static ACTIVE_SESSIONS: Lazy<Mutex<HashMap<String, ActiveSession>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static STUDY_DIAGNOSTICS: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 const QUESTION_ENGINE_VERSION: i64 = 9;
+const ACTIVE_SNAPSHOT_SCHEMA_VERSION_V1: i64 = 1;
+const ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2: i64 = 2;
+const ANSWERED_FEED_WINDOW: usize = 20;
+
+fn default_active_snapshot_schema_version_v1() -> i64 {
+    ACTIVE_SNAPSHOT_SCHEMA_VERSION_V1
+}
 
 fn default_question_engine_version() -> i64 {
     0
@@ -73,6 +120,27 @@ fn default_question_engine_version() -> i64 {
 pub fn clear_all_active_sessions() {
     let mut guard = ACTIVE_SESSIONS.lock().unwrap_or_else(|e| e.into_inner());
     guard.clear();
+    STUDY_DIAGNOSTICS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+}
+
+/// Return recent study self-repair diagnostics for debugging bridge/session state.
+pub fn recent_study_diagnostics() -> Vec<String> {
+    STUDY_DIAGNOSTICS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+fn record_study_diagnostic(message: impl Into<String>) {
+    let mut diagnostics = STUDY_DIAGNOSTICS.lock().unwrap_or_else(|e| e.into_inner());
+    diagnostics.push(message.into());
+    let overflow = diagnostics.len().saturating_sub(50);
+    if overflow > 0 {
+        diagnostics.drain(0..overflow);
+    }
 }
 
 /// Lock ACTIVE_SESSIONS, recovering from mutex poison.
@@ -97,14 +165,29 @@ pub fn start_study_session(
 ) -> Result<StartSessionResponse, StudyError> {
     let mode = request.mode.clone();
     let mode_key = mode_storage_key(&mode);
-    let total_words = request.entry_source_ids.len() as u32;
+    let usable_entry_payloads = valid_entry_payloads(&request.entry_payloads);
+    let usable_distractor_payloads = valid_entry_payloads(&request.distractor_payloads);
+    let usable_entry_source_ids = valid_entry_source_ids(&request.entry_source_ids);
+    let total_words = if request.entry_payloads.is_empty() {
+        usable_entry_source_ids.len() as u32
+    } else {
+        usable_entry_payloads.len() as u32
+    };
     let question_type_weights =
         normalized_question_type_weights_for_session(&mode, &request.question_type_weights);
     let mut cleared_stale_persisted_snapshot = false;
 
     if !request.entry_source_ids.is_empty() || !request.entry_payloads.is_empty() {
-        let guard = lock_sessions();
-        if let Some(active) = guard.get(&mode_key) {
+        let mut guard = lock_sessions();
+        if guard
+            .get(&mode_key)
+            .map(|active| active_session_snapshot_stale(active, &mode))
+            .unwrap_or(false)
+        {
+            guard.remove(&mode_key);
+            drop(guard);
+            clear_persisted_session(conn, &mode)?;
+        } else if let Some(active) = guard.get(&mode_key) {
             if active.current_index < active.questions.len()
                 && active_session_matches_request(active, &request, &question_type_weights)
             {
@@ -113,19 +196,49 @@ pub fn start_study_session(
         }
     }
 
-    if let Some(snapshot) = load_persisted_session(conn, &mode)? {
+    if let Some(loaded_snapshot) = load_persisted_session(conn, &mode)? {
+        let snapshot = match loaded_snapshot {
+            LoadedActiveSessionSnapshot::V1(snapshot) => snapshot,
+            LoadedActiveSessionSnapshot::V2(snapshot) => {
+                let request_is_empty =
+                    request.entry_source_ids.is_empty() && request.entry_payloads.is_empty();
+                if !request_is_empty
+                    && !v2_snapshot_matches_request(&snapshot, &request, &question_type_weights)
+                {
+                    record_study_diagnostic(format!(
+                        "cleared mismatched v2 active snapshot for mode {}",
+                        mode_storage_key(&mode)
+                    ));
+                    clear_persisted_session(conn, &mode)?;
+                    lock_sessions().remove(&mode_key);
+                    return start_study_session(conn, request);
+                }
+                if let Some(active) = active_session_from_v2_snapshot(snapshot, &mode) {
+                    let response = build_start_response(&active);
+                    let mut guard = lock_sessions();
+                    guard.insert(mode_key, active);
+                    return Ok(response);
+                }
+                record_study_diagnostic(format!(
+                    "cleared invalid v2 active snapshot for mode {}",
+                    mode_storage_key(&mode)
+                ));
+                clear_persisted_session(conn, &mode)?;
+                if !request_is_empty {
+                    lock_sessions().remove(&mode_key);
+                    return start_study_session(conn, request);
+                }
+                return Err(StudyError::NotEnoughWords);
+            }
+        };
         let expected_questions =
             if request.entry_source_ids.is_empty() && request.entry_payloads.is_empty() {
                 snapshot.questions.len()
             } else {
                 expected_question_count(&mode, total_words as usize)
             };
-        let engine_stale = snapshot.question_engine_version != QUESTION_ENGINE_VERSION;
-        let shape_stale = snapshot.questions.len() != expected_questions
-            || snapshot.current_index >= snapshot.questions.len()
-            || snapshot_contains_restore_placeholders(&snapshot);
-        if !engine_stale
-            && !shape_stale
+        let snapshot_rejection = snapshot_rejection_reason(&snapshot, &mode, expected_questions);
+        if snapshot_rejection.is_none()
             && snapshot_matches_request(&snapshot, &request, &question_type_weights)
         {
             let active = active_session_from_snapshot(snapshot);
@@ -134,7 +247,15 @@ pub fn start_study_session(
             guard.insert(mode_key, active);
             return Ok(response);
         }
-        if engine_stale || shape_stale {
+        if matches!(
+            snapshot_rejection,
+            Some(SnapshotRejectionReason::EngineVersion | SnapshotRejectionReason::Shape)
+        ) {
+            record_study_diagnostic(format!(
+                "cleared invalid v1 active snapshot for mode {}: {:?}",
+                mode_storage_key(&mode),
+                snapshot_rejection.unwrap()
+            ));
             clear_persisted_session(conn, &mode)?;
             cleared_stale_persisted_snapshot = true;
         }
@@ -152,8 +273,16 @@ pub fn start_study_session(
         if cleared_stale_persisted_snapshot {
             return Err(StudyError::NotEnoughWords);
         }
-        let guard = lock_sessions();
-        if let Some(active) = guard.get(&mode_key) {
+        let mut guard = lock_sessions();
+        if guard
+            .get(&mode_key)
+            .map(|active| active_session_snapshot_stale(active, &mode))
+            .unwrap_or(false)
+        {
+            guard.remove(&mode_key);
+            drop(guard);
+            clear_persisted_session(conn, &mode)?;
+        } else if let Some(active) = guard.get(&mode_key) {
             if active.current_index < active.questions.len() {
                 return Ok(build_start_response(active));
             }
@@ -166,10 +295,9 @@ pub fn start_study_session(
 
     // Create words for question builder
     let words: Vec<WordForQuestion> = if !request.entry_payloads.is_empty() {
-        payloads_to_words(&request.entry_payloads)
+        payloads_to_words(&usable_entry_payloads)
     } else {
-        request
-            .entry_source_ids
+        usable_entry_source_ids
             .iter()
             .map(|id| WordForQuestion {
                 source_id: id.clone(),
@@ -187,7 +315,7 @@ pub fn start_study_session(
     };
 
     let distractors: Vec<WordForQuestion> = if !request.distractor_payloads.is_empty() {
-        payloads_to_words(&request.distractor_payloads)
+        payloads_to_words(&usable_distractor_payloads)
     } else {
         Vec::new()
     };
@@ -197,13 +325,20 @@ pub fn start_study_session(
     let started_at = now.to_rfc3339();
 
     // Generate questions
-    let questions = QuestionBuilder::build_session_questions(
+    let mut questions = QuestionBuilder::build_session_questions(
         &mode,
         &words,
         &distractors,
         &session_id,
         &request.question_type_weights,
     );
+
+    if questions.is_empty() {
+        return Err(StudyError::NotEnoughWords);
+    }
+    questions = repair_study_questions(questions);
+    questions = valid_study_questions(questions);
+    normalize_question_indexes(&mut questions);
 
     if questions.is_empty() {
         return Err(StudyError::NotEnoughWords);
@@ -224,6 +359,15 @@ pub fn start_study_session(
     }
 
     // Store active session
+    let active_entry_source_ids = if usable_entry_source_ids.is_empty() {
+        usable_entry_payloads
+            .iter()
+            .map(|payload| payload.source_id.clone())
+            .collect()
+    } else {
+        usable_entry_source_ids.clone()
+    };
+
     let active = ActiveSession {
         session,
         questions: questions.clone(),
@@ -231,6 +375,9 @@ pub fn start_study_session(
         current_index: 0,
         question_map,
         question_type_weights,
+        entry_source_ids: active_entry_source_ids,
+        entry_payloads: usable_entry_payloads.clone(),
+        distractor_payloads: usable_distractor_payloads.clone(),
     };
     persist_active_session(conn, &active)?;
 
@@ -282,10 +429,223 @@ fn payloads_to_words(payloads: &[StartSessionEntryPayload]) -> Vec<WordForQuesti
                     sentence_cn: payload.example_translation.clone().unwrap_or_default(),
                 })
                 .collect(),
-            cn_choice_distractors: payload.cn_choice_distractors.clone(),
-            en_choice_distractors: payload.en_choice_distractors.clone(),
+            cn_choice_distractors: valid_choice_distractors(&payload.cn_choice_distractors),
+            en_choice_distractors: valid_choice_distractors(&payload.en_choice_distractors),
         })
         .collect()
+}
+
+fn valid_entry_payloads(payloads: &[StartSessionEntryPayload]) -> Vec<StartSessionEntryPayload> {
+    payloads
+        .iter()
+        .filter_map(|payload| {
+            if valid_entry_payload(payload) {
+                Some(payload.clone())
+            } else {
+                record_study_diagnostic(format!(
+                    "skipped invalid study entry payload: {}",
+                    payload.source_id
+                ));
+                None
+            }
+        })
+        .collect()
+}
+
+fn valid_entry_payload(payload: &StartSessionEntryPayload) -> bool {
+    has_display_content(&payload.source_id)
+        && has_study_word_content(&payload.word)
+        && payload_accepted_meanings(payload)
+            .iter()
+            .any(|meaning| has_display_content(meaning))
+}
+
+fn payload_accepted_meanings(payload: &StartSessionEntryPayload) -> Vec<String> {
+    if payload.meaning_details.is_empty() {
+        payload.meanings.clone()
+    } else {
+        payload
+            .meaning_details
+            .iter()
+            .map(|meaning| meaning.meaning_cn.clone())
+            .collect()
+    }
+}
+
+fn valid_entry_source_ids(source_ids: &[String]) -> Vec<String> {
+    source_ids
+        .iter()
+        .filter(|source_id| has_display_content(source_id))
+        .cloned()
+        .collect()
+}
+
+fn valid_choice_distractors(distractors: &[String]) -> Vec<String> {
+    distractors
+        .iter()
+        .filter(|distractor| has_display_content(distractor))
+        .cloned()
+        .collect()
+}
+
+fn valid_study_question(question: &StudyQuestion) -> bool {
+    if !has_display_content(&question.entry_source_id)
+        || !has_study_word_content(&question.word)
+        || !has_display_content(&question.prompt)
+        || !question
+            .accepted_meanings
+            .iter()
+            .any(|meaning| has_display_content(meaning))
+    {
+        return false;
+    }
+
+    if question.question_type.is_choice_type() {
+        let Some(choices) = question.choices.as_ref() else {
+            return false;
+        };
+        if choices.len() != 4 {
+            return false;
+        }
+        let Some(correct_choice_label) = question.correct_choice_label.as_ref() else {
+            return false;
+        };
+        if !has_display_content(correct_choice_label) {
+            return false;
+        }
+        let mut labels = HashSet::new();
+        let mut choice_texts = HashSet::new();
+        let mut has_correct_choice = false;
+        let mut correct_choice_text: Option<&str> = None;
+        for choice in choices {
+            if !has_display_content(&choice.label) || !has_display_content(&choice.text) {
+                return false;
+            }
+            if !labels.insert(choice.label.clone()) {
+                return false;
+            }
+            if !choice_texts.insert(choice.text.clone()) {
+                return false;
+            }
+            if choice.label == *correct_choice_label {
+                has_correct_choice = true;
+                correct_choice_text = Some(choice.text.as_str());
+            }
+        }
+        if !has_correct_choice {
+            return false;
+        }
+        if !correct_choice_matches_question(question, correct_choice_text.unwrap_or_default()) {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn repair_study_questions(questions: Vec<StudyQuestion>) -> Vec<StudyQuestion> {
+    questions
+        .into_iter()
+        .map(|question| {
+            if choice_question_has_complete_options(&question) {
+                question
+            } else if question.question_type.is_choice_type() {
+                downgrade_choice_question_to_input(question)
+            } else {
+                question
+            }
+        })
+        .collect()
+}
+
+fn choice_question_has_complete_options(question: &StudyQuestion) -> bool {
+    if !question.question_type.is_choice_type() {
+        return true;
+    }
+    let Some(choices) = question.choices.as_ref() else {
+        return false;
+    };
+    let Some(correct_choice_label) = question.correct_choice_label.as_ref() else {
+        return false;
+    };
+    if choices.len() != 4 {
+        return false;
+    }
+    let mut labels = HashSet::new();
+    let mut texts = HashSet::new();
+    let mut has_correct_choice = false;
+    for choice in choices {
+        if !has_display_content(&choice.label) || !has_display_content(&choice.text) {
+            return false;
+        }
+        labels.insert(choice.label.as_str());
+        texts.insert(choice.text.as_str());
+        has_correct_choice |= choice.label == *correct_choice_label;
+    }
+    labels.len() == 4 && texts.len() == 4 && has_correct_choice
+}
+
+fn downgrade_choice_question_to_input(mut question: StudyQuestion) -> StudyQuestion {
+    record_study_diagnostic(format!(
+        "downgraded incomplete choice question to input: {} ({:?})",
+        question.question_id, question.question_type
+    ));
+    question.question_type = word_storage_core::models::QuestionType::EnToCnInput;
+    question.prompt = question.word.clone();
+    question.example_sentence = None;
+    question.example_translation = None;
+    question.choices = None;
+    question.correct_choice_label = None;
+    question
+}
+
+fn valid_study_questions(questions: Vec<StudyQuestion>) -> Vec<StudyQuestion> {
+    questions
+        .into_iter()
+        .filter(|question| {
+            if valid_study_question(question) {
+                true
+            } else {
+                record_study_diagnostic(format!(
+                    "dropped invalid study question: {}",
+                    question.question_id
+                ));
+                false
+            }
+        })
+        .collect()
+}
+
+fn correct_choice_matches_question(question: &StudyQuestion, correct_choice_text: &str) -> bool {
+    match question.question_type {
+        word_storage_core::models::QuestionType::CnToEnChoice => {
+            normalize_answer_text(correct_choice_text) == normalize_answer_text(&question.word)
+        }
+        _ => question.accepted_meanings.iter().any(|meaning| {
+            let normalized_choice = normalize_answer_text(correct_choice_text);
+            let normalized_meaning = normalize_answer_text(meaning);
+            !normalized_choice.is_empty()
+                && (normalized_choice == normalized_meaning
+                    || normalized_meaning.contains(&normalized_choice)
+                    || normalized_choice.contains(&normalized_meaning))
+        }),
+    }
+}
+
+fn normalize_answer_text(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_alphanumeric())
+        .collect::<String>()
+        .to_lowercase()
+}
+
+fn normalize_question_indexes(questions: &mut [StudyQuestion]) {
+    let total_questions = questions.len() as u32;
+    for (index, question) in questions.iter_mut().enumerate() {
+        question.question_index = index as u32;
+        question.total_questions = total_questions;
+    }
 }
 
 /// Get the currently active study session state without mutating it.
@@ -293,6 +653,23 @@ pub fn get_active_study_session() -> Result<StartSessionResponse, StudyError> {
     let guard = lock_sessions();
     let active = guard.values().next().ok_or(StudyError::NoActiveSession)?;
     Ok(build_start_response(active))
+}
+
+pub fn get_study_session_answered_history(
+    session_id: &str,
+    before_question_index: usize,
+    limit: usize,
+) -> Result<Vec<AnsweredStudyQuestion>, StudyError> {
+    let guard = lock_sessions();
+    let active = guard
+        .values()
+        .find(|active| active.session.session_id == session_id)
+        .ok_or(StudyError::NoActiveSession)?;
+    Ok(answered_questions_before(
+        active,
+        before_question_index,
+        limit,
+    ))
 }
 
 /// Submit an answer for the current question.
@@ -374,6 +751,14 @@ pub fn submit_study_answer(
         .get(&requested_question_id)
         .copied()
         .ok_or(StudyError::NoActiveSession)?;
+    if let Some(existing_result) = active
+        .results
+        .iter()
+        .find(|result| result.question_id == requested_question_id)
+        .cloned()
+    {
+        return Ok(build_idempotent_submit_response(active, existing_result));
+    }
     if requested_index != active.current_index {
         return Err(StudyError::NoActiveSession);
     }
@@ -398,8 +783,12 @@ pub fn submit_study_answer(
 
     let (next_question, summary, next_action) = if is_complete {
         let completed_at = chrono::Utc::now().to_rfc3339();
-        let summary =
-            SessionSummaryService::build_summary(&active.session, &active.results, &completed_at);
+        let summary = SessionSummaryService::build_summary_with_total(
+            &active.session,
+            &active.results,
+            active.questions.len() as u32,
+            &completed_at,
+        );
         let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
         (None, Some(summary), Some(next_action))
     } else {
@@ -456,6 +845,29 @@ pub fn submit_study_answer(
     Ok(response)
 }
 
+fn build_idempotent_submit_response(
+    active: &ActiveSession,
+    result: StudyResult,
+) -> SubmitAnswerResponse {
+    let is_complete = active.current_index >= active.questions.len();
+    SubmitAnswerResponse {
+        result,
+        is_complete,
+        current_question: None,
+        summary: None,
+        next_action: None,
+        progress: SessionProgress {
+            current: if is_complete {
+                active.questions.len() as u32
+            } else {
+                active.current_index as u32 + 1
+            },
+            total: active.questions.len() as u32,
+        },
+        answered_questions: answered_questions(active),
+    }
+}
+
 pub fn mark_study_entry_mastered(
     conn: &Connection,
     request: MarkStudyEntryMasteredRequest,
@@ -505,8 +917,12 @@ pub fn mark_study_entry_mastered(
     let is_complete = active.current_index >= active.questions.len();
     let (current_question, summary, next_action) = if is_complete {
         let completed_at = chrono::Utc::now().to_rfc3339();
-        let summary =
-            SessionSummaryService::build_summary(&active.session, &active.results, &completed_at);
+        let summary = SessionSummaryService::build_summary_with_total(
+            &active.session,
+            &active.results,
+            active.questions.len() as u32,
+            &completed_at,
+        );
         let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
         (None, Some(summary), Some(next_action))
     } else {
@@ -573,8 +989,12 @@ pub fn complete_study_session(
     let active = guard.get(&mode_key).ok_or(StudyError::NoActiveSession)?;
 
     let completed_at = chrono::Utc::now().to_rfc3339();
-    let summary =
-        SessionSummaryService::build_summary(&active.session, &active.results, &completed_at);
+    let summary = SessionSummaryService::build_summary_with_total(
+        &active.session,
+        &active.results,
+        active.questions.len() as u32,
+        &completed_at,
+    );
     let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
 
     // Persist to database
@@ -631,9 +1051,46 @@ fn build_start_response(active: &ActiveSession) -> StartSessionResponse {
 }
 
 fn answered_questions(active: &ActiveSession) -> Vec<AnsweredStudyQuestion> {
+    let start = active.results.len().saturating_sub(ANSWERED_FEED_WINDOW);
+    answered_questions_range(active, start, active.results.len())
+}
+
+fn answered_questions_before(
+    active: &ActiveSession,
+    before_question_index: usize,
+    limit: usize,
+) -> Vec<AnsweredStudyQuestion> {
+    let mut items = active
+        .results
+        .iter()
+        .filter_map(|result| {
+            let question_index = active.question_map.get(&result.question_id).copied()?;
+            if question_index >= before_question_index {
+                return None;
+            }
+            let question = active.questions.get(question_index)?.clone();
+            Some(AnsweredStudyQuestion {
+                question,
+                result: result.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    if items.len() > limit {
+        items.drain(0..items.len() - limit);
+    }
+    items
+}
+
+fn answered_questions_range(
+    active: &ActiveSession,
+    start: usize,
+    end: usize,
+) -> Vec<AnsweredStudyQuestion> {
     active
         .results
         .iter()
+        .skip(start)
+        .take(end.saturating_sub(start))
         .filter_map(|result| {
             let question_index = active.question_map.get(&result.question_id).copied()?;
             let question = active.questions.get(question_index)?.clone();
@@ -654,25 +1111,27 @@ fn rebuild_question_map(active: &mut ActiveSession) {
     }
 }
 
-fn snapshot_question_weights_stale(
-    snapshot: &ActiveSessionSnapshot,
-    question_type_weights: &[QuestionTypeWeight],
-) -> bool {
-    snapshot.question_type_weights != question_type_weights
+fn snapshot_rejection_reason(
+    snapshot: &ActiveSessionSnapshotV1,
+    mode: &word_storage_core::models::SessionMode,
+    expected_questions: usize,
+) -> Option<SnapshotRejectionReason> {
+    if snapshot.question_engine_version != QUESTION_ENGINE_VERSION {
+        return Some(SnapshotRejectionReason::EngineVersion);
+    }
+    let shape_stale = snapshot.questions.len() != expected_questions
+        || snapshot.current_index >= snapshot.questions.len()
+        || snapshot_contains_restore_placeholders(snapshot)
+        || snapshot_contains_invalid_questions(snapshot)
+        || persisted_session_snapshot_stale(snapshot, mode);
+    if shape_stale {
+        return Some(SnapshotRejectionReason::Shape);
+    }
+    None
 }
 
-fn snapshot_contains_restore_placeholders(snapshot: &ActiveSessionSnapshot) -> bool {
-    snapshot.questions.iter().any(|question| {
-        question
-            .entry_source_id
-            .starts_with("active_session_restore_")
-            || question.word.starts_with("active_session_restore_")
-            || question.prompt.starts_with("active_session_restore_")
-    })
-}
-
-fn snapshot_matches_request(
-    snapshot: &ActiveSessionSnapshot,
+fn v2_snapshot_matches_request(
+    snapshot: &ActiveSessionSnapshotV2,
     request: &StartSessionRequest,
     question_type_weights: &[QuestionTypeWeight],
 ) -> bool {
@@ -682,10 +1141,96 @@ fn snapshot_matches_request(
     if snapshot.question_type_weights != question_type_weights {
         return false;
     }
-    let requested = request
+    let requested = request_source_id_set(request);
+    snapshot
         .entry_source_ids
         .iter()
-        .collect::<std::collections::HashSet<_>>();
+        .all(|source_id| requested.contains(source_id))
+}
+
+fn snapshot_question_weights_stale(
+    snapshot: &ActiveSessionSnapshotV1,
+    question_type_weights: &[QuestionTypeWeight],
+) -> bool {
+    snapshot.question_type_weights != question_type_weights
+}
+
+fn snapshot_contains_restore_placeholders(snapshot: &ActiveSessionSnapshotV1) -> bool {
+    snapshot.questions.iter().any(|question| {
+        question
+            .entry_source_id
+            .starts_with("active_session_restore_")
+            || question.word.starts_with("active_session_restore_")
+            || question.prompt.starts_with("active_session_restore_")
+    })
+}
+
+fn snapshot_contains_invalid_questions(snapshot: &ActiveSessionSnapshotV1) -> bool {
+    snapshot.questions.iter().any(|question| {
+        !has_study_word_content(&question.word)
+            || !has_display_content(&question.prompt)
+            || !has_display_content(&question.entry_source_id)
+            || question
+                .accepted_meanings
+                .iter()
+                .all(|meaning| !has_display_content(meaning))
+            || question.choices.as_ref().is_some_and(|choices| {
+                choices.iter().any(|choice| {
+                    !has_display_content(&choice.label) || !has_display_content(&choice.text)
+                })
+            })
+    })
+}
+
+fn has_display_content(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed == "/" {
+        return false;
+    }
+    trimmed.chars().any(|ch| ch.is_alphanumeric())
+}
+
+fn has_study_word_content(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.contains('.') || trimmed == "/" {
+        return false;
+    }
+    trimmed.chars().filter(|ch| ch.is_alphabetic()).count() >= 2
+}
+
+fn persisted_session_snapshot_stale(
+    snapshot: &ActiveSessionSnapshotV1,
+    mode: &word_storage_core::models::SessionMode,
+) -> bool {
+    snapshot.session.mode != *mode || !session_started_today(&snapshot.session)
+}
+
+fn active_session_snapshot_stale(
+    active: &ActiveSession,
+    mode: &word_storage_core::models::SessionMode,
+) -> bool {
+    active.session.mode != *mode || !session_started_today(&active.session)
+}
+
+fn session_started_today(session: &StudySession) -> bool {
+    let Ok(started_at) = chrono::DateTime::parse_from_rfc3339(&session.started_at) else {
+        return false;
+    };
+    started_at.with_timezone(&chrono::Local).date_naive() == chrono::Local::now().date_naive()
+}
+
+fn snapshot_matches_request(
+    snapshot: &ActiveSessionSnapshotV1,
+    request: &StartSessionRequest,
+    question_type_weights: &[QuestionTypeWeight],
+) -> bool {
+    if request.entry_source_ids.is_empty() && request.entry_payloads.is_empty() {
+        return true;
+    }
+    if snapshot.question_type_weights != question_type_weights {
+        return false;
+    }
+    let requested = request_source_id_set(request);
     snapshot
         .questions
         .iter()
@@ -703,14 +1248,23 @@ fn active_session_matches_request(
     if active.question_type_weights != question_type_weights {
         return false;
     }
-    let requested = request
-        .entry_source_ids
-        .iter()
-        .collect::<std::collections::HashSet<_>>();
+    let requested = request_source_id_set(request);
     active
         .questions
         .iter()
         .all(|question| requested.contains(&question.entry_source_id))
+}
+
+fn request_source_id_set(request: &StartSessionRequest) -> HashSet<&String> {
+    if request.entry_payloads.is_empty() {
+        request.entry_source_ids.iter().collect::<HashSet<_>>()
+    } else {
+        request
+            .entry_payloads
+            .iter()
+            .map(|payload| &payload.source_id)
+            .collect::<HashSet<_>>()
+    }
 }
 
 fn normalized_question_type_weights_for_session(
@@ -755,10 +1309,16 @@ fn mode_storage_key(mode: &word_storage_core::models::SessionMode) -> String {
     serde_json::to_string(mode).unwrap_or_else(|_| "unknown".to_string())
 }
 
-fn active_session_from_snapshot(snapshot: ActiveSessionSnapshot) -> ActiveSession {
+fn active_session_from_snapshot(snapshot: ActiveSessionSnapshotV1) -> ActiveSession {
     let mut question_map = HashMap::new();
     for (i, question) in snapshot.questions.iter().enumerate() {
         question_map.insert(question.question_id.clone(), i);
+    }
+    let mut entry_source_ids = Vec::new();
+    for question in &snapshot.questions {
+        if !entry_source_ids.contains(&question.entry_source_id) {
+            entry_source_ids.push(question.entry_source_id.clone());
+        }
     }
     ActiveSession {
         session: snapshot.session,
@@ -767,35 +1327,165 @@ fn active_session_from_snapshot(snapshot: ActiveSessionSnapshot) -> ActiveSessio
         current_index: snapshot.current_index,
         question_map,
         question_type_weights: snapshot.question_type_weights,
+        entry_source_ids,
+        entry_payloads: Vec::new(),
+        distractor_payloads: Vec::new(),
     }
+}
+
+fn active_session_from_v2_snapshot(
+    snapshot: ActiveSessionSnapshotV2,
+    mode: &word_storage_core::models::SessionMode,
+) -> Option<ActiveSession> {
+    if snapshot.session.mode != *mode
+        || !session_started_today(&snapshot.session)
+        || snapshot.entry_payloads.is_empty()
+        || snapshot.question_engine_version != QUESTION_ENGINE_VERSION
+        || snapshot.schema_version != ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2
+    {
+        return None;
+    }
+
+    let entry_payloads = valid_entry_payloads(&snapshot.entry_payloads);
+    if entry_payloads.is_empty() {
+        return None;
+    }
+    let distractor_payloads = valid_entry_payloads(&snapshot.distractor_payloads);
+    let words = payloads_to_words(&entry_payloads);
+    let distractors = payloads_to_words(&distractor_payloads);
+    let mut questions = QuestionBuilder::build_session_questions(
+        &snapshot.session.mode,
+        &words,
+        &distractors,
+        &snapshot.session.session_id,
+        &snapshot.question_type_weights,
+    );
+    questions = valid_study_questions(questions);
+    normalize_question_indexes(&mut questions);
+    if questions.is_empty() || snapshot.current_index >= questions.len() {
+        return None;
+    }
+
+    let mut question_map = HashMap::new();
+    for (i, question) in questions.iter().enumerate() {
+        question_map.insert(question.question_id.clone(), i);
+    }
+
+    Some(ActiveSession {
+        session: snapshot.session,
+        questions,
+        results: snapshot.results,
+        current_index: snapshot.current_index,
+        question_map,
+        question_type_weights: snapshot.question_type_weights,
+        entry_source_ids: snapshot.entry_source_ids,
+        entry_payloads,
+        distractor_payloads,
+    })
 }
 
 fn load_persisted_session(
     conn: &Connection,
     mode: &word_storage_core::models::SessionMode,
-) -> Result<Option<ActiveSessionSnapshot>, StudyError> {
-    let raw = persistence::study_repo::load_active_session_snapshot(conn, mode)
-        .map_err(|e| StudyError::Storage(e.to_string()))?;
-    raw.map(|value| {
-        serde_json::from_str(&value)
-            .map_err(|e| StudyError::Storage(format!("Invalid active session snapshot: {e}")))
-    })
-    .transpose()
+) -> Result<Option<LoadedActiveSessionSnapshot>, StudyError> {
+    let Some(raw) = persistence::study_repo::load_active_session_snapshot(conn, mode)
+        .map_err(|e| StudyError::Storage(e.to_string()))?
+    else {
+        return Ok(None);
+    };
+    match decode_active_session_snapshot(&raw) {
+        Ok(snapshot) => Ok(Some(snapshot)),
+        Err(error) => {
+            record_study_diagnostic(format!(
+                "cleared undecodable active snapshot for mode {}: {error}",
+                mode_storage_key(mode)
+            ));
+            clear_persisted_session(conn, mode)?;
+            Ok(None)
+        }
+    }
+}
+
+fn decode_active_session_snapshot(raw: &str) -> serde_json::Result<LoadedActiveSessionSnapshot> {
+    let value: serde_json::Value = serde_json::from_str(raw)?;
+    let schema_version = value
+        .get("schemaVersion")
+        .and_then(|version| version.as_i64())
+        .unwrap_or(ACTIVE_SNAPSHOT_SCHEMA_VERSION_V1);
+    if schema_version == ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2 {
+        serde_json::from_value(value).map(LoadedActiveSessionSnapshot::V2)
+    } else {
+        serde_json::from_value(value).map(LoadedActiveSessionSnapshot::V1)
+    }
 }
 
 fn persist_active_session(conn: &Connection, active: &ActiveSession) -> Result<(), StudyError> {
-    let snapshot = ActiveSessionSnapshot {
-        question_engine_version: QUESTION_ENGINE_VERSION,
-        session: active.session.clone(),
-        questions: active.questions.clone(),
-        results: active.results.clone(),
-        current_index: active.current_index,
-        question_type_weights: active.question_type_weights.clone(),
-    };
-    let payload = serde_json::to_string(&snapshot)
+    let payload = serde_json::to_string(&active_session_snapshot_payload(active))
         .map_err(|e| StudyError::Storage(format!("Failed to serialize active session: {e}")))?;
     persistence::study_repo::save_active_session_snapshot(conn, &active.session.mode, &payload)
         .map_err(|e| StudyError::Storage(e.to_string()))
+}
+
+fn active_session_snapshot_payload(active: &ActiveSession) -> serde_json::Value {
+    if !active.entry_payloads.is_empty() {
+        serde_json::to_value(ActiveSessionSnapshotV2 {
+            schema_version: ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2,
+            question_engine_version: QUESTION_ENGINE_VERSION,
+            vocabulary_version: None,
+            session: active.session.clone(),
+            study_date: session_study_date(&active.session),
+            entry_source_ids: active.entry_source_ids.clone(),
+            entry_payloads: active.entry_payloads.clone(),
+            distractor_payloads: active.distractor_payloads.clone(),
+            question_plan_signature: question_plan_signature(active),
+            current_index: active.current_index,
+            results: active.results.clone(),
+            question_type_weights: active.question_type_weights.clone(),
+        })
+        .unwrap_or(serde_json::Value::Null)
+    } else {
+        serde_json::to_value(ActiveSessionSnapshotV1 {
+            schema_version: ACTIVE_SNAPSHOT_SCHEMA_VERSION_V1,
+            question_engine_version: QUESTION_ENGINE_VERSION,
+            session: active.session.clone(),
+            questions: active.questions.clone(),
+            results: active.results.clone(),
+            current_index: active.current_index,
+            question_type_weights: active.question_type_weights.clone(),
+        })
+        .unwrap_or(serde_json::Value::Null)
+    }
+}
+
+fn session_study_date(session: &StudySession) -> String {
+    chrono::DateTime::parse_from_rfc3339(&session.started_at)
+        .map(|dt| dt.with_timezone(&chrono::Local).date_naive().to_string())
+        .unwrap_or_else(|_| chrono::Local::now().date_naive().to_string())
+}
+
+fn question_plan_signature(active: &ActiveSession) -> String {
+    let ids = if active.entry_source_ids.is_empty() {
+        active
+            .entry_payloads
+            .iter()
+            .map(|payload| payload.source_id.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    } else {
+        active.entry_source_ids.join(",")
+    };
+    let weights = active
+        .question_type_weights
+        .iter()
+        .map(|weight| format!("{:?}:{}", weight.question_type, weight.weight))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{}|{}|{}",
+        mode_storage_key(&active.session.mode),
+        ids,
+        weights
+    )
 }
 
 fn clear_persisted_session(
@@ -820,7 +1510,7 @@ fn expected_question_count(
 mod tests {
     use super::{
         clear_all_active_sessions, mark_study_entry_mastered, start_study_session,
-        submit_study_answer,
+        submit_study_answer, StudyError,
     };
     use rusqlite::OptionalExtension;
     use word_storage_core::models::{
@@ -828,6 +1518,7 @@ mod tests {
         QuestionTypeWeight, SessionMode, StartSessionEntryPayload, StartSessionMeaningPayload,
         StartSessionRequest, StudyQuestion, SubmitAnswerRequest,
     };
+    use word_storage_core::persistence::study_repo;
 
     fn test_entry(source_id: &str, word: &str, meaning: &str) -> StartSessionEntryPayload {
         StartSessionEntryPayload {
@@ -1279,6 +1970,690 @@ mod tests {
     }
 
     #[test]
+    fn start_session_discards_v2_snapshot_without_payloads() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = chrono::Local::now().to_rfc3339();
+        let study_date = chrono::Local::now().date_naive().to_string();
+
+        let snapshot = serde_json::json!({
+            "schemaVersion": super::ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2,
+            "questionEngineVersion": super::QUESTION_ENGINE_VERSION,
+            "vocabularyVersion": "seed-vocab-test",
+            "session": {
+                "sessionId": "sess_v2_resume",
+                "mode": "review",
+                "totalWords": 28,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "studyDate": study_date,
+            "entrySourceIds": ["review_entry_0", "review_entry_1"],
+            "questionPlanSignature": "review:test-plan",
+            "currentIndex": 16,
+            "results": [],
+            "questionTypeWeights": [{
+                "questionType": "cnToEnChoice",
+                "weight": 100
+            }]
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_review", snapshot.to_string()),
+        )
+        .expect("insert v2 active snapshot");
+
+        let error = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::Review,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect_err("v2 snapshot without payloads cannot rebuild");
+
+        assert!(matches!(error, StudyError::NotEnoughWords));
+        let remaining_snapshot =
+            study_repo::load_active_session_snapshot(&conn, &SessionMode::Review)
+                .expect("load snapshot after v2 rejection");
+        assert!(remaining_snapshot.is_none());
+    }
+
+    #[test]
+    fn start_session_rebuilds_after_invalid_v2_snapshot_when_request_has_payloads() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let snapshot = serde_json::json!({
+            "schemaVersion": super::ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2,
+            "questionEngineVersion": super::QUESTION_ENGINE_VERSION,
+            "session": {
+                "sessionId": "sess_v2_corrupt",
+                "mode": "review",
+                "totalWords": 1,
+                "wordbookId": null,
+                "startedAt": chrono::Local::now().to_rfc3339()
+            },
+            "studyDate": chrono::Local::now().date_naive().to_string(),
+            "entrySourceIds": ["stale_payload"],
+            "entryPayloads": [],
+            "distractorPayloads": [],
+            "questionPlanSignature": "review|stale_payload|",
+            "currentIndex": 0,
+            "results": [],
+            "questionTypeWeights": []
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_review", snapshot.to_string()),
+        )
+        .expect("insert corrupt v2 snapshot");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::Review,
+                wordbook_id: None,
+                entry_source_ids: vec!["fresh_entry".to_string()],
+                entry_payloads: vec![test_entry("fresh_entry", "debate", "discussion")],
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("fresh request should rebuild after corrupt v2 snapshot");
+
+        assert_eq!(response.current_question.entry_source_id, "fresh_entry");
+        assert_ne!(response.session.session_id, "sess_v2_corrupt");
+        assert!(super::recent_study_diagnostics()
+            .iter()
+            .any(|item| item.contains("cleared") && item.contains("v2 active snapshot")));
+    }
+
+    #[test]
+    fn start_session_clears_undecodable_snapshot_and_uses_fresh_payloads() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_mixedTest", "{not-valid-json"),
+        )
+        .expect("insert undecodable snapshot");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec!["fresh_mixed".to_string()],
+                entry_payloads: vec![test_entry("fresh_mixed", "alpha", "first")],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("fresh request should recover from undecodable snapshot");
+
+        assert_eq!(response.current_question.entry_source_id, "fresh_mixed");
+        let remaining_snapshot =
+            study_repo::load_active_session_snapshot(&conn, &SessionMode::MixedTest)
+                .expect("load replacement snapshot");
+        assert!(remaining_snapshot.is_some());
+        assert!(super::recent_study_diagnostics()
+            .iter()
+            .any(|item| item.contains("cleared undecodable active snapshot")));
+    }
+
+    #[test]
+    fn start_session_persists_and_restores_v2_snapshot_from_payloads() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let payloads = vec![
+            test_entry("payload_one", "debate", "杈╄"),
+            test_entry("payload_two", "opinion", "瑙傜偣"),
+        ];
+
+        let first = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: payloads
+                    .iter()
+                    .map(|payload| payload.source_id.clone())
+                    .collect(),
+                entry_payloads: payloads,
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("start v2-backed session");
+
+        let raw_snapshot = study_repo::load_active_session_snapshot(&conn, &SessionMode::MixedTest)
+            .expect("load persisted snapshot")
+            .expect("snapshot should exist");
+        assert!(raw_snapshot.contains("\"schemaVersion\":2"));
+        assert!(!raw_snapshot.contains("\"questions\""));
+
+        clear_all_active_sessions();
+
+        let restored = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("restore v2-backed session");
+
+        assert_eq!(restored.session.session_id, first.session.session_id);
+        assert_eq!(
+            restored.current_question.question_id,
+            first.current_question.question_id
+        );
+        assert_eq!(restored.current_question.word, first.current_question.word);
+    }
+
+    #[test]
+    fn start_session_restores_v2_snapshot_progress_after_answer() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let payloads = vec![
+            test_entry("payload_one", "debate", "杈╄"),
+            test_entry("payload_two", "opinion", "瑙傜偣"),
+        ];
+
+        let first = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: payloads
+                    .iter()
+                    .map(|payload| payload.source_id.clone())
+                    .collect(),
+                entry_payloads: payloads,
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("start v2-backed session");
+        submit_study_answer(
+            &conn,
+            SubmitAnswerRequest {
+                question_id: first.current_question.question_id.clone(),
+                response: first.current_question.accepted_meanings[0].clone(),
+                response_time_ms: 1200,
+            },
+        )
+        .expect("submit first answer");
+
+        clear_all_active_sessions();
+
+        let restored = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("restore v2-backed progress");
+
+        assert_eq!(restored.progress.current, 2);
+        assert_eq!(restored.answered_questions.len(), 1);
+        assert_ne!(
+            restored.current_question.question_id,
+            first.current_question.question_id
+        );
+    }
+
+    #[test]
+    fn start_session_filters_invalid_entry_payloads_before_generation() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let mut invalid = test_entry("invalid_entry", "/", "/");
+        invalid.meaning_details.clear();
+        invalid.meanings = vec!["/".to_string()];
+        let valid = test_entry("valid_entry", "debate", "杈╄");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec!["invalid_entry".to_string(), "valid_entry".to_string()],
+                entry_payloads: vec![invalid, valid],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("valid payload should still start after invalid entry is skipped");
+
+        assert_eq!(response.session.total_words, 1);
+        assert_eq!(response.current_question.entry_source_id, "valid_entry");
+        assert_eq!(response.current_question.word, "debate");
+        assert_ne!(response.current_question.prompt, "/");
+    }
+
+    #[test]
+    fn start_session_filters_abbreviation_like_entry_payloads_before_generation() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let dotted = test_entry("bad_abbreviation", "a.", "catholic");
+        let short = test_entry("bad_single_letter", "a", "letter");
+        let valid = test_entry("valid_entry", "debate", "discussion");
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec![
+                    "bad_abbreviation".to_string(),
+                    "bad_single_letter".to_string(),
+                    "valid_entry".to_string(),
+                ],
+                entry_payloads: vec![dotted, short, valid],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::ExampleToCnChoice,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("valid payload should still start after abbreviation-like entries are skipped");
+
+        assert_eq!(response.session.total_words, 1);
+        assert_eq!(response.current_question.entry_source_id, "valid_entry");
+        assert_eq!(response.current_question.word, "debate");
+        assert_ne!(response.current_question.prompt, "a.");
+    }
+
+    #[test]
+    fn start_session_filters_empty_choice_distractors_before_validation() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let mut payload = test_entry("choice_entry", "gesture", "鎵嬪娍");
+        payload.cn_choice_distractors = vec![
+            "/".to_string(),
+            " ".to_string(),
+            "寤鸿".to_string(),
+            "闇€姹�".to_string(),
+            "搴撳瓨".to_string(),
+        ];
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec!["choice_entry".to_string()],
+                entry_payloads: vec![payload],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnChoice,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("choice session should start after empty distractors are filtered");
+
+        let choices = response
+            .current_question
+            .choices
+            .expect("choice question should include options");
+        assert!(choices.iter().all(|choice| choice.text.trim() != "/"));
+        assert!(choices.iter().all(|choice| !choice.text.trim().is_empty()));
+    }
+
+    #[test]
+    fn start_session_downgrades_incomplete_choice_question_without_shrinking_session() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let mut payload = test_entry("choice_entry", "adjacent", "nearby");
+        payload.cn_choice_distractors = vec!["raw".to_string(), "hard".to_string()];
+
+        let response = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec!["choice_entry".to_string()],
+                entry_payloads: vec![payload],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnChoice,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("incomplete choice should be downgraded instead of dropped");
+
+        assert_eq!(
+            response.current_question.question_type,
+            QuestionType::EnToCnInput
+        );
+        assert!(response.current_question.choices.is_none());
+        assert_eq!(response.current_question.prompt, "adjacent");
+        assert_eq!(response.current_question.total_questions, 1);
+        assert_eq!(response.progress.total, 1);
+    }
+
+    #[test]
+    fn study_question_validation_rejects_mismatched_correct_choice_label() {
+        let question = StudyQuestion {
+            question_id: "q_choice_conflict".to_string(),
+            question_type: QuestionType::EnToCnChoice,
+            entry_source_id: "condemn_entry".to_string(),
+            word: "condemn".to_string(),
+            part_of_speech: Some("vt".to_string()),
+            phonetic_us: None,
+            phonetic_uk: None,
+            prompt: "condemn".to_string(),
+            accepted_meanings: vec!["璋磋矗锛屾寚璐ｏ紱鍒ゅ垜锛屽鍛婃湁缃�".to_string()],
+            example_sentence: None,
+            example_translation: None,
+            choices: Some(vec![
+                ChoiceOption {
+                    label: "A".to_string(),
+                    text: "鎹熷潖锛岀牬鍧忥紱瀹犲潖锛屾汉鐖�".to_string(),
+                },
+                ChoiceOption {
+                    label: "B".to_string(),
+                    text: "璋磋矗锛屾寚璐ｏ紱鍒ゅ垜锛屽鍛婃湁缃�".to_string(),
+                },
+            ]),
+            correct_choice_label: Some("A".to_string()),
+            question_index: 0,
+            total_questions: 1,
+        };
+
+        assert!(!super::valid_study_question(&question));
+    }
+
+    #[test]
+    fn study_question_validation_rejects_abbreviation_like_word() {
+        let question = StudyQuestion {
+            question_id: "q_abbrev".to_string(),
+            question_type: QuestionType::ExampleToCnChoice,
+            entry_source_id: "kaoyan_bad_abbrev".to_string(),
+            word: "a.".to_string(),
+            part_of_speech: Some("n".to_string()),
+            phonetic_us: None,
+            phonetic_uk: None,
+            prompt: "a.".to_string(),
+            accepted_meanings: vec!["catholic".to_string()],
+            example_sentence: Some("a.".to_string()),
+            example_translation: None,
+            choices: Some(vec![ChoiceOption {
+                label: "A".to_string(),
+                text: "catholic".to_string(),
+            }]),
+            correct_choice_label: Some("A".to_string()),
+            question_index: 0,
+            total_questions: 1,
+        };
+
+        assert!(!super::valid_study_question(&question));
+        assert!(super::has_study_word_content("resumé"));
+    }
+
+    #[test]
+    fn start_session_discards_previous_day_snapshot_for_empty_resume_request() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = (chrono::Local::now() - chrono::Duration::days(1)).to_rfc3339();
+        let questions = (0..28)
+            .map(|index| {
+                serde_json::to_value(StudyQuestion {
+                    question_id: format!("sess_old_review_{index}"),
+                    question_type: QuestionType::CnToEnChoice,
+                    entry_source_id: format!("review_entry_{index}"),
+                    word: format!("review_word_{index}"),
+                    part_of_speech: None,
+                    phonetic_us: None,
+                    phonetic_uk: None,
+                    prompt: format!("review meaning {index}"),
+                    accepted_meanings: vec![format!("review meaning {index}")],
+                    example_sentence: None,
+                    example_translation: None,
+                    choices: Some(vec![ChoiceOption {
+                        text: format!("review_word_{index}"),
+                        label: "A".to_string(),
+                    }]),
+                    correct_choice_label: Some("A".to_string()),
+                    question_index: index as u32,
+                    total_questions: 28,
+                })
+                .expect("serialize question")
+            })
+            .collect::<Vec<_>>();
+
+        let snapshot = serde_json::json!({
+            "questionEngineVersion": super::QUESTION_ENGINE_VERSION,
+            "session": {
+                "sessionId": "sess_old_review",
+                "mode": "review",
+                "totalWords": 28,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "questions": questions,
+            "results": [],
+            "currentIndex": 15,
+            "questionTypeWeights": [{
+                "questionType": "cnToEnChoice",
+                "weight": 100
+            }]
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_review", snapshot.to_string()),
+        )
+        .expect("insert previous-day active snapshot");
+
+        let error = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::Review,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect_err("empty start request must not restore previous-day progress");
+
+        assert!(matches!(error, StudyError::NotEnoughWords));
+        let remaining_snapshot =
+            study_repo::load_active_session_snapshot(&conn, &SessionMode::Review)
+                .expect("load snapshot");
+        assert!(remaining_snapshot.is_none());
+    }
+
+    #[test]
+    fn start_session_discards_snapshot_with_invalid_question_prompt() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = chrono::Local::now().to_rfc3339();
+        let snapshot = serde_json::json!({
+            "questionEngineVersion": super::QUESTION_ENGINE_VERSION,
+            "session": {
+                "sessionId": "sess_bad_prompt",
+                "mode": "review",
+                "totalWords": 1,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "questions": [serde_json::to_value(StudyQuestion {
+                question_id: "sess_bad_prompt_0".to_string(),
+                question_type: QuestionType::CnToEnChoice,
+                entry_source_id: "debate".to_string(),
+                word: "/".to_string(),
+                part_of_speech: None,
+                phonetic_us: Some("dɪˈbet".to_string()),
+                phonetic_uk: None,
+                prompt: "/".to_string(),
+                accepted_meanings: vec!["debate".to_string()],
+                example_sentence: None,
+                example_translation: None,
+                choices: Some(vec![ChoiceOption {
+                    text: "debate".to_string(),
+                    label: "A".to_string(),
+                }]),
+                correct_choice_label: Some("A".to_string()),
+                question_index: 15,
+                total_questions: 28,
+            }).expect("serialize question")],
+            "results": [],
+            "currentIndex": 0,
+            "questionTypeWeights": [{
+                "questionType": "cnToEnChoice",
+                "weight": 100
+            }]
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_review", snapshot.to_string()),
+        )
+        .expect("insert invalid active snapshot");
+
+        let error = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::Review,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect_err("empty start request must not restore invalid question prompt");
+
+        assert!(matches!(error, StudyError::NotEnoughWords));
+        let remaining_snapshot =
+            study_repo::load_active_session_snapshot(&conn, &SessionMode::Review)
+                .expect("load snapshot");
+        assert!(remaining_snapshot.is_none());
+    }
+
+    #[test]
+    fn start_session_discards_snapshot_with_empty_choice_text() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+        let started_at = chrono::Local::now().to_rfc3339();
+        let snapshot = serde_json::json!({
+            "questionEngineVersion": super::QUESTION_ENGINE_VERSION,
+            "session": {
+                "sessionId": "sess_empty_choice",
+                "mode": "review",
+                "totalWords": 1,
+                "wordbookId": null,
+                "startedAt": started_at
+            },
+            "questions": [serde_json::to_value(StudyQuestion {
+                question_id: "sess_empty_choice_0".to_string(),
+                question_type: QuestionType::CnToEnChoice,
+                entry_source_id: "debate".to_string(),
+                word: "debate".to_string(),
+                part_of_speech: None,
+                phonetic_us: Some("dɪˈbet".to_string()),
+                phonetic_uk: None,
+                prompt: "discussion".to_string(),
+                accepted_meanings: vec!["discussion".to_string()],
+                example_sentence: None,
+                example_translation: None,
+                choices: Some(vec![
+                    ChoiceOption {
+                        text: "debate".to_string(),
+                        label: "A".to_string(),
+                    },
+                    ChoiceOption {
+                        text: "".to_string(),
+                        label: "B".to_string(),
+                    },
+                ]),
+                correct_choice_label: Some("A".to_string()),
+                question_index: 15,
+                total_questions: 28,
+            }).expect("serialize question")],
+            "results": [],
+            "currentIndex": 0,
+            "questionTypeWeights": [{
+                "questionType": "cnToEnChoice",
+                "weight": 100
+            }]
+        });
+        conn.execute(
+            "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)",
+            ("active_study_session_review", snapshot.to_string()),
+        )
+        .expect("insert invalid active snapshot");
+
+        let error = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::Review,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect_err("empty start request must not restore empty choice text");
+
+        assert!(matches!(error, StudyError::NotEnoughWords));
+        let remaining_snapshot =
+            study_repo::load_active_session_snapshot(&conn, &SessionMode::Review)
+                .expect("load snapshot");
+        assert!(remaining_snapshot.is_none());
+    }
+
+    #[test]
     fn submit_answer_rejects_non_current_question_id() {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
@@ -1358,6 +2733,129 @@ mod tests {
         .expect_err("non-current question submit should be rejected");
 
         assert!(matches!(error, super::StudyError::NoActiveSession));
+    }
+
+    #[test]
+    fn submit_answer_is_idempotent_for_already_answered_question() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let payloads = vec![
+            test_entry("dup_one", "debate", "杈╄"),
+            test_entry("dup_two", "opinion", "瑙傜偣"),
+        ];
+        let start = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: payloads
+                    .iter()
+                    .map(|payload| payload.source_id.clone())
+                    .collect(),
+                entry_payloads: payloads,
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("start session");
+
+        let question_id = start.current_question.question_id.clone();
+        let first = submit_study_answer(
+            &conn,
+            SubmitAnswerRequest {
+                question_id: question_id.clone(),
+                response: start.current_question.accepted_meanings[0].clone(),
+                response_time_ms: 100,
+            },
+        )
+        .expect("first submit");
+        let duplicate = submit_study_answer(
+            &conn,
+            SubmitAnswerRequest {
+                question_id: question_id.clone(),
+                response: "wrong duplicate tap".to_string(),
+                response_time_ms: 10,
+            },
+        )
+        .expect("duplicate submit should be idempotent");
+
+        assert_eq!(duplicate.result.question_id, first.result.question_id);
+        assert_eq!(duplicate.result.user_response, first.result.user_response);
+        assert_eq!(duplicate.progress.current, first.progress.current);
+        assert_eq!(duplicate.answered_questions.len(), 1);
+        assert!(first.current_question.is_some());
+        assert!(duplicate.current_question.is_none());
+    }
+
+    #[test]
+    fn answered_feed_is_windowed_and_older_history_can_be_loaded() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let payloads = (0..30)
+            .map(|index| {
+                test_entry(
+                    &format!("window_entry_{index}"),
+                    &format!("word{index}"),
+                    &format!("meaning{index}"),
+                )
+            })
+            .collect::<Vec<_>>();
+        let start = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: payloads
+                    .iter()
+                    .map(|payload| payload.source_id.clone())
+                    .collect(),
+                entry_payloads: payloads,
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("start windowed session");
+
+        let session_id = start.session.session_id.clone();
+        let mut current_question = start.current_question;
+        let mut latest = None;
+        for _ in 0..25 {
+            let response = submit_study_answer(
+                &conn,
+                SubmitAnswerRequest {
+                    question_id: current_question.question_id,
+                    response: current_question.accepted_meanings[0].clone(),
+                    response_time_ms: 100,
+                },
+            )
+            .expect("submit answer");
+            current_question = response
+                .current_question
+                .clone()
+                .expect("session should not be complete");
+            latest = Some(response);
+        }
+
+        let latest = latest.expect("at least one response");
+        assert_eq!(latest.progress.current, 26);
+        assert_eq!(latest.answered_questions.len(), super::ANSWERED_FEED_WINDOW);
+        assert_eq!(latest.answered_questions[0].question.question_index, 5);
+
+        let older = super::get_study_session_answered_history(&session_id, 5, 5)
+            .expect("load older history");
+        assert_eq!(older.len(), 5);
+        assert_eq!(older[0].question.question_index, 0);
+        assert_eq!(older[4].question.question_index, 4);
     }
 
     #[test]
@@ -1561,6 +3059,83 @@ mod tests {
         )
         .expect_err("completed submit must not leave a resumable snapshot");
         assert!(matches!(error, super::StudyError::NotEnoughWords));
+    }
+
+    #[test]
+    fn completed_new_word_does_not_leak_feed_or_progress_into_review() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let new_word = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::NewWord,
+                wordbook_id: None,
+                entry_source_ids: vec!["new_alpha".to_string()],
+                entry_payloads: vec![test_entry("new_alpha", "alpha", "first")],
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("start new word");
+        assert_eq!(new_word.progress.current, 1);
+        assert_eq!(new_word.progress.total, 4);
+
+        let mut current_question = new_word.current_question;
+        for _ in 0..4 {
+            let response = submit_study_answer(
+                &conn,
+                SubmitAnswerRequest {
+                    question_id: current_question.question_id.clone(),
+                    response: current_question
+                        .correct_choice_label
+                        .clone()
+                        .unwrap_or_else(|| current_question.accepted_meanings[0].clone()),
+                    response_time_ms: 100,
+                },
+            )
+            .expect("submit new-word question");
+            if response.is_complete {
+                break;
+            }
+            current_question = response
+                .current_question
+                .expect("new-word session should continue until complete");
+        }
+
+        let new_word_snapshot =
+            study_repo::load_active_session_snapshot(&conn, &SessionMode::NewWord)
+                .expect("load new-word snapshot after completion");
+        assert!(new_word_snapshot.is_none());
+
+        let review = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::Review,
+                wordbook_id: None,
+                entry_source_ids: vec!["review_beta".to_string(), "review_gamma".to_string()],
+                entry_payloads: vec![
+                    test_entry("review_beta", "beta", "second"),
+                    test_entry("review_gamma", "gamma", "third"),
+                ],
+                distractor_payloads: Vec::new(),
+                question_type_weights: vec![QuestionTypeWeight {
+                    question_type: QuestionType::EnToCnInput,
+                    weight: 100,
+                }],
+            },
+        )
+        .expect("start review after new word completion");
+
+        assert_eq!(review.progress.current, 1);
+        assert_eq!(review.progress.total, 2);
+        assert!(review.answered_questions.is_empty());
+        assert!(review
+            .current_question
+            .entry_source_id
+            .starts_with("review_"));
+        assert_ne!(review.current_question.entry_source_id, "new_alpha");
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 > Slug: `today-page`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-07-16`
 
 ## Product Intent
 
@@ -141,6 +141,11 @@ Reward state is also durable:
 - `2026-05-04`: Final-answer completion path hardened in Rust and Flutter SDK so Today can receive correct post-study progress.
 - `2026-05-19`: Today first paint and secondary module hydration were split to reduce visible loading and navigation jank.
 - `2026-06-25`: Rebuilt this cross-platform feature ledger from the mobile implementation conversation.
+- `2026-07-16`: Added a compact heading-level `单词学习 / 模拟练习` selector. Word mode preserves the existing Today body and first-paint path; practice mode lazily loads the exam catalog and replaces the body with cascading selectors and a dedicated reader.
+- `2026-07-16`: Runtime diagnosis: the long blank/loading state shown immediately after entering the app is bounded by the first `TodayClient.getTodayHomeState` bridge response, not by Flutter rendering, AI, reward, announcements, or sync hydration. The Rust bridge still calls `ensure_seed_vocabulary_imported` before building Today, so seed maintenance and question-prep rebuilds can block the visible Today first paint.
+- `2026-07-16`: Modification points: `apps/flutter_mobile/lib/features/today_shell_screen.dart` no longer treats `showFullLoading` as a cache refresh flag for Today, plan, and AI futures. Explicit `forceRefresh` still bypasses cache, but normal full-page loading can now reuse an in-flight root preload instead of discarding it.
+- `2026-07-16`: Runtime diagnosis: the stuck floating crocodile popup after pull-to-refresh is caused by `CrocodileRefreshIndicator` waiting for `_refreshHomeBundle` to finish secondary hydration after the visible Today progress already updated. The delayed work is plan fallback, AI context/history, reward, announcements, and sync status, not the task-progress query itself.
+- `2026-07-16`: Modification points: `apps/flutter_mobile/lib/features/today_shell_screen.dart` now completes the pull-refresh future immediately after the authoritative Today state is painted, then hydrates secondary modules in the background under the section-level linear loading indicator. `crates/platform-mobile/src/bridge.rs` now uses a lightweight vocabulary availability gate for `get_today_home_state` and `get_today_ai_passage_context`; existing databases skip seed maintenance on the Today visible path, while empty first-install databases still import bundled vocabulary.
 
 ## Mobile Lessons Learned
 
@@ -155,6 +160,9 @@ Reward state is also durable:
 - Gallery success should be verified by actual media-store visibility, not just a bridge success string.
 - Reward state must survive restart, otherwise users can repeatedly draw/save the same day's reward.
 - Today performance should use section-level hydration; AI, reward, sync, and diagnostics should not block the core task breakdown.
+- Keep full-page loading and cache invalidation separate. A visual loading state should not invalidate an already-started preload unless the user explicitly refreshes or a post-study/plan change invalidates Today.
+- Keep pull-to-refresh completion tied to the user-visible Today state. Optional secondary modules may keep hydrating, but they must not hold the floating refresh popup open after progress rows are already current.
+- Existing seed vocabulary maintenance can be expensive enough to block first paint. Today may verify vocabulary availability, but maintenance/rebuild work belongs in bootstrap, study-start, explicit migration, or background paths.
 
 ## Desktop Follow-Up Notes
 
@@ -185,6 +193,8 @@ Reward state is also durable:
 - Do not rebuild review mode from unlearned/global vocabulary; only use learned-before-today entries.
 - Do not allow Rust JSON enrichment helpers to write into `null` response fields.
 - Do not let Flutter parse partial `currentQuestion` objects after final submit.
+- Do not load the bundled exam corpus during Today word-mode startup; initialize the catalog only after the user selects simulation practice.
+- Do not run seed-vocabulary maintenance synchronously inside the user-visible Today first-paint path if it can be moved to bootstrap, background maintenance, or an explicit migration gate with progress.
 
 ## Verification
 
@@ -200,3 +210,9 @@ Reward state is also durable:
     - review target fallback from stale/empty review selections
     - review pool not using unlearned general vocabulary
     - final submit hint enrichment preserving `currentQuestion:null`
+  - `2026-07-16`: `today_task_breakdown_test.dart` passed 5/5 alongside the new Today learning-mode selector tests. Device first-paint profiling was not run.
+  - `2026-07-16`: `D:\flutter\flutter\bin\flutter.bat test test\exam_practice_screen_test.dart --no-pub` passed 11/11 after the Today cache-refresh split and practice loading-state check. Device startup timing was not measured in this turn.
+  - `2026-07-16`: `cargo check -p word-platform-mobile` passed after moving seed maintenance off the Today visible path for existing databases; it still reports the existing unused `today_target_seed_from_plan_value` warning.
+  - `2026-07-16`: `D:\flutter\flutter\bin\flutter.bat test test\today_task_breakdown_test.dart --no-pub` passed 5/5 after the pull-refresh lifecycle split.
+  - `2026-07-16`: `D:\flutter\flutter\bin\flutter.bat test test\exam_practice_screen_test.dart --no-pub` currently fails before running assertions because `ExamSectionReportScreen` is referenced by the test but no matching class is present in `apps/flutter_mobile/lib/features/exam_practice_screen.dart`; this is recorded as an existing exam-practice test/export drift, not a Today refresh regression.
+  - `2026-07-16`: `git diff --check -- apps/flutter_mobile/lib/features/today_shell_screen.dart crates/platform-mobile/src/bridge.rs docs/features/today-page.md` passed with CRLF conversion warnings only.

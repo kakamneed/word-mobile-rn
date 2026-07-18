@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 /// Current schema version. Increment when structural changes are needed.
-pub const SCHEMA_VERSION: i64 = 15;
+pub const SCHEMA_VERSION: i64 = 21;
 
 /// Applies all idempotent schema migrations to the database.
 ///
@@ -135,6 +135,7 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
     .map_err(|e| crate::StorageError::Schema(format!("Failed to create wordbook_entries: {e}")))?;
 
     create_entry_question_prep_tables(conn)?;
+    create_entry_alias_tables(conn)?;
 
     // Plan templates
     conn.execute_batch(
@@ -229,6 +230,11 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
 
     create_mastered_entry_tables(conn)?;
     create_user_accepted_meaning_tables(conn)?;
+    create_exercise_vocab_tables(conn)?;
+    create_exercise_attempt_tables(conn)?;
+    create_user_exam_paper_tables(conn)?;
+    create_exam_question_analysis_tables(conn)?;
+    create_exercise_annotation_tables(conn)?;
 
     // Sync outbox
     conn.execute_batch(
@@ -297,6 +303,13 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
          CREATE INDEX IF NOT EXISTS idx_word_hints_updated ON word_hints(updated_at);
          CREATE INDEX IF NOT EXISTS idx_user_accepted_meanings_entry ON user_accepted_meanings(entry_id);
          CREATE INDEX IF NOT EXISTS idx_user_accepted_meanings_source ON user_accepted_meanings(entry_source_id);
+         CREATE INDEX IF NOT EXISTS idx_exercise_articles_source ON exercise_articles(article_id);
+         CREATE INDEX IF NOT EXISTS idx_exercise_vocab_occurrences_article ON exercise_vocab_occurrences(article_id, start_offset);
+         CREATE INDEX IF NOT EXISTS idx_exercise_vocab_occurrences_entry ON exercise_vocab_occurrences(entry_id);
+         CREATE INDEX IF NOT EXISTS idx_exercise_vocab_occurrences_mark ON exercise_vocab_occurrences(user_mark);
+         CREATE INDEX IF NOT EXISTS idx_exercise_vocab_relations_article ON exercise_vocab_relations(article_id);
+         CREATE INDEX IF NOT EXISTS idx_exercise_vocab_relations_source ON exercise_vocab_relations(source_occurrence_id);
+         CREATE INDEX IF NOT EXISTS idx_exercise_vocab_relations_target ON exercise_vocab_relations(target_occurrence_id);
          CREATE INDEX IF NOT EXISTS idx_mastered_entries_source ON mastered_entries(source_entry_id);
          CREATE INDEX IF NOT EXISTS idx_mastered_entries_mastered_at ON mastered_entries(mastered_at);
          CREATE INDEX IF NOT EXISTS idx_sync_outbox_domain ON sync_outbox(domain);
@@ -398,6 +411,233 @@ fn run_migrations(conn: &Connection, from_version: i64) -> Result<(), crate::Sto
     if from_version < 15 {
         create_entry_question_prep_tables(conn)?;
     }
+    if from_version < 16 {
+        create_exercise_vocab_tables(conn)?;
+    }
+    if from_version < 17 {
+        create_exercise_attempt_tables(conn)?;
+    }
+    if from_version < 18 {
+        create_user_exam_paper_tables(conn)?;
+    }
+    if from_version < 19 {
+        create_exam_question_analysis_tables(conn)?;
+    }
+    if from_version < 20 {
+        create_exercise_annotation_tables(conn)?;
+    }
+    if from_version < 21 {
+        create_entry_alias_tables(conn)?;
+    }
+    Ok(())
+}
+
+fn create_entry_alias_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS entry_aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            alias TEXT NOT NULL,
+            meaning_cn TEXT NOT NULL DEFAULT '',
+            source_kind TEXT NOT NULL DEFAULT 'related_word',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(entry_id, alias, meaning_cn),
+            CHECK (length(trim(alias)) > 0),
+            FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_entry_aliases_lookup
+            ON entry_aliases(alias COLLATE NOCASE);",
+    )
+    .map_err(|error| {
+        crate::StorageError::Schema(format!("Failed to create entry alias tables: {error}"))
+    })?;
+    Ok(())
+}
+
+fn create_exercise_annotation_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS exercise_annotations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            annotation_id TEXT NOT NULL UNIQUE,
+            article_id INTEGER NOT NULL,
+            question_id TEXT,
+            scope TEXT NOT NULL,
+            start_offset INTEGER NOT NULL,
+            end_offset INTEGER NOT NULL,
+            selected_text TEXT NOT NULL,
+            note_text TEXT NOT NULL DEFAULT '',
+            color TEXT NOT NULL DEFAULT 'yellow',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            CHECK (length(trim(annotation_id)) > 0),
+            CHECK (length(trim(selected_text)) > 0),
+            CHECK (end_offset > start_offset),
+            CHECK (color IN ('yellow')),
+            FOREIGN KEY (article_id) REFERENCES exercise_articles(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_exercise_annotations_article
+            ON exercise_annotations(article_id, start_offset);",
+    )
+    .map_err(|error| {
+        crate::StorageError::Schema(format!(
+            "Failed to create exercise annotation tables: {error}"
+        ))
+    })?;
+    Ok(())
+}
+
+fn create_exam_question_analysis_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS exam_question_analyses (
+            evidence_key TEXT NOT NULL PRIMARY KEY,
+            paper_id TEXT NOT NULL,
+            question_id TEXT NOT NULL,
+            attempt_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            result_json TEXT NOT NULL,
+            provider TEXT NOT NULL DEFAULT '',
+            model TEXT NOT NULL DEFAULT '',
+            analysis_version TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            CHECK (status IN ('completed', 'provider_failure', 'ineligible'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_exam_question_analyses_question
+            ON exam_question_analyses(paper_id, question_id, updated_at DESC);",
+    )
+    .map_err(|error| {
+        crate::StorageError::Schema(format!(
+            "Failed to create exam question analysis tables: {error}"
+        ))
+    })?;
+    Ok(())
+}
+
+fn create_user_exam_paper_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS user_exam_papers (
+            paper_id TEXT NOT NULL PRIMARY KEY,
+            exam TEXT NOT NULL,
+            title TEXT NOT NULL,
+            paper_json TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            source_name TEXT NOT NULL DEFAULT '',
+            warnings_json TEXT NOT NULL DEFAULT '[]',
+            imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            CHECK (length(trim(paper_id)) > 0),
+            CHECK (length(trim(exam)) > 0),
+            CHECK (source_type IN ('text', 'image', 'manual'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_exam_papers_exam_updated
+            ON user_exam_papers(exam, updated_at DESC);",
+    )
+    .map_err(|error| {
+        crate::StorageError::Schema(format!("Failed to create user exam paper tables: {error}"))
+    })?;
+    Ok(())
+}
+
+fn create_exercise_attempt_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS exercise_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_id TEXT NOT NULL UNIQUE,
+            paper_id TEXT NOT NULL,
+            section_id TEXT NOT NULL,
+            question_id TEXT NOT NULL,
+            selected_answer TEXT,
+            is_correct INTEGER,
+            answer_history_json TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'in_progress',
+            started_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            CHECK (length(trim(attempt_id)) > 0),
+            CHECK (length(trim(paper_id)) > 0),
+            CHECK (length(trim(question_id)) > 0),
+            CHECK (is_correct IS NULL OR is_correct IN (0, 1)),
+            CHECK (status IN ('in_progress', 'answered', 'completed', 'abandoned'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_exercise_attempts_paper_updated
+            ON exercise_attempts(paper_id, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_exercise_attempts_question_updated
+            ON exercise_attempts(question_id, updated_at DESC);",
+    )
+    .map_err(|error| {
+        crate::StorageError::Schema(format!("Failed to create exercise attempt tables: {error}"))
+    })?;
+    Ok(())
+}
+
+fn create_exercise_vocab_tables(conn: &Connection) -> Result<(), crate::StorageError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS exercise_articles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            article_id TEXT NOT NULL UNIQUE,
+            source_type TEXT NOT NULL DEFAULT 'builtin',
+            title TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL DEFAULT '',
+            language TEXT NOT NULL DEFAULT 'en',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            CHECK (source_type IN ('builtin', 'user_import', 'cloud_import', 'external')),
+            CHECK (length(trim(article_id)) > 0)
+        );
+
+        CREATE TABLE IF NOT EXISTS exercise_vocab_occurrences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            article_id INTEGER NOT NULL,
+            entry_id INTEGER,
+            word_form TEXT NOT NULL DEFAULT '',
+            normalized_form TEXT NOT NULL DEFAULT '',
+            sentence_text TEXT NOT NULL DEFAULT '',
+            paragraph_index INTEGER NOT NULL DEFAULT 0,
+            sentence_index INTEGER NOT NULL DEFAULT 0,
+            start_offset INTEGER NOT NULL DEFAULT 0,
+            end_offset INTEGER NOT NULL DEFAULT 0,
+            lookup_status TEXT NOT NULL DEFAULT 'unseen',
+            user_mark TEXT NOT NULL DEFAULT 'none',
+            meaning_note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(article_id, start_offset, end_offset, word_form),
+            CHECK (length(trim(word_form)) > 0),
+            CHECK (end_offset >= start_offset),
+            CHECK (lookup_status IN ('unseen', 'looked_up', 'matched', 'unmatched')),
+            CHECK (user_mark IN ('none', 'unknown', 'wrong', 'mastered', 'ignored')),
+            FOREIGN KEY (article_id) REFERENCES exercise_articles(id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES entries(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS exercise_vocab_relations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            article_id INTEGER NOT NULL,
+            source_occurrence_id INTEGER NOT NULL,
+            target_occurrence_id INTEGER NOT NULL,
+            relation_type TEXT NOT NULL DEFAULT 'same_article',
+            relation_weight REAL NOT NULL DEFAULT 1.0,
+            evidence_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(article_id, source_occurrence_id, target_occurrence_id, relation_type),
+            CHECK (relation_type IN ('same_article', 'same_paragraph', 'same_sentence', 'same_exercise_item', 'canonical_entry')),
+            CHECK (source_occurrence_id <> target_occurrence_id),
+            FOREIGN KEY (article_id) REFERENCES exercise_articles(id) ON DELETE CASCADE,
+            FOREIGN KEY (source_occurrence_id) REFERENCES exercise_vocab_occurrences(id) ON DELETE CASCADE,
+            FOREIGN KEY (target_occurrence_id) REFERENCES exercise_vocab_occurrences(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_exercise_articles_source ON exercise_articles(article_id);
+        CREATE INDEX IF NOT EXISTS idx_exercise_vocab_occurrences_article ON exercise_vocab_occurrences(article_id, start_offset);
+        CREATE INDEX IF NOT EXISTS idx_exercise_vocab_occurrences_entry ON exercise_vocab_occurrences(entry_id);
+        CREATE INDEX IF NOT EXISTS idx_exercise_vocab_occurrences_mark ON exercise_vocab_occurrences(user_mark);
+        CREATE INDEX IF NOT EXISTS idx_exercise_vocab_relations_article ON exercise_vocab_relations(article_id);
+        CREATE INDEX IF NOT EXISTS idx_exercise_vocab_relations_source ON exercise_vocab_relations(source_occurrence_id);
+        CREATE INDEX IF NOT EXISTS idx_exercise_vocab_relations_target ON exercise_vocab_relations(target_occurrence_id);",
+    )
+    .map_err(|e| {
+        crate::StorageError::Schema(format!("Failed to create exercise vocab tables: {e}"))
+    })?;
     Ok(())
 }
 

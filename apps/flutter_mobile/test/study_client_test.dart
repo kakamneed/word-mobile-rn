@@ -123,6 +123,30 @@ void main() {
     expect(question.choices?[2]['text'], 'food shortage');
   });
 
+  test('study question decode filters empty choice text distractors', () {
+    final question = StudyQuestion.fromJson({
+      'questionId': 'q-choice-empty-distractor',
+      'questionType': 'cnToEnChoice',
+      'entrySourceId': 'debate',
+      'word': 'debate',
+      'prompt': 'discussion',
+      'acceptedMeanings': ['discussion'],
+      'choices': [
+        {'label': 'A', 'text': 'debate'},
+        {'label': 'B', 'text': ''},
+        {'label': 'C', 'text': 'courtesy'},
+        {'label': 'D', 'text': '   '},
+      ],
+      'correctChoiceLabel': 'A',
+      'questionIndex': 15,
+      'totalQuestions': 28,
+    });
+
+    expect(question.choices, hasLength(2));
+    expect(question.choices?.map((choice) => choice['label']), ['A', 'C']);
+    expect(question.correctChoiceLabel, 'A');
+  });
+
   test(
     'choice question decode fails instead of guessing A when correct label is missing',
     () {

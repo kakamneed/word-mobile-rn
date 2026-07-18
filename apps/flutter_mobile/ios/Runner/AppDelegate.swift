@@ -172,6 +172,56 @@ import UniformTypeIdentifiers
       handleString(result: result) { word_mobile_ios_get_wrong_word_detail(entryId) }
     case "getWrongWordGraph":
       handleString(result: result) { word_mobile_ios_get_wrong_word_graph() }
+    case "getExamCatalog":
+      handleString(result: result) { word_mobile_ios_get_exam_catalog() }
+    case "getExamPaper":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "getExamPaper requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_get_exam_paper(pointer) }
+      }
+    case "analyzeExamPaperImport":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "analyzeExamPaperImport requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_analyze_exam_paper_import(pointer) }
+      }
+    case "saveUserExamPaper":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "saveUserExamPaper requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_save_user_exam_paper(pointer) }
+      }
+    case "getExamVocabularyPriority":
+      handleString(result: result) { word_mobile_ios_get_exam_vocabulary_priority() }
+    case "getExamPracticeReport":
+      handleString(result: result) { word_mobile_ios_get_exam_practice_report() }
+    case "analyzeExamQuestionVocabulary":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "analyzeExamQuestionVocabulary requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_analyze_exam_question_vocabulary(pointer) }
+      }
+    case "saveExamAttempt":
+      handleJsonStringCall(call: call, result: result, name: "saveExamAttempt", action: word_mobile_ios_save_exam_attempt)
+    case "getExamAttempt":
+      handleJsonStringCall(call: call, result: result, name: "getExamAttempt", action: word_mobile_ios_get_exam_attempt)
+    case "tokenizeExamText":
+      handleJsonStringCall(call: call, result: result, name: "tokenizeExamText", action: word_mobile_ios_tokenize_exam_text)
+    case "inspectExamWord":
+      handleJsonStringCall(call: call, result: result, name: "inspectExamWord", action: word_mobile_ios_inspect_exam_word)
+    case "getExamAnnotationState":
+      handleJsonStringCall(call: call, result: result, name: "getExamAnnotationState", action: word_mobile_ios_get_exam_annotation_state)
+    case "saveExamAnnotation":
+      handleJsonStringCall(call: call, result: result, name: "saveExamAnnotation", action: word_mobile_ios_save_exam_annotation)
     case "saveWrongWordGraphPosition":
       guard let request = call.arguments as? String else {
         result(FlutterError(code: "INVALID_ARGS", message: "saveWrongWordGraphPosition requires JSON string", details: nil))

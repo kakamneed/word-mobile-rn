@@ -5,7 +5,26 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
 import 'study_screen.dart';
+import 'learning_content_mode_selector.dart';
 import 'wrong_word_graph_screen.dart';
+
+List<ExamVocabularyPriority> sortExamPracticeWrongWords(
+  Iterable<ExamVocabularyPriority> items,
+) {
+  final sorted = items
+      .where((item) => item.unknownMarkCount + item.wrongAssociationCount > 0)
+      .toList(growable: false);
+  sorted.sort((left, right) {
+    final leftTotal = left.unknownMarkCount + left.wrongAssociationCount;
+    final rightTotal = right.unknownMarkCount + right.wrongAssociationCount;
+    return rightTotal.compareTo(leftTotal) != 0
+        ? rightTotal.compareTo(leftTotal)
+        : right.wrongAssociationCount.compareTo(left.wrongAssociationCount) != 0
+        ? right.wrongAssociationCount.compareTo(left.wrongAssociationCount)
+        : left.word.compareTo(right.word);
+  });
+  return sorted;
+}
 
 class WrongWordsScreen extends StatefulWidget {
   const WrongWordsScreen({super.key, required this.sdk, this.onStartStudy});
@@ -23,6 +42,8 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
   final Map<int, GlobalKey> _wordKeys = <int, GlobalKey>{};
 
   List<WrongWordEntry> _words = const [];
+  List<ExamVocabularyPriority> _practiceWords = const [];
+  LearningContentMode _content = LearningContentMode.wordStudy;
   WrongWordDetail? _detail;
   int? _selectedId;
   int _detailScrollGeneration = 0;
@@ -104,6 +125,18 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       _error = null;
     });
     try {
+      if (_content == LearningContentMode.examPractice) {
+        final words = sortExamPracticeWrongWords(
+          await widget.sdk.examPractice.getVocabularyPriority(),
+        );
+        if (!mounted) return;
+        setState(() {
+          _practiceWords = words;
+          _selectedId = null;
+          _detail = null;
+        });
+        return;
+      }
       final words = await widget.sdk.wrongWords.getWrongWords(_filter);
       if (!mounted) return;
       setState(() {
@@ -129,6 +162,91 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
         });
       }
     }
+  }
+
+  void _changeContent(LearningContentMode value) {
+    if (value == _content) return;
+    setState(() {
+      _content = value;
+      _selectedId = null;
+      _detail = null;
+      _error = null;
+    });
+    _loadAll();
+  }
+
+  Widget _buildPracticeWords() {
+    final redCount = _practiceWords.fold<int>(
+      0,
+      (sum, item) => sum + item.wrongAssociationCount,
+    );
+    final yellowCount = _practiceWords.fold<int>(
+      0,
+      (sum, item) => sum + item.unknownMarkCount,
+    );
+    return CrocodileRefreshIndicator(
+      onRefresh: () => _loadAll(showFullLoading: false),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionCard(
+            title: '模拟练习错词',
+            subtitle: '按标红、标黄总次数排序；次数相同时，标红更多的词优先。',
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _PracticeMarkStat(
+                  label: '标红',
+                  value: redCount,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                _PracticeMarkStat(
+                  label: '标黄',
+                  value: yellowCount,
+                  color: const Color(0xFFC28B00),
+                ),
+                _PracticeMarkStat(
+                  label: '错词',
+                  value: _practiceWords.length,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ],
+            ),
+          ),
+          if (_practiceWords.isEmpty)
+            const _SectionCard(
+              title: '当前为空',
+              subtitle: '这里不读取单词学习错误次数。',
+              child: Text('在模拟练习中标黄或标红的词会出现在这里。'),
+            )
+          else
+            _SectionCard(
+              title: '错词排序',
+              subtitle: '红黄标记均来自模拟练习文章、题干和选项。',
+              child: Column(
+                children: [
+                  for (final item in _practiceWords)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(item.word),
+                      subtitle: Text(
+                        '标红 ${item.wrongAssociationCount} 次 · 标黄 ${item.unknownMarkCount} 次',
+                      ),
+                      trailing: CircleAvatar(
+                        radius: 18,
+                        child: Text(
+                          '${item.wrongAssociationCount + item.unknownMarkCount}',
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _selectWord(WrongWordEntry entry) async {
@@ -600,6 +718,16 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('\u9519\u8bcd\u672c'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(58),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: LearningContentModeSelector(
+              value: _content,
+              onChanged: _changeContent,
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Wrong word graph',
@@ -618,6 +746,8 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
           ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
           ? _WrongWordsMessage(message: _error!, onRetry: _loadAll)
+          : _content == LearningContentMode.examPractice
+          ? _buildPracticeWords()
           : CrocodileRefreshIndicator(
               onRefresh: () => _loadAll(showFullLoading: false),
               child: ListView(
@@ -724,6 +854,44 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _PracticeMarkStat extends StatelessWidget {
+  const _PracticeMarkStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$value',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(label),
+          ],
+        ),
+      ),
     );
   }
 }

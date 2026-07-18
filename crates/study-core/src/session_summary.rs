@@ -15,6 +15,21 @@ impl SessionSummaryService {
         SessionSummary::from_results(&session.session_id, results, completed_at)
     }
 
+    /// Generate the end-of-session summary using the question-plan total.
+    pub fn build_summary_with_total(
+        session: &StudySession,
+        results: &[StudyResult],
+        total_questions: u32,
+        completed_at: &str,
+    ) -> SessionSummary {
+        SessionSummary::from_results_with_total(
+            &session.session_id,
+            results,
+            total_questions,
+            completed_at,
+        )
+    }
+
     /// Determine the recommended next action after a session.
     pub fn next_action(summary: &SessionSummary, mode: &SessionMode) -> String {
         if summary.wrong_word_count > 0 {

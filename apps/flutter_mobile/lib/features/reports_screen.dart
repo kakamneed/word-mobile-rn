@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
+import 'learning_content_mode_selector.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key, required this.sdk});
@@ -16,6 +17,10 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   ReportsOverview? _reports;
+  ExamPracticeReport? _practiceReport;
+  LearningContentMode _content = LearningContentMode.wordStudy;
+  String? _selectedExam;
+  Map<String, dynamic>? _selectedPracticePaper;
   Map<String, dynamic>? _selectedDay;
   String? _selectedMode;
   bool _loading = true;
@@ -33,14 +38,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _error = null;
     });
     try {
-      final reports = await widget.sdk.reports.getReportsOverview();
-      final dailySeries = reports.dailySeries.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false);
-      final modeBreakdown = reports.modeBreakdown.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false);
+      final results = await Future.wait<Object>([
+        widget.sdk.reports.getReportsOverview(),
+        widget.sdk.examPractice.getPracticeReport(),
+      ]);
+      final reports = results[0] as ReportsOverview;
+      final practiceReport = results[1] as ExamPracticeReport;
+      final dailySeries = reports.dailySeries
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList(growable: false);
+      final modeBreakdown = reports.modeBreakdown
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList(growable: false);
       if (!mounted) return;
       setState(() {
         _reports = reports;
+        _practiceReport = practiceReport;
+        _selectedExam = practiceReport.exams.isEmpty
+            ? null
+            : practiceReport.exams.first.exam;
         _selectedDay = dailySeries.isNotEmpty ? dailySeries.last : null;
-        _selectedMode = modeBreakdown.isNotEmpty ? '${modeBreakdown.first['mode'] ?? ''}' : null;
+        _selectedMode = modeBreakdown.isNotEmpty
+            ? '${modeBreakdown.first['mode'] ?? ''}'
+            : null;
       });
     } catch (error) {
       if (!mounted) return;
@@ -54,6 +76,133 @@ class _ReportsScreenState extends State<ReportsScreen> {
         });
       }
     }
+  }
+
+  void _changeContent(LearningContentMode value) {
+    setState(() => _content = value);
+  }
+
+  String _examLabel(String exam) => switch (exam) {
+    'cet4' => '大学英语四级',
+    'cet6' => '大学英语六级',
+    'kaoyan-english-1' => '考研英语一',
+    'kaoyan-english-2' => '考研英语二',
+    _ => exam,
+  };
+
+  String _questionTypeLabel(String kind) => switch (kind) {
+    'listening' => '听力',
+    'cloze' => '完形填空',
+    'reading' => '阅读理解',
+    'newType' => '新题型',
+    _ => kind,
+  };
+
+  List<Map<String, dynamic>> _paperSeries(
+    ExamPracticeExamReport exam, {
+    String? questionType,
+  }) => [
+    for (final paper in exam.papers)
+      if (questionType == null || paper.questionTypes.containsKey(questionType))
+        {
+          'date': paper.paperId,
+          'axisLabel': _paperAxisLabel(paper),
+          'title': paper.title,
+          'paperId': paper.paperId,
+          'correctCount': questionType == null
+              ? paper.correctCount
+              : paper.questionTypes[questionType]!.correctCount,
+          'totalQuestions': questionType == null
+              ? paper.totalQuestions
+              : paper.questionTypes[questionType]!.totalQuestions,
+          'accuracyPercent': questionType == null
+              ? paper.accuracyPercent
+              : paper.questionTypes[questionType]!.accuracyPercent,
+        },
+  ];
+
+  String _paperAxisLabel(ExamPracticePaperReport paper) {
+    final year = '${paper.year}';
+    final start = paper.title.indexOf(year);
+    if (start < 0) return year;
+    return paper.title.substring(start).replaceAll(' Set ', ' S');
+  }
+
+  Widget _buildPracticeReport(ExamPracticeReport report) {
+    if (report.exams.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: const [
+          _SectionCard(
+            title: '暂无模拟练习报告',
+            subtitle: '这里只统计已提交并能够自动判分的客观题。',
+            child: Text('完成一份试卷后，整卷与题型正确率会显示在这里。'),
+          ),
+        ],
+      );
+    }
+    final selected = report.exams.firstWhere(
+      (item) => item.exam == _selectedExam,
+      orElse: () => report.exams.first,
+    );
+    final overall = _paperSeries(selected);
+    return CrocodileRefreshIndicator(
+      onRefresh: () => _load(showFullLoading: false),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: selected.exam,
+            decoration: const InputDecoration(
+              labelText: '考试类型',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              for (final exam in report.exams)
+                DropdownMenuItem(
+                  value: exam.exam,
+                  child: Text(_examLabel(exam.exam)),
+                ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedExam = value;
+                _selectedPracticePaper = null;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          _SectionCard(
+            title: '整卷正确率',
+            subtitle: '每个节点对应一张已作答试卷，仅统计可自动判分的客观题。',
+            child: _DailyLineChart(
+              data: overall,
+              selectedDate: _selectedPracticePaper?['date'] as String?,
+              lineColor: Theme.of(context).colorScheme.primary,
+              onSelect: (item) => setState(() => _selectedPracticePaper = item),
+            ),
+          ),
+          for (final kind in const ['listening', 'cloze', 'reading', 'newType'])
+            _SectionCard(
+              title: _questionTypeLabel(kind),
+              subtitle: '按试卷比较该题型的客观题正确率。',
+              child: _DailyLineChart(
+                data: _paperSeries(selected, questionType: kind),
+                selectedDate: null,
+                lineColor: switch (kind) {
+                  'listening' => const Color(0xFF2563A6),
+                  'cloze' => const Color(0xFFC27A16),
+                  'reading' => const Color(0xFF2F8F6A),
+                  _ => const Color(0xFF8E5AA7),
+                },
+                onSelect: (_) {},
+                compact: true,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   String _modeLabel(String mode) {
@@ -83,74 +232,98 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final reports = _reports;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('报告')),
+      appBar: AppBar(
+        title: const Text('报告'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(58),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: LearningContentModeSelector(
+              value: _content,
+              onChanged: _changeContent,
+            ),
+          ),
+        ),
+      ),
       body: _loading
           ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
-              ? _ReportsMessage(message: _error!, onRetry: _load)
-              : reports == null
-                  ? _ReportsMessage(message: '还没有可展示的学习报告。', onRetry: _load)
-                  : CrocodileRefreshIndicator(
-                      onRefresh: () => _load(showFullLoading: false),
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          _StreakHero(reports: reports),
-                          _MetricGrid(reports: reports),
-                          _SectionCard(
-                            title: '每日正确率趋势',
-                            subtitle: '横向滑动浏览不同日期，点选节点查看当天正确率、题量和时长。',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _DailyLineChart(
-                                  data: reports.dailySeries.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false),
-                                  selectedDate: _selectedDay?['date'] as String?,
-                                  lineColor: Theme.of(context).colorScheme.primary,
-                                  onSelect: (item) => setState(() => _selectedDay = item),
-                                ),
-                                const SizedBox(height: 12),
-                                _DailyDetailCard(day: _selectedDay),
-                              ],
-                            ),
-                          ),
-                          _SectionCard(
-                            title: '按模式查看',
-                            subtitle: '点开某个模式后，会显示该模式自己的趋势图和建议。',
-                            child: Column(
-                              children: reports.modeBreakdown
-                                  .whereType<Map>()
-                                  .map((entry) => entry.cast<String, dynamic>())
-                                  .map(
-                                    (entry) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: _ModeBreakdownCard(
-                                        entry: entry,
-                                        label: _modeLabel('${entry['mode'] ?? ''}'),
-                                        color: _modeColor(
-                                          context,
-                                          '${entry['mode'] ?? ''}',
-                                        ),
-                                        selected: _selectedMode == '${entry['mode'] ?? ''}',
-                                        series: ((reports.modeSeries['${entry['mode'] ?? ''}'] as List?) ?? const [])
-                                            .whereType<Map>()
-                                            .map((e) => e.cast<String, dynamic>())
-                                            .toList(growable: false),
-                                        onTap: () {
-                                          final mode = '${entry['mode'] ?? ''}';
-                                          setState(() {
-                                            _selectedMode = _selectedMode == mode ? null : mode;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                            ),
-                          ),
-                        ],
-                      ),
+          ? _ReportsMessage(message: _error!, onRetry: _load)
+          : reports == null || _practiceReport == null
+          ? _ReportsMessage(message: '还没有可展示的学习报告。', onRetry: _load)
+          : _content == LearningContentMode.examPractice
+          ? _buildPracticeReport(_practiceReport!)
+          : CrocodileRefreshIndicator(
+              onRefresh: () => _load(showFullLoading: false),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _StreakHero(reports: reports),
+                  _MetricGrid(reports: reports),
+                  _SectionCard(
+                    title: '每日正确率趋势',
+                    subtitle: '横向滑动浏览不同日期，点选节点查看当天正确率、题量和时长。',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _DailyLineChart(
+                          data: reports.dailySeries
+                              .whereType<Map>()
+                              .map((e) => e.cast<String, dynamic>())
+                              .toList(growable: false),
+                          selectedDate: _selectedDay?['date'] as String?,
+                          lineColor: Theme.of(context).colorScheme.primary,
+                          onSelect: (item) =>
+                              setState(() => _selectedDay = item),
+                        ),
+                        const SizedBox(height: 12),
+                        _DailyDetailCard(day: _selectedDay),
+                      ],
                     ),
+                  ),
+                  _SectionCard(
+                    title: '按模式查看',
+                    subtitle: '点开某个模式后，会显示该模式自己的趋势图和建议。',
+                    child: Column(
+                      children: reports.modeBreakdown
+                          .whereType<Map>()
+                          .map((entry) => entry.cast<String, dynamic>())
+                          .map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _ModeBreakdownCard(
+                                entry: entry,
+                                label: _modeLabel('${entry['mode'] ?? ''}'),
+                                color: _modeColor(
+                                  context,
+                                  '${entry['mode'] ?? ''}',
+                                ),
+                                selected:
+                                    _selectedMode == '${entry['mode'] ?? ''}',
+                                series:
+                                    ((reports.modeSeries['${entry['mode'] ?? ''}']
+                                                as List?) ??
+                                            const [])
+                                        .whereType<Map>()
+                                        .map((e) => e.cast<String, dynamic>())
+                                        .toList(growable: false),
+                                onTap: () {
+                                  final mode = '${entry['mode'] ?? ''}';
+                                  setState(() {
+                                    _selectedMode = _selectedMode == mode
+                                        ? null
+                                        : mode;
+                                  });
+                                },
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -175,16 +348,16 @@ class _StreakHero extends StatelessWidget {
             Text(
               '$currentStreak 天连续学习',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               '最长连续 $longestStreak 天。报告页现在会把每日趋势和模式趋势一起拉平展示。',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.88),
-                  ),
+                color: Colors.white.withValues(alpha: 0.88),
+              ),
             ),
           ],
         ),
@@ -233,12 +406,17 @@ class _MetricGrid extends StatelessWidget {
                 Text(
                   item.$2,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: highlight ? colorScheme.primary : null,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: highlight ? colorScheme.primary : null,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                Text(item.$1, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54)),
+                Text(
+                  item.$1,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                ),
               ],
             ),
           ),
@@ -277,16 +455,22 @@ class _DailyLineChart extends StatelessWidget {
     const bottomGutter = 22.0;
     final chartHeight = compact ? 104.0 : 140.0;
     final plotHeight = chartHeight - topGutter - bottomGutter;
-    final plotWidth = math.max(300.0 - leftGutter - rightGutter, data.length * stepX);
+    final plotWidth = math.max(
+      300.0 - leftGutter - rightGutter,
+      data.length * stepX,
+    );
     final chartWidth = leftGutter + plotWidth + rightGutter;
 
     final points = <_ChartPoint>[];
     for (var index = 0; index < data.length; index++) {
       final item = data[index];
-      final accuracy = (((item['accuracyPercent'] as num?) ?? (item['accuracy'] as num?) ?? 0)
-              .toDouble())
-          .clamp(0.0, 100.0)
-          .toDouble();
+      final accuracy =
+          (((item['accuracyPercent'] as num?) ??
+                      (item['accuracy'] as num?) ??
+                      0)
+                  .toDouble())
+              .clamp(0.0, 100.0)
+              .toDouble();
       final x = leftGutter + edgeInset + index * stepX;
       final y = topGutter + plotHeight - (accuracy / 100) * plotHeight;
       points.add(_ChartPoint(item: item, x: x, y: y, accuracy: accuracy));
@@ -296,7 +480,14 @@ class _DailyLineChart extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!compact)
-          _SelectedDailySummary(item: points.firstWhere((point) => point.item['date'] == selectedDate, orElse: () => points.last).item),
+          _SelectedDailySummary(
+            item: points
+                .firstWhere(
+                  (point) => point.item['date'] == selectedDate,
+                  orElse: () => points.last,
+                )
+                .item,
+          ),
         if (!compact) const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -355,12 +546,15 @@ class _DailyLineChart extends StatelessWidget {
                       child: Column(
                         children: [
                           Text(
-                            '${point.item['date'] ?? '--'}'.replaceFirst(RegExp(r'^\d{4}-'), ''),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                            '${point.item['axisLabel'] ?? point.item['date'] ?? '--'}'
+                                .replaceFirst(RegExp(r'^\d{4}-'), ''),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.black54),
                           ),
                           Text(
                             '${point.accuracy.round()}%',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -391,7 +585,10 @@ class _SelectedDailySummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${item['date'] ?? '--'}', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            '${item['title'] ?? item['date'] ?? '--'}',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const SizedBox(height: 4),
           Text(
             '正确率 ${(((item['accuracyPercent'] as num?) ?? (item['accuracy'] as num?) ?? 0).toDouble()).round()}% · 题量 ${item['totalQuestions'] ?? 0} · 答对 ${item['correctCount'] ?? 0}',
@@ -414,8 +611,11 @@ class _DailyDetailCard extends StatelessWidget {
       return const Text('点击上方图表节点查看当天分析。');
     }
 
-    final totalQuestions = entry['totalQuestions'] ?? entry['questionsAnswered'] ?? 0;
-    final accuracy = ((entry['accuracyPercent'] as num?) ?? (entry['accuracy'] as num?) ?? 0).round();
+    final totalQuestions =
+        entry['totalQuestions'] ?? entry['questionsAnswered'] ?? 0;
+    final accuracy =
+        ((entry['accuracyPercent'] as num?) ?? (entry['accuracy'] as num?) ?? 0)
+            .round();
     final studyTimeMs = entry['studyTimeMs'] ?? entry['totalTimeMs'] ?? 0;
 
     return Card(
@@ -424,7 +624,10 @@ class _DailyDetailCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${entry['date'] ?? '--'} 当日分析', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '${entry['date'] ?? '--'} 当日分析',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text('答题数：$totalQuestions'),
             Text('正确率：$accuracy%'),
@@ -455,7 +658,9 @@ class _ModeBreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accuracy = ((entry['accuracyPercent'] as num?) ?? (entry['accuracy'] as num?) ?? 0).round();
+    final accuracy =
+        ((entry['accuracyPercent'] as num?) ?? (entry['accuracy'] as num?) ?? 0)
+            .round();
     final total = entry['totalQuestions'] ?? entry['questionsAnswered'] ?? 0;
     final correct = entry['correctCount'] ?? 0;
     final missed = (total as num).toInt() - (correct as num).toInt();
@@ -476,14 +681,17 @@ class _ModeBreakdownCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(label, style: Theme.of(context).textTheme.titleMedium),
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
                   Text(
                     '$accuracy%',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -511,7 +719,9 @@ class _ModeBreakdownCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   _modeAdvice(label, accuracy.toDouble()),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
                 ),
                 const SizedBox(height: 12),
                 _DailyLineChart(
@@ -593,11 +803,7 @@ class _LineChartPainter extends CustomPainter {
     canvas.drawPath(path, linePaint);
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    for (final label in const [
-      ('100%', 0.0),
-      ('50%', 0.5),
-      ('0%', 1.0),
-    ]) {
+    for (final label in const [('100%', 0.0), ('50%', 0.5), ('0%', 1.0)]) {
       textPainter.text = TextSpan(
         text: label.$1,
         style: const TextStyle(fontSize: 10, color: Color(0xFF999999)),
@@ -680,7 +886,11 @@ class _ReportsMessage extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.subtitle, required this.child});
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   final String title;
   final String subtitle;
@@ -699,7 +909,9 @@ class _SectionCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
             ),
             const SizedBox(height: 16),
             child,

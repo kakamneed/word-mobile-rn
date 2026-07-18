@@ -116,6 +116,11 @@ Migration/provider notes:
 - `2026-05-29`: Volcengine Supabase discussed. It may provide domestic regions/IPs but should be treated as a migration project, not a config-only flip.
 - `2026-06-24`: Supabase Free project pause observed. Paused projects keep data but cloud features fail until resumed.
 - `2026-06-25`: Supabase feature ledger consolidated.
+- `2026-07-16`: Supabase-aware Flutter release deployment rebuilt a fresh APK, verified the packaged Rust bridge, installed it over wireless adb, and launched `com.wordmobile` successfully.
+- `2026-07-16`: The verified APK was resent after wireless adb reconnected on a new device port; reinstall and launcher start both succeeded.
+- `2026-07-16`: A release attempt exposed a Windows Gradle daemon crash under near-exhausted system commit memory with the default `-Xmx3G`; the deploy script now caps Gradle memory at `-Xmx2g` and `MaxMetaspaceSize=512m`, after which the build completed successfully.
+- `2026-07-17`: The low-memory Supabase-aware release flow completed a fresh APK build, Rust bridge verification, wireless install, and launcher start; the native build emitted only unused-function warnings.
+- `2026-07-17`: A subsequent low-memory release completed successfully with a fresh APK, Supabase dart-defines, Rust bridge verification, wireless install, and launcher start; the same four unused-function warnings remained non-blocking.
 
 ## Mobile Lessons Learned
 
@@ -150,9 +155,15 @@ Migration/provider notes:
 - Do not rely on Supabase Free for production uptime because inactive projects can pause.
 - Do not confuse Dashboard success/manual SQL success with mobile release build correctness; release builds still need dart-defines.
 - Do not mutate or delete local data in response to transient Supabase errors.
+- On Windows release builds, a Gradle daemon disappearance with a JVM crash log can be caused by system commit pressure rather than source failure; lower the deploy JVM heap before retrying and keep the no-old-APK guard enabled.
 
 ## Verification
 
 - Mobile: historical verification includes `flutter test --no-pub test\auth_session_manager_test.dart -r expanded`, `flutter test --no-pub test\sidebar_smoke_test.dart -r expanded`, `flutter test --no-pub test\app_update_service_test.dart -r expanded`, and `flutter analyze --no-pub`.
+- Mobile: `apps\flutter_mobile\scripts\android-release-wireless-deploy.ps1` completed on 2026-07-16 with Supabase dart-defines loaded, a fresh release APK generated, Rust bridge packaging verified, wireless `adb install -r` successful, and launcher start command sent successfully.
+- Mobile: A follow-up wireless `adb install -r` and `adb shell monkey` resend completed successfully on 2026-07-16.
+- Mobile: After the Gradle memory adjustment, the release deploy script generated a fresh APK with SHA256 `20F40C57CB8D239554F409C69AE64DCB99030D9513E9CBCBADF3F4848CDB7AF5`, installed it successfully over wireless adb, and sent the launcher command on 2026-07-16.
+- Mobile: The release deploy script generated a fresh APK with SHA256 `2F2A5282FA292D54E2BD3BF79B8B00BCF1AD8934E54B8CB19D87D55199441EC4`, verified the Rust bridge, installed it successfully over wireless adb, and sent the launcher command on 2026-07-17.
+- Mobile: The release deploy script generated a fresh APK with SHA256 `416099A6EDECD2E8D3120E5A9DA94E363593A8E46CE42E5AC8B86126724507CE`, verified the Rust bridge, installed it successfully over wireless adb, and sent the launcher command on 2026-07-17.
 - Desktop: pending; should validate session restore, OTP auth, account switch isolation, and sync status parity.
 - Shared/domain: use schema/RLS smoke checks, sync restore/backfill tests, and provider migration rehearsal with row counts and per-domain sample restores.

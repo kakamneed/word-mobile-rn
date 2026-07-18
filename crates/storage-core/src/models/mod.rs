@@ -3,6 +3,7 @@
 //! All models are platform-agnostic and serializable for JSON contracts.
 
 pub mod bootstrap_state;
+pub mod exercise_vocab;
 pub mod plan_template;
 pub mod settings;
 pub mod standardized_entry;
@@ -18,6 +19,11 @@ pub mod wordbook_entry;
 pub mod wrong_word_state;
 
 pub use bootstrap_state::BootstrapState;
+pub use exercise_vocab::{
+    ExerciseAnnotation, ExerciseAnnotationDraft, ExerciseArticle, ExerciseArticleDraft,
+    ExerciseAttempt, ExerciseAttemptDraft, ExerciseVocabOccurrence, ExerciseVocabOccurrenceDraft,
+    ExerciseVocabRelation, ExerciseWordMarkState,
+};
 pub use plan_template::PlanTemplate;
 pub use settings::{SettingEntry, SettingsSummary};
 pub use standardized_entry::{EntryExample, MeaningZh, StandardizedEntry};

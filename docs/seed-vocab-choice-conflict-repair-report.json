@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-07-15T15:05:22.315Z",
+  "rule": "han-ngram-rare-char-v1",
+  "books": {
+    "CET4_3.json": {
+      "entries": 2607,
+      "repaired": 2607,
+      "incomplete": 0
+    },
+    "CET6_3.json": {
+      "entries": 2345,
+      "repaired": 2345,
+      "incomplete": 0
+    },
+    "KaoYan_3.json": {
+      "entries": 3728,
+      "repaired": 3728,
+      "incomplete": 0
+    },
+    "MEDICAL_RESP.json": {
+      "entries": 2857,
+      "repaired": 2857,
+      "incomplete": 0
+    }
+  },
+  "repaired": 11537,
+  "incomplete": []
+}

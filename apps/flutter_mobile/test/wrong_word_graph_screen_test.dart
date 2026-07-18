@@ -77,12 +77,14 @@ void main() {
     await tester.tapAt(const Offset(588, 478));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('重叠释义'), findsOneWidget);
-    expect(find.textContaining('同篇 AI 短文'), findsOneWidget);
-    expect(find.textContaining('相同词根词缀'), findsOneWidget);
-    expect(find.textContaining('晨读短文'), findsOneWidget);
+    expect(find.textContaining('AI短文'), findsOneWidget);
+    expect(find.textContaining('2024年6月四级阅读'), findsOneWidget);
+    expect(find.textContaining('题目 q18'), findsOneWidget);
+    expect(find.textContaining('释义'), findsWidgets);
+    expect(find.textContaining('词根'), findsWidgets);
+    expect(find.textContaining('形近'), findsWidgets);
+    expect(find.textContaining('7x'), findsWidgets);
     expect(find.textContaining('2026-06-26T12:39'), findsNothing);
-    expect(find.textContaining('最近 2026-06-26'), findsOneWidget);
     expect(find.text('开始复习'), findsNothing);
   });
 }
@@ -128,6 +130,21 @@ class _GraphBridge extends RustBridge {
                     'weight': 0.7,
                     'evidence': [
                       {'type': 'aiPassage', 'passageTitle': '晨读短文'},
+                    ],
+                  },
+                  {
+                    'id': 'coOccurrence:word:1:word:2:sameArticle:paper-1',
+                    'sourceNodeId': 'word:1',
+                    'targetNodeId': 'word:2',
+                    'relationType': 'coOccurrence',
+                    'weight': 0.8,
+                    'evidence': [
+                      {
+                        'type': 'sameArticle',
+                        'articleId': 'cet4-2024-06:reading',
+                        'articleTitle': '2024年6月四级阅读',
+                        'questionId': 'q18',
+                      },
                     ],
                   },
                   {

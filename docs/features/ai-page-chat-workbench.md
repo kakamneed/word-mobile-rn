@@ -2,7 +2,7 @@
 
 > Slug: `ai-page-chat-workbench`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-07-16`
 
 ## Product Intent
 
@@ -54,6 +54,7 @@ AI passage mode should support style instructions conversationally and save pref
 ## Implementation Log
 
 - `2026-06-25`: Initial feature record backfilled from current mobile AI workbench state and recent fixes.
+- `2026-07-16`: Added compact `试卷导入` and `试卷分析` chips to the existing horizontal tool selector. Import supports pasted text, TXT files, and images with review-before-save; analysis opens deterministic word priority factors without requiring an AI provider.
 
 ## Mobile Lessons Learned
 
@@ -74,9 +75,11 @@ Desktop should use the workbench concept but not copy the phone bottom bar liter
 - Do not reintroduce top-level management cards.
 - Do not make AI passage mode merely a static history viewer; style conversations should affect future generation.
 - Do not commit imported wrong words before user review.
+- Do not save normalized exam drafts before the user reviews identity, passage, question, choices, and answer fields.
 
 ## Verification
 
 - Mobile: AI page opens as chat workbench, function chips switch modes, passage history and wrong-word import work.
 - Desktop: pending.
 - Shared/domain: existing APIs remain usable by both clients.
+- `2026-07-16`: existing AI passage/wrong-word tests passed 6 cases, and the new exam import review/client tests passed. Provider-backed manual analysis was not run.

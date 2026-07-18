@@ -1,8 +1,8 @@
 # Feature: Wrong Word Graph
 
 > Slug: `wrong-word-graph`
-> Status: `planned`
-> Updated: `2026-06-25`
+> Status: `mobile_in_progress`
+> Updated: `2026-07-16`
 
 ## Product Intent
 
@@ -128,12 +128,16 @@ Do not make AI required for core graph rendering.
 - `2026-06-27`: Red co-occurrence relation layer started. Rust emits `coOccurrence` edges for canonical wrong words that failed in the same study session, and Flutter renders weighted red lines; AI-passage co-occurrence can be layered later from `ai_passage_history_json`.
 - `2026-06-27`: Completed the first full typed relation pass. Rust now emits conservative `rootFamily` purple edges from shared prefix/suffix families, `similarForm` white edges from spelling-distance heuristics, and `synonym` green edges from shared primary glosses. Flutter maps all four relation types to their planned colors.
 - `2026-06-27`: Added the first mobile node detail panel inside the graph canvas. Selecting a node now surfaces word, primary gloss, today/total error counts, relation count, and a quick review affordance without leaving graph mode.
+- `2026-07-15` - Baseline reconciliation: Mobile graph changes add independent relation-type filters, filter visible edges before layout/rendering, keep directly related labels visible at practical zoom levels, and replace the long node detail list with compact relation/error summaries.
+- `2026-07-15` - Problems encountered: The historical UI needed to distinguish relation categories without relying on one dense detail panel. Prior verification status is unknown from the worktree and is rechecked separately.
+- `2026-07-16` - Modification points: Exercise unknown/wrong occurrences now refresh idempotent storage `same_article` pairs and project them into red graph `coOccurrence` edges with `sameArticle`, paper/article/question source evidence. The selected-node panel renders source detail rows rather than only relation counts.
 
 ## Mobile Lessons Learned
 
 - First version should stay 2.5D for stability.
 - Treat z-depth as visual priority rather than real camera depth.
 - Node dragging and pan/zoom must not fight each other; use explicit drag handles or long-press if needed.
+- Relation filters must affect edges, selected-node context, and label emphasis consistently; filtering only the legend is misleading.
 
 ## Desktop Follow-Up Notes
 
@@ -142,6 +146,7 @@ Desktop can expose richer controls without the mobile rail constraint. It should
 ## Route Changes
 
 - `2026-06-25`: Memory palace split out as a later independent mode.
+- `2026-07-15`: Relation discovery moved from a selected-node-only wheel/detail list toward persistent category filters that can be adapted to a desktop toolbar.
 
 ## Known Pitfalls
 
@@ -149,9 +154,13 @@ Desktop can expose richer controls without the mobile rail constraint. It should
 - Do not start with true 3D unless a 2.5D prototype fails.
 - Do not bury relation meaning in colors only; provide legend or accessible labels.
 - Do not let user placement overwrite derived semantic placement without marking `isUserPlaced`.
+- Do not keep labels hidden for nodes directly related to the selection when the current zoom level can support them.
+- Do not assign passage, stem, and each choice separate article IDs; that prevents legitimate same-article relationships. Share the article ID and separate occurrence offsets instead.
 
 ## Verification
 
+- Mobile: `D:\flutter\flutter\bin\flutter.bat test test\study_question_display_test.dart test\wrong_word_graph_screen_test.dart --no-pub` passed all 23 tests on 2026-07-15, including the three graph screen cases for empty-space layout, non-placing rail taps, and readable relation detail.
 - Mobile: graph opens in landscape, rail is visible, nodes drag into space, selected node dims unrelated nodes, relation wheel appears.
 - Desktop: same graph contract renders in a desktop canvas and preserves positions.
 - Shared/domain: edge relation types are stable and tested with sample wrong-word data.
+- `2026-07-16`: storage relation refresh/idempotency test passed; the graph widget suite passed 3/3 including visible `sameArticle` paper/article detail. Desktop rendering was not run.

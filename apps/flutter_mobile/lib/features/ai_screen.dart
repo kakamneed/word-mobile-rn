@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
+import 'exam_paper_import_dialog.dart';
 import 'wrong_word_graph_screen.dart';
 
-enum _AiToolMode { passage, import, graph }
+enum _AiToolMode { passage, import, paperImport, paperAnalysis, graph }
 
 enum _AiChatMessageKind { text, passage, history, importReview, loading }
 
@@ -381,6 +382,31 @@ class _AiScreenState extends State<AiScreen> {
     );
   }
 
+  Future<void> _openExamAnalysis() async {
+    setState(() {
+      _mode = _AiToolMode.paperAnalysis;
+      _busy = true;
+    });
+    try {
+      final items = await widget.sdk.examPractice.getVocabularyPriority();
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) => _ExamPrioritySheet(items: items),
+      );
+    } catch (error) {
+      if (mounted) {
+        _appendText(
+          '\u8bd5\u5377\u5206\u6790\u52a0\u8f7d\u5931\u8d25\uff1a$error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _submitComposer() async {
     if (_mode == _AiToolMode.graph) {
       await _openWrongWordGraph();
@@ -404,7 +430,90 @@ class _AiScreenState extends State<AiScreen> {
       );
       return;
     }
+    if (_mode == _AiToolMode.paperImport) {
+      if (text.isEmpty) {
+        _appendText(
+          '\u7c98\u8d34\u8bd5\u5377\u6587\u672c\uff0c\u6216\u9009\u62e9 TXT / \u56fe\u7247\u6587\u4ef6\u3002',
+        );
+        return;
+      }
+      await _runExamPaperImport(
+        AiWrongWordImportSource(
+          sourceType: 'text',
+          sourceName: 'pasted-exam-paper.txt',
+          textContent: text,
+        ),
+      );
+      return;
+    }
+    if (_mode == _AiToolMode.paperAnalysis) {
+      _appendText(
+        '\u8bd5\u5377\u5206\u6790\u4f1a\u4f7f\u7528\u5df2\u4fdd\u5b58\u8bd5\u5377\u4e0e\u4f5c\u7b54\u8bc1\u636e\u3002',
+      );
+      return;
+    }
     await _handlePassageChat(text);
+  }
+
+  Future<void> _startImportPicker() async {
+    if (_mode == _AiToolMode.paperImport) {
+      final source = await widget.sdk.ai.pickWrongWordImportSource(
+        sourceType: 'image',
+      );
+      if (source != null) {
+        await _runExamPaperImport(source);
+      }
+      return;
+    }
+    await _startImageWrongWordImport();
+  }
+
+  Future<void> _startTextExamPaperImport() async {
+    final source = await widget.sdk.ai.pickWrongWordImportSource(
+      sourceType: 'text',
+    );
+    if (source != null) await _runExamPaperImport(source);
+  }
+
+  Future<void> _runExamPaperImport(AiWrongWordImportSource source) async {
+    if (!widget.isSignedIn) {
+      _appendText(
+        '\u8bf7\u5148\u767b\u5f55\uff0c\u518d\u4f7f\u7528 AI \u89e3\u6790\u8bd5\u5377\u3002',
+      );
+      return;
+    }
+    setState(() {
+      _mode = _AiToolMode.paperImport;
+      _busy = true;
+      _messages.add(const _AiChatMessage.loading());
+    });
+    _scrollToBottom();
+    try {
+      final draft = await widget.sdk.examPractice.analyzeImport(
+        sourceType: source.sourceType,
+        sourceName: source.sourceName,
+        textContent: source.textContent,
+        bytesBase64: source.bytesBase64,
+        mimeType: source.mimeType,
+      );
+      if (!mounted) return;
+      setState(() => _messages.removeLast());
+      final confirmed = await showExamPaperImportReviewDialog(context, draft);
+      if (!confirmed || !mounted) return;
+      final paper = await widget.sdk.examPractice.saveImportedPaper(draft);
+      _appendText(
+        '\u5df2\u4fdd\u5b58\u300c${paper.title}\u300d\uff0c\u53ef\u5728\u4eca\u65e5 > \u6a21\u62df\u7ec3\u4e60\u4e2d\u9009\u62e9\u3002',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      if (_messages.isNotEmpty &&
+          _messages.last.kind == _AiChatMessageKind.loading) {
+        setState(() => _messages.removeLast());
+      }
+      _appendText('\u8bd5\u5377\u89e3\u6790\u5931\u8d25\uff1a$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _startImageWrongWordImport() async {
@@ -542,6 +651,10 @@ class _AiScreenState extends State<AiScreen> {
                         _openWrongWordGraph();
                         return;
                       }
+                      if (mode == _AiToolMode.paperAnalysis) {
+                        _openExamAnalysis();
+                        return;
+                      }
                       setState(() => _mode = mode);
                     },
                   ),
@@ -550,7 +663,8 @@ class _AiScreenState extends State<AiScreen> {
                     controller: _input,
                     busy: _busy,
                     signedIn: widget.isSignedIn,
-                    onCamera: _startImageWrongWordImport,
+                    onCamera: _startImportPicker,
+                    onFile: _startTextExamPaperImport,
                     onSubmit: _submitComposer,
                   ),
                 ],
@@ -606,6 +720,10 @@ class _AiScreenState extends State<AiScreen> {
             : '\u5f53\u524d\u77ed\u6587\u98ce\u683c\uff1a$_stylePreference\u3002\u53ef\u4ee5\u7ee7\u7eed\u544a\u8bc9\u6211\u4e0b\u6b21\u60f3\u600e\u4e48\u5199\u3002',
       _AiToolMode.import =>
         '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55\uff0c\u6216\u70b9\u76f8\u673a\u8bc6\u522b\u9519\u8bcd\u622a\u56fe\u3002',
+      _AiToolMode.paperImport =>
+        '\u7c98\u8d34\u8bd5\u5377\u6587\u672c\uff0c\u6216\u5bfc\u5165\u56fe\u7247 / TXT\uff0c\u786e\u8ba4\u8349\u7a3f\u540e\u4fdd\u5b58\u3002',
+      _AiToolMode.paperAnalysis =>
+        '\u5206\u6790\u5df2\u4fdd\u5b58\u8bd5\u5377\u7684\u8bcd\u9891\u3001\u9519\u9898\u8bc1\u636e\u4e0e\u5355\u8bcd\u4f18\u5148\u5ea6\u3002',
       _AiToolMode.graph =>
         '\u70b9\u4e0b\u65b9\u77e5\u8bc6\u56fe\u8c31\u5165\u53e3\uff0c\u67e5\u770b\u9519\u8bcd\u5173\u8054\u7f51\u7edc\u3002',
     };
@@ -942,6 +1060,64 @@ class _BubbleShell extends StatelessWidget {
   }
 }
 
+class _ExamPrioritySheet extends StatelessWidget {
+  const _ExamPrioritySheet({required this.items});
+
+  final List<ExamVocabularyPriority> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.72,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (context, controller) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+            child: Text(
+              '\u5355\u8bcd\u4f18\u5148\u5ea6',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          Expanded(
+            child: items.isEmpty
+                ? const Center(
+                    child: Text(
+                      '\u6682\u65e0\u53ef\u5206\u6790\u7684\u8bd5\u5377\u8bcd\u6c47',
+                    ),
+                  )
+                : ListView.separated(
+                    controller: controller,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(child: Text('${index + 1}')),
+                        title: Text(
+                          item.word,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          '\u8de8 ${item.paperCount} \u4efd\u8bd5\u5377 \u00b7 ${item.articleCount} \u7bc7\u6587\u7ae0 \u00b7 ${item.occurrenceCount} \u6b21\n'
+                          '\u4e0d\u4f1a ${item.unknownMarkCount} \u00b7 \u81f4\u9519 ${item.wrongAssociationCount} \u00b7 \u5df2\u638c\u63e1 ${item.masteredMarkCount}',
+                        ),
+                        trailing: Text(item.priorityScore.toStringAsFixed(1)),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ToolSelector extends StatelessWidget {
   const _ToolSelector({required this.selected, required this.onSelected});
 
@@ -969,6 +1145,20 @@ class _ToolSelector extends StatelessWidget {
               label: '\u9519\u8bcd\u5bfc\u5165',
               selected: selected == _AiToolMode.import,
               onTap: () => onSelected(_AiToolMode.import),
+            ),
+            const SizedBox(width: 8),
+            _ToolChip(
+              icon: Icons.note_add_outlined,
+              label: '\u8bd5\u5377\u5bfc\u5165',
+              selected: selected == _AiToolMode.paperImport,
+              onTap: () => onSelected(_AiToolMode.paperImport),
+            ),
+            const SizedBox(width: 8),
+            _ToolChip(
+              icon: Icons.analytics_outlined,
+              label: '\u8bd5\u5377\u5206\u6790',
+              selected: selected == _AiToolMode.paperAnalysis,
+              onTap: () => onSelected(_AiToolMode.paperAnalysis),
             ),
             const SizedBox(width: 8),
             _ToolChip(
@@ -1023,6 +1213,7 @@ class _ComposerBar extends StatelessWidget {
     required this.busy,
     required this.signedIn,
     required this.onCamera,
+    required this.onFile,
     required this.onSubmit,
   });
 
@@ -1031,12 +1222,15 @@ class _ComposerBar extends StatelessWidget {
   final bool busy;
   final bool signedIn;
   final VoidCallback onCamera;
+  final VoidCallback onFile;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final importMode = mode == _AiToolMode.import;
+    final importMode =
+        mode == _AiToolMode.import || mode == _AiToolMode.paperImport;
+    final paperImportMode = mode == _AiToolMode.paperImport;
     final graphMode = mode == _AiToolMode.graph;
     return Material(
       color: colorScheme.surface,
@@ -1069,6 +1263,16 @@ class _ComposerBar extends StatelessWidget {
                   ),
                 ),
               ),
+              if (paperImportMode)
+                SizedBox(
+                  width: 42,
+                  height: 44,
+                  child: IconButton(
+                    tooltip: '\u9009\u62e9 TXT',
+                    onPressed: busy || !signedIn ? null : onFile,
+                    icon: const Icon(Icons.description_outlined, size: 22),
+                  ),
+                ),
               Expanded(
                 child: TextField(
                   controller: controller,
@@ -1080,7 +1284,9 @@ class _ComposerBar extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: signedIn
                         ? importMode
-                              ? '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55...'
+                              ? paperImportMode
+                                    ? '\u7c98\u8d34\u8bd5\u5377\u6587\u672c...'
+                                    : '\u7c98\u8d34\u9519\u8bcd\u8bb0\u5f55...'
                               : graphMode
                               ? '\u6253\u5f00\u9519\u8bcd\u77e5\u8bc6\u56fe\u8c31...'
                               : '\u8bf4\u4e0b\u6b21\u60f3\u8981\u7684\u77ed\u6587\u98ce\u683c...'
@@ -1104,7 +1310,9 @@ class _ComposerBar extends StatelessWidget {
                   tooltip: graphMode
                       ? '\u6253\u5f00\u77e5\u8bc6\u56fe\u8c31'
                       : importMode
-                      ? '\u5bfc\u5165'
+                      ? paperImportMode
+                            ? '\u89e3\u6790\u8bd5\u5377'
+                            : '\u5bfc\u5165'
                       : '\u751f\u6210',
                   onPressed: busy || !signedIn ? null : onSubmit,
                   icon: busy
