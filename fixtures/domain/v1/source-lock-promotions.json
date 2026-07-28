@@ -147,6 +147,100 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  3,
+                           "promotedAtUtc":  "2026-07-28T10:16:08Z",
+                           "oldAggregateSha256":  "7b576b77e145b9291a870ac4ec3957c50969c9405c53ba308fe9a39034f6c06e",
+                           "newAggregateSha256":  "59b5101c1b8171735f918812a7c85a551e113d0521c249690496aedf0a5ef550",
+                           "oldLearningLedgerSha256":  "06e501f67668d1ebd579a58d5951bca61f98cb0680587d035bd1048e639ea968",
+                           "newLearningLedgerSha256":  "580555672907f53b943416eb04aad7ef145fff884e0c92ead00e7fa8bf95b8c2",
+                           "changedFiles":  [
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures/domain/v1/evidence/wave-3-reviewed-diff.json",
+                                                "sha256":  "b0316a39673cf5c1cf8c1e6545e3fc7ed697e903b2955c1c7f0657e1035083f0"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures/domain/v1/evidence/wave-3.json",
+                                                  "sha256":  "a57ebdbfdbc6590e0d8c0f4c83c30390b63e2a222e03ab6efd9b8f1f8b44a841"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+                                                               "crates/domain-core/src/study.rs",
+                                                               "crates/domain-protocol/src/v1.rs",
+                                                               "crates/domain-protocol/tests/protocol_v1.rs",
+                                                               "crates/domain-wasm/src/lib.rs",
+                                                               "crates/domain-wasm/tests/fixture_equivalence.rs",
+                                                               "crates/study-domain-runner/src/main.rs"
+                                                           ],
+                                          "summary":  "Reviewed protocol and adapter diff adds one additive typed v1 dispatcher shared unchanged by native and WASM callers. The accepted seven native fixture results remain unchanged, structured failures stay inside the public JSON envelope, and fixed-width u64 ordering/distractor seeds eliminate the live wasm32 divergence discovered by the Node-hosted comparator.",
+                                          "provenanceLimit":  "This review establishes the Phase 15 protocol, adapter, and cross-target parity changes. It does not infer authorship, exact timing, intent, or prior verification for unrelated dirty worktree content."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  2,
+                                          "generatedAtUtc":  "2026-07-28T10:15:56Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "7b576b77e145b9291a870ac4ec3957c50969c9405c53ba308fe9a39034f6c06e",
+                                          "learningLedgerSha256":  "580555672907f53b943416eb04aad7ef145fff884e0c92ead00e7fa8bf95b8c2",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "canonical-native-fixtures",
+                                                             "status":  "passed",
+                                                             "detail":  "7 accepted fixtures matched current native behavior"
+                                                         }
+                                                     ]
+                                      }
+                       },
+                       {
+                           "wave":  3,
+                           "promotedAtUtc":  "2026-07-28T10:17:01Z",
+                           "oldAggregateSha256":  "59b5101c1b8171735f918812a7c85a551e113d0521c249690496aedf0a5ef550",
+                           "newAggregateSha256":  "f9a8537c359f7b478c08fed5bef873b5b4cdabf4e430f6f691e69d623f14c668",
+                           "oldLearningLedgerSha256":  "580555672907f53b943416eb04aad7ef145fff884e0c92ead00e7fa8bf95b8c2",
+                           "newLearningLedgerSha256":  "ba489c3251f230f760d455dbf8f2a5e731d82a4ec9831ea3495f52b390ef3910",
+                           "changedFiles":  [
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures/domain/v1/evidence/wave-3-reviewed-diff.json",
+                                                "sha256":  "b0316a39673cf5c1cf8c1e6545e3fc7ed697e903b2955c1c7f0657e1035083f0"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures/domain/v1/evidence/wave-3.json",
+                                                  "sha256":  "f4ba0f8f2273f40ff43bf19f1fba6a920d42c8db45e06d283915260a4d90e44a"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+                                                               "crates/domain-core/src/study.rs",
+                                                               "crates/domain-protocol/src/v1.rs",
+                                                               "crates/domain-protocol/tests/protocol_v1.rs",
+                                                               "crates/domain-wasm/src/lib.rs",
+                                                               "crates/domain-wasm/tests/fixture_equivalence.rs",
+                                                               "crates/study-domain-runner/src/main.rs"
+                                                           ],
+                                          "summary":  "Reviewed protocol and adapter diff adds one additive typed v1 dispatcher shared unchanged by native and WASM callers. The accepted seven native fixture results remain unchanged, structured failures stay inside the public JSON envelope, and fixed-width u64 ordering/distractor seeds eliminate the live wasm32 divergence discovered by the Node-hosted comparator.",
+                                          "provenanceLimit":  "This review establishes the Phase 15 protocol, adapter, and cross-target parity changes. It does not infer authorship, exact timing, intent, or prior verification for unrelated dirty worktree content."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  3,
+                                          "generatedAtUtc":  "2026-07-28T10:16:59Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "59b5101c1b8171735f918812a7c85a551e113d0521c249690496aedf0a5ef550",
+                                          "learningLedgerSha256":  "ba489c3251f230f760d455dbf8f2a5e731d82a4ec9831ea3495f52b390ef3910",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "canonical-native-fixtures",
+                                                             "status":  "passed",
+                                                             "detail":  "7 accepted fixtures matched current native behavior"
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }

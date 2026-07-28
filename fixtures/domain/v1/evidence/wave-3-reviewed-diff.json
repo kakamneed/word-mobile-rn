@@ -1,0 +1,13 @@
+{
+  "reviewed": true,
+  "changedFiles": [
+    "crates/domain-core/src/study.rs",
+    "crates/domain-protocol/src/v1.rs",
+    "crates/domain-protocol/tests/protocol_v1.rs",
+    "crates/domain-wasm/src/lib.rs",
+    "crates/domain-wasm/tests/fixture_equivalence.rs",
+    "crates/study-domain-runner/src/main.rs"
+  ],
+  "summary": "Reviewed protocol and adapter diff adds one additive typed v1 dispatcher shared unchanged by native and WASM callers. The accepted seven native fixture results remain unchanged, structured failures stay inside the public JSON envelope, and fixed-width u64 ordering/distractor seeds eliminate the live wasm32 divergence discovered by the Node-hosted comparator.",
+  "provenanceLimit": "This review establishes the Phase 15 protocol, adapter, and cross-target parity changes. It does not infer authorship, exact timing, intent, or prior verification for unrelated dirty worktree content."
+}

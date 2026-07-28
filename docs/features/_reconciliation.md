@@ -23,6 +23,9 @@ Ledger: `docs/features/learning.md`
 - `crates/app-core/src/services/wrong_words_service.rs`
 - `crates/app-core/src/lib.rs`
 - `crates/domain-core/**`
+- `crates/domain-protocol/**`
+- `crates/domain-wasm/**`
+- `crates/study-domain-runner/**`
 - `crates/platform-mobile/src/bridge.rs`
 - `crates/storage-core/src/models/study_result.rs`
 - `crates/study-core/src/session_summary.rs`
