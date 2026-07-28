@@ -9,7 +9,7 @@
 - [ ] **ARCH-01**: The project must extract study, plan, report, vocabulary, AI validation, and storage logic into reusable Rust crates that are independent from Tauri command handlers.
 - [ ] **ARCH-02**: Desktop and mobile must consume stable, documented DTO contracts instead of duplicating request/response shapes informally.
 - [ ] **ARCH-03**: Platform-specific concerns such as paths, app lifecycle, background jobs, secure key storage, and update behavior must live in platform adapter layers rather than shared core crates.
-- [ ] **ARCH-04**: Canonical domain models exported to unified PC targets must compile for `wasm32` without `rusqlite`, filesystem, network, Flutter, or Tauri dependencies.
+- [x] **ARCH-04**: Canonical domain models exported to unified PC targets must compile for `wasm32` without `rusqlite`, filesystem, network, Flutter, or Tauri dependencies.
 - [x] **ARCH-05**: Native mobile and WASM consumers must produce equivalent canonical results for the same versioned study, plan, progress, wrong-word, and report fixtures.
 - [x] **ARCH-06**: The exported domain boundary must use an additive, versioned JSON protocol with structured errors and a reproducible source commit/hash identity.
 - [x] **ARCH-07**: Extracting the WASM-safe boundary must preserve the current Flutter-to-Rust production behavior and keep mobile SQLite/platform adapters outside the shared domain package.
