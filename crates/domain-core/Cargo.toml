@@ -1,0 +1,16 @@
+[package]
+name = "word-domain-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deterministic, target-neutral Word learning domain rules"
+
+[dependencies]
+serde = { workspace = true }
+word-domain-models = { path = "../domain-models" }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
