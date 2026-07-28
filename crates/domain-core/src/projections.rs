@@ -98,18 +98,249 @@ fn default_true() -> bool {
 }
 
 pub fn project_wrong_words(
-    _context: &DomainContext,
-    _entries: &[WrongWordProjectionInput],
-    _filter: &str,
+    context: &DomainContext,
+    entries: &[WrongWordProjectionInput],
+    filter: &str,
 ) -> Vec<WrongWordProjection> {
-    panic!("wrong-word projection fixture not implemented")
+    let mut result = entries
+        .iter()
+        .filter(|entry| entry.error_count > 0 && !entry.entry_source_id.trim().is_empty())
+        .map(|entry| score_wrong_word(context, entry))
+        .collect::<Vec<_>>();
+
+    result.sort_by(|left, right| {
+        right
+            .is_active
+            .cmp(&left.is_active)
+            .then_with(|| {
+                if filter == "recent" {
+                    right.last_wrong_at.cmp(&left.last_wrong_at)
+                } else {
+                    right
+                        .priority_score
+                        .partial_cmp(&left.priority_score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }
+            })
+            .then_with(|| right.error_count.cmp(&left.error_count))
+            .then_with(|| right.last_wrong_at.cmp(&left.last_wrong_at))
+    });
+    if filter == "highPriority" {
+        result.retain(|entry| entry.priority_score >= 8.0);
+    }
+    result
+}
+
+pub fn score_wrong_word(
+    context: &DomainContext,
+    entry: &WrongWordProjectionInput,
+) -> WrongWordProjection {
+    let errors = entry.error_count as f64;
+    let correct = entry.correct_count as f64;
+    let error_rate = if errors + correct > 0.0 {
+        errors / (errors + correct)
+    } else {
+        1.0
+    };
+    let recency = chrono::NaiveDate::parse_from_str(&context.local_day, "%Y-%m-%d")
+        .ok()
+        .map(|today| recency_score_at(&entry.last_wrong_at, today))
+        .unwrap_or(0.0);
+    let priority_score = round_score(
+        ((errors.sqrt() * 1.8).min(4.5)
+            + error_rate * 3.0
+            + (recency / 21.0) * 2.0
+            + 0.8
+            - (entry.correct_since_last_wrong as f64 * 1.6).min(5.0)
+            - (correct.sqrt() * 0.35).min(2.0))
+        .clamp(0.0, 10.0),
+    );
+    WrongWordProjection {
+        entry_source_id: entry.entry_source_id.clone(),
+        word: entry.word.clone(),
+        error_count: entry.error_count,
+        correct_count: entry.correct_count,
+        consecutive_correct: entry.consecutive_correct,
+        last_wrong_at: entry.last_wrong_at.clone(),
+        correct_since_last_wrong: entry.correct_since_last_wrong,
+        error_rate: round_score(error_rate),
+        priority_score,
+        is_active: entry.is_active,
+    }
 }
 
 pub fn project_report(
-    _context: &DomainContext,
-    _history: &[ReportHistoryInput],
-    _learned_count: u64,
+    context: &DomainContext,
+    history: &[ReportHistoryInput],
+    learned_count: u64,
 ) -> ReportProjection {
-    panic!("report projection fixture not implemented")
+    let mut by_date = BTreeMap::<String, (u64, u64, u64)>::new();
+    let mut by_mode = BTreeMap::<String, (u64, u64)>::new();
+    let mut by_mode_date = BTreeMap::<String, BTreeMap<String, (u64, u64, u64)>>::new();
+
+    for item in history.iter().filter(|item| {
+        !item.date.is_empty() && item.summary.total_questions > 0
+    }) {
+        let mode = normalize_mode(&item.mode);
+        accumulate_day(
+            by_date.entry(item.date.clone()).or_default(),
+            &item.summary,
+        );
+        let mode_total = by_mode.entry(mode.clone()).or_default();
+        mode_total.0 += item.summary.total_questions;
+        mode_total.1 += item.summary.correct_count;
+        accumulate_day(
+            by_mode_date
+                .entry(mode)
+                .or_default()
+                .entry(item.date.clone())
+                .or_default(),
+            &item.summary,
+        );
+    }
+
+    let daily_series = by_date
+        .iter()
+        .map(|(date, totals)| report_day(date, *totals))
+        .collect::<Vec<_>>();
+    let total_questions_answered = daily_series.iter().map(|day| day.total_questions).sum();
+    let total_correct = daily_series.iter().map(|day| day.correct_count).sum::<u64>();
+    let modes = [
+        "newWord",
+        "review",
+        "mixedTest",
+        "wrongWordReinforcement",
+        "rootAffix",
+    ];
+    let mode_breakdown = modes
+        .iter()
+        .map(|mode| {
+            let (total_questions, correct_count) = by_mode.get(*mode).copied().unwrap_or_default();
+            ReportModeSummary {
+                mode: (*mode).to_string(),
+                total_questions,
+                correct_count,
+                accuracy_percent: accuracy(correct_count, total_questions),
+            }
+        })
+        .collect();
+    let mode_series = modes
+        .iter()
+        .map(|mode| {
+            let series = by_mode_date
+                .get(*mode)
+                .map(|days| {
+                    days.iter()
+                        .map(|(date, totals)| report_day(date, *totals))
+                        .collect()
+                })
+                .unwrap_or_default();
+            ((*mode).to_string(), series)
+        })
+        .collect();
+    let last7_days = recent_days(&by_date, &context.local_day, 7);
+    let study_days = by_date.keys().cloned().collect::<Vec<_>>();
+
+    ReportProjection {
+        total_study_days: study_days.len() as u64,
+        total_words_learned: learned_count,
+        total_questions_answered,
+        overall_accuracy: accuracy(total_correct, total_questions_answered),
+        streak_info: streak_info(&study_days, &context.local_day),
+        mode_breakdown,
+        last7_days,
+        daily_series,
+        mode_series,
+    }
 }
 
+fn normalize_mode(mode: &str) -> String {
+    mode.strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .unwrap_or(mode)
+        .to_string()
+}
+
+fn accumulate_day(target: &mut (u64, u64, u64), summary: &ReportHistorySummary) {
+    target.0 += summary.total_questions;
+    target.1 += summary.correct_count;
+    target.2 += summary.total_time_ms;
+}
+
+fn report_day(date: &str, totals: (u64, u64, u64)) -> ReportDay {
+    ReportDay {
+        date: date.to_string(),
+        total_questions: totals.0,
+        correct_count: totals.1,
+        accuracy_percent: accuracy(totals.1, totals.0),
+        study_time_ms: totals.2,
+    }
+}
+
+fn recent_days(
+    by_date: &BTreeMap<String, (u64, u64, u64)>,
+    local_day: &str,
+    days: usize,
+) -> Vec<ReportDay> {
+    let Ok(end) = chrono::NaiveDate::parse_from_str(local_day, "%Y-%m-%d") else {
+        return Vec::new();
+    };
+    (0..days)
+        .rev()
+        .map(|offset| {
+            let date = end - chrono::Days::new(offset as u64);
+            let key = date.format("%Y-%m-%d").to_string();
+            report_day(&key, by_date.get(&key).copied().unwrap_or_default())
+        })
+        .collect()
+}
+
+fn streak_info(study_days: &[String], local_day: &str) -> StreakInfo {
+    let parsed = study_days
+        .iter()
+        .filter_map(|day| chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok())
+        .collect::<Vec<_>>();
+    let mut longest_streak = 0u64;
+    let mut running = 0u64;
+    let mut previous: Option<chrono::NaiveDate> = None;
+    for day in &parsed {
+        running = if previous.is_some_and(|prior| (*day - prior).num_days() == 1) {
+            running + 1
+        } else {
+            1
+        };
+        longest_streak = longest_streak.max(running);
+        previous = Some(*day);
+    }
+    let current_streak = chrono::NaiveDate::parse_from_str(local_day, "%Y-%m-%d")
+        .ok()
+        .map(|mut cursor| {
+            let mut count = 0;
+            while parsed.binary_search(&cursor).is_ok() {
+                count += 1;
+                cursor -= chrono::TimeDelta::days(1);
+            }
+            count
+        })
+        .unwrap_or(0);
+    StreakInfo {
+        current_streak,
+        longest_streak,
+        last_study_date: study_days.last().cloned(),
+    }
+}
+
+fn recency_score_at(last_wrong_at: &str, today: chrono::NaiveDate) -> f64 {
+    let date = last_wrong_at.get(0..10).unwrap_or(last_wrong_at);
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|wrong_day| (21 - (today - wrong_day).num_days().max(0).min(21)) as f64)
+        .unwrap_or(0.0)
+}
+
+fn accuracy(correct: u64, total: u64) -> f64 {
+    if total == 0 { 0.0 } else { (correct as f64 / total as f64) * 100.0 }
+}
+
+fn round_score(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}

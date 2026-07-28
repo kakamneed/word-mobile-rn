@@ -14,16 +14,19 @@ use serde_json::Value;
 /// It takes a list of entries and a filter, computes priority scores, and returns
 /// the sorted/filtered result.
 pub fn build_wrong_words(entries: &mut [Value], filter: &str) -> Vec<Value> {
+    let local_day = chrono::Local::now().date_naive().to_string();
+    build_wrong_words_at(entries, filter, &local_day)
+}
+
+pub fn build_wrong_words_at(entries: &mut [Value], filter: &str, local_day: &str) -> Vec<Value> {
+    let context = word_domain_core::DomainContext {
+        now_utc: String::new(),
+        local_day: local_day.to_string(),
+        session_id: String::new(),
+        ordering_seed: String::new(),
+    };
     for entry in entries.iter_mut() {
-        let error_count = entry
-            .get("errorCount")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-        let last_wrong_at = entry
-            .get("lastWrongAt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        entry["priorityScore"] = serde_json::json!(priority_score(error_count, last_wrong_at));
+        apply_priority_fields(entry, &context);
         if entry.get("isActive").is_none() {
             entry["isActive"] = serde_json::json!(true);
         }
@@ -80,14 +83,20 @@ pub fn build_wrong_words(entries: &mut [Value], filter: &str) -> Vec<Value> {
         if entry_last_wrong > existing_last_wrong {
             existing["lastWrongAt"] = serde_json::json!(entry_last_wrong);
         }
+        merge_numeric_field(existing, entry, "correctCount");
+        let existing_last_correct = existing
+            .get("lastCorrectAt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let entry_last_correct = entry
+            .get("lastCorrectAt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if entry_last_correct > existing_last_correct {
+            existing["lastCorrectAt"] = serde_json::json!(entry_last_correct);
+        }
 
-        existing["priorityScore"] = serde_json::json!(priority_score(
-            total_errors as f64,
-            existing
-                .get("lastWrongAt")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-        ));
+        apply_priority_fields(existing, &context);
         merge_meanings(existing, entry);
     }
 
@@ -107,8 +116,71 @@ pub fn build_wrong_words(entries: &mut [Value], filter: &str) -> Vec<Value> {
     result
 }
 
-fn priority_score(error_count: f64, last_wrong_at: &str) -> f64 {
-    ((error_count * 2.5) + (recency_score(last_wrong_at) * 0.2)).min(10.0)
+fn apply_priority_fields(entry: &mut Value, context: &word_domain_core::DomainContext) {
+    let error_count = numeric_field(entry, "errorCount");
+    let correct_count = numeric_field(entry, "correctCount");
+    let last_wrong_at = entry
+        .get("lastWrongAt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let correct_since_last_wrong = if entry.get("correctSinceLastWrong").is_some() {
+        numeric_field(entry, "correctSinceLastWrong")
+    } else {
+        corrects_after_last_wrong(entry)
+    };
+    entry["correctSinceLastWrong"] = serde_json::json!(correct_since_last_wrong as i64);
+
+    let input = word_domain_core::WrongWordProjectionInput {
+        entry_source_id: entry
+            .get("entrySourceId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        word: entry
+            .get("word")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        error_count: error_count.max(0.0) as u64,
+        correct_count: correct_count.max(0.0) as u64,
+        consecutive_correct: entry
+            .get("consecutiveCorrect")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        last_wrong_at,
+        correct_since_last_wrong: correct_since_last_wrong.max(0.0) as u64,
+        is_active: entry.get("isActive").and_then(Value::as_bool).unwrap_or(true),
+    };
+    let projection = word_domain_core::score_wrong_word(context, &input);
+    entry["errorRate"] = serde_json::json!(projection.error_rate);
+    entry["priorityScore"] = serde_json::json!(projection.priority_score);
+}
+
+fn corrects_after_last_wrong(entry: &Value) -> f64 {
+    let last_wrong_at = entry
+        .get("lastWrongAt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let last_correct_at = entry
+        .get("lastCorrectAt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if !last_wrong_at.is_empty() && last_correct_at > last_wrong_at {
+        numeric_field(entry, "correctCount").max(1.0)
+    } else {
+        0.0
+    }
+}
+
+fn numeric_field(entry: &Value, field: &str) -> f64 {
+    entry.get(field).and_then(|v| v.as_f64()).unwrap_or(0.0)
+}
+
+fn merge_numeric_field(existing: &mut Value, duplicate: &Value, field: &str) {
+    let total = existing.get(field).and_then(|v| v.as_i64()).unwrap_or(0)
+        + duplicate.get(field).and_then(|v| v.as_i64()).unwrap_or(0);
+    existing[field] = serde_json::json!(total);
 }
 
 fn merge_meanings(existing: &mut Value, duplicate: &Value) {
@@ -194,6 +266,24 @@ fn compare_wrong_word_entries(left: &Value, right: &Value, filter: &str) -> std:
     right_priority
         .partial_cmp(&left_priority)
         .unwrap_or(Ordering::Equal)
+        .then_with(|| {
+            right
+                .get("errorCount")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                .cmp(&left.get("errorCount").and_then(|v| v.as_u64()).unwrap_or(0))
+        })
+        .then_with(|| {
+            right
+                .get("lastWrongAt")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .cmp(
+                    left.get("lastWrongAt")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(""),
+                )
+        })
 }
 
 #[cfg(test)]
@@ -217,9 +307,10 @@ mod tests {
             .get("priorityScore")
             .and_then(|v| v.as_f64())
             .unwrap();
-        // errorCount * 2.5 + recency_score * 0.2
         assert!(priority > 0.0, "Priority should be positive");
         assert!(priority <= 10.0, "Priority should be capped at 10.0");
+        assert!(result[0].get("errorRate").is_some());
+        assert!(result[0].get("correctSinceLastWrong").is_some());
     }
 
     #[test]
@@ -251,7 +342,6 @@ mod tests {
         ];
 
         let result = build_wrong_words(&mut entries, "highPriority");
-        // w1 has high priority (10*2.5 + 21*0.2 = 29.2 capped at 10), w2 has low
         assert!(result.len() <= 2);
         for entry in &result {
             let p = entry.get("priorityScore").and_then(|v| v.as_f64()).unwrap();
@@ -336,5 +426,78 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert!(result.iter().any(|entry| entry["entryKind"] == "rootAffix"));
         assert!(result.iter().any(|entry| entry["entryKind"] == "word"));
+    }
+
+    #[test]
+    fn consecutive_correct_answers_lower_wrong_word_priority() {
+        let mut entries = vec![
+            json!({
+                "entryId": 1,
+                "word": "recovered",
+                "errorCount": 5,
+                "correctCount": 4,
+                "correctSinceLastWrong": 3,
+                "lastWrongAt": "2026-04-22T01:00:00Z",
+                "lastCorrectAt": "2026-04-22T01:30:00Z",
+            }),
+            json!({
+                "entryId": 2,
+                "word": "still_wrong",
+                "errorCount": 3,
+                "correctCount": 0,
+                "correctSinceLastWrong": 0,
+                "lastWrongAt": "2026-04-22T01:10:00Z",
+            }),
+        ];
+
+        let result = build_wrong_words(&mut entries, "all");
+
+        assert_eq!(result[0]["word"], "still_wrong");
+        let recovered_priority = result
+            .iter()
+            .find(|entry| entry["word"] == "recovered")
+            .and_then(|entry| entry.get("priorityScore"))
+            .and_then(|value| value.as_f64())
+            .unwrap();
+        let still_wrong_priority = result
+            .iter()
+            .find(|entry| entry["word"] == "still_wrong")
+            .and_then(|entry| entry.get("priorityScore"))
+            .and_then(|value| value.as_f64())
+            .unwrap();
+        assert!(recovered_priority < still_wrong_priority);
+    }
+
+    #[test]
+    fn wrong_words_service_matches_direct_domain_projection_at_fixed_day() {
+        let mut entries = vec![json!({
+            "entrySourceId": "entry-alpha",
+            "word": "alpha",
+            "errorCount": 3,
+            "correctCount": 1,
+            "consecutiveCorrect": 0,
+            "lastWrongAt": "fixed-fixture-date",
+            "correctSinceLastWrong": 0,
+            "isActive": true
+        })];
+        let context = word_domain_core::DomainContext {
+            now_utc: "2026-07-28T00:00:00Z".to_string(),
+            local_day: "2026-07-28".to_string(),
+            session_id: "wrong-equivalence".to_string(),
+            ordering_seed: "wrong-equivalence".to_string(),
+        };
+        let typed = vec![serde_json::from_value(entries[0].clone()).unwrap()];
+
+        assert_eq!(
+            serde_json::Value::Array(build_wrong_words_at(
+                &mut entries,
+                "all",
+                &context.local_day,
+            )),
+            serde_json::to_value(word_domain_core::project_wrong_words(
+                &context, &typed, "all"
+            ))
+            .unwrap()
+        );
     }
 }

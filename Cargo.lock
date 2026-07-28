@@ -1751,6 +1751,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio-test",
+ "word-domain-core",
  "word-storage-core",
  "word-study-core",
 ]
@@ -1771,6 +1772,7 @@ dependencies = [
 name = "word-domain-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
  "word-domain-models",

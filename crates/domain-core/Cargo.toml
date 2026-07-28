@@ -9,8 +9,8 @@ description = "Deterministic, target-neutral Word learning domain rules"
 
 [dependencies]
 serde = { workspace = true }
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 word-domain-models = { path = "../domain-models" }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-
