@@ -78,8 +78,8 @@ fn unsupported_version_unknown_command_and_missing_field_use_stable_codes() {
 
 #[test]
 fn malformed_and_invalid_typed_data_never_escape_as_raw_exceptions() {
-    let malformed: ProtocolResponse = serde_json::from_str(&execute_v1("{"))
-        .expect("malformed input still returns JSON");
+    let malformed: ProtocolResponse =
+        serde_json::from_str(&execute_v1("{")).expect("malformed input still returns JSON");
     let error = malformed.error.expect("structured malformed-json error");
     assert_eq!(error.code, "invalid_json");
     assert!(!error.message.contains("serde"));
@@ -102,13 +102,34 @@ fn malformed_and_invalid_typed_data_never_escape_as_raw_exceptions() {
 #[test]
 fn every_canonical_fixture_dispatches_to_the_accepted_semantic_result() {
     for (request, expected) in [
-        (include_str!("../../../fixtures/domain/v1/requests/study-newword.json"), include_str!("../../../fixtures/domain/v1/expected/study-newword.json")),
-        (include_str!("../../../fixtures/domain/v1/requests/study-non-newword-modes.json"), include_str!("../../../fixtures/domain/v1/expected/study-non-newword-modes.json")),
-        (include_str!("../../../fixtures/domain/v1/requests/study-post-submit-feedback.json"), include_str!("../../../fixtures/domain/v1/expected/study-post-submit-feedback.json")),
-        (include_str!("../../../fixtures/domain/v1/requests/study-progress-summary.json"), include_str!("../../../fixtures/domain/v1/expected/study-progress-summary.json")),
-        (include_str!("../../../fixtures/domain/v1/requests/study-resume-state.json"), include_str!("../../../fixtures/domain/v1/expected/study-resume-state.json")),
-        (include_str!("../../../fixtures/domain/v1/requests/wrong-word-identity.json"), include_str!("../../../fixtures/domain/v1/expected/wrong-word-identity.json")),
-        (include_str!("../../../fixtures/domain/v1/requests/report-local-day.json"), include_str!("../../../fixtures/domain/v1/expected/report-local-day.json")),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/study-newword.json"),
+            include_str!("../../../fixtures/domain/v1/expected/study-newword.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/study-non-newword-modes.json"),
+            include_str!("../../../fixtures/domain/v1/expected/study-non-newword-modes.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/study-post-submit-feedback.json"),
+            include_str!("../../../fixtures/domain/v1/expected/study-post-submit-feedback.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/study-progress-summary.json"),
+            include_str!("../../../fixtures/domain/v1/expected/study-progress-summary.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/study-resume-state.json"),
+            include_str!("../../../fixtures/domain/v1/expected/study-resume-state.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/wrong-word-identity.json"),
+            include_str!("../../../fixtures/domain/v1/expected/wrong-word-identity.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/report-local-day.json"),
+            include_str!("../../../fixtures/domain/v1/expected/report-local-day.json"),
+        ),
     ] {
         let response: ProtocolResponse = serde_json::from_str(&execute_v1(request)).unwrap();
         assert_eq!(
