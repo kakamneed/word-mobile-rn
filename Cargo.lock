@@ -1768,6 +1768,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "word-domain-models"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "word-platform-mobile"
 version = "0.1.0"
 dependencies = [
