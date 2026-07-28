@@ -1,0 +1,10 @@
+{
+  "protocolVersion":1,"command":"captureNewWord","requestId":"study-newword","context":{"nowUtc":"2026-07-28T00:00:00Z","localDay":"2026-07-28","sessionId":"sess-fixture-newword","orderingSeed":"newword-seed-01"},
+  "payload":{"entries":[
+    {"sourceId":"entry-alpha","word":"alpha","partOfSpeech":"n.","frequency":0.9,"phoneticUs":"/al-fa/","phoneticUk":"/al-fa/","meaningDetails":[{"pos":"n.","meaningCn":"alpha meaning","meaningEn":"first letter"}],"meanings":["alpha meaning","first meaning"],"exampleSentence":"Alpha starts the sequence.","exampleTranslation":"Alpha begins the sequence translated.","cnChoiceDistractors":["beta meaning","gamma meaning","delta meaning"],"enChoiceDistractors":["beta","gamma","delta"]},
+    {"sourceId":"entry-beta","word":"beta","partOfSpeech":"n.","frequency":0.8,"phoneticUs":"/bay-ta/","phoneticUk":"/bee-ta/","meaningDetails":[{"pos":"n.","meaningCn":"beta meaning","meaningEn":"second letter"}],"meanings":["beta meaning"],"exampleSentence":"Beta follows alpha.","exampleTranslation":"Beta follows alpha translated.","cnChoiceDistractors":["alpha meaning","gamma meaning","delta meaning"],"enChoiceDistractors":["alpha","gamma","delta"]}
+  ],"distractors":[
+    {"sourceId":"entry-gamma","word":"gamma","partOfSpeech":"n.","frequency":0.7,"phoneticUs":null,"phoneticUk":null,"meaningDetails":[{"pos":"n.","meaningCn":"gamma meaning","meaningEn":null}],"meanings":["gamma meaning"],"exampleSentence":"Gamma example.","exampleTranslation":"Gamma translation."},
+    {"sourceId":"entry-delta","word":"delta","partOfSpeech":"n.","frequency":0.6,"phoneticUs":null,"phoneticUk":null,"meaningDetails":[{"pos":"n.","meaningCn":"delta meaning","meaningEn":null}],"meanings":["delta meaning"],"exampleSentence":"Delta example.","exampleTranslation":"Delta translation."}
+  ]}
+}

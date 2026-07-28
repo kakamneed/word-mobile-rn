@@ -1,0 +1,8 @@
+{
+  "protocolVersion":1,"command":"captureProgressSummary","requestId":"study-progress-summary","context":{"nowUtc":"2026-07-28T00:05:00Z","localDay":"2026-07-28","sessionId":"sess-fixture-progress","orderingSeed":"progress-seed-01"},
+  "payload":{"expectedTotalQuestions":3,"progress":{"current":2,"total":3},"carryOver":{"todayCompleted":5,"todayTotal":8},"results":[
+    {"questionId":"q1","entrySourceId":"entry-alpha","questionType":"enToCnChoice","userResponse":"B","normalizedResponse":"b","correctAnswer":"alpha meaning","outcome":"correct","responseTimeMs":500,"answeredAt":"2026-07-28T00:01:00Z"},
+    {"questionId":"q2","entrySourceId":"entry-beta","questionType":"enToCnInput","userResponse":"beta meaning","normalizedResponse":"beta meaning","correctAnswer":"beta meaning","outcome":"correct","responseTimeMs":700,"answeredAt":"2026-07-28T00:02:00Z"},
+    {"questionId":"q2","entrySourceId":"entry-beta","questionType":"enToCnInput","userResponse":"beta meaning","normalizedResponse":"beta meaning","correctAnswer":"beta meaning","outcome":"correct","responseTimeMs":700,"answeredAt":"2026-07-28T00:02:01Z"}
+  ]}
+}

@@ -1,0 +1,7 @@
+{
+  "protocolVersion":1,"command":"captureResumeState","requestId":"study-resume-state","context":{"nowUtc":"2026-07-28T00:00:00Z","localDay":"2026-07-28","sessionId":"sess-fixture-resume","orderingSeed":"resume-seed-01"},
+  "payload":{"entries":[
+    {"sourceId":"entry-alpha","word":"alpha","partOfSpeech":"n.","frequency":0.9,"phoneticUs":"/al-fa/","phoneticUk":"/al-fa/","meaningDetails":[{"pos":"n.","meaningCn":"alpha meaning","meaningEn":null}],"meanings":["alpha meaning"],"exampleSentence":"Alpha starts the sequence.","exampleTranslation":"Alpha translated.","cnChoiceDistractors":[],"enChoiceDistractors":[]},
+    {"sourceId":"entry-beta","word":"beta","partOfSpeech":"n.","frequency":0.8,"phoneticUs":"/bay-ta/","phoneticUk":"/bee-ta/","meaningDetails":[{"pos":"n.","meaningCn":"beta meaning","meaningEn":null}],"meanings":["beta meaning"],"exampleSentence":"Beta follows alpha.","exampleTranslation":"Beta translated.","cnChoiceDistractors":[],"enChoiceDistractors":[]}
+  ],"distractors":[],"questionTypeWeights":[{"questionType":"enToCnInput","weight":100}]}
+}

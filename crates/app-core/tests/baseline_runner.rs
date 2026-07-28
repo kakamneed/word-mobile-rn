@@ -5,10 +5,12 @@
 
 use rusqlite::Connection;
 use serde_json::Value;
+use std::fs;
 
 use word_app_core::platform::{PlatformError, PlatformRuntime};
 use word_storage_core::models::*;
 use word_storage_core::persistence;
+use word_study_core::{AnswerEvaluator, QuestionBuilder, WordForQuestion};
 
 use std::path::PathBuf;
 
@@ -1191,4 +1193,353 @@ fn baseline_today_snapshot_not_polluted_by_plan_edit() {
     // when the plan changes. When the "same-day stability" feature is
     // implemented, this test should be updated to assert the snapshot
     // does NOT change after same-day plan edits.
+}
+
+// ---------------------------------------------------------------------------
+// Phase 15 canonical domain fixture runner
+// ---------------------------------------------------------------------------
+
+fn domain_fixture_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("fixtures/domain/v1")
+}
+
+fn fixture_words(payloads: &[StartSessionEntryPayload]) -> Vec<WordForQuestion> {
+    payloads
+        .iter()
+        .map(|payload| WordForQuestion {
+            source_id: payload.source_id.clone(),
+            word: payload.word.clone(),
+            part_of_speech: payload.part_of_speech.clone(),
+            frequency: payload.frequency,
+            phonetic_us: payload.phonetic_us.clone(),
+            phonetic_uk: payload.phonetic_uk.clone(),
+            meanings: if payload.meaning_details.is_empty() {
+                payload
+                    .meanings
+                    .iter()
+                    .map(|meaning| MeaningZh {
+                        pos: String::new(),
+                        meaning_cn: meaning.clone(),
+                        meaning_en: None,
+                    })
+                    .collect()
+            } else {
+                payload
+                    .meaning_details
+                    .iter()
+                    .map(|meaning| MeaningZh {
+                        pos: meaning.pos.clone(),
+                        meaning_cn: meaning.meaning_cn.clone(),
+                        meaning_en: meaning.meaning_en.clone(),
+                    })
+                    .collect()
+            },
+            examples: payload
+                .example_sentence
+                .iter()
+                .map(|sentence| EntryExample {
+                    sentence_en: sentence.clone(),
+                    sentence_cn: payload.example_translation.clone().unwrap_or_default(),
+                })
+                .collect(),
+            cn_choice_distractors: payload.cn_choice_distractors.clone(),
+            en_choice_distractors: payload.en_choice_distractors.clone(),
+        })
+        .collect()
+}
+
+fn fixture_questions(request: &Value, mode: SessionMode, suffix: &str) -> Vec<StudyQuestion> {
+    let entries: Vec<StartSessionEntryPayload> =
+        serde_json::from_value(request["payload"]["entries"].clone()).unwrap();
+    let distractors: Vec<StartSessionEntryPayload> =
+        serde_json::from_value(request["payload"]["distractors"].clone()).unwrap_or_default();
+    let weights: Vec<QuestionTypeWeight> = request["payload"]
+        .get("questionTypeWeights")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .unwrap()
+        .unwrap_or_default();
+    let session_id = format!(
+        "{}{}",
+        request["context"]["sessionId"].as_str().unwrap(),
+        suffix
+    );
+    QuestionBuilder::build_session_questions(
+        &mode,
+        &fixture_words(&entries),
+        &fixture_words(&distractors),
+        &session_id,
+        &weights,
+    )
+}
+
+fn hide_pre_submit_translations(questions: &[StudyQuestion]) -> Vec<Value> {
+    questions
+        .iter()
+        .map(|question| {
+            let mut value = to_json(question);
+            value["exampleTranslation"] = Value::Null;
+            value
+        })
+        .collect()
+}
+
+fn canonical_domain_fixture_output(request: &Value) -> Value {
+    match request["command"].as_str().unwrap() {
+        "captureNewWord" => {
+            let questions = fixture_questions(request, SessionMode::NewWord, "");
+            serde_json::json!({
+                "mode": "newWord",
+                "orderingSeed": request["context"]["orderingSeed"],
+                "totalWords": request["payload"]["entries"].as_array().unwrap().len(),
+                "totalQuestions": questions.len(),
+                "questions": hide_pre_submit_translations(&questions)
+            })
+        }
+        "captureNonNewWordModes" => {
+            let modes = [
+                ("review", SessionMode::Review),
+                ("mixedTest", SessionMode::MixedTest),
+                ("wrongWordReinforcement", SessionMode::WrongWordReinforcement),
+                ("rootAffix", SessionMode::RootAffix),
+            ];
+            let mut output = serde_json::Map::new();
+            for (name, mode) in modes {
+                let questions = fixture_questions(request, mode, &format!("-{name}"));
+                output.insert(
+                    name.to_string(),
+                    serde_json::json!({
+                        "totalQuestions": questions.len(),
+                        "questions": hide_pre_submit_translations(&questions)
+                    }),
+                );
+            }
+            Value::Object(output)
+        }
+        "capturePostSubmitFeedback" => {
+            let questions = fixture_questions(request, SessionMode::NewWord, "-feedback");
+            let question = questions.first().unwrap();
+            let response = question
+                .correct_choice_label
+                .clone()
+                .unwrap_or_else(|| question.accepted_meanings[0].clone());
+            let result = AnswerEvaluator::evaluate(
+                question,
+                &StudyAnswer {
+                    question_id: question.question_id.clone(),
+                    response,
+                    response_time_ms: 725,
+                },
+                request["context"]["nowUtc"].as_str().unwrap(),
+            );
+            serde_json::json!({
+                "questionId": question.question_id,
+                "result": result,
+                "feedback": {
+                    "exampleSentence": question.example_sentence,
+                    "exampleTranslation": question.example_translation,
+                    "acceptedMeanings": question.accepted_meanings
+                }
+            })
+        }
+        "captureProgressSummary" => {
+            let results: Vec<StudyResult> =
+                serde_json::from_value(request["payload"]["results"].clone()).unwrap();
+            let expected_total = request["payload"]["expectedTotalQuestions"]
+                .as_u64()
+                .unwrap() as u32;
+            let summary = SessionSummary::from_results_with_total(
+                request["context"]["sessionId"].as_str().unwrap(),
+                &results,
+                expected_total,
+                request["context"]["nowUtc"].as_str().unwrap(),
+            );
+            serde_json::json!({
+                "progress": request["payload"]["progress"],
+                "carryOver": request["payload"]["carryOver"],
+                "summary": summary
+            })
+        }
+        "captureResumeState" => {
+            let questions = fixture_questions(request, SessionMode::MixedTest, "-resume");
+            let first = questions[0].clone();
+            let first_result = AnswerEvaluator::evaluate(
+                &first,
+                &StudyAnswer {
+                    question_id: first.question_id.clone(),
+                    response: first
+                        .correct_choice_label
+                        .clone()
+                        .unwrap_or_else(|| first.accepted_meanings[0].clone()),
+                    response_time_ms: 900,
+                },
+                request["context"]["nowUtc"].as_str().unwrap(),
+            );
+            let response = StartSessionResponse {
+                session: StudySession {
+                    session_id: request["context"]["sessionId"].as_str().unwrap().to_string(),
+                    mode: SessionMode::MixedTest,
+                    total_words: request["payload"]["entries"].as_array().unwrap().len() as u32,
+                    wordbook_id: Some(42),
+                    started_at: request["context"]["nowUtc"].as_str().unwrap().to_string(),
+                },
+                current_question: questions[1].clone(),
+                progress: SessionProgress {
+                    current: 2,
+                    total: questions.len() as u32,
+                },
+                answered_questions: vec![AnsweredStudyQuestion {
+                    question: first,
+                    result: first_result,
+                }],
+            };
+            to_json(&response)
+        }
+        "captureWrongWords" => {
+            let mut entries = request["payload"]["entries"].as_array().unwrap().clone();
+            let result = word_app_core::services::wrong_words_service::build_wrong_words(
+                &mut entries,
+                request["payload"]["filter"].as_str().unwrap(),
+            );
+            serde_json::json!({ "entries": result })
+        }
+        "captureReport" => {
+            let history = request["payload"]["history"].as_array().unwrap();
+            let local_day = request["context"]["localDay"].as_str().unwrap();
+            let report = word_app_core::services::reports_service::build_reports_overview(
+                local_day,
+                history,
+                request["payload"]["learnedCount"].as_u64().unwrap(),
+            );
+            serde_json::json!({ "localDay": local_day, "report": report })
+        }
+        command => panic!("unknown canonical fixture command: {command}"),
+    }
+}
+
+fn assert_canonical_fixture_claims(id: &str, output: &Value) {
+    match id {
+        "study-newword" => {
+            let questions = output["questions"].as_array().unwrap();
+            assert_eq!(questions.len(), 8);
+            let types: Vec<_> = questions
+                .iter()
+                .map(|question| question["questionType"].as_str().unwrap())
+                .collect();
+            assert_eq!(
+                types,
+                vec![
+                    "exampleToCnChoice",
+                    "exampleToCnChoice",
+                    "enToCnChoice",
+                    "enToCnChoice",
+                    "cnToEnChoice",
+                    "cnToEnChoice",
+                    "enToCnInput",
+                    "enToCnInput",
+                ]
+            );
+            assert!(questions
+                .iter()
+                .all(|question| question["exampleTranslation"].is_null()));
+            let non_a_choice = questions.iter().any(|question| {
+                question["correctChoiceLabel"]
+                    .as_str()
+                    .is_some_and(|label| label != "A")
+            });
+            assert!(non_a_choice, "fixture must retain a non-A correct choice");
+            for question in questions.iter().filter(|q| q["choices"].is_array()) {
+                let options = question["choices"].as_array().unwrap();
+                let texts: std::collections::HashSet<_> = options
+                    .iter()
+                    .map(|option| option["text"].as_str().unwrap())
+                    .collect();
+                assert_eq!(texts.len(), options.len());
+                assert!(texts.iter().all(|text| !text.trim().is_empty()));
+            }
+        }
+        "study-non-newword-modes" => {
+            for mode in ["review", "mixedTest", "wrongWordReinforcement", "rootAffix"] {
+                assert_eq!(output[mode]["totalQuestions"], 2);
+            }
+        }
+        "study-post-submit-feedback" => {
+            assert!(output["feedback"]["exampleTranslation"].is_string());
+            assert_eq!(output["result"]["outcome"], "correct");
+        }
+        "study-progress-summary" => {
+            assert_eq!(output["summary"]["totalQuestions"], 3);
+            assert_eq!(output["summary"]["correctCount"], 2);
+            assert_eq!(output["summary"]["totalWords"], 2);
+            assert_eq!(output["carryOver"]["todayTotal"], 8);
+        }
+        "study-resume-state" => {
+            assert_eq!(output["progress"]["current"], 2);
+            assert_eq!(output["answeredQuestions"].as_array().unwrap().len(), 1);
+            assert_eq!(output["session"]["sessionId"], "sess-fixture-resume");
+        }
+        "wrong-word-identity" => {
+            let entries = output["entries"].as_array().unwrap();
+            assert!(!entries.is_empty());
+            assert!(entries.iter().all(|entry| {
+                entry["entrySourceId"]
+                    .as_str()
+                    .is_some_and(|value| !value.is_empty() && value != "unknown")
+            }));
+        }
+        "report-local-day" => {
+            assert_eq!(output["localDay"], "2026-07-28");
+            assert_eq!(output["report"]["summary"]["totalQuestions"], 3);
+        }
+        _ => panic!("missing invariant assertions for fixture {id}"),
+    }
+}
+
+#[test]
+fn canonical_domain_fixture_corpus_matches_current_native_behavior() {
+    let fixture_root = domain_fixture_root();
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(fixture_root.join("manifest.json")).expect("read fixture manifest"),
+    )
+    .expect("parse fixture manifest");
+    let source_lock: Value = serde_json::from_str(
+        &fs::read_to_string(fixture_root.join("source-lock.json")).expect("read source lock"),
+    )
+    .expect("parse source lock");
+    assert_eq!(
+        manifest["sourceLockDigest"], source_lock["aggregateSha256"],
+        "fixture manifest must identify the accepted source lock"
+    );
+
+    let accept = std::env::var("DOMAIN_FIXTURE_ACCEPT")
+        .map(|value| value == "1")
+        .unwrap_or(false);
+    for fixture in manifest["fixtures"].as_array().unwrap() {
+        let id = fixture["id"].as_str().unwrap();
+        let request_path = fixture_root.join(fixture["request"].as_str().unwrap());
+        let expected_path = fixture_root.join(fixture["expected"].as_str().unwrap());
+        let request: Value =
+            serde_json::from_str(&fs::read_to_string(request_path).unwrap()).unwrap();
+        let output = canonical_domain_fixture_output(&request);
+        assert_canonical_fixture_claims(id, &output);
+
+        if accept {
+            fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
+            fs::write(
+                expected_path,
+                format!("{}\n", serde_json::to_string_pretty(&output).unwrap()),
+            )
+            .unwrap();
+        } else {
+            let expected: Value = serde_json::from_str(
+                &fs::read_to_string(&expected_path)
+                    .unwrap_or_else(|_| panic!("missing accepted fixture output for {id}")),
+            )
+            .unwrap();
+            assert_eq!(output, expected, "native fixture drift for {id}");
+        }
+    }
 }

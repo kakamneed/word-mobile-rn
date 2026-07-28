@@ -1,0 +1,4 @@
+{
+  "protocolVersion":1,"command":"capturePostSubmitFeedback","requestId":"study-post-submit-feedback","context":{"nowUtc":"2026-07-28T00:00:00Z","localDay":"2026-07-28","sessionId":"sess-fixture-feedback","orderingSeed":"feedback-seed-01"},
+  "payload":{"entries":[{"sourceId":"entry-alpha","word":"alpha","partOfSpeech":"n.","frequency":0.9,"phoneticUs":"/al-fa/","phoneticUk":"/al-fa/","meaningDetails":[{"pos":"n.","meaningCn":"alpha meaning","meaningEn":null}],"meanings":["alpha meaning"],"exampleSentence":"Alpha starts the sequence.","exampleTranslation":"Alpha begins the sequence translated.","cnChoiceDistractors":["beta meaning","gamma meaning","delta meaning"],"enChoiceDistractors":["beta","gamma","delta"]}],"distractors":[]}
+}

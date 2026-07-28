@@ -1,0 +1,7 @@
+{
+  "protocolVersion":1,"command":"captureWrongWords","requestId":"wrong-word-identity","context":{"nowUtc":"2026-07-28T00:00:00Z","localDay":"2026-07-28","sessionId":"sess-fixture-wrong","orderingSeed":"wrong-seed-01"},
+  "payload":{"filter":"all","entries":[
+    {"entrySourceId":"entry-alpha","word":"alpha","errorCount":3,"correctCount":1,"consecutiveCorrect":0,"lastWrongAt":"fixed-fixture-date","isActive":true},
+    {"entrySourceId":"entry-beta","word":"beta","errorCount":1,"correctCount":2,"consecutiveCorrect":1,"lastWrongAt":"fixed-fixture-date","isActive":true}
+  ]}
+}

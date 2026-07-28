@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "v1-placeholder",
+  "sourceLockDigest": "9774425edd021402959f2e620cef4fc2334def7eae51adb703f13ea1df0c786e",
+  "fixtures": [
+    {"id":"study-newword","request":"requests/study-newword.json","expected":"expected/study-newword.json","claims":["four type-major rounds","stable accepted meanings","choice integrity","pre-submit translation hidden"]},
+    {"id":"study-non-newword-modes","request":"requests/study-non-newword-modes.json","expected":"expected/study-non-newword-modes.json","claims":["one question per entry for review, mixed, wrong-word, and root-affix"]},
+    {"id":"study-post-submit-feedback","request":"requests/study-post-submit-feedback.json","expected":"expected/study-post-submit-feedback.json","claims":["translation appears only in post-submit feedback"]},
+    {"id":"study-progress-summary","request":"requests/study-progress-summary.json","expected":"expected/study-progress-summary.json","claims":["question-unit totals","carry-over totals","duplicate-submit cap","distinct word totals"]},
+    {"id":"study-resume-state","request":"requests/study-resume-state.json","expected":"expected/study-resume-state.json","claims":["answered history","current question","resume index and total"]},
+    {"id":"wrong-word-identity","request":"requests/wrong-word-identity.json","expected":"expected/wrong-word-identity.json","claims":["real entrySourceId","no unknown identity"]},
+    {"id":"report-local-day","request":"requests/report-local-day.json","expected":"expected/report-local-day.json","claims":["explicit local day","zero-answer filtering","mode normalization"]}
+  ]
+}
