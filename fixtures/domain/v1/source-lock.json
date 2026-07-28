@@ -1,0 +1,58 @@
+{
+    "schemaVersion":  1,
+    "acceptedWave":  0,
+    "capturedAtUtc":  "2026-07-28T07:44:06Z",
+    "gitCommit":  "ede5ed2aaf5d3020d0d71af37f9662cd766d57fa",
+    "gitDirty":  true,
+    "authoritativeInputs":  [
+                                {
+                                    "path":  "crates/study-core/src/question_builder.rs",
+                                    "sha256":  "c1f8a978c3114e698c9a935d4bf533425c8c4222cbdd38ccf799c07dca554494"
+                                },
+                                {
+                                    "path":  "crates/study-core/src/session_summary.rs",
+                                    "sha256":  "094751c3f227dfef96d0481bbb1c1506ae4937c717373afc92eefc36a25c05a2"
+                                },
+                                {
+                                    "path":  "crates/storage-core/src/models/study_question.rs",
+                                    "sha256":  "969918d64d1da79ead0eff3560a335bc8161d24ddad1a65b4c7c34d44b2d5f9a"
+                                },
+                                {
+                                    "path":  "crates/storage-core/src/models/study_requests.rs",
+                                    "sha256":  "20f6337b1074da2b62ab8bc14e88881a16740c538176ad40e022c70eac811727"
+                                },
+                                {
+                                    "path":  "crates/storage-core/src/models/study_result.rs",
+                                    "sha256":  "ea4755c5fc19381bc2c2cdd059a3686a08633a6c7942a6da5fe9c114ef17321d"
+                                },
+                                {
+                                    "path":  "crates/storage-core/src/models/study_session.rs",
+                                    "sha256":  "c2b566492e4d72f4c5410b9b53ebf52788c20d5e00c47821480e738c2bf7f264"
+                                },
+                                {
+                                    "path":  "crates/app-core/src/facade/study_facade.rs",
+                                    "sha256":  "98f7648c7eacf850bf881538515b2e6d7c3a9a658b7781c83cf49d59a3807216"
+                                },
+                                {
+                                    "path":  "crates/app-core/src/services/reports_service.rs",
+                                    "sha256":  "1d141799640a733dfa3fb18bfdeb09253033c900feaee3cf224b59c468b5ab61"
+                                },
+                                {
+                                    "path":  "crates/app-core/src/services/wrong_words_service.rs",
+                                    "sha256":  "3c55a10e77d1e7e196e1f1e5ea45aa4d38638942a68a771ca509e599b03b6e35"
+                                },
+                                {
+                                    "path":  "crates/platform-mobile/src/bridge.rs",
+                                    "sha256":  "71c1a6dfb9c940731b17ee2db5d218b25abd129570001b505a768c37ac6219a4"
+                                },
+                                {
+                                    "path":  "apps/flutter_mobile/test/study_question_display_test.dart",
+                                    "sha256":  "e6ed8aa636d95bbf1e9ad083d64c2c5e4e3377fcad3e4f402217db02e971e864"
+                                }
+                            ],
+    "learningLedger":  {
+                           "path":  "docs/features/learning.md",
+                           "sha256":  "db66719bcf1d11612803488c3db3eb752c67cace4fe452bfa776dac57b506a08"
+                       },
+    "aggregateSha256":  "9774425edd021402959f2e620cef4fc2334def7eae51adb703f13ea1df0c786e"
+}

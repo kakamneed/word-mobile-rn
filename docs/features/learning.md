@@ -115,6 +115,8 @@ Focused mobile checks from the conversation history:
 - `2026-07-17` - Diagnosis: Today/Plan totals could still exceed Study entry totals by one in non-new-word modes because platform hydrate selected exactly the target number of entry IDs, then app-core filtered invalid payloads such as dotted abbreviation headwords before question generation.
 - `2026-07-17` - Modification points: `crates/platform-mobile/src/bridge.rs` now overfetches study candidates, applies the same bridge-side validity guards for source ID, study word, and meanings, and truncates the valid payload list back to the Today target before starting Study. `apps/flutter_mobile/lib/features/study_screen.dart` also corrects the visible PageView item back to the just-submitted question when a pending next question is appended, preventing feed-window shifts from landing on the next page automatically. `apps/flutter_mobile/test/study_question_display_test.dart` and `crates/platform-mobile/src/bridge.rs` cover these regressions.
 
+- `2026-07-28` - Phase 15 domain-export modification points: `scripts/domain-export/check-source-lock.ps1` establishes a hash gate over the current Flutter-backed Rust question/session/report/wrong-word behavior, the mobile bridge, the focused Flutter display contract, and this ledger. Wave 0 capture is the initial mobile truth; later accepted digests require a reviewed machine-readable diff, successful parity evidence tied to the old digest, and a changed learning-ledger digest. Generated Phase 15 fixtures and scripts are deliberately excluded from the authoritative product-source set.
+
 ## Mobile Lessons Learned
 
 - Seeing questions on Study is not enough; always verify the source is the real wordbook/plan, not a test pool or fixed sorted prefix.
@@ -176,6 +178,8 @@ Focused mobile checks from the conversation history:
 - Do not activate pending next questions directly inside `PageView.onPageChanged`; list-window shifts around the 20 answered item boundary can make rebuilds look like page changes.
 - Do not fix a Today/Study total mismatch by mutating Today or Plan counts. The generation layer should fill valid entries up to the target, and only then report a smaller session if the real valid pool is insufficient.
 - Do not rely on app-core filtering alone for user-visible target counts; platform hydrate needs to skip invalid wordbook rows before constructing the start-session payload.
+
+- Do not update the Phase 15 source lock by recapturing after Wave 0. Product-source drift must fail closed, and only evidence-gated promotion may advance the accepted digest; promotion is parity bookkeeping, not permission to copy stale desktop rules or correct product behavior inside the export phase.
 
 ## Verification
 
