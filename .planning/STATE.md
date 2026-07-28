@@ -1,7 +1,7 @@
 # Project State: Word Mobile RN
 
 **Initialized:** 2026-04-09
-**Current Status:** Phase 15 in progress: Plan 03 of 05 complete; deterministic study and projection rules are WASM-safe and native compatibility is fixture-proven.
+**Current Status:** Phase 15 in progress: Plan 04 of 05 complete; protocol v1 now produces fixture-equivalent native and WASM results through one dispatcher.
 
 ## Core Value
 
@@ -32,20 +32,21 @@ Users should be able to complete the full daily vocabulary-learning loop on mobi
 
 ## Immediate Next Step
 
-Execute `15-04-PLAN.md` to expose the deterministic domain rules through the versioned WASM contract.
+Execute `15-05-PLAN.md` to package and consume the verified versioned WASM export.
 
 ## Resume Point
 
-- Resume file: `.planning/phases/15-wasm-safe-mobile-domain-export-for-unified-pc/15-04-PLAN.md`
+- Resume file: `.planning/phases/15-wasm-safe-mobile-domain-export-for-unified-pc/15-05-PLAN.md`
 - Canonical skill entry: `.planning/skills/learning-flow/INDEX.md`
-- Stopped at: Completed `15-03-PLAN.md`; deterministic domain rules, native compatibility facades, and promoted Wave 2 parity evidence verified.
+- Stopped at: Completed `15-04-PLAN.md`; typed protocol v1, identical native/WASM dispatcher adapters, Node-hosted equivalence, and promoted Wave 3 evidence verified.
 
 ## Phase 15 Execution
 
-- Progress: 3/5 plans complete (60%).
+- Progress: 4/5 plans complete (80%).
 - Metric: Plan 15-01 completed in 30 min across 2 tasks and 22 files.
 - Metric: Plan 15-02 completed in 24 min across 2 tasks and 24 files.
 - Metric: Plan 15-03 completed in 46 min across 3 tasks and 29 files.
+- Metric: Plan 15-04 completed in 36 min across 2 tasks and 19 files.
 - Decision: Hash authoritative mobile product inputs separately from generated Phase 15 fixture infrastructure.
 - Decision: Require reviewed diff, successful parity checks, and an updated learning-ledger digest before source-lock promotion.
 - Decision: Capture pre-submit and post-submit study projections separately so translations remain feedback-only.
@@ -55,9 +56,13 @@ Execute `15-04-PLAN.md` to expose the deterministic domain rules through the ver
 - Decision: Use fixed-width `u64` deterministic hashing so native and wasm32 ordering cannot diverge by pointer width.
 - Decision: Keep Review to one selected question per entry while NewWord alone uses the four-round type-major loop.
 - Decision: Keep JSON, SQLite, and platform time acquisition in native adapters; domain-core accepts typed inputs and explicit context.
+- Decision: Parse protocol envelope metadata first, then deserialize each command payload into a typed Rust structure before domain execution.
+- Decision: Keep legacy native CLI names as input-only mappings while native v1 and WASM use the identical `execute_v1` dispatcher.
+- Decision: Require live Node-hosted wasm32 fixture execution because compile-only checks cannot prove pointer-width-independent determinism.
 
 ## Session Log
 
+- 2026-07-28: Phase 15 Plan 04 completed. Typed protocol v1, native/WASM adapters, five protocol tests, real Node-hosted seven-fixture equivalence, forbidden-dependency scan, ordinary fixture verification, and promoted Wave 3 digest `f9a8537c359f7b478c08fed5bef873b5b4cdabf4e430f6f691e69d623f14c668` passed.
 - 2026-07-28: Phase 15 Plan 03 completed. `word-domain-core` now owns deterministic study, progress, resume, wrong-word, and report rules; domain, study-core, serial app-core, seven-fixture, wasm32, and promoted Wave 2 digest `7b576b77e145b9291a870ac4ec3957c50969c9405c53ba308fe9a39034f6c06e` checks passed.
 - 2026-07-28: Phase 15 Plan 02 completed. `word-domain-models` passed native serde tests and `wasm32` compilation without persistence/platform dependencies; storage and mobile compatibility checks, 35 study tests, 14 serial baseline tests, seven native fixtures, and promoted digest `1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9` passed.
 - 2026-07-28: Phase 15 Plan 01 completed. Source lock Wave 1 accepted digest `8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507`; seven deterministic native fixture groups, semantic comparator, and serial app-core baseline passed.
