@@ -1957,11 +1957,9 @@ name = "word-study-domain-runner"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "serde",
  "serde_json",
  "thiserror 1.0.69",
- "word-storage-core",
- "word-study-core",
+ "word-domain-protocol",
 ]
 
 [[package]]

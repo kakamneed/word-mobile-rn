@@ -942,9 +942,11 @@ impl QuestionBuilder {
         }
         let labels = ["A", "B", "C", "D"];
         let seed = Self::stable_distractor_seed(seed_input);
-        let mut position = seed % choice_count;
+        let mut position = (seed % choice_count as u64) as usize;
         if previous_choice_label == Some(labels[position]) {
-            position = (position + 1 + ((seed / choice_count) % (choice_count - 1))) % choice_count;
+            let alternate_offset =
+                ((seed / choice_count as u64) % (choice_count - 1) as u64) as usize;
+            position = (position + 1 + alternate_offset) % choice_count;
         }
         position
     }
@@ -1066,17 +1068,16 @@ impl QuestionBuilder {
         window
     }
 
-    fn stable_seed(text: &str) -> usize {
-        text.bytes().fold(0usize, |acc, byte| {
-            acc.wrapping_mul(33).wrapping_add(byte as usize)
+    fn stable_seed(text: &str) -> u64 {
+        text.bytes().fold(0u64, |acc, byte| {
+            acc.wrapping_mul(33).wrapping_add(u64::from(byte))
         })
     }
 
-    fn stable_distractor_seed(text: &str) -> usize {
-        text.bytes()
-            .fold(0xcbf29ce484222325u64, |acc, byte| {
-                (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3u64)
-            }) as usize
+    fn stable_distractor_seed(text: &str) -> u64 {
+        text.bytes().fold(0xcbf29ce484222325u64, |acc, byte| {
+            (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3u64)
+        })
     }
 
     fn choice_meanings_for_word(word: &WordForQuestion) -> Vec<String> {
@@ -1363,6 +1364,18 @@ mod tests {
     use word_domain_models::{
         EntryExample, MeaningZh, QuestionType, QuestionTypeWeight, SessionMode,
     };
+
+    #[test]
+    fn stable_seed_has_fixed_width_cross_target_value() {
+        assert_eq!(
+            QuestionBuilder::stable_seed("sess-fixture-newword:base:entry-alpha"),
+            9_252_296_553_957_568_985u64
+        );
+        assert_eq!(
+            QuestionBuilder::stable_distractor_seed("sess-fixture-newword:0:alpha meaning"),
+            7_815_142_371_858_687_363u64
+        );
+    }
 
     fn build_word(
         source_id: &str,

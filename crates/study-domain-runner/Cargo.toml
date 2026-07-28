@@ -9,8 +9,6 @@ description = "JSON runner for server-side study domain reuse"
 
 [dependencies]
 chrono = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-word-storage-core = { path = "../storage-core" }
-word-study-core = { path = "../study-core" }
+word-domain-protocol = { path = "../domain-protocol" }
