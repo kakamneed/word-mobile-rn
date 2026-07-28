@@ -318,3 +318,24 @@ Success criteria:
 6. Reports charts use backend-backed `dailySeries`, `modeBreakdown`, and `modeSeries`; daily points and mode cards are selectable with the same selected-detail behavior and compact chart sizing as Flutter.
 7. AI tabs, AI pages, AI summary cards, and AI generation controls remain absent from the mini-program build.
 8. `npm.cmd run typecheck`, `npm.cmd run test:study-flow`, `npm.cmd run test:croc-bti`, `npm.cmd run test:reports`, `npm.cmd run test:plan-flow`, `npm.cmd run test:ui-contract`, and `npm.cmd run build:weapp` pass.
+
+### Phase 15: WASM-safe mobile domain export for unified PC
+
+**Goal:** Export the current Flutter-backed Rust domain behavior as a WASM-safe canonical package for Word Net without moving SQLite or platform lifecycle concerns into the shared core.
+**Requirements**: [ARCH-04, ARCH-05, ARCH-06, ARCH-07]
+**Depends on:** Phase 14
+**Plans:** 1/5 plans executed
+
+Plans:
+- [x] 15-01-PLAN.md - Lock mobile source/ledger truth and capture canonical native fixtures
+- [ ] 15-02-PLAN.md - Extract serde-only WASM-safe domain models with native compatibility re-exports
+- [ ] 15-03-PLAN.md - Extract deterministic study, progress, resume, wrong-word, and report rules
+- [ ] 15-04-PLAN.md - Publish protocol v1 and equivalent native/WASM runners
+- [ ] 15-05-PLAN.md - Build the pin-ready artifact and prove browser/mobile compatibility
+
+Success criteria:
+1. The exported model and rule crates build for native Rust and `wasm32` without `rusqlite`, Flutter, Tauri, filesystem, or network dependencies.
+2. Native and WASM runners return equivalent canonical JSON for locked mobile fixtures covering NewWord type-major four-question rounds, Review single-question behavior, question-unit progress, stable meanings, resume state, wrong words, and reports.
+3. Existing Flutter bridge paths continue to use the same production rules and pass focused Rust and Flutter regression checks after extraction.
+4. Word Net can pin an export protocol version and mobile source commit/hash, load the generated artifact, and surface structured compatibility errors.
+5. Chromium, Firefox, and WebKit browser checks plus artifact-size, startup, and serialization evidence are recorded before WASM parity is declared complete.

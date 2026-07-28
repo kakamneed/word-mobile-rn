@@ -1,7 +1,7 @@
 # Project State: Word Mobile RN
 
 **Initialized:** 2026-04-09
-**Current Status:** Phase 11 in progress: converting the cleaned Flutter learning-flow implementation into project-local skill-standard docs and regression guardrails.
+**Current Status:** Phase 15 in progress: Plan 01 of 05 complete; mobile source truth and canonical native fixtures are locked for extraction.
 
 ## Core Value
 
@@ -14,6 +14,8 @@ Users should be able to complete the full daily vocabulary-learning loop on mobi
 - Shared Rust core
 - SQLite as on-device source of truth
 - AI remains optional and non-blocking
+- Current Flutter-backed Rust behavior is the product truth for shared learning rules.
+- Unified PC delivery will consume a WASM-safe Rust domain export; SQLite and platform lifecycle remain adapter-owned.
 
 ## Reference System
 
@@ -22,23 +24,35 @@ Users should be able to complete the full daily vocabulary-learning loop on mobi
 
 ## Active Assumptions
 
-- The desktop product remains the functional reference during migration.
+- Historical desktop behavior is evidence, but the current mobile implementation is authoritative when the two disagree.
 - The most important reusable assets are the Rust services and data model, not the desktop UI.
 - Mobile UX should be redesigned around touch-first navigation rather than adapted from sidebar-first desktop layouts.
 - Sync is postponed until the single-device mobile loop is stable.
+- Phase 15 is an extraction and compatibility phase, not permission to rewrite current mobile study behavior.
 
 ## Immediate Next Step
 
-Finish `$gsd-execute-phase 11`: verify `.planning/skills/learning-flow/INDEX.md` and related guides, then preserve the remaining Phase 10 human/device UAT items.
+Execute `15-02-PLAN.md` to invert storage-owned DTOs into a serde-only WASM-safe model crate while preserving native compatibility.
 
 ## Resume Point
 
-- Resume file: `.planning/phases/11-learning-flow-skillization-and-regression-guardrails/11-01-PLAN.md`
+- Resume file: `.planning/phases/15-wasm-safe-mobile-domain-export-for-unified-pc/15-02-PLAN.md`
 - Canonical skill entry: `.planning/skills/learning-flow/INDEX.md`
-- Stopped at: Phase 11 execution in progress; skill docs and guardrails are being created from Phase 9/10 facts.
+- Stopped at: Completed `15-01-PLAN.md`; source lock Wave 1 and seven native fixture groups verified.
+
+## Phase 15 Execution
+
+- Progress: 1/5 plans complete (20%).
+- Metric: Plan 15-01 completed in 30 min across 2 tasks and 22 files.
+- Decision: Hash authoritative mobile product inputs separately from generated Phase 15 fixture infrastructure.
+- Decision: Require reviewed diff, successful parity checks, and an updated learning-ledger digest before source-lock promotion.
+- Decision: Capture pre-submit and post-submit study projections separately so translations remain feedback-only.
 
 ## Session Log
 
+- 2026-07-28: Phase 15 Plan 01 completed. Source lock Wave 1 accepted digest `8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507`; seven deterministic native fixture groups, semantic comparator, and serial app-core baseline passed.
+- 2026-07-28: Phase 15 added to export the current mobile Rust domain behavior through a WASM-safe, versioned boundary for the unified Word Net Web/Tauri product. The pure domain package excludes SQLite and platform lifecycle, and native/WASM fixture equivalence is a hard gate.
+- 2026-07-28: Phase 15 planning completed with five plans across five waves. Independent plan checking passed after adding evidence-gated source-lock promotion, valid focused commands, clean-worktree reproducible artifact builds, three-browser execution, mobile regression, and release-device UAT gates.
 - 2026-05-13: Phase 09 added to map the full learning-flow hierarchy and inventory historical pitfalls before cleanup, including selected-wrong-option highlighting and correct-answer index drift toward A.
 - 2026-05-13: Phase 10 added to clean Today, study answering, AI, bridge, Rust core, SQLite, and cloud-adjacent data layers while preserving current behavior and effects.
 - 2026-05-13: Phase 11 added to convert the cleaned implementation knowledge into skill-standard guides and regression guardrails for future learning-flow changes.
