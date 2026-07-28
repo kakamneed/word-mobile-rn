@@ -3,6 +3,7 @@ members = [
     "crates/app-core",
     "crates/domain-core",
     "crates/domain-models",
+    "crates/domain-protocol",
     "crates/study-core",
     "crates/content-core",
     "crates/storage-core",

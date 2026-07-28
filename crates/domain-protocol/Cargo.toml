@@ -1,0 +1,15 @@
+[package]
+name = "word-domain-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Versioned JSON protocol for the platform-free Word learning domain"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+word-domain-core = { path = "../domain-core" }
+word-domain-models = { path = "../domain-models" }
+
