@@ -1,0 +1,12 @@
+{
+  "name": "word-domain-browser-gates",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test:domain-wasm": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0"
+  }
+}

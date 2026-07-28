@@ -26,6 +26,10 @@ Ledger: `docs/features/learning.md`
 - `crates/domain-protocol/**`
 - `crates/domain-wasm/**`
 - `crates/study-domain-runner/**`
+- `scripts/domain-export/build-package.ps1`
+- `scripts/domain-export/run-browser-gates.ps1`
+- `tests/domain-browser/**`
+- `artifacts/domain-wasm/**`
 - `crates/platform-mobile/src/bridge.rs`
 - `crates/storage-core/src/models/study_result.rs`
 - `crates/study-core/src/session_summary.rs`
@@ -171,3 +175,4 @@ This baseline was reconstructed from the working tree on `2026-07-15`. It does n
 - `2026-07-15` - Verification: The desktop skill passed `quick_validate.py`. A live `wrong-word-graph` inspection detected mobile status `mobile_in_progress`, source updated `2026-07-15`, and a missing desktop consumption record; a temporary hash-matched record then passed `-Check` with `consumptionState: current`.
 - `2026-07-28` - Route change: Word Net becomes the single maintained PC codebase for browser PWA and Tauri delivery. Mobile remains the source of truth for shared learning behavior, exposed through a pinned WASM-safe Rust boundary.
 - `2026-07-28` - Preservation rule: `word-desktop-tauri` stays available as a hash-pinned donor and verification source until Word Net reproduces the accepted behavior and release gates. It must not evolve into a competing third implementation.
+- `2026-07-28` - Phase 15 Wave 4 mapping: the generated-package builder, three-browser harness, final manifest/package, and their evidence belong to the Learning Flow ledger because they preserve the shared mobile learning contract for Word Net consumption. Ignored candidate output, Playwright reports, browser binaries, temporary clean worktrees, and release APKs remain deliberate build/runtime exclusions.

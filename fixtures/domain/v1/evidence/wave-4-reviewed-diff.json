@@ -1,0 +1,13 @@
+{
+  "reviewed": true,
+  "changedFiles": [
+    "scripts/domain-export/build-package.ps1",
+    "scripts/domain-export/run-browser-gates.ps1",
+    "tests/domain-browser/package.json",
+    "tests/domain-browser/package-lock.json",
+    "tests/domain-browser/playwright.config.ts",
+    "tests/domain-browser/domain-wasm.spec.ts"
+  ],
+  "summary": "Reviewed Wave 4 adds optimized generated-package construction and real Chromium, Firefox, and Playwright WebKit consumption over the unchanged protocol v1 dispatcher. It records candidate hashes and budgets without moving SQLite, lifecycle, or platform code into WASM.",
+  "provenanceLimit": "The full default-parallel Rust workspace command remains affected by pre-existing app-core global test-state interference; the complete serial workspace passed and both outcomes are recorded. Unrelated dirty mobile feature work is not part of this review or Phase 15 commit."
+}

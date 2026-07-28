@@ -1,0 +1,114 @@
+{
+    "schemaVersion":  1,
+    "wave":  4,
+    "generatedAtUtc":  "2026-07-28T11:20:42Z",
+    "success":  true,
+    "sourceLockDigest":  "f9a8537c359f7b478c08fed5bef873b5b4cdabf4e430f6f691e69d623f14c668",
+    "learningLedgerSha256":  "d757448fbbed330c9d361639ef22b0d24cd6b2a010ae15ffcd9e7db3bd99b1fa",
+    "artifact":  {
+                     "commit":  "522c51074844c8901db3a6100b80a46ef89deb04",
+                     "dirty":  true,
+                     "wasmSha256":  "9a7f58f55f8596d89d3f485f5a8b9c10161ad0bfb9daba4ebb42e146bebdbe2b",
+                     "javascriptSha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399"
+                 },
+    "browsers":  [
+                     {
+                         "browser":  "chromium",
+                         "startupMs":  17.5,
+                         "firstCommandMs":  16,
+                         "repeatCommandMs":  0.2119999998807907,
+                         "error":  {
+                                       "protocolVersion":  1,
+                                       "requestId":  "",
+                                       "source":  {
+                                                      "name":  "word-mobile-domain",
+                                                      "package":  "word-domain-protocol",
+                                                      "version":  "0.1.0"
+                                                  },
+                                       "error":  {
+                                                     "code":  "missing_required_field",
+                                                     "message":  "A required request field is missing.",
+                                                     "details":  {
+                                                                     "field":  "requestId"
+                                                                 }
+                                                 }
+                                   }
+                     },
+                     {
+                         "browser":  "firefox",
+                         "startupMs":  309,
+                         "firstCommandMs":  2,
+                         "repeatCommandMs":  0.68,
+                         "error":  {
+                                       "protocolVersion":  1,
+                                       "requestId":  "",
+                                       "source":  {
+                                                      "name":  "word-mobile-domain",
+                                                      "package":  "word-domain-protocol",
+                                                      "version":  "0.1.0"
+                                                  },
+                                       "error":  {
+                                                     "code":  "missing_required_field",
+                                                     "message":  "A required request field is missing.",
+                                                     "details":  {
+                                                                     "field":  "requestId"
+                                                                 }
+                                                 }
+                                   }
+                     },
+                     {
+                         "browser":  "webkit",
+                         "startupMs":  62,
+                         "firstCommandMs":  11,
+                         "repeatCommandMs":  0.52,
+                         "error":  {
+                                       "protocolVersion":  1,
+                                       "requestId":  "",
+                                       "source":  {
+                                                      "name":  "word-mobile-domain",
+                                                      "package":  "word-domain-protocol",
+                                                      "version":  "0.1.0"
+                                                  },
+                                       "error":  {
+                                                     "code":  "missing_required_field",
+                                                     "message":  "A required request field is missing.",
+                                                     "details":  {
+                                                                     "field":  "requestId"
+                                                                 }
+                                                 }
+                                   }
+                     }
+                 ],
+    "checks":  [
+                   {
+                       "name":  "canonical-generated-wasm-fixtures",
+                       "status":  "passed",
+                       "detail":  "Seven canonical result fixtures and a structured error executed through the generated package; native parity is verified independently by the Rust workspace gate."
+                   },
+                   {
+                       "name":  "playwright-chromium",
+                       "status":  "passed",
+                       "detail":  "Generated web package imported and executed in Chromium."
+                   },
+                   {
+                       "name":  "playwright-firefox",
+                       "status":  "passed",
+                       "detail":  "Generated web package imported and executed in Firefox."
+                   },
+                   {
+                       "name":  "playwright-webkit",
+                       "status":  "passed",
+                       "detail":  "Generated web package imported and executed in Playwright WebKit."
+                   },
+                   {
+                       "name":  "full-rust-workspace-serial",
+                       "status":  "passed",
+                       "detail":  "RUST_TEST_THREADS=1 cargo test --workspace passed the complete workspace; the default-parallel command failed from the recorded pre-existing global app-core test-state race and is not claimed as passed."
+                   },
+                   {
+                       "name":  "focused-flutter-mobile",
+                       "status":  "passed",
+                       "detail":  "Study, Today, Wrong Words, and Reports focused suites passed 36/36 from apps/flutter_mobile after the separately recorded stale Wrong Words expectation repair."
+                   }
+               ]
+}
