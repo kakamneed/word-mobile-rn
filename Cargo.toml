@@ -4,6 +4,7 @@ members = [
     "crates/domain-core",
     "crates/domain-models",
     "crates/domain-protocol",
+    "crates/domain-wasm",
     "crates/study-core",
     "crates/content-core",
     "crates/storage-core",
