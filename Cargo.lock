@@ -1827,6 +1827,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio-test",
+ "word-domain-core",
  "word-domain-models",
 ]
 

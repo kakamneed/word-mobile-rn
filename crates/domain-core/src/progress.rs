@@ -1,16 +1,24 @@
 use word_domain_models::{SessionProgress, SessionSummary, StudyResult};
 
 pub fn question_progress(answered_question_ids: &[String], total: u32) -> SessionProgress {
-    let _ = answered_question_ids;
-    SessionProgress { current: 0, total }
+    let current = answered_question_ids
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+        .min(total as usize) as u32;
+    SessionProgress { current, total }
 }
 
 pub fn summarize_results(
-    _session_id: &str,
-    _results: &[StudyResult],
-    _total_questions: u32,
-    _completed_at: &str,
+    session_id: &str,
+    results: &[StudyResult],
+    total_questions: u32,
+    completed_at: &str,
 ) -> SessionSummary {
-    panic!("progress fixture not implemented")
+    SessionSummary::from_results_with_total(
+        session_id,
+        results,
+        total_questions,
+        completed_at,
+    )
 }
-

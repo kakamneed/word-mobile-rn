@@ -16,6 +16,7 @@ thiserror = { workspace = true }
 # Keep the source-level compatibility name while resolving to the pure model package.
 # This avoids rewriting the user-owned question builder during the dependency inversion.
 word-storage-core = { package = "word-domain-models", path = "../domain-models" }
+word-domain-core = { path = "../domain-core" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
