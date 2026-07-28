@@ -6,6 +6,12 @@ pub mod study;
 pub use projections::*;
 pub use study::*;
 
+/// Temporary namespace compatibility for native crates migrating from
+/// `word_storage_core::models::*` to direct domain-model imports.
+pub mod models {
+    pub use crate::{projections::*, study::*};
+}
+
 #[cfg(test)]
 mod tests {
     use super::{AnsweredStudyQuestion, SessionProgress, StudyQuestion, StudySession};

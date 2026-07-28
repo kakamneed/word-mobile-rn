@@ -13,8 +13,9 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 
-# Internal dependencies
-word-storage-core = { path = "../storage-core" }
+# Keep the source-level compatibility name while resolving to the pure model package.
+# This avoids rewriting the user-owned question builder during the dependency inversion.
+word-storage-core = { package = "word-domain-models", path = "../domain-models" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

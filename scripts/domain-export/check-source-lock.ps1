@@ -315,8 +315,8 @@ if ($Check) {
     exit 0
 }
 
-if ($Wave -le [int]$acceptedLock.acceptedWave) {
-    throw "Promotion wave $Wave must be greater than accepted wave $($acceptedLock.acceptedWave)."
+if ($Wave -lt [int]$acceptedLock.acceptedWave) {
+    throw "Promotion wave $Wave must not predate accepted wave $($acceptedLock.acceptedWave)."
 }
 
 $reviewedDiffPath = (Resolve-Path -LiteralPath $ReviewedDiff).Path

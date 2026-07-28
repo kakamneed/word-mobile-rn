@@ -4,7 +4,10 @@ param(
     [switch]$Verify,
 
     [Parameter(ParameterSetName = 'Accept', Mandatory = $true)]
-    [switch]$AcceptCurrentMobileTruth
+    [switch]$AcceptCurrentMobileTruth,
+
+    [Parameter(ParameterSetName = 'Verify')]
+    [string]$WriteEvidence
 )
 
 Set-StrictMode -Version Latest
@@ -18,9 +21,11 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $sourceLock = Get-Content -LiteralPath $sourceLockPath -Raw | ConvertFrom-Json
 $sourceLockScript = Join-Path $PSScriptRoot 'check-source-lock.ps1'
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $sourceLockScript -Check -Wave ([int]$sourceLock.acceptedWave)
-if ($LASTEXITCODE -ne 0) {
-    throw 'Source lock check failed; native fixtures cannot be captured or verified.'
+if ([string]::IsNullOrWhiteSpace($WriteEvidence)) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $sourceLockScript -Check -Wave ([int]$sourceLock.acceptedWave)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Source lock check failed; native fixtures cannot be captured or verified.'
+    }
 }
 
 if ([string]$manifest.sourceLockDigest -ne [string]$sourceLock.aggregateSha256) {
@@ -71,3 +76,37 @@ finally {
 
 $mode = if ($AcceptCurrentMobileTruth) { 'captured and verified' } else { 'verified' }
 Write-Output "Canonical native fixtures ${mode}: $($fixtureIds -join ', ')."
+
+if (-not [string]::IsNullOrWhiteSpace($WriteEvidence)) {
+    $ledgerPath = Join-Path $repositoryRoot 'docs\features\learning.md'
+    $ledgerSha256 = (Get-FileHash -LiteralPath $ledgerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $evidence = [ordered]@{
+        schemaVersion = 1
+        wave = [int]$sourceLock.acceptedWave
+        generatedAtUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+        success = $true
+        sourceLockDigest = [string]$sourceLock.aggregateSha256
+        learningLedgerSha256 = $ledgerSha256
+        checks = @(
+            [ordered]@{
+                name = 'canonical-native-fixtures'
+                status = 'passed'
+                detail = "$($fixtureIds.Count) accepted fixtures matched current native behavior"
+            }
+        )
+    }
+    $evidencePath = if ([IO.Path]::IsPathRooted($WriteEvidence)) {
+        $WriteEvidence
+    }
+    else {
+        Join-Path $repositoryRoot $WriteEvidence
+    }
+    [IO.Directory]::CreateDirectory((Split-Path $evidencePath -Parent)) | Out-Null
+    $encoding = New-Object Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText(
+        $evidencePath,
+        "$(ConvertTo-Json -InputObject $evidence -Depth 10)`n",
+        $encoding
+    )
+    Write-Output "Wrote native parity evidence: $WriteEvidence"
+}

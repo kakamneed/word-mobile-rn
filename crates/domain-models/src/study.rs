@@ -1,5 +1,36 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StandardizedEntry {
+    pub source_id: String,
+    pub word: String,
+    pub lemma: String,
+    pub phonetic_us: Option<String>,
+    pub phonetic_uk: Option<String>,
+    pub part_of_speech: Option<String>,
+    pub meanings_zh: Vec<MeaningZh>,
+    pub examples: Vec<EntryExample>,
+    pub tags: Vec<String>,
+    pub difficulty: Option<String>,
+    pub frequency: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeaningZh {
+    pub pos: String,
+    pub meaning_cn: String,
+    pub meaning_en: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryExample {
+    pub sentence_en: String,
+    pub sentence_cn: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionType {

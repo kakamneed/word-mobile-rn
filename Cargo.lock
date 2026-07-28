@@ -1806,6 +1806,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio-test",
+ "word-domain-models",
 ]
 
 [[package]]
@@ -1817,7 +1818,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio-test",
- "word-storage-core",
+ "word-domain-models",
 ]
 
 [[package]]

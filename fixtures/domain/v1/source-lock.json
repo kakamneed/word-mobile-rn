@@ -1,8 +1,8 @@
 {
     "schemaVersion":  1,
     "acceptedWave":  1,
-    "capturedAtUtc":  "2026-07-28T08:05:52Z",
-    "gitCommit":  "4bf6fb211ad20dc01692355ade940f36fa35de34",
+    "capturedAtUtc":  "2026-07-28T08:33:41Z",
+    "gitCommit":  "89c3f876fca19388575ac4275bb827883197ba1c",
     "gitDirty":  true,
     "authoritativeInputs":  [
                                 {
@@ -15,19 +15,19 @@
                                 },
                                 {
                                     "path":  "crates/storage-core/src/models/study_question.rs",
-                                    "sha256":  "969918d64d1da79ead0eff3560a335bc8161d24ddad1a65b4c7c34d44b2d5f9a"
+                                    "sha256":  "0e51b9d2d354b465d70ca55f12fd43be6c6fb2b11325cabbd75a805ea5fa5961"
                                 },
                                 {
                                     "path":  "crates/storage-core/src/models/study_requests.rs",
-                                    "sha256":  "20f6337b1074da2b62ab8bc14e88881a16740c538176ad40e022c70eac811727"
+                                    "sha256":  "b985675b4f49a31bb86c5cb3cff38880666fe4ab32af05c2ad46e9859db5bb00"
                                 },
                                 {
                                     "path":  "crates/storage-core/src/models/study_result.rs",
-                                    "sha256":  "ea4755c5fc19381bc2c2cdd059a3686a08633a6c7942a6da5fe9c114ef17321d"
+                                    "sha256":  "3a5086f7befeada85c59922689a3096ef26e76df5d9848aea3983367f6f4960e"
                                 },
                                 {
                                     "path":  "crates/storage-core/src/models/study_session.rs",
-                                    "sha256":  "c2b566492e4d72f4c5410b9b53ebf52788c20d5e00c47821480e738c2bf7f264"
+                                    "sha256":  "70cb3cb49d7fb01647393e5284a2532e4c8c04a4a28ab3a717b31d816bcf65aa"
                                 },
                                 {
                                     "path":  "crates/app-core/src/facade/study_facade.rs",
@@ -52,7 +52,7 @@
                             ],
     "learningLedger":  {
                            "path":  "docs/features/learning.md",
-                           "sha256":  "52b3ba987f2452b6762a6d764e70e56cfd287e5b5d1d41b2a3185587f2478edc"
+                           "sha256":  "8c58c3df75faf3b27e598d70b44d0695480b04431ff83ea41002c6c210f5286d"
                        },
-    "aggregateSha256":  "8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507"
+    "aggregateSha256":  "1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9"
 }

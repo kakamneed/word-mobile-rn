@@ -26,28 +26,28 @@ pub use exercise_vocab::{
 };
 pub use plan_template::PlanTemplate;
 pub use settings::{SettingEntry, SettingsSummary};
-pub use standardized_entry::{EntryExample, MeaningZh, StandardizedEntry};
-pub use study_answer::{AnswerOutcome, StudyAnswer};
-pub use study_question::{ChoiceOption, QuestionType, StudyQuestion};
-pub use study_requests::{
+pub use word_domain_models::{EntryExample, MeaningZh, StandardizedEntry};
+pub use word_domain_models::{AnswerOutcome, StudyAnswer};
+pub use word_domain_models::{ChoiceOption, QuestionType, StudyQuestion};
+pub use word_domain_models::{
     AcceptDisputedMeaningRequest, AcceptDisputedMeaningResponse, AnsweredStudyQuestion,
     CompleteSessionResponse, MarkStudyEntryMasteredRequest, MarkStudyEntryMasteredResponse,
     QuestionTypeWeight, SessionProgress, StartSessionEntryPayload, StartSessionMeaningPayload,
     StartSessionRequest, StartSessionResponse, SubmitAnswerRequest, SubmitAnswerResponse,
 };
-pub use study_result::{SessionSummary, StudyResult};
-pub use study_session::{SessionMode, StudySession};
+pub use word_domain_models::{SessionSummary, StudyResult};
+pub use word_domain_models::{SessionMode, StudySession};
 pub use sync_state::{
     SyncCursorState, SyncDeadLetter, SyncDomainPendingCount, SyncOutboxItem, SyncOutboxStatus,
     SyncStatus,
 };
-pub use today_home_state::{
+pub use word_domain_models::{
     DailyProgress, DailySnapshot, PlanSummary, TodayCompletionSeed, TodayHomeState,
     TodayHomeStateSeed, TodayTargetSeed, WordbookSummary,
 };
 pub use wordbook::Wordbook;
 pub use wordbook_entry::WordbookEntry;
-pub use wrong_word_state::WrongWordState;
+pub use word_domain_models::WrongWordState;
 
 #[cfg(test)]
 mod canonical_reexport_tests {

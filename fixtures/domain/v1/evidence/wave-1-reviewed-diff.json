@@ -1,0 +1,10 @@
+{
+  "reviewed": true,
+  "changedFiles": [
+    "crates/storage-core/src/models/study_question.rs",
+    "crates/storage-core/src/models/study_requests.rs",
+    "crates/storage-core/src/models/study_result.rs",
+    "crates/storage-core/src/models/study_session.rs"
+  ],
+  "summary": "Reviewed ownership-only changes replace storage DTO definitions with canonical serde-only re-exports. Serialized field names, defaults, mode behavior, and native fixture outputs are unchanged."
+}

@@ -48,6 +48,54 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  1,
+                           "promotedAtUtc":  "2026-07-28T08:33:41Z",
+                           "oldAggregateSha256":  "8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507",
+                           "newAggregateSha256":  "1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9",
+                           "oldLearningLedgerSha256":  "52b3ba987f2452b6762a6d764e70e56cfd287e5b5d1d41b2a3185587f2478edc",
+                           "newLearningLedgerSha256":  "8c58c3df75faf3b27e598d70b44d0695480b04431ff83ea41002c6c210f5286d",
+                           "changedFiles":  [
+                                                "crates/storage-core/src/models/study_question.rs",
+                                                "crates/storage-core/src/models/study_requests.rs",
+                                                "crates/storage-core/src/models/study_result.rs",
+                                                "crates/storage-core/src/models/study_session.rs",
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures/domain/v1/evidence/wave-1-reviewed-diff.json",
+                                                "sha256":  "b3193a780cf207e4ee99c947e23e93cf069702674dfa3f8675921bae631a2b69"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures/domain/v1/evidence/wave-1.json",
+                                                  "sha256":  "5dcbca67ea400202cae5bb902f99f160356fb403167e6ffcf66f1ba978cd5069"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+                                                               "crates/storage-core/src/models/study_question.rs",
+                                                               "crates/storage-core/src/models/study_requests.rs",
+                                                               "crates/storage-core/src/models/study_result.rs",
+                                                               "crates/storage-core/src/models/study_session.rs"
+                                                           ],
+                                          "summary":  "Reviewed ownership-only changes replace storage DTO definitions with canonical serde-only re-exports. Serialized field names, defaults, mode behavior, and native fixture outputs are unchanged."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  1,
+                                          "generatedAtUtc":  "2026-07-28T08:32:37Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507",
+                                          "learningLedgerSha256":  "8c58c3df75faf3b27e598d70b44d0695480b04431ff83ea41002c6c210f5286d",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "canonical-native-fixtures",
+                                                             "status":  "passed",
+                                                             "detail":  "7 accepted fixtures matched current native behavior"
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }

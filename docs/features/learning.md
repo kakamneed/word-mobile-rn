@@ -119,6 +119,8 @@ Focused mobile checks from the conversation history:
 
 - `2026-07-28` - Phase 15 canonical-fixture modification points: `crates/app-core/tests/baseline_runner.rs` now derives seven deterministic native outputs from explicit `nowUtc`, `localDay`, `sessionId`, and ordering-seed requests under `fixtures/domain/v1/`. The corpus locks NewWord's four type-major rounds, every non-NewWord mode's one-question-per-entry rule, pre-submit translation hiding and post-submit feedback, progress/summary carry-over, resume history, real wrong-word identity, and report local-day/mode filtering. `scripts/domain-export/capture-native-fixtures.ps1` requires `-AcceptCurrentMobileTruth` before overwriting expected JSON; `scripts/domain-export/compare-semantic-json.mjs` ignores object-key order while preserving array order and values.
 - `2026-07-28` - Phase 15 baseline repair: the serial app-core suite exposed older runner assertions that explicitly completed sessions after final submit and resumed with a newly supplied source set. The owned baseline runner now asserts final-submit completion/persistence and resumes the saved deterministic input-question plan with an empty request; product implementation code was not changed.
+- `2026-07-28` - Phase 15 model-ownership modification points: `crates/domain-models` now owns the serde-only study, plan/progress, resume, wrong-word, and Today projection DTOs. `crates/storage-core/src/models/mod.rs` and the former storage model modules re-export those canonical types so app-core, platform-mobile, and Flutter-facing JSON paths retain their existing contracts. `crates/study-core/Cargo.toml` resolves its preserved source-level compatibility import to the pure `word-domain-models` package, so the study engine no longer brings storage or SQLite into its graph; the user-owned dirty `question_builder.rs` was not rewritten.
+- `2026-07-28` - Phase 15 evidence-tool repair: the planned Wave 1 command exposed that `capture-native-fixtures.ps1` lacked its specified `-WriteEvidence` option. The verification-only option now writes promotion evidence tied to the accepted pre-promotion digest and current learning-ledger hash after the canonical fixture test passes; ordinary `-Verify` and acceptance capture remain fail-closed on source drift.
 
 ## Mobile Lessons Learned
 
@@ -186,6 +188,7 @@ Focused mobile checks from the conversation history:
 
 - Native report fixtures must use the persisted history shape (`summary.totalQuestions`, `summary.correctCount`, `summary.totalTimeMs`) and serialized enum text. Flattened counters silently filter to zero and do not exercise report mode normalization.
 - A baseline restart test must not supply a fresh entry set when it intends to prove snapshot restoration. Resume uses an empty request so the persisted question plan, answered history, current index, and total remain authoritative.
+- Do not regenerate accepted fixtures merely because DTO ownership moves. Verify the existing outputs against the accepted digest, review every locked source diff, and promote only the source lock; model extraction is not permission to change NewWord, Review, or bridge JSON behavior.
 
 ## Verification
 
@@ -230,3 +233,6 @@ Focused mobile checks from the conversation history:
 - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/domain-export/capture-native-fixtures.ps1 -Verify` passed on 2026-07-28 without acceptance mode; the focused canonical fixture test passed 1/1.
 - `node scripts/domain-export/compare-semantic-json.mjs --self-test` passed on 2026-07-28, proving object-key order is ignored while array order and scalar values remain significant.
 - `cargo test -p word-app-core --test baseline_runner -- --test-threads=1` passed 14/14 on 2026-07-28 after aligning stale baseline-only completion and resume setup with current facade behavior. The first full-suite run failed 5 tests on those stale assertions; no product implementation was changed.
+  - `cargo test -p word-domain-models` passed 2/2 fixture-backed serde compatibility tests on 2026-07-28; `cargo tree -p word-domain-models` contained none of `rusqlite`, `reqwest`, `jni`, `objc`, or `tauri`; and `cargo check -p word-domain-models --target wasm32-unknown-unknown` passed after installing the missing Rust target.
+  - `cargo check -p word-storage-core -p word-study-core -p word-app-core -p word-platform-mobile` passed on 2026-07-28 with four pre-existing platform-mobile dead-code warnings. `cargo tree -p word-study-core` resolved `word-domain-models` and contained neither `word-storage-core` nor `rusqlite`.
+  - `cargo test -p word-study-core` passed 35/35 and `cargo test -p word-app-core --test baseline_runner -- --test-threads=1` passed 14/14 on 2026-07-28 after canonical DTO extraction.
