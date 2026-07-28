@@ -48,3 +48,24 @@ pub use today_home_state::{
 pub use wordbook::Wordbook;
 pub use wordbook_entry::WordbookEntry;
 pub use wrong_word_state::WrongWordState;
+
+#[cfg(test)]
+mod canonical_reexport_tests {
+    use super::StudyQuestion;
+
+    fn require_same_type<T>(_: T, _: T) {}
+
+    #[test]
+    fn storage_study_question_is_the_canonical_type() {
+        let fixture = include_str!(
+            "../../../../fixtures/domain/v1/expected/study-resume-state.json"
+        );
+        let value: serde_json::Value = serde_json::from_str(fixture).expect("parse fixture");
+        let canonical: word_domain_models::StudyQuestion =
+            serde_json::from_value(value["currentQuestion"].clone()).expect("canonical DTO");
+        let compatibility: StudyQuestion =
+            serde_json::from_value(value["currentQuestion"].clone()).expect("storage facade DTO");
+
+        require_same_type(canonical, compatibility);
+    }
+}
