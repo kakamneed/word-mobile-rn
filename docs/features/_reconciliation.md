@@ -1,7 +1,7 @@
 # Feature Ledger Reconciliation
 
 > Status: `baseline_reconciled`
-> Updated: `2026-07-17`
+> Updated: `2026-07-19`
 
 ## Purpose
 
@@ -19,10 +19,17 @@ Ledger: `docs/features/learning.md`
 - `apps/flutter_mobile/test/study_question_display_test.dart`
 - `crates/app-core/src/facade.rs`
 - `crates/app-core/src/facade/study_facade.rs`
+- `crates/app-core/src/services/reports_service.rs`
+- `crates/app-core/src/services/wrong_words_service.rs`
 - `crates/app-core/src/lib.rs`
+- `crates/domain-core/**`
 - `crates/platform-mobile/src/bridge.rs`
 - `crates/storage-core/src/models/study_result.rs`
 - `crates/study-core/src/session_summary.rs`
+- `crates/study-core/src/answer_evaluator.rs`
+- `crates/study-core/src/question_builder.rs`
+- `crates/study-core/src/session_definition.rs`
+- `crates/study-core/src/state_transition.rs`
 
 ### Wrong Word Graph
 
@@ -53,9 +60,11 @@ Ledger: `docs/features/reports-page.md`
 Ledger: `docs/features/exam-paper-import.md`
 
 - `apps/flutter_mobile/assets/exam-papers/**`
+- `apps/flutter_mobile/assets/exam-dictionary/**`
 - `apps/flutter_mobile/pubspec.yaml`
 - `scripts/import-exam-papers.mjs`
 - `scripts/import-exam-papers.test.mjs`
+- `scripts/repair-exam-question-stems.mjs`
 - `scripts/check-exam-paper-import.mjs`
 - `scripts/apply-exam-paper-paragraph-translations.mjs`
 - `scripts/exam-paper-paragraph-translations.json`
@@ -73,6 +82,7 @@ Ledger: `docs/features/exam-practice-vocab-intelligence.md`
 - `crates/app-core/src/services/exam_practice_service.rs`
 - `crates/app-core/src/services/mod.rs`
 - `crates/platform-mobile/src/bridge.rs`
+- `crates/platform-mobile/src/ai_agent.rs`
 - `crates/platform-mobile/src/android.rs`
 - `crates/platform-mobile/src/ios.rs`
 - `crates/platform-mobile/include/word_platform_mobile_ios.h`
@@ -82,8 +92,10 @@ Ledger: `docs/features/exam-practice-vocab-intelligence.md`
 - `apps/flutter_mobile/lib/sdk/exam_practice_client.dart`
 - `apps/flutter_mobile/lib/sdk/sdk.dart`
 - `apps/flutter_mobile/lib/features/exam_practice_screen.dart`
+- `apps/flutter_mobile/lib/features/exam_analysis_task_notifications.dart`
 - `apps/flutter_mobile/lib/features/exam_paper_import_dialog.dart`
 - `apps/flutter_mobile/lib/features/today_shell_screen.dart`
+- `apps/flutter_mobile/lib/features/mobile_root_shell.dart`
 - `apps/flutter_mobile/lib/features/ai_screen.dart`
 - `apps/flutter_mobile/test/exam_practice_client_test.dart`
 - `apps/flutter_mobile/test/exam_practice_screen_test.dart`
@@ -93,6 +105,11 @@ Ledger: `docs/features/exam-practice-vocab-intelligence.md`
 - `apps/flutter_mobile/test/wrong_words_screen_test.dart`
 - `apps/flutter_mobile/test/exam_practice_wrong_words_test.dart`
 - `scripts/check-exam-paper-import.test.mjs`
+- `scripts/build-exam-corpus-dictionary.mjs`
+- `scripts/build-exam-corpus-dictionary.test.mjs`
+- `scripts/check-exam-corpus-dictionary.mjs`
+- `scripts/android-exam-dictionary-packaging.test.mjs`
+- `docs/exam-corpus-dictionary-report.json`
 
 These entries include the current implementation stream. Files that also serve Today, AI workbench, graph, or import are intentionally documented in those capability ledgers as well; this index maps ownership, not exclusive authorship.
 
@@ -109,9 +126,11 @@ Ledger: `docs/features/word-library.md`
 - `scripts/repair-seed-vocab-choice-conflicts-strict.mjs`
 - `scripts/enrich-seed-vocab-real-exam-examples.mjs`
 - `scripts/check-seed-vocab-real-exam-examples.mjs`
+- `scripts/repair-seed-vocab-real-exam-meanings.mjs`
 - `docs/seed-vocab-choice-conflicts-report.json`
 - `docs/seed-vocab-choice-conflict-repair-report.json`
 - `docs/seed-vocab-real-exam-examples-report.json`
+- `docs/seed-vocab-real-exam-meaning-repair-report.json`
 - `scripts/list-seed-vocab-choice-conflicts.mjs`
 - `scripts/list-seed-vocab-choice-conflicts.test.mjs`
 - `docs/seed-vocab-choice-conflict-inventory-apk-runtime.json`
@@ -147,3 +166,5 @@ This baseline was reconstructed from the working tree on `2026-07-15`. It does n
 - `2026-07-15` - Priority rule: Desktop conversion must first implement capability already leading on mobile and prevent known mobile failures. Desktop-specific layout enhancements come only after parity, shared-contract reuse, and pitfall prevention.
 - `2026-07-15` - Problems encountered: The initial Node-based freshness inspector could not be verified because the local Node executable repeatedly timed out even for `node --version`. The skill now uses a PowerShell-native inspector, removing that runtime dependency for this Windows desktop repository.
 - `2026-07-15` - Verification: The desktop skill passed `quick_validate.py`. A live `wrong-word-graph` inspection detected mobile status `mobile_in_progress`, source updated `2026-07-15`, and a missing desktop consumption record; a temporary hash-matched record then passed `-Check` with `consumptionState: current`.
+- `2026-07-28` - Route change: Word Net becomes the single maintained PC codebase for browser PWA and Tauri delivery. Mobile remains the source of truth for shared learning behavior, exposed through a pinned WASM-safe Rust boundary.
+- `2026-07-28` - Preservation rule: `word-desktop-tauri` stays available as a hash-pinned donor and verification source until Word Net reproduces the accepted behavior and release gates. It must not evolve into a competing third implementation.

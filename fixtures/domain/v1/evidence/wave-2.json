@@ -1,0 +1,15 @@
+{
+    "schemaVersion":  1,
+    "wave":  1,
+    "generatedAtUtc":  "2026-07-28T09:29:43Z",
+    "success":  true,
+    "sourceLockDigest":  "1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9",
+    "learningLedgerSha256":  "06e501f67668d1ebd579a58d5951bca61f98cb0680587d035bd1048e639ea968",
+    "checks":  [
+                   {
+                       "name":  "canonical-native-fixtures",
+                       "status":  "passed",
+                       "detail":  "7 accepted fixtures matched current native behavior"
+                   }
+               ]
+}

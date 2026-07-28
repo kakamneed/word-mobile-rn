@@ -96,6 +96,57 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  2,
+                           "promotedAtUtc":  "2026-07-28T09:29:59Z",
+                           "oldAggregateSha256":  "1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9",
+                           "newAggregateSha256":  "7b576b77e145b9291a870ac4ec3957c50969c9405c53ba308fe9a39034f6c06e",
+                           "oldLearningLedgerSha256":  "8c58c3df75faf3b27e598d70b44d0695480b04431ff83ea41002c6c210f5286d",
+                           "newLearningLedgerSha256":  "06e501f67668d1ebd579a58d5951bca61f98cb0680587d035bd1048e639ea968",
+                           "changedFiles":  [
+                                                "crates/app-core/src/facade/study_facade.rs",
+                                                "crates/app-core/src/services/reports_service.rs",
+                                                "crates/app-core/src/services/wrong_words_service.rs",
+                                                "crates/study-core/src/question_builder.rs",
+                                                "crates/study-core/src/session_summary.rs",
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures\\domain\\v1\\evidence\\wave-2-reviewed-diff.json",
+                                                "sha256":  "75c079c2a724cb4cc46c9d75698de007932d1f1084637555d7afea71d7bedd0c"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures\\domain\\v1\\evidence\\wave-2.json",
+                                                  "sha256":  "cc6786e2242ff1030058cc1e2c71fd21a4b63323f99bc701be4ba9cf88fe5370"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+                                                               "crates/app-core/src/facade/study_facade.rs",
+                                                               "crates/app-core/src/services/reports_service.rs",
+                                                               "crates/app-core/src/services/wrong_words_service.rs",
+                                                               "crates/study-core/src/question_builder.rs",
+                                                               "crates/study-core/src/session_summary.rs"
+                                                           ],
+                                          "summary":  "Reviewed extraction moves deterministic study, summary, wrong-word, and report rules behind word-domain-core while native adapters retain JSON, clock, snapshot, and persistence ownership. NewWord remains four type-major questions per word, Review remains one selected question per entry, translations remain hidden before submit, and accepted native fixture outputs are unchanged.",
+                                          "provenanceLimit":  "The pre-extraction worktree contents of question_builder.rs and wrong_words_service.rs were frozen authoritative input. This review establishes parity for the extraction diff, not authorship, exact timing, intent, or verification of those earlier dirty changes."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  1,
+                                          "generatedAtUtc":  "2026-07-28T09:29:43Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9",
+                                          "learningLedgerSha256":  "06e501f67668d1ebd579a58d5951bca61f98cb0680587d035bd1048e639ea968",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "canonical-native-fixtures",
+                                                             "status":  "passed",
+                                                             "detail":  "7 accepted fixtures matched current native behavior"
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }
