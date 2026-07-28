@@ -1,7 +1,7 @@
 # Project State: Word Mobile RN
 
 **Initialized:** 2026-04-09
-**Current Status:** Phase 15 in progress: Plan 02 of 05 complete; canonical DTO ownership is WASM-safe and native compatibility is preserved.
+**Current Status:** Phase 15 in progress: Plan 03 of 05 complete; deterministic study and projection rules are WASM-safe and native compatibility is fixture-proven.
 
 ## Core Value
 
@@ -32,28 +32,33 @@ Users should be able to complete the full daily vocabulary-learning loop on mobi
 
 ## Immediate Next Step
 
-Execute `15-03-PLAN.md` to move deterministic study, progress, resume, wrong-word, and report rules onto the WASM-safe model boundary.
+Execute `15-04-PLAN.md` to expose the deterministic domain rules through the versioned WASM contract.
 
 ## Resume Point
 
-- Resume file: `.planning/phases/15-wasm-safe-mobile-domain-export-for-unified-pc/15-03-PLAN.md`
+- Resume file: `.planning/phases/15-wasm-safe-mobile-domain-export-for-unified-pc/15-04-PLAN.md`
 - Canonical skill entry: `.planning/skills/learning-flow/INDEX.md`
-- Stopped at: Completed `15-02-PLAN.md`; serde-only models, compatibility re-exports, and promoted Wave 1 parity evidence verified.
+- Stopped at: Completed `15-03-PLAN.md`; deterministic domain rules, native compatibility facades, and promoted Wave 2 parity evidence verified.
 
 ## Phase 15 Execution
 
-- Progress: 2/5 plans complete (40%).
+- Progress: 3/5 plans complete (60%).
 - Metric: Plan 15-01 completed in 30 min across 2 tasks and 22 files.
 - Metric: Plan 15-02 completed in 24 min across 2 tasks and 24 files.
+- Metric: Plan 15-03 completed in 46 min across 3 tasks and 29 files.
 - Decision: Hash authoritative mobile product inputs separately from generated Phase 15 fixture infrastructure.
 - Decision: Require reviewed diff, successful parity checks, and an updated learning-ledger digest before source-lock promotion.
 - Decision: Capture pre-submit and post-submit study projections separately so translations remain feedback-only.
 - Decision: Keep storage facade paths source-compatible while canonical type identity comes from `word-domain-models`.
 - Decision: Resolve the preserved study-core import name to the pure domain package so dirty user-owned `question_builder.rs` remains untouched.
 - Decision: Permit evidence-gated append-only promotion within the already accepted Wave 1 label while still rejecting older waves.
+- Decision: Use fixed-width `u64` deterministic hashing so native and wasm32 ordering cannot diverge by pointer width.
+- Decision: Keep Review to one selected question per entry while NewWord alone uses the four-round type-major loop.
+- Decision: Keep JSON, SQLite, and platform time acquisition in native adapters; domain-core accepts typed inputs and explicit context.
 
 ## Session Log
 
+- 2026-07-28: Phase 15 Plan 03 completed. `word-domain-core` now owns deterministic study, progress, resume, wrong-word, and report rules; domain, study-core, serial app-core, seven-fixture, wasm32, and promoted Wave 2 digest `7b576b77e145b9291a870ac4ec3957c50969c9405c53ba308fe9a39034f6c06e` checks passed.
 - 2026-07-28: Phase 15 Plan 02 completed. `word-domain-models` passed native serde tests and `wasm32` compilation without persistence/platform dependencies; storage and mobile compatibility checks, 35 study tests, 14 serial baseline tests, seven native fixtures, and promoted digest `1f9bb5b7060d0ee19cebd68bcbd3862884cbc471156e0df672b8d9b726438bd9` passed.
 - 2026-07-28: Phase 15 Plan 01 completed. Source lock Wave 1 accepted digest `8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507`; seven deterministic native fixture groups, semantic comparator, and serial app-core baseline passed.
 - 2026-07-28: Phase 15 added to export the current mobile Rust domain behavior through a WASM-safe, versioned boundary for the unified Word Net Web/Tauri product. The pure domain package excludes SQLite and platform lifecycle, and native/WASM fixture equivalence is a hard gate.
