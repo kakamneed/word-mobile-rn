@@ -72,7 +72,7 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
             commit = $actualCommit
             dirty = $dirty
             sourceLockSha256 = [string]$sourceLock.aggregateSha256
-            cargoLockSha256 = Get-FileSha256 (Join-Path $repositoryRoot 'Cargo.lock')
+            cargoLockSha256 = Get-TextSha256 ((Get-Content (Join-Path $repositoryRoot 'Cargo.lock') -Raw).Replace("`r`n", "`n"))
         }
         build = [ordered]@{
             target = 'wasm32-unknown-unknown'
