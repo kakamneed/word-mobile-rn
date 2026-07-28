@@ -1,0 +1,45 @@
+{
+    "schemaVersion":  1,
+    "protocolVersion":  1,
+    "source":  {
+                   "commit":  "03ada863d9a96de92c975db32528c12870607679",
+                   "dirty":  false,
+                   "sourceLockSha256":  "2677acb20546179d5092d54d491e9ee2f4ffdcb3e0d3277abd7799cf4be2f1c1",
+                   "cargoLockSha256":  "60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a"
+               },
+    "build":  {
+                  "target":  "wasm32-unknown-unknown",
+                  "profile":  "release",
+                  "command":  "wasm-pack build crates/domain-wasm --release --target web --out-dir \u003coutput\u003e/package --out-name word_domain_wasm",
+                  "rustc":  "rustc 1.94.0-nightly (fa5eda19b 2025-12-12)",
+                  "cargo":  "cargo 1.94.0-nightly (2c283a9a5 2025-12-04)",
+                  "wasmPack":  "wasm-pack 0.15.0"
+              },
+    "artifacts":  {
+                      "javascript":  {
+                                         "path":  "package/word_domain_wasm.js",
+                                         "sha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399",
+                                         "rawBytes":  6648
+                                     },
+                      "wasm":  {
+                                   "path":  "package/word_domain_wasm_bg.wasm",
+                                   "sha256":  "9a7f58f55f8596d89d3f485f5a8b9c10161ad0bfb9daba4ebb42e146bebdbe2b",
+                                   "rawBytes":  546507,
+                                   "gzipBytes":  187753
+                               }
+                  },
+    "budgets":  {
+                    "wasmRawBytes":  1048576,
+                    "wasmGzipBytes":  524288,
+                    "javascriptRawBytes":  65536,
+                    "startupMs":  5000,
+                    "firstCommandMs":  1000,
+                    "repeatCommandMs":  250
+                },
+    "releaseReady":  true,
+    "reproducibility":  {
+                            "checked":  true,
+                            "builds":  2,
+                            "normalizedManifestSha256":  "698e41dd8e6786d8c04495b47873c35e6e2efe94668a25eae48ef1c237da67a0"
+                        }
+}

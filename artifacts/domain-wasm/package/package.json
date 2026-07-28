@@ -1,0 +1,24 @@
+{
+  "name": "word-domain-wasm",
+  "type": "module",
+  "collaborators": [
+    "Word Mobile Team"
+  ],
+  "description": "Thin wasm-bindgen adapter for the Word domain protocol",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/word-mobile/word-core"
+  },
+  "files": [
+    "word_domain_wasm_bg.wasm",
+    "word_domain_wasm.js",
+    "word_domain_wasm.d.ts"
+  ],
+  "main": "word_domain_wasm.js",
+  "types": "word_domain_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
