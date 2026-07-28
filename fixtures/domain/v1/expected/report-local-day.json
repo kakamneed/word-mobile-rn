@@ -1,0 +1,136 @@
+{
+  "localDay": "2026-07-28",
+  "report": {
+    "dailySeries": [
+      {
+        "accuracyPercent": 50.0,
+        "correctCount": 1,
+        "date": "2026-07-27",
+        "studyTimeMs": 1000,
+        "totalQuestions": 2
+      },
+      {
+        "accuracyPercent": 100.0,
+        "correctCount": 1,
+        "date": "2026-07-28",
+        "studyTimeMs": 600,
+        "totalQuestions": 1
+      }
+    ],
+    "last7Days": [
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "date": "2026-07-22",
+        "studyTimeMs": 0,
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "date": "2026-07-23",
+        "studyTimeMs": 0,
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "date": "2026-07-24",
+        "studyTimeMs": 0,
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "date": "2026-07-25",
+        "studyTimeMs": 0,
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "date": "2026-07-26",
+        "studyTimeMs": 0,
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 50.0,
+        "correctCount": 1,
+        "date": "2026-07-27",
+        "studyTimeMs": 1000,
+        "totalQuestions": 2
+      },
+      {
+        "accuracyPercent": 100.0,
+        "correctCount": 1,
+        "date": "2026-07-28",
+        "studyTimeMs": 600,
+        "totalQuestions": 1
+      }
+    ],
+    "modeBreakdown": [
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "mode": "newWord",
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 50.0,
+        "correctCount": 1,
+        "mode": "review",
+        "totalQuestions": 2
+      },
+      {
+        "accuracyPercent": 100.0,
+        "correctCount": 1,
+        "mode": "mixedTest",
+        "totalQuestions": 1
+      },
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "mode": "wrongWordReinforcement",
+        "totalQuestions": 0
+      },
+      {
+        "accuracyPercent": 0.0,
+        "correctCount": 0,
+        "mode": "rootAffix",
+        "totalQuestions": 0
+      }
+    ],
+    "modeSeries": {
+      "mixedTest": [
+        {
+          "accuracyPercent": 100.0,
+          "correctCount": 1,
+          "date": "2026-07-28",
+          "studyTimeMs": 600,
+          "totalQuestions": 1
+        }
+      ],
+      "newWord": [],
+      "review": [
+        {
+          "accuracyPercent": 50.0,
+          "correctCount": 1,
+          "date": "2026-07-27",
+          "studyTimeMs": 1000,
+          "totalQuestions": 2
+        }
+      ],
+      "rootAffix": [],
+      "wrongWordReinforcement": []
+    },
+    "overallAccuracy": 66.66666666666666,
+    "streakInfo": {
+      "currentStreak": 2,
+      "lastStudyDate": "2026-07-28",
+      "longestStreak": 2
+    },
+    "totalQuestionsAnswered": 3,
+    "totalStudyDays": 2,
+    "totalWordsLearned": 12
+  }
+}

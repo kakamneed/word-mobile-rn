@@ -483,7 +483,7 @@ fn baseline_study_newword_all_correct() {
     let mut current_question = start_response.current_question;
     let mut answer_count = 0;
 
-    loop {
+    let final_submit = loop {
         let correct = correct_answer_for(&current_question);
 
         let submit_request = SubmitAnswerRequest {
@@ -513,13 +513,13 @@ fn baseline_study_newword_all_correct() {
             assert_eq!(summary.skipped_count, 0);
             assert_eq!(summary.total_questions, answer_count as u32);
             assert_eq!(summary.accuracy_percent, 100.0);
-            break;
+            break submit_response;
         }
 
         current_question = submit_response
             .current_question
             .expect("should have next question");
-    }
+    };
 
     assert_eq!(
         answer_count, 20,
@@ -538,10 +538,8 @@ fn baseline_study_newword_all_correct() {
         "final submit should persist results before the completion screen closes"
     );
 
-    // Complete session
-    let complete_response = word_app_core::complete_study_session(&conn, &session_id)
-        .expect("completeStudySession should succeed");
-    let complete_json = to_json(&complete_response);
+    // Final submit is the completion/persistence boundary.
+    let complete_json = to_json(&final_submit);
     assert_json_not_null(&complete_json, "summary");
     assert_json_not_null(&complete_json, "nextAction");
 
@@ -609,8 +607,6 @@ fn baseline_study_mixed_incorrect() {
     assert_json_equals(&start_json, "session.totalWords", &Value::Number(3.into()));
     assert_json_equals(&start_json, "progress.total", &Value::Number(3.into()));
 
-    let session_id = start_response.session.session_id.clone();
-
     // First answer: intentionally wrong
     let wrong_submit = SubmitAnswerRequest {
         question_id: start_response.current_question.question_id.clone(),
@@ -643,10 +639,8 @@ fn baseline_study_mixed_incorrect() {
             .expect("submitStudyAnswer should succeed");
     }
 
-    // Complete session
-    let complete = word_app_core::complete_study_session(&conn, &session_id)
-        .expect("completeStudySession should succeed");
-    let complete_json = to_json(&complete);
+    // Final submit is the completion/persistence boundary.
+    let complete_json = to_json(&remaining);
 
     assert_json_greater_than(&complete_json, "summary.incorrectCount", 0);
     assert_json_equals(
@@ -940,8 +934,6 @@ fn baseline_study_fuzzy_correct() {
 
     let start = word_app_core::start_study_session(&conn, request)
         .expect("startStudySession should succeed");
-    let session_id = start.session.session_id.clone();
-
     // Submit a partial answer that should trigger FuzzyCorrect
     // The first question's accepted meanings include "鏀惧純", "鎶借薄鐨?, or "瀛︽湳鐨?
     // Submitting a substring like "鏀? should trigger fuzzy match
@@ -994,8 +986,7 @@ fn baseline_study_fuzzy_correct() {
         remaining = word_app_core::submit_study_answer(&conn, submit).unwrap();
     }
 
-    let complete = word_app_core::complete_study_session(&conn, &session_id).unwrap();
-    let summary = &complete.summary;
+    let summary = remaining.summary.as_ref().expect("completion summary");
     // The session should have completed successfully
     assert_eq!(summary.total_questions, 3);
 }
@@ -1022,8 +1013,6 @@ fn baseline_study_skip_answer() {
 
     let start = word_app_core::start_study_session(&conn, request)
         .expect("startStudySession should succeed");
-    let session_id = start.session.session_id.clone();
-
     // Submit an empty response -> should be Skipped
     let submit = SubmitAnswerRequest {
         question_id: start.current_question.question_id.clone(),
@@ -1053,12 +1042,12 @@ fn baseline_study_skip_answer() {
         remaining = word_app_core::submit_study_answer(&conn, submit).unwrap();
     }
 
-    let complete = word_app_core::complete_study_session(&conn, &session_id).unwrap();
+    let summary = remaining.summary.as_ref().expect("completion summary");
     assert_eq!(
-        complete.summary.skipped_count, 1,
+        summary.skipped_count, 1,
         "One skipped answer expected"
     );
-    assert_eq!(complete.summary.total_questions, 3);
+    assert_eq!(summary.total_questions, 3);
 }
 
 #[test]
@@ -1079,7 +1068,10 @@ fn baseline_session_persistence_across_restart() {
         entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
         entry_payloads: payloads[..3].to_vec(),
         distractor_payloads: vec![],
-        question_type_weights: vec![],
+        question_type_weights: vec![QuestionTypeWeight {
+            question_type: QuestionType::EnToCnInput,
+            weight: 100,
+        }],
     };
 
     let start = word_app_core::start_study_session(&conn, request)
@@ -1104,10 +1096,13 @@ fn baseline_session_persistence_across_restart() {
     let resume_request = StartSessionRequest {
         mode: SessionMode::MixedTest,
         wordbook_id: None,
-        entry_source_ids: vec!["w1".into(), "w2".into(), "w3".into()],
-        entry_payloads: payloads[..3].to_vec(),
+        entry_source_ids: vec![],
+        entry_payloads: vec![],
         distractor_payloads: vec![],
-        question_type_weights: vec![],
+        question_type_weights: vec![QuestionTypeWeight {
+            question_type: QuestionType::EnToCnInput,
+            weight: 100,
+        }],
     };
 
     let resumed =
@@ -1492,7 +1487,10 @@ fn assert_canonical_fixture_claims(id: &str, output: &Value) {
         }
         "report-local-day" => {
             assert_eq!(output["localDay"], "2026-07-28");
-            assert_eq!(output["report"]["summary"]["totalQuestions"], 3);
+            assert_eq!(output["report"]["totalQuestionsAnswered"], 3);
+            assert_eq!(output["report"]["totalStudyDays"], 2);
+            assert_eq!(output["report"]["modeBreakdown"][1]["totalQuestions"], 2);
+            assert_eq!(output["report"]["modeBreakdown"][2]["totalQuestions"], 1);
         }
         _ => panic!("missing invariant assertions for fixture {id}"),
     }

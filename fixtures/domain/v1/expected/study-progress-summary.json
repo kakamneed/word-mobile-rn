@@ -1,0 +1,23 @@
+{
+  "carryOver": {
+    "todayCompleted": 5,
+    "todayTotal": 8
+  },
+  "progress": {
+    "current": 2,
+    "total": 3
+  },
+  "summary": {
+    "accuracyPercent": 66.66666666666666,
+    "completedAt": "2026-07-28T00:05:00Z",
+    "correctCount": 2,
+    "fuzzyCorrectCount": 0,
+    "incorrectCount": 0,
+    "sessionId": "sess-fixture-progress",
+    "skippedCount": 0,
+    "totalQuestions": 3,
+    "totalTimeMs": 1200,
+    "totalWords": 2,
+    "wrongWordCount": 0
+  }
+}

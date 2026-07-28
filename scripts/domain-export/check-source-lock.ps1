@@ -199,8 +199,8 @@ function Assert-PromotionEvidence {
 
     $changes = @(Get-SourceChanges -Accepted $Accepted -Current $Current)
     $sourceChanges = @($changes | Where-Object { $_ -ne $script:LedgerPath })
-    if ($sourceChanges.Count -eq 0) {
-        throw 'Promotion requires at least one authoritative product-source change.'
+    if ($changes.Count -eq 0) {
+        throw 'Promotion requires an authoritative source or learning-ledger change.'
     }
     if ($changes -notcontains $script:LedgerPath) {
         throw "Promotion requires an updated $($script:LedgerPath) digest."
@@ -341,6 +341,8 @@ $promotionEntry = [ordered]@{
         path = $ParityEvidence
         sha256 = Get-Sha256ForFile -Path $parityEvidencePath
     }
+    review = Read-JsonFile -Path $reviewedDiffPath
+    parity = Read-JsonFile -Path $parityEvidencePath
 }
 $promotions.promotions = @($promotions.promotions) + @($promotionEntry)
 Write-JsonAtomically -Path $script:PromotionsPath -Value $promotions

@@ -117,6 +117,9 @@ Focused mobile checks from the conversation history:
 
 - `2026-07-28` - Phase 15 domain-export modification points: `scripts/domain-export/check-source-lock.ps1` establishes a hash gate over the current Flutter-backed Rust question/session/report/wrong-word behavior, the mobile bridge, the focused Flutter display contract, and this ledger. Wave 0 capture is the initial mobile truth; later accepted digests require a reviewed machine-readable diff, successful parity evidence tied to the old digest, and a changed learning-ledger digest. Generated Phase 15 fixtures and scripts are deliberately excluded from the authoritative product-source set.
 
+- `2026-07-28` - Phase 15 canonical-fixture modification points: `crates/app-core/tests/baseline_runner.rs` now derives seven deterministic native outputs from explicit `nowUtc`, `localDay`, `sessionId`, and ordering-seed requests under `fixtures/domain/v1/`. The corpus locks NewWord's four type-major rounds, every non-NewWord mode's one-question-per-entry rule, pre-submit translation hiding and post-submit feedback, progress/summary carry-over, resume history, real wrong-word identity, and report local-day/mode filtering. `scripts/domain-export/capture-native-fixtures.ps1` requires `-AcceptCurrentMobileTruth` before overwriting expected JSON; `scripts/domain-export/compare-semantic-json.mjs` ignores object-key order while preserving array order and values.
+- `2026-07-28` - Phase 15 baseline repair: the serial app-core suite exposed older runner assertions that explicitly completed sessions after final submit and resumed with a newly supplied source set. The owned baseline runner now asserts final-submit completion/persistence and resumes the saved deterministic input-question plan with an empty request; product implementation code was not changed.
+
 ## Mobile Lessons Learned
 
 - Seeing questions on Study is not enough; always verify the source is the real wordbook/plan, not a test pool or fixed sorted prefix.
@@ -181,6 +184,9 @@ Focused mobile checks from the conversation history:
 
 - Do not update the Phase 15 source lock by recapturing after Wave 0. Product-source drift must fail closed, and only evidence-gated promotion may advance the accepted digest; promotion is parity bookkeeping, not permission to copy stale desktop rules or correct product behavior inside the export phase.
 
+- Native report fixtures must use the persisted history shape (`summary.totalQuestions`, `summary.correctCount`, `summary.totalTimeMs`) and serialized enum text. Flattened counters silently filter to zero and do not exercise report mode normalization.
+- A baseline restart test must not supply a fresh entry set when it intends to prove snapshot restoration. Resume uses an empty request so the persisted question plan, answered history, current index, and total remain authoritative.
+
 ## Verification
 
 - Mobile:
@@ -219,3 +225,8 @@ Focused mobile checks from the conversation history:
   - `cargo fmt` passed on 2026-07-16.
   - `git diff --check -- crates\platform-mobile\src\bridge.rs crates\storage-core\src\models\study_result.rs crates\study-core\src\session_summary.rs crates\app-core\src\facade\study_facade.rs apps\flutter_mobile\lib\features\study_screen.dart apps\flutter_mobile\test\study_question_display_test.dart docs\features\learning.md docs\features\_reconciliation.md` passed on 2026-07-16, with only Git CRLF conversion warnings.
   - `git diff --check -- apps/flutter_mobile/lib/features/study_screen.dart apps/flutter_mobile/test/study_question_display_test.dart crates/app-core/src/facade/study_facade.rs crates/app-core/tests/baseline_runner.rs` passed on 2026-06-25.
+- Phase 15 Wave 0 source-lock contract self-test passed on 2026-07-28; Wave 0 capture and check accepted digest `9774425edd021402959f2e620cef4fc2334def7eae51adb703f13ea1df0c786e` against the current dirty authoritative mobile inputs and learning ledger.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/domain-export/capture-native-fixtures.ps1 -AcceptCurrentMobileTruth` passed on 2026-07-28 and explicitly captured then re-verified all seven canonical native fixtures.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/domain-export/capture-native-fixtures.ps1 -Verify` passed on 2026-07-28 without acceptance mode; the focused canonical fixture test passed 1/1.
+- `node scripts/domain-export/compare-semantic-json.mjs --self-test` passed on 2026-07-28, proving object-key order is ignored while array order and scalar values remain significant.
+- `cargo test -p word-app-core --test baseline_runner -- --test-threads=1` passed 14/14 on 2026-07-28 after aligning stale baseline-only completion and resume setup with current facade behavior. The first full-suite run failed 5 tests on those stale assertions; no product implementation was changed.

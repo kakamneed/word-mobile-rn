@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "consecutiveCorrect": 0,
+      "correctCount": 1,
+      "correctSinceLastWrong": 0,
+      "entrySourceId": "entry-alpha",
+      "errorCount": 3,
+      "errorRate": 0.75,
+      "isActive": true,
+      "lastWrongAt": "fixed-fixture-date",
+      "priorityScore": 5.82,
+      "word": "alpha"
+    },
+    {
+      "consecutiveCorrect": 1,
+      "correctCount": 2,
+      "correctSinceLastWrong": 0,
+      "entrySourceId": "entry-beta",
+      "errorCount": 1,
+      "errorRate": 0.33,
+      "isActive": true,
+      "lastWrongAt": "fixed-fixture-date",
+      "priorityScore": 3.11,
+      "word": "beta"
+    }
+  ]
+}

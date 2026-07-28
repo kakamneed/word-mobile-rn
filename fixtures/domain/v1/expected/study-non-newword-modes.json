@@ -1,0 +1,174 @@
+{
+  "mixedTest": {
+    "questions": [
+      {
+        "acceptedMeanings": [
+          "alpha meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-alpha",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/al-fa/",
+        "phoneticUs": "/al-fa/",
+        "prompt": "alpha",
+        "questionId": "sess-fixture-nonnew-mixedTest_0",
+        "questionIndex": 0,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "alpha"
+      },
+      {
+        "acceptedMeanings": [
+          "beta meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-beta",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/bee-ta/",
+        "phoneticUs": "/bay-ta/",
+        "prompt": "beta",
+        "questionId": "sess-fixture-nonnew-mixedTest_1",
+        "questionIndex": 1,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "beta"
+      }
+    ],
+    "totalQuestions": 2
+  },
+  "review": {
+    "questions": [
+      {
+        "acceptedMeanings": [
+          "alpha meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-alpha",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/al-fa/",
+        "phoneticUs": "/al-fa/",
+        "prompt": "alpha",
+        "questionId": "sess-fixture-nonnew-review_0",
+        "questionIndex": 0,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "alpha"
+      },
+      {
+        "acceptedMeanings": [
+          "beta meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-beta",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/bee-ta/",
+        "phoneticUs": "/bay-ta/",
+        "prompt": "beta",
+        "questionId": "sess-fixture-nonnew-review_1",
+        "questionIndex": 1,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "beta"
+      }
+    ],
+    "totalQuestions": 2
+  },
+  "rootAffix": {
+    "questions": [
+      {
+        "acceptedMeanings": [
+          "alpha meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-alpha",
+        "exampleSentence": "Alpha starts the sequence.",
+        "exampleTranslation": null,
+        "partOfSpeech": null,
+        "phoneticUk": null,
+        "phoneticUs": null,
+        "prompt": "alpha",
+        "questionId": "sess-fixture-nonnew-rootAffix_0",
+        "questionIndex": 0,
+        "questionType": "rootToGlossInput",
+        "totalQuestions": 2,
+        "word": "alpha"
+      },
+      {
+        "acceptedMeanings": [
+          "beta meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-beta",
+        "exampleSentence": "Beta follows alpha.",
+        "exampleTranslation": null,
+        "partOfSpeech": null,
+        "phoneticUk": null,
+        "phoneticUs": null,
+        "prompt": "beta",
+        "questionId": "sess-fixture-nonnew-rootAffix_1",
+        "questionIndex": 1,
+        "questionType": "rootToGlossInput",
+        "totalQuestions": 2,
+        "word": "beta"
+      }
+    ],
+    "totalQuestions": 2
+  },
+  "wrongWordReinforcement": {
+    "questions": [
+      {
+        "acceptedMeanings": [
+          "alpha meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-alpha",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/al-fa/",
+        "phoneticUs": "/al-fa/",
+        "prompt": "alpha",
+        "questionId": "sess-fixture-nonnew-wrongWordReinforcement_0",
+        "questionIndex": 0,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "alpha"
+      },
+      {
+        "acceptedMeanings": [
+          "beta meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-beta",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/bee-ta/",
+        "phoneticUs": "/bay-ta/",
+        "prompt": "beta",
+        "questionId": "sess-fixture-nonnew-wrongWordReinforcement_1",
+        "questionIndex": 1,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "beta"
+      }
+    ],
+    "totalQuestions": 2
+  }
+}

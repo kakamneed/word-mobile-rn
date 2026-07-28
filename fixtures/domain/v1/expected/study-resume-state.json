@@ -1,0 +1,66 @@
+{
+  "answeredQuestions": [
+    {
+      "question": {
+        "acceptedMeanings": [
+          "alpha meaning"
+        ],
+        "choices": null,
+        "correctChoiceLabel": null,
+        "entrySourceId": "entry-alpha",
+        "exampleSentence": null,
+        "exampleTranslation": null,
+        "partOfSpeech": "n.",
+        "phoneticUk": "/al-fa/",
+        "phoneticUs": "/al-fa/",
+        "prompt": "alpha",
+        "questionId": "sess-fixture-resume-resume_0",
+        "questionIndex": 0,
+        "questionType": "enToCnInput",
+        "totalQuestions": 2,
+        "word": "alpha"
+      },
+      "result": {
+        "answeredAt": "2026-07-28T00:00:00Z",
+        "correctAnswer": "alpha meaning",
+        "entrySourceId": "entry-alpha",
+        "normalizedResponse": "alphameaning",
+        "outcome": "correct",
+        "questionId": "sess-fixture-resume-resume_0",
+        "questionType": "enToCnInput",
+        "responseTimeMs": 900,
+        "userResponse": "alpha meaning"
+      }
+    }
+  ],
+  "currentQuestion": {
+    "acceptedMeanings": [
+      "beta meaning"
+    ],
+    "choices": null,
+    "correctChoiceLabel": null,
+    "entrySourceId": "entry-beta",
+    "exampleSentence": null,
+    "exampleTranslation": null,
+    "partOfSpeech": "n.",
+    "phoneticUk": "/bee-ta/",
+    "phoneticUs": "/bay-ta/",
+    "prompt": "beta",
+    "questionId": "sess-fixture-resume-resume_1",
+    "questionIndex": 1,
+    "questionType": "enToCnInput",
+    "totalQuestions": 2,
+    "word": "beta"
+  },
+  "progress": {
+    "current": 2,
+    "total": 2
+  },
+  "session": {
+    "mode": "mixedTest",
+    "sessionId": "sess-fixture-resume",
+    "startedAt": "2026-07-28T00:00:00Z",
+    "totalWords": 2,
+    "wordbookId": 42
+  }
+}

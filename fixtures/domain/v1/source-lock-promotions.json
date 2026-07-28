@@ -1,6 +1,53 @@
 {
     "schemaVersion":  1,
     "promotions":  [
+                       {
+                           "wave":  1,
+                           "promotedAtUtc":  "2026-07-28T08:05:52Z",
+                           "oldAggregateSha256":  "9774425edd021402959f2e620cef4fc2334def7eae51adb703f13ea1df0c786e",
+                           "newAggregateSha256":  "8cf2ae28e079d1a4cee6cb3fe406c5ddc139a16ea984990baff859d3fbbd6507",
+                           "oldLearningLedgerSha256":  "db66719bcf1d11612803488c3db3eb752c67cace4fe452bfa776dac57b506a08",
+                           "newLearningLedgerSha256":  "52b3ba987f2452b6762a6d764e70e56cfd287e5b5d1d41b2a3185587f2478edc",
+                           "changedFiles":  [
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures\\domain\\v1\\.wave1-reviewed-diff.json",
+                                                "sha256":  "0af0db56ece1603e68205a855f6cdc99a097719676735d4660af1f489a78c0fe"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures\\domain\\v1\\.wave1-parity-evidence.json",
+                                                  "sha256":  "c458c0d2b8a62ecce968c09d92f2e4a484c1a3b4c972b0a05fac8f7eaf86378c"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
 
+                                                           ],
+                                          "summary":  "Phase 15 fixture infrastructure and baseline-only assertions changed; no authoritative product source changed. Learning ledger records the capture and verification evidence."
+                                      },
+                           "parity":  {
+                                          "success":  true,
+                                          "sourceLockDigest":  "9774425edd021402959f2e620cef4fc2334def7eae51adb703f13ea1df0c786e",
+                                          "learningLedgerSha256":  "52b3ba987f2452b6762a6d764e70e56cfd287e5b5d1d41b2a3185587f2478edc",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "canonical-native-fixtures",
+                                                             "status":  "passed",
+                                                             "detail":  "7 fixtures captured explicitly and verified without acceptance mode"
+                                                         },
+                                                         {
+                                                             "name":  "semantic-json-comparator",
+                                                             "status":  "passed",
+                                                             "detail":  "object order ignored; array order and values preserved"
+                                                         },
+                                                         {
+                                                             "name":  "serial-app-core-baseline",
+                                                             "status":  "passed",
+                                                             "detail":  "14 passed, 0 failed"
+                                                         }
+                                                     ]
+                                      }
+                       }
                    ]
 }

@@ -1,0 +1,254 @@
+{
+  "mode": "newWord",
+  "orderingSeed": "newword-seed-01",
+  "questions": [
+    {
+      "acceptedMeanings": [
+        "beta meaning"
+      ],
+      "choices": [
+        {
+          "label": "A",
+          "text": "alpha meaning"
+        },
+        {
+          "label": "B",
+          "text": "delta meaning"
+        },
+        {
+          "label": "C",
+          "text": "gamma meaning"
+        },
+        {
+          "label": "D",
+          "text": "beta meaning"
+        }
+      ],
+      "correctChoiceLabel": "D",
+      "entrySourceId": "entry-beta",
+      "exampleSentence": "Beta follows alpha.",
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/bee-ta/",
+      "phoneticUs": "/bay-ta/",
+      "prompt": "Beta follows alpha.",
+      "questionId": "sess-fixture-newword_0",
+      "questionIndex": 0,
+      "questionType": "exampleToCnChoice",
+      "totalQuestions": 8,
+      "word": "beta"
+    },
+    {
+      "acceptedMeanings": [
+        "alpha meaning"
+      ],
+      "choices": [
+        {
+          "label": "A",
+          "text": "beta meaning"
+        },
+        {
+          "label": "B",
+          "text": "gamma meaning"
+        },
+        {
+          "label": "C",
+          "text": "alpha meaning"
+        },
+        {
+          "label": "D",
+          "text": "delta meaning"
+        }
+      ],
+      "correctChoiceLabel": "C",
+      "entrySourceId": "entry-alpha",
+      "exampleSentence": "Alpha starts the sequence.",
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/al-fa/",
+      "phoneticUs": "/al-fa/",
+      "prompt": "Alpha starts the sequence.",
+      "questionId": "sess-fixture-newword_1",
+      "questionIndex": 1,
+      "questionType": "exampleToCnChoice",
+      "totalQuestions": 8,
+      "word": "alpha"
+    },
+    {
+      "acceptedMeanings": [
+        "beta meaning"
+      ],
+      "choices": [
+        {
+          "label": "A",
+          "text": "beta meaning"
+        },
+        {
+          "label": "B",
+          "text": "delta meaning"
+        },
+        {
+          "label": "C",
+          "text": "gamma meaning"
+        }
+      ],
+      "correctChoiceLabel": "A",
+      "entrySourceId": "entry-beta",
+      "exampleSentence": null,
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/bee-ta/",
+      "phoneticUs": "/bay-ta/",
+      "prompt": "beta",
+      "questionId": "sess-fixture-newword_2",
+      "questionIndex": 2,
+      "questionType": "enToCnChoice",
+      "totalQuestions": 8,
+      "word": "beta"
+    },
+    {
+      "acceptedMeanings": [
+        "alpha meaning"
+      ],
+      "choices": [
+        {
+          "label": "A",
+          "text": "gamma meaning"
+        },
+        {
+          "label": "B",
+          "text": "delta meaning"
+        },
+        {
+          "label": "C",
+          "text": "alpha meaning"
+        }
+      ],
+      "correctChoiceLabel": "C",
+      "entrySourceId": "entry-alpha",
+      "exampleSentence": null,
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/al-fa/",
+      "phoneticUs": "/al-fa/",
+      "prompt": "alpha",
+      "questionId": "sess-fixture-newword_3",
+      "questionIndex": 3,
+      "questionType": "enToCnChoice",
+      "totalQuestions": 8,
+      "word": "alpha"
+    },
+    {
+      "acceptedMeanings": [
+        "beta meaning"
+      ],
+      "choices": [
+        {
+          "label": "A",
+          "text": "beta"
+        },
+        {
+          "label": "B",
+          "text": "delta"
+        },
+        {
+          "label": "C",
+          "text": "alpha"
+        },
+        {
+          "label": "D",
+          "text": "gamma"
+        }
+      ],
+      "correctChoiceLabel": "A",
+      "entrySourceId": "entry-beta",
+      "exampleSentence": null,
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/bee-ta/",
+      "phoneticUs": "/bay-ta/",
+      "prompt": "beta meaning",
+      "questionId": "sess-fixture-newword_4",
+      "questionIndex": 4,
+      "questionType": "cnToEnChoice",
+      "totalQuestions": 8,
+      "word": "beta"
+    },
+    {
+      "acceptedMeanings": [
+        "alpha meaning"
+      ],
+      "choices": [
+        {
+          "label": "A",
+          "text": "beta"
+        },
+        {
+          "label": "B",
+          "text": "alpha"
+        },
+        {
+          "label": "C",
+          "text": "delta"
+        },
+        {
+          "label": "D",
+          "text": "gamma"
+        }
+      ],
+      "correctChoiceLabel": "B",
+      "entrySourceId": "entry-alpha",
+      "exampleSentence": null,
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/al-fa/",
+      "phoneticUs": "/al-fa/",
+      "prompt": "alpha meaning",
+      "questionId": "sess-fixture-newword_5",
+      "questionIndex": 5,
+      "questionType": "cnToEnChoice",
+      "totalQuestions": 8,
+      "word": "alpha"
+    },
+    {
+      "acceptedMeanings": [
+        "beta meaning"
+      ],
+      "choices": null,
+      "correctChoiceLabel": null,
+      "entrySourceId": "entry-beta",
+      "exampleSentence": null,
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/bee-ta/",
+      "phoneticUs": "/bay-ta/",
+      "prompt": "beta",
+      "questionId": "sess-fixture-newword_6",
+      "questionIndex": 6,
+      "questionType": "enToCnInput",
+      "totalQuestions": 8,
+      "word": "beta"
+    },
+    {
+      "acceptedMeanings": [
+        "alpha meaning"
+      ],
+      "choices": null,
+      "correctChoiceLabel": null,
+      "entrySourceId": "entry-alpha",
+      "exampleSentence": null,
+      "exampleTranslation": null,
+      "partOfSpeech": "n.",
+      "phoneticUk": "/al-fa/",
+      "phoneticUs": "/al-fa/",
+      "prompt": "alpha",
+      "questionId": "sess-fixture-newword_7",
+      "questionIndex": 7,
+      "questionType": "enToCnInput",
+      "totalQuestions": 8,
+      "word": "alpha"
+    }
+  ],
+  "totalQuestions": 8,
+  "totalWords": 2
+}

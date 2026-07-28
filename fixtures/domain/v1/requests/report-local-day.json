@@ -1,8 +1,8 @@
 {
   "protocolVersion":1,"command":"captureReport","requestId":"report-local-day","context":{"nowUtc":"2026-07-28T12:00:00Z","localDay":"2026-07-28","sessionId":"sess-fixture-report","orderingSeed":"report-seed-01"},
   "payload":{"learnedCount":12,"history":[
-    {"date":"2026-07-27","mode":"Review","totalQuestions":2,"correctCount":1,"studyTimeMs":1000},
-    {"date":"2026-07-28","mode":"mixed_test","totalQuestions":1,"correctCount":1,"studyTimeMs":600},
-    {"date":"2026-07-28","mode":"newWord","totalQuestions":0,"correctCount":0,"studyTimeMs":0}
+    {"date":"2026-07-27","mode":"\"review\"","summary":{"totalQuestions":2,"correctCount":1,"totalTimeMs":1000}},
+    {"date":"2026-07-28","mode":"\"mixedTest\"","summary":{"totalQuestions":1,"correctCount":1,"totalTimeMs":600}},
+    {"date":"2026-07-28","mode":"\"newWord\"","summary":{"totalQuestions":0,"correctCount":0,"totalTimeMs":0}}
   ]}
 }
