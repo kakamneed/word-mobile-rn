@@ -1360,6 +1360,7 @@ fn active_session_from_v2_snapshot(
         &snapshot.session.session_id,
         &snapshot.question_type_weights,
     );
+    questions = repair_study_questions(questions);
     questions = valid_study_questions(questions);
     normalize_question_indexes(&mut questions);
     if questions.is_empty() || snapshot.current_index >= questions.len() {
@@ -1886,7 +1887,7 @@ mod tests {
 
         assert_eq!(
             first.current_question.question_type,
-            QuestionType::EnToCnChoice
+            QuestionType::EnToCnInput
         );
         assert_eq!(
             second.current_question.question_type,
@@ -2717,16 +2718,16 @@ mod tests {
                 .expect("active session exists");
             active.questions[1].clone()
         };
-        let second_correct_label = second_question
+        let second_response = second_question
             .correct_choice_label
             .clone()
-            .expect("second choice has correct label");
+            .unwrap_or_else(|| second_question.accepted_meanings[0].clone());
 
         let error = submit_study_answer(
             &conn,
             SubmitAnswerRequest {
                 question_id: second_question.question_id.clone(),
-                response: second_correct_label,
+                response: second_response,
                 response_time_ms: 100,
             },
         )
@@ -3188,7 +3189,11 @@ mod tests {
                         en_choice_distractors: Vec::new(),
                     },
                 ],
-                distractor_payloads: Vec::new(),
+                distractor_payloads: vec![
+                    test_entry("distractor_one", "calm", "calm meaning"),
+                    test_entry("distractor_two", "quiet", "quiet meaning"),
+                    test_entry("distractor_three", "portable", "portable meaning"),
+                ],
                 question_type_weights: vec![QuestionTypeWeight {
                     question_type: word_storage_core::models::QuestionType::EnToCnChoice,
                     weight: 100,
@@ -3220,6 +3225,21 @@ mod tests {
             })
             .map(|choice| choice.label.clone())
             .unwrap_or_else(|| "B".to_string());
+        let wrong_label = if wrong_label == correct_label {
+            start
+                .current_question
+                .choices
+                .as_ref()
+                .and_then(|choices| {
+                    choices
+                        .iter()
+                        .find(|choice| choice.label != correct_label)
+                })
+                .map(|choice| choice.label.clone())
+                .expect("a distinct wrong choice exists")
+        } else {
+            wrong_label
+        };
         assert_ne!(wrong_label, correct_label);
 
         let submit = submit_study_answer(

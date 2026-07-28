@@ -6,7 +6,9 @@ pub mod projections;
 pub mod study;
 
 pub use context::DomainContext;
-pub use progress::{question_progress, summarize_results};
+pub use progress::{
+    apply_result, question_progress, summarize_results, StateTransition, StudyEntryState,
+};
 pub use projections::*;
-pub use study::{QuestionBuilder, WordForQuestion};
+pub use study::{session_definition, AnswerEvaluator, DomainModeRules, QuestionBuilder, WordForQuestion};
 pub use word_domain_models::*;

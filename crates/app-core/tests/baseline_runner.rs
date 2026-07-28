@@ -1317,6 +1317,14 @@ fn canonical_domain_fixture_output(request: &Value) -> Value {
         "capturePostSubmitFeedback" => {
             let questions = fixture_questions(request, SessionMode::NewWord, "-feedback");
             let question = questions.first().unwrap();
+            let entry = request["payload"]["entries"]
+                .as_array()
+                .and_then(|entries| {
+                    entries.iter().find(|entry| {
+                        entry["sourceId"].as_str() == Some(&question.entry_source_id)
+                    })
+                })
+                .expect("feedback entry remains available after submission");
             let response = question
                 .correct_choice_label
                 .clone()
@@ -1335,7 +1343,7 @@ fn canonical_domain_fixture_output(request: &Value) -> Value {
                 "result": result,
                 "feedback": {
                     "exampleSentence": question.example_sentence,
-                    "exampleTranslation": question.example_translation,
+                    "exampleTranslation": entry["exampleTranslation"],
                     "acceptedMeanings": question.accepted_meanings
                 }
             })

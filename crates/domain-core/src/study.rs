@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 
 use word_domain_models::{
-    ChoiceOption, EntryExample, MeaningZh, QuestionType, QuestionTypeWeight, SessionMode,
-    StudyQuestion,
+    AnswerOutcome, ChoiceOption, EntryExample, MeaningZh, QuestionType, QuestionTypeWeight,
+    SessionMode, StudyAnswer, StudyQuestion, StudyResult,
 };
 
 /// A word entry prepared for question generation.
@@ -25,6 +25,220 @@ pub struct WordForQuestion {
 /// Builds question sets from word entries.
 pub struct QuestionBuilder;
 
+#[derive(Debug, Clone)]
+pub struct DomainModeRules {
+    pub question_types: Vec<QuestionType>,
+    pub loops_all_types_per_word: bool,
+    pub batch_only: bool,
+    pub from_wrong_pool: bool,
+}
+
+pub fn session_definition(mode: SessionMode) -> DomainModeRules {
+    match mode {
+        SessionMode::NewWord => DomainModeRules {
+            question_types: QuestionType::all_four(),
+            loops_all_types_per_word: true,
+            batch_only: true,
+            from_wrong_pool: false,
+        },
+        SessionMode::Review => DomainModeRules {
+            question_types: QuestionType::all_four(),
+            loops_all_types_per_word: false,
+            batch_only: false,
+            from_wrong_pool: false,
+        },
+        SessionMode::MixedTest => DomainModeRules {
+            question_types: vec![
+                QuestionType::EnToCnChoice,
+                QuestionType::CnToEnChoice,
+                QuestionType::EnToCnInput,
+            ],
+            loops_all_types_per_word: false,
+            batch_only: false,
+            from_wrong_pool: false,
+        },
+        SessionMode::WrongWordReinforcement => DomainModeRules {
+            question_types: vec![
+                QuestionType::EnToCnChoice,
+                QuestionType::CnToEnChoice,
+                QuestionType::EnToCnInput,
+            ],
+            loops_all_types_per_word: false,
+            batch_only: false,
+            from_wrong_pool: true,
+        },
+        SessionMode::RootAffix => DomainModeRules {
+            question_types: vec![QuestionType::GlossToRootInput, QuestionType::RootToGlossInput],
+            loops_all_types_per_word: false,
+            batch_only: false,
+            from_wrong_pool: false,
+        },
+    }
+}
+
+pub struct AnswerEvaluator;
+
+impl AnswerEvaluator {
+    pub fn evaluate(
+        question: &StudyQuestion,
+        answer: &StudyAnswer,
+        answered_at: &str,
+    ) -> StudyResult {
+        let (outcome, normalized_response) = if question.question_type.is_choice_type() {
+            (Self::evaluate_choice(question, &answer.response), None)
+        } else if question.question_type == QuestionType::WordSkeletonInput {
+            let normalized = normalize_english_word(&answer.response);
+            let outcome = if answer.response.trim().is_empty() {
+                AnswerOutcome::Skipped
+            } else if question
+                .accepted_meanings
+                .iter()
+                .any(|word| normalize_english_word(word) == normalized)
+            {
+                AnswerOutcome::Correct
+            } else {
+                AnswerOutcome::Incorrect
+            };
+            (outcome, Some(normalized))
+        } else {
+            let (outcome, normalized) = evaluate_meaning_input(
+                &answer.response,
+                &question.accepted_meanings,
+            );
+            (outcome, Some(normalized))
+        };
+        let correct_answer = if question.question_type.is_choice_type() {
+            question
+                .choices
+                .as_ref()
+                .and_then(|choices| {
+                    Self::resolved_choice_label(question).and_then(|label| {
+                        choices
+                            .iter()
+                            .find(|choice| choice.label.trim() == label)
+                            .map(|choice| choice.text.clone())
+                    })
+                })
+                .or_else(|| question.accepted_meanings.first().cloned())
+                .unwrap_or_default()
+        } else {
+            question.accepted_meanings.first().cloned().unwrap_or_default()
+        };
+        StudyResult {
+            question_id: question.question_id.clone(),
+            entry_source_id: question.entry_source_id.clone(),
+            question_type: question.question_type.clone(),
+            user_response: answer.response.clone(),
+            normalized_response,
+            correct_answer,
+            outcome,
+            response_time_ms: answer.response_time_ms,
+            answered_at: answered_at.to_string(),
+        }
+    }
+
+    fn evaluate_choice(question: &StudyQuestion, response: &str) -> AnswerOutcome {
+        if response.trim().is_empty() {
+            return AnswerOutcome::Skipped;
+        }
+        match Self::resolved_choice_label(question) {
+            Some(label) if label == response.trim() => AnswerOutcome::Correct,
+            _ => AnswerOutcome::Incorrect,
+        }
+    }
+
+    fn resolved_choice_label(question: &StudyQuestion) -> Option<&str> {
+        let choices = question.choices.as_ref()?;
+        if question.question_type == QuestionType::CnToEnChoice {
+            let word = normalize_english_word(&question.word);
+            if let Some(choice) = choices
+                .iter()
+                .find(|choice| normalize_english_word(&choice.text) == word)
+            {
+                return Some(choice.label.trim());
+            }
+        } else {
+            let meanings = question
+                .accepted_meanings
+                .iter()
+                .map(|meaning| normalize_meaning_segment(meaning))
+                .collect::<Vec<_>>();
+            if let Some(choice) = choices.iter().find(|choice| {
+                let text = normalize_meaning_segment(&choice.text);
+                !text.is_empty() && meanings.iter().any(|meaning| meaning == &text)
+            }) {
+                return Some(choice.label.trim());
+            }
+        }
+        question.correct_choice_label.as_deref().and_then(|label| {
+            choices
+                .iter()
+                .any(|choice| choice.label.trim() == label.trim())
+                .then_some(label.trim())
+        })
+    }
+}
+
+fn evaluate_meaning_input(response: &str, meanings: &[String]) -> (AnswerOutcome, String) {
+    if response.trim().is_empty() {
+        return (AnswerOutcome::Skipped, String::new());
+    }
+    let normalized = normalize_meaning_segment(response);
+    for meaning in meanings {
+        if normalized == normalize_meaning_segment(meaning) {
+            return (AnswerOutcome::Correct, normalized);
+        }
+        let parts = split_meaning_segments(meaning);
+        if parts.iter().any(|part| part == &normalized)
+            || (!is_stopword(&normalized)
+                && normalized.chars().count() >= 2
+                && parts.iter().any(|part| {
+                    part.contains(&normalized) || normalized.contains(part)
+                }))
+        {
+            return (AnswerOutcome::FuzzyCorrect, normalized);
+        }
+    }
+    (AnswerOutcome::Incorrect, normalized)
+}
+
+fn normalize_english_word(text: &str) -> String {
+    text.chars()
+        .filter(|ch| ch.is_ascii_alphabetic() || matches!(ch, '-' | '\''))
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn split_meaning_segments(text: &str) -> Vec<String> {
+    text.split([';', '\u{ff1b}', ',', '\u{ff0c}', '\u{3002}', '/'])
+        .map(normalize_meaning_segment)
+        .filter(|part| !part.is_empty())
+        .collect()
+}
+
+fn normalize_meaning_segment(text: &str) -> String {
+    let mut parenthesis_depth = 0u32;
+    text.chars()
+        .filter_map(|ch| match ch {
+            '(' | '\u{ff08}' => {
+                parenthesis_depth += 1;
+                None
+            }
+            ')' | '\u{ff09}' => {
+                parenthesis_depth = parenthesis_depth.saturating_sub(1);
+                None
+            }
+            _ if parenthesis_depth > 0 || ch.is_whitespace() || ch.is_control() => None,
+            ';' | '\u{ff1b}' | ',' | '\u{ff0c}' | '\u{3002}' | '/' | '.' | ':' | '\u{ff1a}' => None,
+            _ => Some(ch),
+        })
+        .collect()
+}
+
+fn is_stopword(text: &str) -> bool {
+    matches!(text, "" | "\u{7684}" | "\u{4e86}" | "\u{662f}" | "\u{5728}" | "\u{548c}")
+}
+
 impl QuestionBuilder {
     /// Generate the full question set for a list of words in a given session mode.
     pub fn build_session_questions(
@@ -34,6 +248,7 @@ impl QuestionBuilder {
         session_id: &str,
         question_type_weights: &[QuestionTypeWeight],
     ) -> Vec<StudyQuestion> {
+        let distractors = if distractors.is_empty() { words } else { distractors };
         if matches!(mode, SessionMode::RootAffix) {
             Self::build_root_affix_questions(words, session_id)
         } else if matches!(mode, SessionMode::NewWord) {
@@ -48,7 +263,8 @@ impl QuestionBuilder {
             )
         } else {
             let fallback_types = match mode {
-                SessionMode::Review | SessionMode::MixedTest => vec![
+                SessionMode::Review => QuestionType::all_four(),
+                SessionMode::MixedTest => vec![
                     QuestionType::EnToCnChoice,
                     QuestionType::CnToEnChoice,
                     QuestionType::EnToCnInput,
