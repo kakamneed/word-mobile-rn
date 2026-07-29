@@ -15,7 +15,7 @@ Automated browser, artifact, parity, Rust, and focused Flutter evidence does not
 | Exact clean build commit | `76094069bf4c3f590c6e000ba3f45808f9a7e7b6` |
 | Git dirty | `false` |
 | Protocol / manifest schema | `1` / `1` |
-| Promoted source-lock digest | `bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6` |
+| Promoted source-lock digest | `127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef` |
 | Cargo.lock SHA-256 | `60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a` (LF-normalized text) |
 | WASM SHA-256 | `9a7f58f55f8596d89d3f485f5a8b9c10161ad0bfb9daba4ebb42e146bebdbe2b` |
 | WASM size | 546507 raw / 187753 gzip bytes |
@@ -27,7 +27,7 @@ Automated browser, artifact, parity, Rust, and focused Flutter evidence does not
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| Wave 4 source lock | PASS | Rechecked after verification-closure ledger promotion at digest `bdecf628...`. |
+| Wave 4 source lock | PASS | Rechecked after final ledger checkpoint promotion at digest `127a0a37...`. |
 | Candidate browser package | PASS | Chromium, Firefox, and Playwright WebKit imported the generated package and executed all seven fixtures plus a structured error. Candidate measurements are in `fixtures/domain/v1/evidence/wave-4.json`. |
 | Clean final manifest | PASS | `node scripts/domain-export/validate-manifest.mjs artifacts/domain-wasm/manifest.json`. |
 | Final browser artifact | PASS | `run-browser-gates.ps1 -FinalArtifact` passed Chromium, Firefox, and Playwright WebKit against the clean-commit package and enforced all locked budgets. |

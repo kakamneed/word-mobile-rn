@@ -570,6 +570,58 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  4,
+                           "promotedAtUtc":  "2026-07-29T07:08:48Z",
+                           "oldAggregateSha256":  "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6",
+                           "newAggregateSha256":  "127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef",
+                           "oldLearningLedgerSha256":  "50a26c821c93b5984c9bba653d5fe49b384913546d6050a4c591fdb7ee3f7354",
+                           "newLearningLedgerSha256":  "496235e59671354f8465a63ad71cfc1d44fb582c5bfe33a4108706bbdc25511a",
+                           "changedFiles":  [
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures\\domain\\v1\\evidence\\wave-4-final-reviewed-diff.json",
+                                                "sha256":  "91109d8542402877a2d1da2e0584094ff4ab39bf685b8ffd9df190e14ca0f8a1"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures\\domain\\v1\\evidence\\wave-4-final.json",
+                                                  "sha256":  "9ba8a94d2b28d2b3e5cd41eee4b4f64f485a8369a60a41ced903e103d1ba9c16"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+
+                                                           ],
+                                          "summary":  "Reviewed final Phase 15 closure changes only the authoritative learning ledger and GSD verification state. Domain source, protocol behavior, generated package bytes, and canonical fixture expectations are unchanged.",
+                                          "provenanceLimit":  "This review records successful re-verification while retaining the two longstanding mobile performance issues as unresolved and outside Phase 15."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  4,
+                                          "generatedAtUtc":  "2026-07-29T07:12:00Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6",
+                                          "learningLedgerSha256":  "496235e59671354f8465a63ad71cfc1d44fb582c5bfe33a4108706bbdc25511a",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "phase-15-goal-reverification",
+                                                             "status":  "passed",
+                                                             "detail":  "The independent verifier confirmed all five Phase 15 must-haves and no remaining extraction gaps."
+                                                         },
+                                                         {
+                                                             "name":  "serial-rust-workspace",
+                                                             "status":  "passed",
+                                                             "detail":  "The full Rust workspace passed with RUST_TEST_THREADS=1, including the 14-test app-core baseline and 50 platform-mobile tests."
+                                                         },
+                                                         {
+                                                             "name":  "final-three-browser-artifact",
+                                                             "status":  "passed",
+                                                             "detail":  "Chromium, Firefox, and WebKit executed the final unchanged JS/WASM package successfully."
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }

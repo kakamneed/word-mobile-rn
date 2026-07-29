@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "wave": 4,
+  "generatedAtUtc": "2026-07-29T07:12:00Z",
+  "success": true,
+  "sourceLockDigest": "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6",
+  "learningLedgerSha256": "496235e59671354f8465a63ad71cfc1d44fb582c5bfe33a4108706bbdc25511a",
+  "checks": [
+    {
+      "name": "phase-15-goal-reverification",
+      "status": "passed",
+      "detail": "The independent verifier confirmed all five Phase 15 must-haves and no remaining extraction gaps."
+    },
+    {
+      "name": "serial-rust-workspace",
+      "status": "passed",
+      "detail": "The full Rust workspace passed with RUST_TEST_THREADS=1, including the 14-test app-core baseline and 50 platform-mobile tests."
+    },
+    {
+      "name": "final-three-browser-artifact",
+      "status": "passed",
+      "detail": "Chromium, Firefox, and WebKit executed the final unchanged JS/WASM package successfully."
+    }
+  ]
+}
