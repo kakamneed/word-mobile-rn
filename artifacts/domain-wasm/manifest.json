@@ -2,9 +2,9 @@
     "schemaVersion":  1,
     "protocolVersion":  1,
     "source":  {
-                   "commit":  "76094069bf4c3f590c6e000ba3f45808f9a7e7b6",
+                   "commit":  "809934f329547ec966d8770660b4e70b497e6f62",
                    "dirty":  false,
-                   "sourceLockSha256":  "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6",
+                   "sourceLockSha256":  "127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef",
                    "cargoLockSha256":  "60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a"
                },
     "build":  {
@@ -40,6 +40,6 @@
     "reproducibility":  {
                             "checked":  true,
                             "builds":  2,
-                            "normalizedManifestSha256":  "68e1d64358abed35c3baf22703bcd85e8825205de721e0bae16d5a2f3d121927"
+                            "normalizedManifestSha256":  "d97a35e224acb51a16276c1b82e5c95d21ae83f053666df5dc48ed68a608ecda"
                         }
 }

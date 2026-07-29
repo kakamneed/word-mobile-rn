@@ -12,7 +12,7 @@ Automated browser, artifact, parity, Rust, and focused Flutter evidence does not
 
 | Field | Value |
 | --- | --- |
-| Exact clean build commit | `76094069bf4c3f590c6e000ba3f45808f9a7e7b6` |
+| Exact clean build commit | `809934f329547ec966d8770660b4e70b497e6f62` |
 | Git dirty | `false` |
 | Protocol / manifest schema | `1` / `1` |
 | Promoted source-lock digest | `127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef` |

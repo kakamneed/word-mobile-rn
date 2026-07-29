@@ -8,7 +8,7 @@ re_verification:
   previous_score: 3/5
   gaps_closed:
     - "Canonical native/WASM fixtures are now locked to the accepted Wave 4 source identity and both guarded fixture verification and the serial baseline pass."
-    - "The reproducible artifact identity is consistent across manifest, UAT, source lock, and validator; pinned clean ancestor commit 7609406 validates after later metadata commits."
+    - "The reproducible artifact identity is consistent across manifest, UAT, source lock, and validator; pinned clean ancestor commit 809934f validates after later metadata commits."
   gaps_remaining: []
   regressions: []
 ---
@@ -29,7 +29,7 @@ re_verification:
 | 1 | Exported model/rule/protocol/WASM crates compile for wasm32 without persistence or platform dependencies. | VERIFIED | Fresh wasm32 check passed for all four crates; `cargo tree -p word-domain-wasm` contained none of `rusqlite`, `reqwest`, `jni`, `objc`, `tauri`, or `platform-mobile`. |
 | 2 | Native and WASM runners return equivalent canonical JSON for fixtures locked to accepted mobile truth. | VERIFIED | Fixture manifest and source lock both identify `127a0a37...`; guarded verification passed all seven fixtures and the serial baseline passed 14/14. |
 | 3 | Existing Flutter/mobile Rust production wiring remains behaviorally preserved after extraction. | VERIFIED | Previous wiring inspection and 50/50 platform-mobile regression pass remain current; domain/protocol regressions passed again. User accepted all six named release-device flows. |
-| 4 | Word Net can pin and validate a reproducible versioned package with structured errors. | VERIFIED | Manifest validation passed for clean ancestor commit `7609406`; UAT, fixture manifest, and source lock agree on the final `127a0a37...` ledger identity, with the artifact rebuilt from the corresponding clean commit; JS/WASM hashes match. |
+| 4 | Word Net can pin and validate a reproducible versioned package with structured errors. | VERIFIED | Manifest validation passed for clean ancestor commit `809934f`; UAT, fixture manifest, and source lock agree on the final `127a0a37...` ledger identity; JS/WASM hashes match. |
 | 5 | Chromium, Firefox, and WebKit execution plus size/startup/serialization evidence is recorded. | VERIFIED | Final evidence records all three engines executing the unchanged generated package, seven fixtures, and a structured error within locked budgets. |
 
 **Score:** 5/5 truths verified
@@ -43,7 +43,7 @@ re_verification:
 | `crates/domain-protocol/src/v1.rs` | Versioned typed dispatcher and structured errors | VERIFIED | Five protocol tests passed; typed payload dispatch remains shared by both adapters. |
 | `crates/domain-wasm/src/lib.rs` | Thin WASM adapter | VERIFIED | Direct passthrough to shared `execute_v1`; equivalence test passed. |
 | `fixtures/domain/v1/manifest.json` | Canonical corpus bound to accepted source | VERIFIED | `sourceLockDigest` equals accepted `127a0a37...`; guarded verification passed. |
-| `artifacts/domain-wasm/manifest.json` and package | Pin-ready reproducible artifact | VERIFIED | Clean source commit `7609406`, two-build reproducibility, source/Cargo lock identity, hashes, sizes, and budgets are recorded and validated. |
+| `artifacts/domain-wasm/manifest.json` and package | Pin-ready reproducible artifact | VERIFIED | Clean source commit `809934f`, two-build reproducibility, source/Cargo lock identity, hashes, sizes, and budgets are recorded and validated. |
 | `15-UAT.md` | Final artifact and device acceptance evidence | VERIFIED | Pin-ready table matches the final artifact; six named mobile flows are accepted with known issues disclosed. |
 
 ### Key Link Verification
@@ -73,7 +73,7 @@ re_verification:
 | Wave 4 source identity | `check-source-lock.ps1 -Check -Wave 4` | Passed at `127a0a37...` | PASS |
 | Canonical native fixture gate | `capture-native-fixtures.ps1 -Verify` | All seven fixture groups passed | PASS |
 | Serial mobile baseline | `cargo test -p word-app-core --test baseline_runner -- --test-threads=1` | 14/14 passed | PASS |
-| Manifest validation | `node scripts/domain-export/validate-manifest.mjs artifacts/domain-wasm/manifest.json` | Valid for pinned commit `7609406`; WASM hash matched | PASS |
+| Manifest validation | `node scripts/domain-export/validate-manifest.mjs artifacts/domain-wasm/manifest.json` | Valid for pinned commit `809934f`; WASM hash matched | PASS |
 | Validator ancestor contract | `node --test scripts/domain-export/validate-manifest.test.mjs` | 1/1 passed | PASS |
 | Pure domain/protocol/adapters | `cargo test -p word-domain-models -p word-domain-core -p word-domain-protocol -p word-domain-wasm -p word-study-domain-runner` | All suites passed | PASS |
 | wasm32 compilation | `cargo check -p word-domain-models -p word-domain-core -p word-domain-protocol -p word-domain-wasm --target wasm32-unknown-unknown` | Passed | PASS |
