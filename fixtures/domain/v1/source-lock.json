@@ -1,8 +1,8 @@
 {
     "schemaVersion":  1,
     "acceptedWave":  4,
-    "capturedAtUtc":  "2026-07-29T06:27:54Z",
-    "gitCommit":  "4d39cb0f91036271db4c54967e3bc1d36b472a7a",
+    "capturedAtUtc":  "2026-07-29T06:55:44Z",
+    "gitCommit":  "49b33f130dc02059090b2e6d6c3fa3b7a917f7f8",
     "gitDirty":  true,
     "authoritativeInputs":  [
                                 {
@@ -52,7 +52,7 @@
                             ],
     "learningLedger":  {
                            "path":  "docs/features/learning.md",
-                           "sha256":  "7d88b317efe23f375a66e31229fb78e648afe38043ecea1af48862e7a3ed7211"
+                           "sha256":  "50a26c821c93b5984c9bba653d5fe49b384913546d6050a4c591fdb7ee3f7354"
                        },
-    "aggregateSha256":  "2b5522895e7f0983b7d67f0a3bbe1c92d03eedef17b991d44eb620a94cb8e538"
+    "aggregateSha256":  "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6"
 }

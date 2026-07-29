@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "wave": 4,
+  "generatedAtUtc": "2026-07-29T07:30:00Z",
+  "success": true,
+  "sourceLockDigest": "2b5522895e7f0983b7d67f0a3bbe1c92d03eedef17b991d44eb620a94cb8e538",
+  "learningLedgerSha256": "50a26c821c93b5984c9bba653d5fe49b384913546d6050a4c591fdb7ee3f7354",
+  "checks": [
+    {
+      "name": "manifest-validator-ancestor-contract",
+      "status": "passed",
+      "detail": "The validator accepts a clean pinned source commit when it is an ancestor of the current repository HEAD."
+    },
+    {
+      "name": "artifact-manifest-validation",
+      "status": "passed",
+      "detail": "The generated package manifest validates against the pinned source commit and package hashes."
+    },
+    {
+      "name": "wave-4-three-browser-parity",
+      "status": "passed",
+      "detail": "The retained Wave 4 UAT evidence records successful Chromium, Firefox, and WebKit execution for the unchanged generated package bytes."
+    }
+  ]
+}

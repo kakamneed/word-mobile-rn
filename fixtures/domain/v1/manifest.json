@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "protocolVersion": 1,
-  "sourceLockDigest": "f9a8537c359f7b478c08fed5bef873b5b4cdabf4e430f6f691e69d623f14c668",
+  "sourceLockDigest": "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6",
   "fixtures": [
     {"id":"study-newword","request":"requests/study-newword.json","expected":"expected/study-newword.json","claims":["four type-major rounds","stable accepted meanings","choice integrity","pre-submit translation hidden"]},
     {"id":"study-non-newword-modes","request":"requests/study-non-newword-modes.json","expected":"expected/study-non-newword-modes.json","claims":["one question per entry for review, mixed, wrong-word, and root-affix"]},

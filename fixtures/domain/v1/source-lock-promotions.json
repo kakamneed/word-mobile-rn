@@ -518,6 +518,58 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  4,
+                           "promotedAtUtc":  "2026-07-29T06:55:44Z",
+                           "oldAggregateSha256":  "2b5522895e7f0983b7d67f0a3bbe1c92d03eedef17b991d44eb620a94cb8e538",
+                           "newAggregateSha256":  "bdecf628a07724f159e292d0bbbe1c26936053f1aab6df152765f0130f0755a6",
+                           "oldLearningLedgerSha256":  "7d88b317efe23f375a66e31229fb78e648afe38043ecea1af48862e7a3ed7211",
+                           "newLearningLedgerSha256":  "50a26c821c93b5984c9bba653d5fe49b384913546d6050a4c591fdb7ee3f7354",
+                           "changedFiles":  [
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures\\domain\\v1\\evidence\\wave-4-verification-reviewed-diff.json",
+                                                "sha256":  "6f0696c30c5cda86a9f08ffdbe98b70e2e62cd346b528510990661c677a8b485"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures\\domain\\v1\\evidence\\wave-4-verification.json",
+                                                  "sha256":  "f9c7fdce2153dc146f602d8f0ac5cb90f1492a7be355e9dc85f8e0b419f737d3"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+
+                                                           ],
+                                          "summary":  "Reviewed Phase 15 verification closure changes only the authoritative learning ledger and verification records. Domain source, protocol behavior, generated package bytes, and canonical fixture expectations are unchanged.",
+                                          "provenanceLimit":  "The ledger records two verifier-discovered bookkeeping defects and their fixes. It does not classify the user-reported keyboard and first daily-entry stalls as Phase 15 regressions or fixes."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  4,
+                                          "generatedAtUtc":  "2026-07-29T07:30:00Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "2b5522895e7f0983b7d67f0a3bbe1c92d03eedef17b991d44eb620a94cb8e538",
+                                          "learningLedgerSha256":  "50a26c821c93b5984c9bba653d5fe49b384913546d6050a4c591fdb7ee3f7354",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "manifest-validator-ancestor-contract",
+                                                             "status":  "passed",
+                                                             "detail":  "The validator accepts a clean pinned source commit when it is an ancestor of the current repository HEAD."
+                                                         },
+                                                         {
+                                                             "name":  "artifact-manifest-validation",
+                                                             "status":  "passed",
+                                                             "detail":  "The generated package manifest validates against the pinned source commit and package hashes."
+                                                         },
+                                                         {
+                                                             "name":  "wave-4-three-browser-parity",
+                                                             "status":  "passed",
+                                                             "detail":  "The retained Wave 4 UAT evidence records successful Chromium, Firefox, and WebKit execution for the unchanged generated package bytes."
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }

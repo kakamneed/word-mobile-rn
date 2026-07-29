@@ -161,6 +161,8 @@ Focused mobile checks from the conversation history:
 - `2026-07-29` - Phase 15 release-device acceptance: on the installed `com.wordmobile` `1.0.3+4` build, the user reported the named NewWord, Review, resume, Today, Wrong Words, and Reports checks functioning normally. Acceptance is recorded as PASS WITH KNOWN ISSUES because the same observation retained two longstanding performance problems; Phase 15 did not introduce or fix them.
 - `2026-07-29` - Phase 15 source-identity closure: because this ledger is itself an authoritative source-lock input, appending release-device acceptance made the previously published manifest digest stale. Closure uses distinct `wave-4-uat` parity/review evidence for a ledger-only equal-Wave-4 promotion, commits that accepted state atomically with UAT, and rebuilds the pin-ready artifact from that exact clean commit rather than relabeling the previous manifest.
 
+- `2026-07-29` - Phase 15 goal verification found the final package bytes and manifest hashes internally consistent, but found two blocking evidence-chain gaps: `fixtures/domain/v1/manifest.json` still identifies the Wave 3 source digest after the accepted Wave 4 ledger-only promotion, and the pin-ready validator requires the manifest's clean build commit to equal the repository's later documentation HEAD. The phase verification report is `.planning/phases/15-wasm-safe-mobile-domain-export-for-unified-pc/15-VERIFICATION.md`.
+
 ## Mobile Lessons Learned
 
 - Seeing questions on Study is not enough; always verify the source is the real wordbook/plan, not a test pool or fixed sorted prefix.
@@ -257,6 +259,8 @@ Focused mobile checks from the conversation history:
 - Native report fixtures must use the persisted history shape (`summary.totalQuestions`, `summary.correctCount`, `summary.totalTimeMs`) and serialized enum text. Flattened counters silently filter to zero and do not exercise report mode normalization.
 - A baseline restart test must not supply a fresh entry set when it intends to prove snapshot restoration. Resume uses an empty request so the persisted question plan, answered history, current index, and total remain authoritative.
 - Do not regenerate accepted fixtures merely because DTO ownership moves. Verify the existing outputs against the accepted digest, review every locked source diff, and promote only the source lock; model extraction is not permission to change NewWord, Review, or bridge JSON behavior.
+- A ledger-only source-lock promotion must also update the canonical fixture manifest's `sourceLockDigest`; otherwise both guarded fixture verification and the serial native baseline fail before semantic comparison.
+- A pin-ready artifact validator must validate the recorded clean source commit and artifact hashes without requiring that commit to equal a later metadata/documentation HEAD. Required post-build evidence commits are expected to advance HEAD.
 
 - Do not regenerate V2 resume questions and validate them through a different path from fresh-start questions. Apply the same incomplete-choice repair first, or valid input fallbacks can disappear and make an otherwise resumable session look empty.
 - A feedback-only field cannot be recovered from a deliberately redacted pre-submit question. Retain the typed source entry through submission and construct feedback from that source after evaluation.
@@ -279,6 +283,7 @@ Focused mobile checks from the conversation history:
 - Desktop:
   - Pending; desktop learning page is not implemented yet.
 - Shared/domain:
+  - Phase 15 goal verification on 2026-07-29 passed the domain/model/protocol/WASM/native-runner suites, wasm32 checks, forbidden-dependency scan, Wave 4 source-lock check, artifact hash checks, and 50/50 platform-mobile tests. It failed `capture-native-fixtures.ps1 -Verify` and the serial app-core baseline because the fixture manifest still pins `f9a8537c...` instead of accepted `2b552289...`; `validate-manifest.mjs` also failed because pinned clean commit `ccef6b8...` differs from later documentation HEAD `49b33f1...`. A restricted fresh browser rerun passed Chromium and failed during Firefox page creation; prior complete three-browser evidence remains recorded but does not close the identity-chain gaps.
   - `cargo test -p word-domain-core study_fixture -- --nocapture` passed 2/2 canonical study/progress fixtures on 2026-07-28.
   - `cargo test -p word-domain-core projection_fixture -- --nocapture` passed 2/2 typed wrong-word/report projection fixtures on 2026-07-28.
   - `cargo test -p word-domain-core` passed 26/26 unit and fixture tests on 2026-07-28.

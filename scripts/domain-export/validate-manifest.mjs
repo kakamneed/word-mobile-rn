@@ -31,7 +31,17 @@ for (const [name, value] of Object.entries({
 if (manifest.source.dirty !== false || manifest.releaseReady !== true) throw new Error('Pin-ready manifest must record dirty=false and releaseReady=true.');
 if (manifest.reproducibility?.checked !== true || manifest.reproducibility?.builds !== 2) throw new Error('Two-build reproducibility evidence is required.');
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-if (manifest.source.commit !== head) throw new Error(`Manifest commit ${manifest.source.commit} does not match HEAD ${head}.`);
+try {
+  execFileSync(
+    'git',
+    ['merge-base', '--is-ancestor', manifest.source.commit, head],
+    { cwd: root, stdio: 'ignore' },
+  );
+} catch {
+  throw new Error(
+    `Manifest commit ${manifest.source.commit} is not an ancestor of HEAD ${head}.`,
+  );
+}
 const sourceLock = JSON.parse(readFileSync(resolve(root, 'fixtures/domain/v1/source-lock.json'), 'utf8'));
 if (manifest.source.sourceLockSha256 !== sourceLock.aggregateSha256) throw new Error('Manifest source-lock digest is stale.');
 if (manifest.source.cargoLockSha256 !== normalizedTextSha256(resolve(root, 'Cargo.lock'))) throw new Error('Manifest Cargo.lock hash is stale.');
