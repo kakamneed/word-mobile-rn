@@ -60,7 +60,7 @@ test.afterAll(async () => {
 test('generated package executes canonical results and structured errors', async ({ page }, testInfo) => {
   await page.goto(origin);
   const modulePath = `/${artifactRoot.replaceAll('\\', '/')}/${manifest.artifacts.javascript.path.replaceAll('\\', '/')}`;
-  const fixtures = fixtureManifest.fixtures.map((fixture: { id: string; request: string; expected: string }) => ({
+  const fixtures = [...fixtureManifest.fixtures, ...(fixtureManifest.lifecycleFixtures ?? [])].map((fixture: { id: string; request: string; expected: string }) => ({
     id: fixture.id,
     request: readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.request), 'utf8'),
     expected: JSON.parse(readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.expected), 'utf8')),

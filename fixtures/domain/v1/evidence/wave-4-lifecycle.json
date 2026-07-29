@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "wave": 4,
+  "generatedAtUtc": "2026-07-29T12:10:00Z",
+  "success": true,
+  "sourceLockDigest": "127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef",
+  "learningLedgerSha256": "b777e3205a900fbb39ca2ad0c8e2574dab0d1d060d20969a3f5f9c71aed26dbf",
+  "checks": [
+    {
+      "name": "protocol-v1-lifecycle-contract",
+      "status": "passed",
+      "detail": "Nine protocol tests passed, including typed transition, dispute, exclusion, and abandonment commands plus all earlier v1 behavior."
+    },
+    {
+      "name": "native-host-wasm-lifecycle-parity",
+      "status": "passed",
+      "detail": "The host WASM adapter matched the native dispatcher and accepted results across seven existing fixtures plus four lifecycle fixtures."
+    },
+    {
+      "name": "wasm32-lifecycle-check",
+      "status": "passed",
+      "detail": "word-domain-protocol and word-domain-wasm compiled for wasm32-unknown-unknown after the lifecycle expansion."
+    }
+  ]
+}

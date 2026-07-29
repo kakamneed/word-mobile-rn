@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "protocolVersion": 1,
-  "sourceLockDigest": "127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef",
+  "sourceLockDigest": "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27",
   "fixtures": [
     {"id":"study-newword","request":"requests/study-newword.json","expected":"expected/study-newword.json","claims":["four type-major rounds","stable accepted meanings","choice integrity","pre-submit translation hidden"]},
     {"id":"study-non-newword-modes","request":"requests/study-non-newword-modes.json","expected":"expected/study-non-newword-modes.json","claims":["one question per entry for review, mixed, wrong-word, and root-affix"]},
@@ -10,5 +10,11 @@
     {"id":"study-resume-state","request":"requests/study-resume-state.json","expected":"expected/study-resume-state.json","claims":["answered history","current question","resume index and total"]},
     {"id":"wrong-word-identity","request":"requests/wrong-word-identity.json","expected":"expected/wrong-word-identity.json","claims":["real entrySourceId","no unknown identity"]},
     {"id":"report-local-day","request":"requests/report-local-day.json","expected":"expected/report-local-day.json","claims":["explicit local day","zero-answer filtering","mode normalization"]}
+  ],
+  "lifecycleFixtures": [
+    {"id":"lifecycle-transition","request":"requests/lifecycle-transition.json","expected":"expected/lifecycle-transition.json","claims":["answer required before next","last question completes session","timestamp advances"]},
+    {"id":"lifecycle-dispute","request":"requests/lifecycle-dispute.json","expected":"expected/lifecycle-dispute.json","claims":["dispute becomes correct accepted event","accepted meaning provenance","completion records remain canonical"]},
+    {"id":"lifecycle-exclusion","request":"requests/lifecycle-exclusion.json","expected":"expected/lifecycle-exclusion.json","claims":["exclusion becomes skipped accepted event","no completion records","plan exclusion identity"]},
+    {"id":"lifecycle-abandon","request":"requests/lifecycle-abandon.json","expected":"expected/lifecycle-abandon.json","claims":["active session becomes abandoned","history and frozen plan preserved"]}
   ]
 }

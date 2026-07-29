@@ -1,5 +1,6 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use std::collections::HashSet;
 use word_domain_core::{
     project_report, project_wrong_words, summarize_results, AnswerEvaluator, DomainContext,
     QuestionBuilder, ReportHistoryInput, WordForQuestion, WrongWordProjectionInput,
@@ -94,6 +95,10 @@ pub enum Command {
     BuildSession,
     EvaluateAnswer,
     CompleteSession,
+    TransitionSession,
+    ResolveDispute,
+    ExcludeEntry,
+    AbandonSession,
 }
 
 impl Command {
@@ -109,6 +114,10 @@ impl Command {
             "buildSession" => Some(Self::BuildSession),
             "evaluateAnswer" => Some(Self::EvaluateAnswer),
             "completeSession" => Some(Self::CompleteSession),
+            "transitionSession" => Some(Self::TransitionSession),
+            "resolveDispute" => Some(Self::ResolveDispute),
+            "excludeEntry" => Some(Self::ExcludeEntry),
+            "abandonSession" => Some(Self::AbandonSession),
             _ => None,
         }
     }
@@ -174,6 +183,150 @@ struct CompleteSessionPayload {
     results: Vec<StudyResult>,
     #[serde(default)]
     completed_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum LifecycleMode {
+    NewWord,
+    Review,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum LifecycleState {
+    Active,
+    Completed,
+    Abandoned,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LifecycleSourceRef {
+    book_id: String,
+    version: String,
+    entry_source_id: String,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LifecycleQuestion {
+    question_id: String,
+    question_type: String,
+    entry_source_id: String,
+    word: String,
+    prompt: String,
+    accepted_meanings: Vec<String>,
+    choices: Value,
+    correct_choice_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    canonical_answer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    example: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    persisted_hint: Option<String>,
+    question_index: u32,
+    total_questions: u32,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LifecycleFeedback {
+    submitted: bool,
+    outcome: String,
+    hint_available: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    correct_choice_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    correct_answer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    counterpart_facts: Option<Value>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LifecycleAcceptedAnswer {
+    event_id: String,
+    submission_id: String,
+    session_id: String,
+    question_id: String,
+    entry_source_id: String,
+    local_day: String,
+    mode: LifecycleMode,
+    source: LifecycleSourceRef,
+    question_fingerprint: String,
+    user_response: String,
+    normalized_response: String,
+    outcome: String,
+    accepted_at: String,
+    elapsed_ms: u64,
+    feedback: LifecycleFeedback,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LifecycleSnapshot {
+    schema_version: u32,
+    engine_version: String,
+    session_id: String,
+    slot_id: String,
+    local_day: String,
+    mode: LifecycleMode,
+    state: LifecycleState,
+    daily_snapshot_id: String,
+    plan_fingerprint: String,
+    source_refs: Vec<LifecycleSourceRef>,
+    question_plan: Vec<LifecycleQuestion>,
+    #[serde(default)]
+    accepted_answers: Vec<LifecycleAcceptedAnswer>,
+    current_question_index: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    materialized_review_schedule: Option<Value>,
+    owner_epoch: u64,
+    started_at: String,
+    updated_at: String,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TransitionSessionPayload {
+    snapshot: LifecycleSnapshot,
+    kind: String,
+    now: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ResolveDisputePayload {
+    snapshot: LifecycleSnapshot,
+    question_id: String,
+    proposed_meaning: String,
+    now: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExcludeEntryPayload {
+    snapshot: LifecycleSnapshot,
+    entry_source_id: String,
+    now: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AbandonSessionPayload {
+    snapshot: LifecycleSnapshot,
+    now: String,
 }
 
 /// Execute one v1 request. This is the only JSON-to-domain dispatch boundary used by adapters.
@@ -328,6 +481,10 @@ fn dispatch(
         Command::BuildSession => build_session(context, typed_payload(payload)?),
         Command::EvaluateAnswer => evaluate_answer(context, typed_payload(payload)?),
         Command::CompleteSession => complete_session(context, typed_payload(payload)?),
+        Command::TransitionSession => transition_session(typed_payload(payload)?),
+        Command::ResolveDispute => resolve_dispute(typed_payload(payload)?),
+        Command::ExcludeEntry => exclude_entry(typed_payload(payload)?),
+        Command::AbandonSession => abandon_session(typed_payload(payload)?),
     }
 }
 
@@ -668,6 +825,286 @@ fn complete_session(
         .to_string()
     };
     Ok(json!({ "summary": summary, "nextAction": next_action }))
+}
+
+fn validate_lifecycle_snapshot(snapshot: &LifecycleSnapshot) -> Result<(), ProtocolResponse> {
+    if snapshot.schema_version != 1
+        || snapshot.engine_version != "phase-3"
+        || snapshot.session_id.trim().is_empty()
+        || snapshot.slot_id.trim().is_empty()
+        || snapshot.local_day.trim().is_empty()
+        || snapshot.daily_snapshot_id.trim().is_empty()
+        || snapshot.plan_fingerprint.trim().is_empty()
+        || snapshot.source_refs.is_empty()
+        || snapshot.question_plan.is_empty()
+        || snapshot.started_at.trim().is_empty()
+        || snapshot.updated_at.trim().is_empty()
+    {
+        return Err(invalid_data("The lifecycle snapshot is invalid."));
+    }
+    if snapshot.state == LifecycleState::Active
+        && snapshot.current_question_index >= snapshot.question_plan.len()
+    {
+        return Err(invalid_data(
+            "The active lifecycle snapshot has no current question.",
+        ));
+    }
+    Ok(())
+}
+
+fn current_lifecycle_question(
+    snapshot: &LifecycleSnapshot,
+) -> Result<&LifecycleQuestion, ProtocolResponse> {
+    validate_lifecycle_snapshot(snapshot)?;
+    if snapshot.state != LifecycleState::Active {
+        return Err(invalid_data("The study session is not active."));
+    }
+    snapshot
+        .question_plan
+        .get(snapshot.current_question_index)
+        .ok_or_else(|| invalid_data("The current study question is unavailable."))
+}
+
+fn lifecycle_source<'a>(
+    snapshot: &'a LifecycleSnapshot,
+    entry_source_id: &str,
+) -> Result<&'a LifecycleSourceRef, ProtocolResponse> {
+    snapshot
+        .source_refs
+        .iter()
+        .find(|source| source.entry_source_id == entry_source_id)
+        .ok_or_else(|| invalid_data("The current study source is unavailable."))
+}
+
+fn has_answer(snapshot: &LifecycleSnapshot, question_id: &str) -> bool {
+    snapshot
+        .accepted_answers
+        .iter()
+        .any(|answer| answer.question_id == question_id)
+}
+
+fn finalize_after_answer(snapshot: &mut LifecycleSnapshot, now: &str) {
+    let answered: HashSet<&str> = snapshot
+        .accepted_answers
+        .iter()
+        .map(|answer| answer.question_id.as_str())
+        .collect();
+    if snapshot
+        .question_plan
+        .iter()
+        .all(|question| answered.contains(question.question_id.as_str()))
+    {
+        snapshot.state = LifecycleState::Completed;
+    }
+    snapshot.updated_at = now.to_string();
+}
+
+fn completion_records(
+    snapshot: &LifecycleSnapshot,
+    question: &LifecycleQuestion,
+    source: &LifecycleSourceRef,
+    now: &str,
+) -> (Vec<Value>, Vec<Value>) {
+    let entry_completed = snapshot
+        .question_plan
+        .iter()
+        .filter(|candidate| candidate.entry_source_id == question.entry_source_id)
+        .all(|candidate| {
+            snapshot.accepted_answers.iter().any(|answer| {
+                answer.question_id == candidate.question_id && answer.outcome != "skipped"
+            })
+        });
+    if !entry_completed {
+        return (Vec::new(), Vec::new());
+    }
+    let completion = json!({
+        "key": format!(
+            "{}:{}:{}:{}",
+            snapshot.slot_id,
+            snapshot.local_day,
+            match snapshot.mode { LifecycleMode::NewWord => "newWord", LifecycleMode::Review => "review" },
+            question.entry_source_id
+        ),
+        "slotId": snapshot.slot_id,
+        "localDay": snapshot.local_day,
+        "mode": snapshot.mode,
+        "entrySourceId": question.entry_source_id,
+        "bookId": source.book_id,
+        "version": source.version,
+        "learnedLocalDay": snapshot.local_day,
+        "completedAt": now
+    });
+    let history = if snapshot.mode == LifecycleMode::NewWord {
+        vec![json!({
+            "slotId": snapshot.slot_id,
+            "entrySourceId": question.entry_source_id,
+            "bookId": source.book_id,
+            "version": source.version,
+            "learnedLocalDay": snapshot.local_day,
+            "completedAt": now
+        })]
+    } else {
+        Vec::new()
+    };
+    (vec![completion], history)
+}
+
+fn transition_session(payload: TransitionSessionPayload) -> Result<Value, ProtocolResponse> {
+    if payload.kind != "next" || payload.now.trim().is_empty() {
+        return Err(invalid_data("The lifecycle transition is invalid."));
+    }
+    let mut snapshot = payload.snapshot;
+    let question_id = current_lifecycle_question(&snapshot)?.question_id.clone();
+    if !has_answer(&snapshot, &question_id) {
+        return Err(invalid_data(
+            "The current question must be answered before advancing.",
+        ));
+    }
+    snapshot.current_question_index += 1;
+    snapshot.state = if snapshot.current_question_index >= snapshot.question_plan.len() {
+        LifecycleState::Completed
+    } else {
+        LifecycleState::Active
+    };
+    snapshot.updated_at = payload.now;
+    to_value(snapshot)
+}
+
+fn resolve_dispute(payload: ResolveDisputePayload) -> Result<Value, ProtocolResponse> {
+    let mut snapshot = payload.snapshot;
+    let question = current_lifecycle_question(&snapshot)?.clone();
+    let meaning = payload.proposed_meaning.trim();
+    if payload.now.trim().is_empty()
+        || meaning.is_empty()
+        || question.question_id != payload.question_id
+        || has_answer(&snapshot, &question.question_id)
+    {
+        return Err(invalid_data("The disputed question is unavailable."));
+    }
+    let source = lifecycle_source(&snapshot, &question.entry_source_id)?.clone();
+    let normalized = meaning.to_lowercase();
+    let dispute_event_id = format!(
+        "dispute:{}:{}:{}",
+        snapshot.session_id, question.question_id, normalized
+    );
+    let event = LifecycleAcceptedAnswer {
+        event_id: format!("accepted:{dispute_event_id}"),
+        submission_id: dispute_event_id.clone(),
+        session_id: snapshot.session_id.clone(),
+        question_id: question.question_id.clone(),
+        entry_source_id: question.entry_source_id.clone(),
+        local_day: snapshot.local_day.clone(),
+        mode: snapshot.mode,
+        source: source.clone(),
+        question_fingerprint: question.question_id.clone(),
+        user_response: meaning.to_string(),
+        normalized_response: normalized,
+        outcome: "correct".to_string(),
+        accepted_at: payload.now.clone(),
+        elapsed_ms: 0,
+        feedback: LifecycleFeedback {
+            submitted: true,
+            outcome: "correct".to_string(),
+            hint_available: question.persisted_hint.is_some(),
+            correct_choice_label: if question.question_type == "enToCnInput" {
+                None
+            } else {
+                question.correct_choice_label.clone()
+            },
+            correct_answer: None,
+            counterpart_facts: None,
+            extra: Map::new(),
+        },
+        extra: Map::new(),
+    };
+    snapshot.accepted_answers.push(event.clone());
+    finalize_after_answer(&mut snapshot, &payload.now);
+    let (completion_facts, learning_history) =
+        completion_records(&snapshot, &question, &source, &payload.now);
+    Ok(json!({
+        "snapshot": snapshot,
+        "event": event,
+        "completionFacts": completion_facts,
+        "learningHistory": learning_history,
+        "dispute": {
+            "eventId": dispute_event_id,
+            "sessionId": snapshot.session_id,
+            "questionId": question.question_id,
+            "entrySourceId": question.entry_source_id,
+            "proposedMeaning": meaning,
+            "createdAt": payload.now,
+            "source": { "bookId": source.book_id, "version": source.version }
+        }
+    }))
+}
+
+fn exclude_entry(payload: ExcludeEntryPayload) -> Result<Value, ProtocolResponse> {
+    let mut snapshot = payload.snapshot;
+    let question = current_lifecycle_question(&snapshot)?.clone();
+    if payload.now.trim().is_empty()
+        || question.entry_source_id != payload.entry_source_id
+        || has_answer(&snapshot, &question.question_id)
+    {
+        return Err(invalid_data("The excluded study entry is unavailable."));
+    }
+    let source = lifecycle_source(&snapshot, &question.entry_source_id)?.clone();
+    let exclusion_event_id = format!(
+        "exclude:{}:{}",
+        snapshot.session_id, question.entry_source_id
+    );
+    let submission_id = format!("{exclusion_event_id}:{}", question.question_id);
+    let event = LifecycleAcceptedAnswer {
+        event_id: format!("accepted:{submission_id}"),
+        submission_id,
+        session_id: snapshot.session_id.clone(),
+        question_id: question.question_id.clone(),
+        entry_source_id: question.entry_source_id.clone(),
+        local_day: snapshot.local_day.clone(),
+        mode: snapshot.mode,
+        source,
+        question_fingerprint: question.question_id.clone(),
+        user_response: String::new(),
+        normalized_response: String::new(),
+        outcome: "skipped".to_string(),
+        accepted_at: payload.now.clone(),
+        elapsed_ms: 0,
+        feedback: LifecycleFeedback {
+            submitted: true,
+            outcome: "skipped".to_string(),
+            hint_available: false,
+            correct_choice_label: None,
+            correct_answer: None,
+            counterpart_facts: None,
+            extra: Map::new(),
+        },
+        extra: Map::new(),
+    };
+    snapshot.accepted_answers.push(event.clone());
+    finalize_after_answer(&mut snapshot, &payload.now);
+    Ok(json!({
+        "snapshot": snapshot,
+        "event": event,
+        "exclusion": {
+            "eventId": exclusion_event_id,
+            "sessionId": snapshot.session_id,
+            "entrySourceId": question.entry_source_id,
+            "localDay": snapshot.local_day,
+            "createdAt": payload.now
+        }
+    }))
+}
+
+fn abandon_session(payload: AbandonSessionPayload) -> Result<Value, ProtocolResponse> {
+    let mut snapshot = payload.snapshot;
+    validate_lifecycle_snapshot(&snapshot)?;
+    if snapshot.state != LifecycleState::Active || payload.now.trim().is_empty() {
+        return Err(invalid_data(
+            "Only an active study session can be abandoned.",
+        ));
+    }
+    snapshot.state = LifecycleState::Abandoned;
+    snapshot.updated_at = payload.now;
+    to_value(snapshot)
 }
 
 fn invalid_data(message: &'static str) -> ProtocolResponse {

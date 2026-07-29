@@ -622,6 +622,58 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  4,
+                           "promotedAtUtc":  "2026-07-29T12:21:31Z",
+                           "oldAggregateSha256":  "127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef",
+                           "newAggregateSha256":  "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27",
+                           "oldLearningLedgerSha256":  "496235e59671354f8465a63ad71cfc1d44fb582c5bfe33a4108706bbdc25511a",
+                           "newLearningLedgerSha256":  "b777e3205a900fbb39ca2ad0c8e2574dab0d1d060d20969a3f5f9c71aed26dbf",
+                           "changedFiles":  [
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures\\domain\\v1\\evidence\\wave-4-lifecycle-reviewed-diff.json",
+                                                "sha256":  "0b78594c4f15d797b03972cafe9733570d9e6b5e9bf3d1f8f70e249cbaa4285f"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures\\domain\\v1\\evidence\\wave-4-lifecycle.json",
+                                                  "sha256":  "2d33f0f7e3f876ee6b2a86d23c2a6225948d2ac577dcd8b507a0d2246f7c0389"
+                                              },
+                           "review":  {
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+
+                                                           ],
+                                          "summary":  "Reviewed the additive protocol-v1 lifecycle expansion and authoritative learning-ledger update. Mobile product-rule inputs are unchanged; the new typed protocol commands expose already locked lifecycle semantics for Word Net without moving persistence or platform ownership into the shared package.",
+                                          "provenanceLimit":  "This promotion accepts only the learning-ledger identity change. Protocol implementation and lifecycle fixture files remain separately verified generated/export infrastructure."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  4,
+                                          "generatedAtUtc":  "2026-07-29T12:10:00Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef",
+                                          "learningLedgerSha256":  "b777e3205a900fbb39ca2ad0c8e2574dab0d1d060d20969a3f5f9c71aed26dbf",
+                                          "checks":  [
+                                                         {
+                                                             "name":  "protocol-v1-lifecycle-contract",
+                                                             "status":  "passed",
+                                                             "detail":  "Nine protocol tests passed, including typed transition, dispute, exclusion, and abandonment commands plus all earlier v1 behavior."
+                                                         },
+                                                         {
+                                                             "name":  "native-host-wasm-lifecycle-parity",
+                                                             "status":  "passed",
+                                                             "detail":  "The host WASM adapter matched the native dispatcher and accepted results across seven existing fixtures plus four lifecycle fixtures."
+                                                         },
+                                                         {
+                                                             "name":  "wasm32-lifecycle-check",
+                                                             "status":  "passed",
+                                                             "detail":  "word-domain-protocol and word-domain-wasm compiled for wasm32-unknown-unknown after the lifecycle expansion."
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }

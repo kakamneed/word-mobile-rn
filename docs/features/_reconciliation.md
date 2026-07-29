@@ -29,6 +29,7 @@ Ledger: `docs/features/learning.md`
 - `scripts/domain-export/build-package.ps1`
 - `scripts/domain-export/run-browser-gates.ps1`
 - `tests/domain-browser/**`
+- `fixtures/domain/v1/**`
 - `artifacts/domain-wasm/**`
 - `crates/platform-mobile/src/bridge.rs`
 - `crates/storage-core/src/models/study_result.rs`

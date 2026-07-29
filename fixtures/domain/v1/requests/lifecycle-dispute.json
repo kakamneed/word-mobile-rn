@@ -1,0 +1,17 @@
+{
+  "protocolVersion": 1,
+  "command": "resolveDispute",
+  "requestId": "lifecycle-dispute",
+  "context": {"nowUtc":"2026-07-29T00:01:00.000Z","localDay":"2026-07-29","sessionId":"session-1","orderingSeed":"plan-1"},
+  "payload": {
+    "snapshot": {
+      "schemaVersion":1,"engineVersion":"phase-3","sessionId":"session-1","slotId":"guest:one","localDay":"2026-07-29","mode":"review","state":"active","dailySnapshotId":"daily-1","planFingerprint":"plan-1",
+      "sourceRefs":[{"bookId":"book","version":"1","entrySourceId":"entry-1"}],
+      "questionPlan":[{"questionId":"question-1","questionType":"enToCnInput","entrySourceId":"entry-1","word":"orbit","prompt":"orbit","acceptedMeanings":["path"],"choices":null,"correctChoiceLabel":null,"canonicalAnswer":"path","questionIndex":0,"totalQuestions":1}],
+      "acceptedAnswers":[],"currentQuestionIndex":0,"materializedReviewSchedule":[{"entrySourceId":"entry-1","questionType":"enToCnInput"}],"ownerEpoch":3,"startedAt":"2026-07-29T00:00:00.000Z","updatedAt":"2026-07-29T00:00:00.000Z"
+    },
+    "questionId":"question-1",
+    "proposedMeaning":"trajectory",
+    "now":"2026-07-29T00:01:00.000Z"
+  }
+}

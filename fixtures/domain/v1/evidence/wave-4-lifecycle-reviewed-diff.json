@@ -1,0 +1,6 @@
+{
+  "reviewed": true,
+  "changedFiles": [],
+  "summary": "Reviewed the additive protocol-v1 lifecycle expansion and authoritative learning-ledger update. Mobile product-rule inputs are unchanged; the new typed protocol commands expose already locked lifecycle semantics for Word Net without moving persistence or platform ownership into the shared package.",
+  "provenanceLimit": "This promotion accepts only the learning-ledger identity change. Protocol implementation and lifecycle fixture files remain separately verified generated/export infrastructure."
+}

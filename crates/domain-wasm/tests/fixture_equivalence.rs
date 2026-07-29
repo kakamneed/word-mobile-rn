@@ -35,6 +35,22 @@ fn wasm_adapter_matches_shared_dispatcher_and_canonical_results() {
             include_str!("../../../fixtures/domain/v1/requests/report-local-day.json"),
             include_str!("../../../fixtures/domain/v1/expected/report-local-day.json"),
         ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/lifecycle-transition.json"),
+            include_str!("../../../fixtures/domain/v1/expected/lifecycle-transition.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/lifecycle-dispute.json"),
+            include_str!("../../../fixtures/domain/v1/expected/lifecycle-dispute.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/lifecycle-exclusion.json"),
+            include_str!("../../../fixtures/domain/v1/expected/lifecycle-exclusion.json"),
+        ),
+        (
+            include_str!("../../../fixtures/domain/v1/requests/lifecycle-abandon.json"),
+            include_str!("../../../fixtures/domain/v1/expected/lifecycle-abandon.json"),
+        ),
     ] {
         let wasm: Value = serde_json::from_str(&word_domain_wasm::execute_v1(request)).unwrap();
         let native: Value =
