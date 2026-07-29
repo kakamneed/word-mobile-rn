@@ -12,13 +12,13 @@ Automated browser, artifact, parity, Rust, and focused Flutter evidence does not
 
 | Field | Value |
 | --- | --- |
-| Exact clean build commit | `809934f329547ec966d8770660b4e70b497e6f62` |
+| Exact clean build commit | `14b3e97b9217df077e19d6731d9312d34cb85d11` |
 | Git dirty | `false` |
 | Protocol / manifest schema | `1` / `1` |
-| Promoted source-lock digest | `127a0a376fdcaa1bebde0e277562d93098d9c09e25fa145ca7d95aab65306aef` |
+| Promoted source-lock digest | `debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27` |
 | Cargo.lock SHA-256 | `60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a` (LF-normalized text) |
-| WASM SHA-256 | `9a7f58f55f8596d89d3f485f5a8b9c10161ad0bfb9daba4ebb42e146bebdbe2b` |
-| WASM size | 546507 raw / 187753 gzip bytes |
+| WASM SHA-256 | `1a6fe4eeb5aede39384f62e26dfc4289d2ad777309de02eeb9e34d947ffab09b` |
+| WASM size | 636457 raw / 219955 gzip bytes |
 | JavaScript SHA-256 | `0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399` |
 | JavaScript size | 6648 bytes |
 | Reproducibility | Two clean detached worktrees produced identical normalized manifests and optimized WASM hashes; temporary worktrees were removed. |
@@ -27,8 +27,8 @@ Automated browser, artifact, parity, Rust, and focused Flutter evidence does not
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| Wave 4 source lock | PASS | Rechecked after final ledger checkpoint promotion at digest `127a0a37...`. |
-| Candidate browser package | PASS | Chromium, Firefox, and Playwright WebKit imported the generated package and executed all seven fixtures plus a structured error. Candidate measurements are in `fixtures/domain/v1/evidence/wave-4.json`. |
+| Wave 4 source lock | PASS | Rechecked after lifecycle protocol promotion at digest `debd3a2d...`. |
+| Candidate browser package | PASS | Chromium, Firefox, and Playwright WebKit imported the generated package and executed all eleven fixtures plus a structured error. Candidate measurements are in `fixtures/domain/v1/evidence/wave-4.json`. |
 | Clean final manifest | PASS | `node scripts/domain-export/validate-manifest.mjs artifacts/domain-wasm/manifest.json`. |
 | Final browser artifact | PASS | `run-browser-gates.ps1 -FinalArtifact` passed Chromium, Firefox, and Playwright WebKit against the clean-commit package and enforced all locked budgets. |
 | Full Rust workspace | PASS WITH NOTE | `$env:RUST_TEST_THREADS='1'; cargo test --workspace` passed the complete workspace. The exact default-parallel command was run twice and failed because parallel app-core tests clear shared global session/diagnostic registries; that command is not claimed as passed. |
