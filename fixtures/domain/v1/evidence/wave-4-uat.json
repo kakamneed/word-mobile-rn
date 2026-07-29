@@ -1,0 +1,104 @@
+{
+    "schemaVersion":  1,
+    "wave":  4,
+    "generatedAtUtc":  "2026-07-29T06:27:40Z",
+    "success":  true,
+    "sourceLockDigest":  "2677acb20546179d5092d54d491e9ee2f4ffdcb3e0d3277abd7799cf4be2f1c1",
+    "learningLedgerSha256":  "7d88b317efe23f375a66e31229fb78e648afe38043ecea1af48862e7a3ed7211",
+    "artifact":  {
+                     "commit":  "522c51074844c8901db3a6100b80a46ef89deb04",
+                     "dirty":  true,
+                     "wasmSha256":  "9a7f58f55f8596d89d3f485f5a8b9c10161ad0bfb9daba4ebb42e146bebdbe2b",
+                     "javascriptSha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399"
+                 },
+    "browsers":  [
+                     {
+                         "browser":  "chromium",
+                         "startupMs":  51.40000000002328,
+                         "firstCommandMs":  16.599999999976717,
+                         "repeatCommandMs":  0.20799999999813734,
+                         "error":  {
+                                       "protocolVersion":  1,
+                                       "requestId":  "",
+                                       "source":  {
+                                                      "name":  "word-mobile-domain",
+                                                      "package":  "word-domain-protocol",
+                                                      "version":  "0.1.0"
+                                                  },
+                                       "error":  {
+                                                     "code":  "missing_required_field",
+                                                     "message":  "A required request field is missing.",
+                                                     "details":  {
+                                                                     "field":  "requestId"
+                                                                 }
+                                                 }
+                                   }
+                     },
+                     {
+                         "browser":  "firefox",
+                         "startupMs":  128,
+                         "firstCommandMs":  1,
+                         "repeatCommandMs":  0.64,
+                         "error":  {
+                                       "protocolVersion":  1,
+                                       "requestId":  "",
+                                       "source":  {
+                                                      "name":  "word-mobile-domain",
+                                                      "package":  "word-domain-protocol",
+                                                      "version":  "0.1.0"
+                                                  },
+                                       "error":  {
+                                                     "code":  "missing_required_field",
+                                                     "message":  "A required request field is missing.",
+                                                     "details":  {
+                                                                     "field":  "requestId"
+                                                                 }
+                                                 }
+                                   }
+                     },
+                     {
+                         "browser":  "webkit",
+                         "startupMs":  40,
+                         "firstCommandMs":  12,
+                         "repeatCommandMs":  0.52,
+                         "error":  {
+                                       "protocolVersion":  1,
+                                       "requestId":  "",
+                                       "source":  {
+                                                      "name":  "word-mobile-domain",
+                                                      "package":  "word-domain-protocol",
+                                                      "version":  "0.1.0"
+                                                  },
+                                       "error":  {
+                                                     "code":  "missing_required_field",
+                                                     "message":  "A required request field is missing.",
+                                                     "details":  {
+                                                                     "field":  "requestId"
+                                                                 }
+                                                 }
+                                   }
+                     }
+                 ],
+    "checks":  [
+                   {
+                       "name":  "canonical-generated-wasm-fixtures",
+                       "status":  "passed",
+                       "detail":  "Seven canonical result fixtures and a structured error executed through the generated package; native parity is verified independently by the Rust workspace gate."
+                   },
+                   {
+                       "name":  "playwright-chromium",
+                       "status":  "passed",
+                       "detail":  "Generated web package imported and executed in Chromium."
+                   },
+                   {
+                       "name":  "playwright-firefox",
+                       "status":  "passed",
+                       "detail":  "Generated web package imported and executed in Firefox."
+                   },
+                   {
+                       "name":  "playwright-webkit",
+                       "status":  "passed",
+                       "detail":  "Generated web package imported and executed in Playwright WebKit."
+                   }
+               ]
+}

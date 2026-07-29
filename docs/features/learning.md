@@ -2,7 +2,7 @@
 
 > Slug: `learning`
 > Status: `mobile_in_progress`
-> Updated: `2026-07-26`
+> Updated: `2026-07-29`
 
 ## Product Intent
 
@@ -157,6 +157,9 @@ Focused mobile checks from the conversation history:
 - `2026-07-28` - Phase 15 live-WASM repair: the first real `wasm-pack test --node` run proved that compile-only wasm32 checks had missed pointer-width-dependent word ordering and choice placement. `crates/domain-core/src/study.rs` now keeps both the 33-based ordering seed and FNV distractor seed as `u64`, converting to `usize` only after bounded modulo; fixed-value regression assertions and the Node comparator preserve native outputs while preventing wasm32 truncation.
 - `2026-07-28` - Phase 15 manifest handoff: `fixtures/domain/v1/manifest.json` replaces Plan 15-03's intentional `v1-placeholder` with numeric protocol version `1` and follows the final evidence-gated Wave 3 source-lock digest. Accepted request/expected fixture behavior is unchanged.
 - `2026-07-28` - Phase 15 Wave 4 candidate: `scripts/domain-export/build-package.ps1` produces an optimized non-release candidate under ignored `target/` output, and `tests/domain-browser/domain-wasm.spec.ts` imports the generated web package itself. The candidate identifies WASM SHA-256 `9a7f58f55f8596d89d3f485f5a8b9c10161ad0bfb9daba4ebb42e146bebdbe2b` (546507 raw / 187753 gzip bytes) and JavaScript SHA-256 `0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399` (6648 bytes). The browser harness executes all seven canonical requests plus a structured-error request and enforces locked size/startup/first-command/repeat-command budgets.
+- `2026-07-28` - Phase 15 release-device handoff: the canonical Supabase-aware Flutter deployment script built `com.wordmobile` `1.0.3+4`, verified the packaged arm64 Rust bridge, installed the fresh APK to the explicitly selected `REA-AN00` wireless ADB transport, and launched `MainActivity`. This proves packaging/deployment only; NewWord, Review, resume, Today, Wrong Words, and Reports remain blocked on manual device observation.
+- `2026-07-29` - Phase 15 release-device acceptance: on the installed `com.wordmobile` `1.0.3+4` build, the user reported the named NewWord, Review, resume, Today, Wrong Words, and Reports checks functioning normally. Acceptance is recorded as PASS WITH KNOWN ISSUES because the same observation retained two longstanding performance problems; Phase 15 did not introduce or fix them.
+- `2026-07-29` - Phase 15 source-identity closure: because this ledger is itself an authoritative source-lock input, appending release-device acceptance made the previously published manifest digest stale. Closure uses distinct `wave-4-uat` parity/review evidence for a ledger-only equal-Wave-4 promotion, commits that accepted state atomically with UAT, and rebuilds the pin-ready artifact from that exact clean commit rather than relabeling the previous manifest.
 
 ## Mobile Lessons Learned
 
@@ -211,6 +214,8 @@ Focused mobile checks from the conversation history:
 
 ## Known Pitfalls
 
+- Release `1.0.3+4` still exhibits the longstanding issues "键盘收起弹出卡顿" and "每日刚进入固定会有一次双击提交长卡顿" according to the user's selected-device observation. Treat these as unresolved performance risks, not Phase 15 regressions or Phase 15 fixes.
+
 - On this Windows runner, sandboxed `wasm-pack` may compile Rust successfully and then fail to create its user-cache temp directory while installing the matching bindgen CLI; rerun the same packaging command with access to the existing Cargo/cache directories rather than changing domain source.
 - Playwright Firefox may launch but fail to spawn its tab subprocess under the restricted sandbox. Treat that as an environment failure and rerun the same pinned three-browser gate with browser subprocess permission; do not substitute Chromium-only evidence.
 - `word-app-core` unit tests share the global `ACTIVE_SESSIONS` and `STUDY_DIAGNOSTICS` registries. The default-parallel workspace command is not a stable release gate until those tests gain isolation; preserve the exact failed output and run the complete workspace with `RUST_TEST_THREADS=1` rather than claiming the default command passed.
@@ -261,6 +266,11 @@ Focused mobile checks from the conversation history:
 ## Verification
 
 - Mobile:
+  - On 2026-07-29, the user accepted the six named release-device behaviors on `REA-AN00` / `com.wordmobile` `1.0.3+4`: NewWord, Review, resume, Today, Wrong Words, and Reports were reported functional. Acceptance is PASS WITH KNOWN ISSUES because keyboard hide/show jank and the first daily-entry double-submit stall remain unresolved and pre-existing by user attribution.
+  - `cargo test -p word-platform-mobile` passed 50/50 on 2026-07-29; existing unused-code warnings remain.
+  - The first 2026-07-29 post-acceptance `check-source-lock.ps1 -Check -Wave 4` rerun exposed `docs/features/learning.md` drift. Because the manifest pins the accepted source-lock digest, the ledger-only change is evidence-gated and promoted before rebuilding from the exact clean acceptance commit; the previous manifest is not relabeled.
+  - Two restricted 2026-07-29 `run-browser-gates.ps1` attempts passed Chromium and failed during Firefox `browserContext.newPage` initialization before WebKit ran. An authorized rerun then passed Chromium, Firefox, and WebKit together and wrote distinct `fixtures/domain/v1/evidence/wave-4-uat.json`; only the complete run is promotion evidence.
+  - `apps/flutter_mobile/scripts/android-release-wireless-deploy.ps1 -DeviceSerial adb-A2WDVB3526005032-plj2yB._adb-tls-connect._tcp` passed on 2026-07-28: Supabase dart-defines loaded, fresh release APK `1.0.3+4` was 114753646 bytes with SHA-256 `982097cab23462c2aa3762136abc9e21f3c74001d460f33823430fc21a938571`, `lib/arm64-v8a/libword_platform_mobile.so` was present, serial-pinned install returned `Success`, and `com.wordmobile/.MainActivity` launched on `REA-AN00`. The user subsequently accepted the named functional behaviors with the known issues recorded above.
   - `D:\flutter\flutter\bin\flutter.bat test test\study_question_display_test.dart --no-pub` passed all 21 study display/submit/progress/navigation cases on 2026-07-15 after adding the pending-next no-auto-jump guard.
   - `D:\flutter\flutter\bin\flutter.bat test test\study_question_display_test.dart test\wrong_word_graph_screen_test.dart --no-pub` passed all 23 tests on 2026-07-15, including 20 study display/submit/progress cases.
   - `D:\flutter\flutter\bin\flutter.bat test test\study_question_display_test.dart --no-pub --plain-name "input feedback correct answer falls back"` was blocked by missing local Pub cache dependencies: `async`, `vector_math`, `shared_preferences`, `supabase_flutter`, and others.
