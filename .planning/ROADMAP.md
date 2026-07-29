@@ -324,14 +324,14 @@ Success criteria:
 **Goal:** Export the current Flutter-backed Rust domain behavior as a WASM-safe canonical package for Word Net without moving SQLite or platform lifecycle concerns into the shared core.
 **Requirements**: [ARCH-04, ARCH-05, ARCH-06, ARCH-07]
 **Depends on:** Phase 14
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 15-01-PLAN.md - Lock mobile source/ledger truth and capture canonical native fixtures
 - [x] 15-02-PLAN.md - Extract serde-only WASM-safe domain models with native compatibility re-exports
 - [x] 15-03-PLAN.md - Extract deterministic study, progress, resume, wrong-word, and report rules
 - [x] 15-04-PLAN.md - Publish protocol v1 and equivalent native/WASM runners
-- [ ] 15-05-PLAN.md - Build the pin-ready artifact and prove browser/mobile compatibility
+- [x] 15-05-PLAN.md - Build the pin-ready artifact and prove browser/mobile compatibility
 
 Success criteria:
 1. The exported model and rule crates build for native Rust and `wasm32` without `rusqlite`, Flutter, Tauri, filesystem, or network dependencies.
