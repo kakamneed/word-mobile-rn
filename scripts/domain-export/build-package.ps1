@@ -60,6 +60,7 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
     $jsPath = Join-Path $packageDirectory 'word_domain_wasm.js'
     $sourceLock = Get-Content (Join-Path $repositoryRoot 'fixtures\domain\v1\source-lock.json') -Raw | ConvertFrom-Json
     $fixtureManifest = Get-Content (Join-Path $repositoryRoot 'fixtures\domain\v1\manifest.json') -Raw | ConvertFrom-Json
+    $phase4FixturePath = Join-Path $repositoryRoot 'fixtures\domain\v1\phase4-projections.json'
     $actualCommit = (& git -C $repositoryRoot rev-parse HEAD).Trim()
     $dirty = @(& git -C $repositoryRoot status --short).Count -gt 0
     if ($Commit -and $actualCommit -ne $Commit) { throw "Build commit $actualCommit does not match required commit $Commit." }
@@ -85,6 +86,12 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
         artifacts = [ordered]@{
             javascript = [ordered]@{ path = 'package/word_domain_wasm.js'; sha256 = Get-FileSha256 $jsPath; rawBytes = (Get-Item $jsPath).Length }
             wasm = [ordered]@{ path = 'package/word_domain_wasm_bg.wasm'; sha256 = Get-FileSha256 $wasmPath; rawBytes = (Get-Item $wasmPath).Length; gzipBytes = Get-GzipSize $wasmPath }
+        }
+        fixtures = [ordered]@{
+            phase4Projections = [ordered]@{
+                path = 'fixtures/domain/v1/phase4-projections.json'
+                sha256 = Get-FileSha256 $phase4FixturePath
+            }
         }
         budgets = [ordered]@{
             wasmRawBytes = 1048576
