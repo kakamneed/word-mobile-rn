@@ -2,7 +2,7 @@
     "schemaVersion":  1,
     "protocolVersion":  1,
     "source":  {
-                   "commit":  "14b3e97b9217df077e19d6731d9312d34cb85d11",
+                   "commit":  "b9af329bb13b12d2ee7a06afbd289f1e53c6be40",
                    "dirty":  false,
                    "sourceLockSha256":  "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27",
                    "cargoLockSha256":  "60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a"
@@ -23,11 +23,17 @@
                                      },
                       "wasm":  {
                                    "path":  "package/word_domain_wasm_bg.wasm",
-                                   "sha256":  "1a6fe4eeb5aede39384f62e26dfc4289d2ad777309de02eeb9e34d947ffab09b",
-                                   "rawBytes":  636457,
-                                   "gzipBytes":  219955
+                                   "sha256":  "bf609ab5cd86a285a271868a87d3710c781476f40c8d61f1f098f46ce9411fa7",
+                                   "rawBytes":  814337,
+                                   "gzipBytes":  276077
                                }
                   },
+    "fixtures":  {
+                     "phase4Projections":  {
+                                               "path":  "fixtures/domain/v1/phase4-projections.json",
+                                               "sha256":  "aa49c89aae22a6794cb4ac69443de2cf40e0949add1a7e3c594bf814cde61562"
+                                           }
+                 },
     "budgets":  {
                     "wasmRawBytes":  1048576,
                     "wasmGzipBytes":  524288,
@@ -40,6 +46,6 @@
     "reproducibility":  {
                             "checked":  true,
                             "builds":  2,
-                            "normalizedManifestSha256":  "03933fed61af786ee6e1c054317b71b5749d4205bebadac074c5b8b50ac11196"
+                            "normalizedManifestSha256":  "2174dd749b1f71ed1d4d2bc6e525ac56e92817cb1a9e7651380965b6a75a8d4c"
                         }
 }
