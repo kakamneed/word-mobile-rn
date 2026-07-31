@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -91,6 +91,557 @@ pub struct ReportProjection {
     pub last7_days: Vec<ReportDay>,
     pub daily_series: Vec<ReportDay>,
     pub mode_series: BTreeMap<String, Vec<ReportDay>>,
+}
+
+pub const ORDINARY_POLICY_VERSION: &str = "mobile-risk-v1";
+pub const EXAM_POLICY_VERSION: &str = "exam-signal-v1";
+pub const PRACTICE_POLICY_VERSION: &str = "practice-priority-v1";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub struct LearningIdentity {
+    pub slot_id: String,
+    pub book_id: String,
+    pub version: String,
+    pub entry_source_id: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LearningOutcome {
+    Correct,
+    FuzzyCorrect,
+    Incorrect,
+    Skipped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptedLearningEvent {
+    pub event_id: String,
+    pub submission_id: String,
+    pub session_id: String,
+    pub question_id: String,
+    pub slot_id: String,
+    pub book_id: String,
+    pub version: String,
+    pub entry_source_id: String,
+    pub word: String,
+    pub local_day: String,
+    pub accepted_at: String,
+    pub outcome: LearningOutcome,
+    pub question_type: String,
+}
+
+impl AcceptedLearningEvent {
+    fn identity(&self) -> LearningIdentity {
+        LearningIdentity {
+            slot_id: self.slot_id.clone(),
+            book_id: self.book_id.clone(),
+            version: self.version.clone(),
+            entry_source_id: self.entry_source_id.clone(),
+        }
+    }
+
+    fn is_correct(&self) -> bool {
+        matches!(
+            self.outcome,
+            LearningOutcome::Correct | LearningOutcome::FuzzyCorrect
+        )
+    }
+
+    fn is_inaccurate(&self) -> bool {
+        matches!(
+            self.outcome,
+            LearningOutcome::Incorrect | LearningOutcome::Skipped
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrozenQuestionFact {
+    pub question_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrozenSessionFact {
+    pub session_id: String,
+    pub local_day: String,
+    pub questions: Vec<FrozenQuestionFact>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ExamMarkKind {
+    FuzzyMeaning,
+    Familiar,
+    Unknown,
+    WrongAssociation,
+}
+
+impl ExamMarkKind {
+    fn severity(self) -> f64 {
+        match self {
+            Self::FuzzyMeaning => 1.0,
+            Self::Familiar => 2.0,
+            Self::Unknown => 3.0,
+            Self::WrongAssociation => 5.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExamMarkInput {
+    pub mark_id: String,
+    pub slot_id: String,
+    pub book_id: String,
+    pub version: String,
+    pub entry_source_id: String,
+    pub word: String,
+    pub local_day: String,
+    pub kind: ExamMarkKind,
+    pub provenance: String,
+}
+
+impl ExamMarkInput {
+    fn identity(&self) -> LearningIdentity {
+        LearningIdentity {
+            slot_id: self.slot_id.clone(),
+            book_id: self.book_id.clone(),
+            version: self.version.clone(),
+            entry_source_id: self.entry_source_id.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectLearningEvidenceInput {
+    pub ordinary_policy_version: String,
+    pub exam_policy_version: String,
+    pub practice_policy_version: String,
+    pub local_today: String,
+    pub accepted_events: Vec<AcceptedLearningEvent>,
+    pub frozen_sessions: Vec<FrozenSessionFact>,
+    pub exam_marks: Vec<ExamMarkInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrdinaryEvidence {
+    pub identity: LearningIdentity,
+    pub word: String,
+    pub incorrect_count: u64,
+    pub skipped_count: u64,
+    pub correct_count: u64,
+    pub correct_since_last_wrong: u64,
+    pub last_inaccurate_at: Option<String>,
+    pub ordinary_risk_score: f64,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExamEvidence {
+    pub identity: LearningIdentity,
+    pub word: String,
+    pub marks: Vec<ExamMarkInput>,
+    pub decayed_weight: f64,
+    pub exam_signal: f64,
+    pub correct_day_streak: u64,
+    pub recovery_multiplier: f64,
+    pub recovered_exam_signal: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PracticeEvidence {
+    pub identity: LearningIdentity,
+    pub ordinary_risk_score: f64,
+    pub recovered_exam_signal: f64,
+    pub practice_priority: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderedWrongWord {
+    pub identity: LearningIdentity,
+    pub word: String,
+    pub ordinary_risk_score: f64,
+    pub recovered_exam_signal: f64,
+    pub practice_priority: f64,
+    pub high_risk: bool,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyReportFact {
+    pub local_day: String,
+    pub generated_questions: u64,
+    pub answered_questions: u64,
+    pub correct_questions: u64,
+    pub inaccurate_questions: u64,
+    pub skipped_questions: u64,
+    pub completion: Option<f64>,
+    pub accuracy: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectionProvenance {
+    pub accepted_event_ids: Vec<String>,
+    pub exam_mark_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectLearningEvidence {
+    pub ordinary_policy_version: String,
+    pub exam_policy_version: String,
+    pub practice_policy_version: String,
+    pub ordinary: Vec<OrdinaryEvidence>,
+    pub exam: Vec<ExamEvidence>,
+    pub high_risk: Vec<LearningIdentity>,
+    pub practice_eligible: Vec<PracticeEvidence>,
+    pub provenance: ProjectionProvenance,
+    pub ordered_wrong_words: Vec<OrderedWrongWord>,
+    pub daily_reports: Vec<DailyReportFact>,
+}
+
+pub fn project_learning_evidence(input: &ProjectLearningEvidenceInput) -> ProjectLearningEvidence {
+    let accepted = deduplicate_accepted(&input.accepted_events);
+    let marks = deduplicate_marks(&input.exam_marks);
+    let ordinary = project_ordinary(&input.local_today, &accepted);
+    let exam = project_exam(&input.local_today, &accepted, &marks);
+    let ordinary_by_identity = ordinary
+        .iter()
+        .map(|row| (row.identity.clone(), row))
+        .collect::<BTreeMap<_, _>>();
+    let exam_by_identity = exam
+        .iter()
+        .map(|row| (row.identity.clone(), row))
+        .collect::<BTreeMap<_, _>>();
+    let identities = ordinary_by_identity
+        .keys()
+        .chain(exam_by_identity.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+
+    let practice_eligible = identities
+        .iter()
+        .filter_map(|identity| {
+            let ordinary = ordinary_by_identity.get(identity).copied();
+            let exam = exam_by_identity.get(identity).copied();
+            let ordinary_risk_score = ordinary.map_or(0.0, |row| row.ordinary_risk_score);
+            let recovered_exam_signal = exam.map_or(0.0, |row| row.recovered_exam_signal);
+            let is_active = ordinary.is_some_and(|row| row.is_active);
+            (is_active || recovered_exam_signal > 0.0).then(|| PracticeEvidence {
+                identity: identity.clone(),
+                ordinary_risk_score,
+                recovered_exam_signal,
+                practice_priority: round_score(
+                    (0.70 * recovered_exam_signal + 0.30 * ordinary_risk_score).clamp(0.0, 10.0),
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let practice_by_identity = practice_eligible
+        .iter()
+        .map(|row| (row.identity.clone(), row))
+        .collect::<BTreeMap<_, _>>();
+
+    let high_risk = ordinary
+        .iter()
+        .filter(|row| row.is_active && row.ordinary_risk_score >= 8.0)
+        .map(|row| row.identity.clone())
+        .collect::<Vec<_>>();
+    let high_risk_set = high_risk.iter().cloned().collect::<BTreeSet<_>>();
+    let mut ordered_wrong_words = ordinary
+        .iter()
+        .filter(|row| row.incorrect_count > 0 || row.skipped_count > 0)
+        .map(|row| {
+            let exam_signal = exam_by_identity
+                .get(&row.identity)
+                .map_or(0.0, |exam| exam.recovered_exam_signal);
+            let practice_priority = practice_by_identity
+                .get(&row.identity)
+                .map_or(round_score(row.ordinary_risk_score * 0.30), |practice| {
+                    practice.practice_priority
+                });
+            OrderedWrongWord {
+                identity: row.identity.clone(),
+                word: row.word.clone(),
+                ordinary_risk_score: row.ordinary_risk_score,
+                recovered_exam_signal: exam_signal,
+                practice_priority,
+                high_risk: high_risk_set.contains(&row.identity),
+                is_active: row.is_active,
+            }
+        })
+        .collect::<Vec<_>>();
+    ordered_wrong_words.sort_by(|left, right| {
+        right
+            .is_active
+            .cmp(&left.is_active)
+            .then_with(|| {
+                right
+                    .practice_priority
+                    .partial_cmp(&left.practice_priority)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| left.identity.cmp(&right.identity))
+    });
+
+    ProjectLearningEvidence {
+        ordinary_policy_version: ORDINARY_POLICY_VERSION.to_string(),
+        exam_policy_version: EXAM_POLICY_VERSION.to_string(),
+        practice_policy_version: PRACTICE_POLICY_VERSION.to_string(),
+        ordinary,
+        exam,
+        high_risk,
+        practice_eligible,
+        provenance: ProjectionProvenance {
+            accepted_event_ids: accepted
+                .iter()
+                .map(|event| event.event_id.clone())
+                .collect(),
+            exam_mark_ids: marks.iter().map(|mark| mark.mark_id.clone()).collect(),
+        },
+        ordered_wrong_words,
+        daily_reports: project_daily_reports(&input.local_today, &accepted, &input.frozen_sessions),
+    }
+}
+
+fn deduplicate_accepted(events: &[AcceptedLearningEvent]) -> Vec<AcceptedLearningEvent> {
+    let mut event_ids = HashSet::new();
+    let mut submission_ids = HashSet::new();
+    events
+        .iter()
+        .filter(|event| {
+            event_ids.insert(event.event_id.clone())
+                && submission_ids.insert(event.submission_id.clone())
+        })
+        .cloned()
+        .collect()
+}
+
+fn deduplicate_marks(marks: &[ExamMarkInput]) -> Vec<ExamMarkInput> {
+    let mut mark_ids = HashSet::new();
+    marks
+        .iter()
+        .filter(|mark| mark_ids.insert(mark.mark_id.clone()))
+        .cloned()
+        .collect()
+}
+
+fn project_ordinary(local_today: &str, events: &[AcceptedLearningEvent]) -> Vec<OrdinaryEvidence> {
+    let mut grouped = BTreeMap::<LearningIdentity, Vec<&AcceptedLearningEvent>>::new();
+    for event in events {
+        grouped.entry(event.identity()).or_default().push(event);
+    }
+    grouped
+        .into_iter()
+        .map(|(identity, mut events)| {
+            events.sort_by(|left, right| {
+                left.accepted_at
+                    .cmp(&right.accepted_at)
+                    .then_with(|| left.event_id.cmp(&right.event_id))
+            });
+            let incorrect_count = events
+                .iter()
+                .filter(|event| event.outcome == LearningOutcome::Incorrect)
+                .count() as u64;
+            let skipped_count = events
+                .iter()
+                .filter(|event| event.outcome == LearningOutcome::Skipped)
+                .count() as u64;
+            let correct_count = events.iter().filter(|event| event.is_correct()).count() as u64;
+            let last_inaccurate = events.iter().rfind(|event| event.is_inaccurate()).copied();
+            let correct_since_last_wrong = last_inaccurate.map_or(0, |last| {
+                events
+                    .iter()
+                    .filter(|event| event.accepted_at > last.accepted_at && event.is_correct())
+                    .count() as u64
+            });
+            let is_active = events.last().is_some_and(|event| event.is_inaccurate());
+            let word = events
+                .first()
+                .map_or_else(String::new, |event| event.word.clone());
+            let ordinary_risk_score = if incorrect_count == 0 {
+                0.0
+            } else {
+                score_wrong_word(
+                    &DomainContext {
+                        now_utc: format!("{local_today}T00:00:00Z"),
+                        local_day: local_today.to_string(),
+                        session_id: "phase4-projection".to_string(),
+                        ordering_seed: "phase4-projection".to_string(),
+                    },
+                    &WrongWordProjectionInput {
+                        entry_source_id: identity.entry_source_id.clone(),
+                        word: word.clone(),
+                        error_count: incorrect_count,
+                        correct_count,
+                        consecutive_correct: correct_since_last_wrong,
+                        last_wrong_at: last_inaccurate
+                            .map_or_else(String::new, |event| event.accepted_at.clone()),
+                        correct_since_last_wrong,
+                        is_active,
+                    },
+                )
+                .priority_score
+            };
+            OrdinaryEvidence {
+                identity,
+                word,
+                incorrect_count,
+                skipped_count,
+                correct_count,
+                correct_since_last_wrong,
+                last_inaccurate_at: last_inaccurate.map(|event| event.accepted_at.clone()),
+                ordinary_risk_score,
+                is_active,
+            }
+        })
+        .collect()
+}
+
+fn project_exam(
+    local_today: &str,
+    events: &[AcceptedLearningEvent],
+    marks: &[ExamMarkInput],
+) -> Vec<ExamEvidence> {
+    let today = chrono::NaiveDate::parse_from_str(local_today, "%Y-%m-%d").ok();
+    let mut grouped = BTreeMap::<LearningIdentity, Vec<ExamMarkInput>>::new();
+    for mark in marks {
+        grouped
+            .entry(mark.identity())
+            .or_default()
+            .push(mark.clone());
+    }
+    grouped
+        .into_iter()
+        .map(|(identity, mut marks)| {
+            marks.sort_by(|left, right| {
+                left.local_day
+                    .cmp(&right.local_day)
+                    .then_with(|| left.mark_id.cmp(&right.mark_id))
+            });
+            let decayed_weight = marks
+                .iter()
+                .map(|mark| {
+                    let age = today
+                        .zip(chrono::NaiveDate::parse_from_str(&mark.local_day, "%Y-%m-%d").ok())
+                        .map_or(0, |(today, day)| (today - day).num_days().max(0));
+                    mark.kind.severity() * 2f64.powf(-(age as f64) / 30.0)
+                })
+                .sum::<f64>();
+            let exam_signal = round_score(10.0 * (1.0 - (-decayed_weight / 5.0).exp()));
+            let latest_mark_day = marks
+                .last()
+                .map(|mark| mark.local_day.as_str())
+                .unwrap_or("");
+            let mut days = BTreeMap::<String, (bool, bool)>::new();
+            for event in events.iter().filter(|event| {
+                event.identity() == identity && event.local_day.as_str() > latest_mark_day
+            }) {
+                let day = days.entry(event.local_day.clone()).or_default();
+                day.0 |= event.is_correct();
+                day.1 |= event.is_inaccurate();
+            }
+            let correct_day_streak = days.values().fold(0u64, |streak, (correct, inaccurate)| {
+                if *inaccurate {
+                    0
+                } else if *correct {
+                    streak + 1
+                } else {
+                    streak
+                }
+            });
+            let recovery_multiplier = if correct_day_streak < 2 {
+                1.0
+            } else {
+                round_score(0.70f64.powi(correct_day_streak as i32 - 1))
+            };
+            ExamEvidence {
+                identity,
+                word: marks
+                    .first()
+                    .map_or_else(String::new, |mark| mark.word.clone()),
+                marks,
+                decayed_weight: round_score(decayed_weight),
+                exam_signal,
+                correct_day_streak,
+                recovery_multiplier,
+                recovered_exam_signal: round_score(exam_signal * recovery_multiplier),
+            }
+        })
+        .collect()
+}
+
+fn project_daily_reports(
+    local_today: &str,
+    events: &[AcceptedLearningEvent],
+    sessions: &[FrozenSessionFact],
+) -> Vec<DailyReportFact> {
+    let mut generated = BTreeMap::<String, BTreeSet<String>>::new();
+    for session in sessions {
+        let questions = generated.entry(session.local_day.clone()).or_default();
+        for question in &session.questions {
+            questions.insert(format!("{}:{}", session.session_id, question.question_id));
+        }
+    }
+    let mut accepted = BTreeMap::<String, Vec<&AcceptedLearningEvent>>::new();
+    for event in events {
+        accepted
+            .entry(event.local_day.clone())
+            .or_default()
+            .push(event);
+    }
+    let first_day = generated
+        .keys()
+        .chain(accepted.keys())
+        .filter_map(|day| chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").ok())
+        .min();
+    let Some(mut cursor) = first_day else {
+        return Vec::new();
+    };
+    let Ok(end) = chrono::NaiveDate::parse_from_str(local_today, "%Y-%m-%d") else {
+        return Vec::new();
+    };
+    let mut reports = Vec::new();
+    while cursor <= end {
+        let local_day = cursor.format("%Y-%m-%d").to_string();
+        let day_events = accepted.get(&local_day).cloned().unwrap_or_default();
+        let generated_questions = generated
+            .get(&local_day)
+            .map_or(0, |items| items.len() as u64);
+        let answered_questions = day_events.len() as u64;
+        let correct_questions = day_events.iter().filter(|event| event.is_correct()).count() as u64;
+        let skipped_questions = day_events
+            .iter()
+            .filter(|event| event.outcome == LearningOutcome::Skipped)
+            .count() as u64;
+        let inaccurate_questions = answered_questions - correct_questions;
+        reports.push(DailyReportFact {
+            local_day,
+            generated_questions,
+            answered_questions,
+            correct_questions,
+            inaccurate_questions,
+            skipped_questions,
+            completion: (generated_questions > 0)
+                .then(|| round_score(answered_questions as f64 / generated_questions as f64)),
+            accuracy: (answered_questions > 0)
+                .then(|| round_score(correct_questions as f64 / answered_questions as f64)),
+        });
+        cursor += chrono::TimeDelta::days(1);
+    }
+    reports
 }
 
 fn default_true() -> bool {
@@ -374,8 +925,13 @@ mod phase4_projection_tests {
         assert_eq!(result.exam_policy_version, "exam-signal-v1");
         assert_eq!(result.practice_policy_version, "practice-priority-v1");
 
-        let severities = ["severity-fuzzy", "severity-familiar", "severity-unknown", "severity-wrong"]
-            .map(|id| exam(&result, id).exam_signal);
+        let severities = [
+            "severity-fuzzy",
+            "severity-familiar",
+            "severity-unknown",
+            "severity-wrong",
+        ]
+        .map(|id| exam(&result, id).exam_signal);
         assert!(severities.windows(2).all(|pair| pair[0] < pair[1]));
 
         let one = exam(&result, "repeat-one").exam_signal;
@@ -400,17 +956,35 @@ mod phase4_projection_tests {
 
         assert!(high.is_active);
         assert!(high.ordinary_risk_score >= 8.0);
-        assert!(result.high_risk.iter().any(|identity| identity.entry_source_id == "ordinary-high"));
-        assert!(result.practice_eligible.iter().all(|row| (0.0..=10.0).contains(&row.practice_priority)));
-        assert_eq!(result.provenance.accepted_event_ids.iter().filter(|id| id.as_str() == "report-correct").count(), 1);
-        assert_eq!(result.provenance.accepted_event_ids.len(), 11);
+        assert!(result
+            .high_risk
+            .iter()
+            .any(|identity| identity.entry_source_id == "ordinary-high"));
+        assert!(result
+            .practice_eligible
+            .iter()
+            .all(|row| (0.0..=10.0).contains(&row.practice_priority)));
+        assert_eq!(
+            result
+                .provenance
+                .accepted_event_ids
+                .iter()
+                .filter(|id| id.as_str() == "report-correct")
+                .count(),
+            1
+        );
+        assert_eq!(result.provenance.accepted_event_ids.len(), 12);
         assert_eq!(result.provenance.exam_mark_ids.len(), 13);
     }
 
     #[test]
     fn phase4_projection_uses_generated_and_accepted_denominators() {
         let result = project_learning_evidence(&fixture());
-        let report_day = result.daily_reports.iter().find(|row| row.local_day == "2026-07-28").unwrap();
+        let report_day = result
+            .daily_reports
+            .iter()
+            .find(|row| row.local_day == "2026-07-28")
+            .unwrap();
         assert_eq!(report_day.generated_questions, 3);
         assert_eq!(report_day.answered_questions, 2);
         assert_eq!(report_day.correct_questions, 1);
@@ -419,13 +993,21 @@ mod phase4_projection_tests {
         assert_eq!(report_day.completion, Some(0.67));
         assert_eq!(report_day.accuracy, Some(0.5));
 
-        let empty_day = result.daily_reports.iter().find(|row| row.local_day == "2026-07-31").unwrap();
+        let empty_day = result
+            .daily_reports
+            .iter()
+            .find(|row| row.local_day == "2026-07-31")
+            .unwrap();
         assert_eq!(empty_day.generated_questions, 1);
         assert_eq!(empty_day.answered_questions, 0);
         assert_eq!(empty_day.completion, Some(0.0));
         assert_eq!(empty_day.accuracy, None);
 
-        let zero_denominator = result.daily_reports.iter().find(|row| row.local_day == "2026-07-30").unwrap();
+        let zero_denominator = result
+            .daily_reports
+            .iter()
+            .find(|row| row.local_day == "2026-07-30")
+            .unwrap();
         assert_eq!(zero_denominator.generated_questions, 0);
         assert_eq!(zero_denominator.completion, None);
     }

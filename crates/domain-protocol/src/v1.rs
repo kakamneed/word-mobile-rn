@@ -2,8 +2,9 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use word_domain_core::{
-    project_report, project_wrong_words, summarize_results, AnswerEvaluator, DomainContext,
-    QuestionBuilder, ReportHistoryInput, WordForQuestion, WrongWordProjectionInput,
+    project_learning_evidence, project_report, project_wrong_words, summarize_results,
+    AnswerEvaluator, DomainContext, ProjectLearningEvidenceInput, QuestionBuilder,
+    ReportHistoryInput, WordForQuestion, WrongWordProjectionInput,
 };
 use word_domain_models::{
     AnsweredStudyQuestion, EntryExample, MeaningZh, QuestionTypeWeight, SessionMode,
@@ -92,6 +93,7 @@ pub enum Command {
     CaptureResumeState,
     CaptureWrongWords,
     CaptureReport,
+    ProjectLearningEvidence,
     BuildSession,
     EvaluateAnswer,
     CompleteSession,
@@ -111,6 +113,7 @@ impl Command {
             "captureResumeState" => Some(Self::CaptureResumeState),
             "captureWrongWords" => Some(Self::CaptureWrongWords),
             "captureReport" => Some(Self::CaptureReport),
+            "projectLearningEvidence" => Some(Self::ProjectLearningEvidence),
             "buildSession" => Some(Self::BuildSession),
             "evaluateAnswer" => Some(Self::EvaluateAnswer),
             "completeSession" => Some(Self::CompleteSession),
@@ -478,6 +481,9 @@ fn dispatch(
         Command::CaptureResumeState => capture_resume_state(context, typed_payload(payload)?),
         Command::CaptureWrongWords => capture_wrong_words(context, typed_payload(payload)?),
         Command::CaptureReport => capture_report(context, typed_payload(payload)?),
+        Command::ProjectLearningEvidence => {
+            project_learning_evidence_command(typed_payload(payload)?)
+        }
         Command::BuildSession => build_session(context, typed_payload(payload)?),
         Command::EvaluateAnswer => evaluate_answer(context, typed_payload(payload)?),
         Command::CompleteSession => complete_session(context, typed_payload(payload)?),
@@ -728,6 +734,12 @@ fn capture_report(
         "localDay": context.local_day,
         "report": project_report(context, &payload.history, payload.learned_count)
     }))
+}
+
+fn project_learning_evidence_command(
+    payload: ProjectLearningEvidenceInput,
+) -> Result<Value, ProtocolResponse> {
+    to_value(project_learning_evidence(&payload))
 }
 
 fn build_session(
