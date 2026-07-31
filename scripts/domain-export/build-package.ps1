@@ -90,7 +90,7 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
         fixtures = [ordered]@{
             phase4Projections = [ordered]@{
                 path = 'fixtures/domain/v1/phase4-projections.json'
-                sha256 = Get-FileSha256 $phase4FixturePath
+                sha256 = Get-TextSha256 ((Get-Content $phase4FixturePath -Raw).Replace("`r`n", "`n"))
             }
         }
         budgets = [ordered]@{
