@@ -147,10 +147,7 @@ pub fn score_wrong_word(
         .map(|today| recency_score_at(&entry.last_wrong_at, today))
         .unwrap_or(0.0);
     let priority_score = round_score(
-        ((errors.sqrt() * 1.8).min(4.5)
-            + error_rate * 3.0
-            + (recency / 21.0) * 2.0
-            + 0.8
+        ((errors.sqrt() * 1.8).min(4.5) + error_rate * 3.0 + (recency / 21.0) * 2.0 + 0.8
             - (entry.correct_since_last_wrong as f64 * 1.6).min(5.0)
             - (correct.sqrt() * 0.35).min(2.0))
         .clamp(0.0, 10.0),
@@ -178,14 +175,12 @@ pub fn project_report(
     let mut by_mode = BTreeMap::<String, (u64, u64)>::new();
     let mut by_mode_date = BTreeMap::<String, BTreeMap<String, (u64, u64, u64)>>::new();
 
-    for item in history.iter().filter(|item| {
-        !item.date.is_empty() && item.summary.total_questions > 0
-    }) {
+    for item in history
+        .iter()
+        .filter(|item| !item.date.is_empty() && item.summary.total_questions > 0)
+    {
         let mode = normalize_mode(&item.mode);
-        accumulate_day(
-            by_date.entry(item.date.clone()).or_default(),
-            &item.summary,
-        );
+        accumulate_day(by_date.entry(item.date.clone()).or_default(), &item.summary);
         let mode_total = by_mode.entry(mode.clone()).or_default();
         mode_total.0 += item.summary.total_questions;
         mode_total.1 += item.summary.correct_count;
@@ -204,7 +199,10 @@ pub fn project_report(
         .map(|(date, totals)| report_day(date, *totals))
         .collect::<Vec<_>>();
     let total_questions_answered = daily_series.iter().map(|day| day.total_questions).sum();
-    let total_correct = daily_series.iter().map(|day| day.correct_count).sum::<u64>();
+    let total_correct = daily_series
+        .iter()
+        .map(|day| day.correct_count)
+        .sum::<u64>();
     let modes = [
         "newWord",
         "review",
@@ -338,9 +336,97 @@ fn recency_score_at(last_wrong_at: &str, today: chrono::NaiveDate) -> f64 {
 }
 
 fn accuracy(correct: u64, total: u64) -> f64 {
-    if total == 0 { 0.0 } else { (correct as f64 / total as f64) * 100.0 }
+    if total == 0 {
+        0.0
+    } else {
+        (correct as f64 / total as f64) * 100.0
+    }
 }
 
 fn round_score(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
+}
+
+#[cfg(test)]
+mod phase4_projection_tests {
+    use super::*;
+
+    fn fixture() -> ProjectLearningEvidenceInput {
+        serde_json::from_str(include_str!(
+            "../../../fixtures/domain/v1/phase4-projections.json"
+        ))
+        .expect("valid Phase 4 projection fixture")
+    }
+
+    fn exam<'a>(result: &'a ProjectLearningEvidence, entry_source_id: &str) -> &'a ExamEvidence {
+        result
+            .exam
+            .iter()
+            .find(|row| row.identity.entry_source_id == entry_source_id)
+            .expect("exam evidence")
+    }
+
+    #[test]
+    fn phase4_projection_locks_policy_versions_severity_decay_and_recovery() {
+        let result = project_learning_evidence(&fixture());
+
+        assert_eq!(result.ordinary_policy_version, "mobile-risk-v1");
+        assert_eq!(result.exam_policy_version, "exam-signal-v1");
+        assert_eq!(result.practice_policy_version, "practice-priority-v1");
+
+        let severities = ["severity-fuzzy", "severity-familiar", "severity-unknown", "severity-wrong"]
+            .map(|id| exam(&result, id).exam_signal);
+        assert!(severities.windows(2).all(|pair| pair[0] < pair[1]));
+
+        let one = exam(&result, "repeat-one").exam_signal;
+        let two = exam(&result, "repeat-two").exam_signal;
+        assert!(two > one);
+        assert!(two - one < one);
+        assert!(exam(&result, "decay-old").exam_signal < exam(&result, "decay-fresh").exam_signal);
+
+        assert_eq!(exam(&result, "recover-one").recovery_multiplier, 1.0);
+        assert_eq!(exam(&result, "recover-two").recovery_multiplier, 0.7);
+        assert_eq!(exam(&result, "recover-reset").recovery_multiplier, 1.0);
+    }
+
+    #[test]
+    fn phase4_projection_separates_exam_marks_and_suppresses_duplicate_answers() {
+        let result = project_learning_evidence(&fixture());
+        let high = result
+            .ordinary
+            .iter()
+            .find(|row| row.identity.entry_source_id == "ordinary-high")
+            .expect("ordinary high-risk evidence");
+
+        assert!(high.is_active);
+        assert!(high.ordinary_risk_score >= 8.0);
+        assert!(result.high_risk.iter().any(|identity| identity.entry_source_id == "ordinary-high"));
+        assert!(result.practice_eligible.iter().all(|row| (0.0..=10.0).contains(&row.practice_priority)));
+        assert_eq!(result.provenance.accepted_event_ids.iter().filter(|id| id.as_str() == "report-correct").count(), 1);
+        assert_eq!(result.provenance.accepted_event_ids.len(), 11);
+        assert_eq!(result.provenance.exam_mark_ids.len(), 13);
+    }
+
+    #[test]
+    fn phase4_projection_uses_generated_and_accepted_denominators() {
+        let result = project_learning_evidence(&fixture());
+        let report_day = result.daily_reports.iter().find(|row| row.local_day == "2026-07-28").unwrap();
+        assert_eq!(report_day.generated_questions, 3);
+        assert_eq!(report_day.answered_questions, 2);
+        assert_eq!(report_day.correct_questions, 1);
+        assert_eq!(report_day.inaccurate_questions, 1);
+        assert_eq!(report_day.skipped_questions, 1);
+        assert_eq!(report_day.completion, Some(0.67));
+        assert_eq!(report_day.accuracy, Some(0.5));
+
+        let empty_day = result.daily_reports.iter().find(|row| row.local_day == "2026-07-31").unwrap();
+        assert_eq!(empty_day.generated_questions, 1);
+        assert_eq!(empty_day.answered_questions, 0);
+        assert_eq!(empty_day.completion, Some(0.0));
+        assert_eq!(empty_day.accuracy, None);
+
+        let zero_denominator = result.daily_reports.iter().find(|row| row.local_day == "2026-07-30").unwrap();
+        assert_eq!(zero_denominator.generated_questions, 0);
+        assert_eq!(zero_denominator.completion, None);
+    }
 }
