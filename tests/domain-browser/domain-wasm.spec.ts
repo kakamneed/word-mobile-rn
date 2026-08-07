@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
@@ -11,6 +12,22 @@ const manifest = JSON.parse(readFileSync(resolve(artifactAbsoluteRoot, 'manifest
 const fixtureManifest = JSON.parse(
   readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1/manifest.json'), 'utf8'),
 );
+const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+const inventoryDigest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const normalizedTextSha256 = (path: string) => createHash('sha256')
+  .update(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'))
+  .digest('hex');
+
+const liveInventory = ['fixtures', 'lifecycleFixtures']
+  .flatMap((collection) => (fixtureManifest[collection] ?? []).map((fixture: { id: string; request: string; expected: string }) => ({
+    id: fixture.id,
+    collection,
+    requestPath: fixture.request,
+    requestSha256: sha256(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.request)),
+    expectedPath: fixture.expected,
+    expectedSha256: sha256(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.expected)),
+  })))
+  .sort((left, right) => left.id.localeCompare(right.id));
 
 let server: Server;
 let origin: string;
@@ -60,10 +77,22 @@ test.afterAll(async () => {
 test('generated package executes canonical results and structured errors', async ({ page }, testInfo) => {
   await page.goto(origin);
   const modulePath = `/${artifactRoot.replaceAll('\\', '/')}/${manifest.artifacts.javascript.path.replaceAll('\\', '/')}`;
-  const fixtures = [...fixtureManifest.fixtures, ...(fixtureManifest.lifecycleFixtures ?? [])].map((fixture: { id: string; request: string; expected: string }) => ({
+  expect(manifest.fixtures.fixtureManifestSha256).toBe(
+    normalizedTextSha256(resolve(repositoryRoot, 'fixtures/domain/v1/manifest.json')),
+  );
+  expect(manifest.fixtures.fixtureInventory).toEqual(liveInventory);
+  expect(manifest.fixtures.fixtureCount).toBe(liveInventory.length);
+  expect(manifest.fixtures.fixtureInventorySha256).toBe(inventoryDigest(liveInventory));
+  const phase6Ids = liveInventory.filter((entry) => entry.id.startsWith('phase6-')).map((entry) => entry.id);
+  expect(manifest.fixtures.phase6FixtureIds).toEqual(phase6Ids);
+  expect(manifest.fixtures.phase6FixtureCount).toBe(phase6Ids.length);
+  expect(manifest.fixtures.phase6FixtureInventorySha256).toBe(
+    inventoryDigest(liveInventory.filter((entry) => entry.id.startsWith('phase6-'))),
+  );
+  const fixtures = manifest.fixtures.fixtureInventory.map((fixture: { id: string; requestPath: string; expectedPath: string }) => ({
     id: fixture.id,
-    request: readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.request), 'utf8'),
-    expected: JSON.parse(readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.expected), 'utf8')),
+    request: readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.requestPath), 'utf8'),
+    expected: JSON.parse(readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.expectedPath), 'utf8')),
   }));
 
   const measurements = await page.evaluate(async ({ moduleUrl, cases }) => {
@@ -99,6 +128,13 @@ test('generated package executes canonical results and structured errors', async
 
   writeFileSync(
     resolve(repositoryRoot, 'tests/domain-browser/test-results', `measurements-${testInfo.project.name}.json`),
-    `${JSON.stringify({ browser: testInfo.project.name, ...measurements, outputs: undefined }, null, 2)}\n`,
+    `${JSON.stringify({
+      browser: testInfo.project.name,
+      fixtureIds: fixtures.map((fixture: { id: string }) => fixture.id),
+      fixtureCount: fixtures.length,
+      fixtureInventorySha256: manifest.fixtures.fixtureInventorySha256,
+      ...measurements,
+      outputs: undefined,
+    }, null, 2)}\n`,
   );
 });
