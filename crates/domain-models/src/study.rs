@@ -244,6 +244,7 @@ pub enum SessionMode {
     Review,
     MixedTest,
     WrongWordReinforcement,
+    HighFrequency,
     RootAffix,
 }
 
@@ -261,7 +262,11 @@ impl SessionMode {
     pub fn produces_report_data(&self) -> bool {
         matches!(
             self,
-            Self::Review | Self::MixedTest | Self::WrongWordReinforcement | Self::RootAffix
+            Self::Review
+                | Self::MixedTest
+                | Self::WrongWordReinforcement
+                | Self::HighFrequency
+                | Self::RootAffix
         )
     }
 
@@ -271,6 +276,7 @@ impl SessionMode {
             Self::Review => "鏃ц瘝澶嶄範",
             Self::MixedTest => "娣峰悎娴嬭瘯",
             Self::WrongWordReinforcement => "閿欒瘝寮哄寲",
+            Self::HighFrequency => "\u{9ad8}\u{9891}\u{8bcd}",
             Self::RootAffix => "璇嶆牴璇嶇紑",
         }
     }
@@ -434,4 +440,45 @@ pub struct MarkStudyEntryMasteredResponse {
 pub struct CompleteSessionResponse {
     pub summary: SessionSummary,
     pub next_action: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Phase6QuestionRef {
+    pub question_id: String,
+    pub entry_source_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Phase6AcceptedAnswer {
+    pub question_id: String,
+    pub entry_source_id: String,
+    pub outcome: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Phase6SourceRef {
+    pub book_id: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Phase6SessionSnapshot {
+    pub mode: SessionMode,
+    pub target_questions: u32,
+    #[serde(default)]
+    pub source: Option<Phase6SourceRef>,
+    pub accepted_answers: Vec<Phase6AcceptedAnswer>,
+    pub unanswered: Vec<Phase6QuestionRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Phase6MasteryRevision {
+    pub entry_source_id: String,
+    pub reason: String,
+    pub revision: u64,
 }

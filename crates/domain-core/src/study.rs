@@ -3,8 +3,9 @@
 use std::collections::HashSet;
 
 use word_domain_models::{
-    AnswerOutcome, ChoiceOption, EntryExample, MeaningZh, QuestionType, QuestionTypeWeight,
-    SessionMode, StudyAnswer, StudyQuestion, StudyResult,
+    AnswerOutcome, ChoiceOption, EntryExample, MeaningZh, Phase6QuestionPlanRepair,
+    Phase6QuestionRef, QuestionType, QuestionTypeWeight, SessionMode, StudyAnswer, StudyQuestion,
+    StudyResult,
 };
 
 /// A word entry prepared for question generation.
@@ -67,12 +68,84 @@ pub fn session_definition(mode: SessionMode) -> DomainModeRules {
             batch_only: false,
             from_wrong_pool: true,
         },
-        SessionMode::RootAffix => DomainModeRules {
-            question_types: vec![QuestionType::GlossToRootInput, QuestionType::RootToGlossInput],
+        SessionMode::HighFrequency => DomainModeRules {
+            question_types: vec![QuestionType::EnToCnInput],
             loops_all_types_per_word: false,
             batch_only: false,
             from_wrong_pool: false,
         },
+        SessionMode::RootAffix => DomainModeRules {
+            question_types: vec![
+                QuestionType::GlossToRootInput,
+                QuestionType::RootToGlossInput,
+            ],
+            loops_all_types_per_word: false,
+            batch_only: false,
+            from_wrong_pool: false,
+        },
+    }
+}
+
+pub fn phase6_mode_accepts_weights(mode: &SessionMode) -> bool {
+    matches!(
+        mode,
+        SessionMode::Review | SessionMode::MixedTest | SessionMode::WrongWordReinforcement
+    )
+}
+
+pub fn repair_after_mastery(
+    unanswered: &[Phase6QuestionRef],
+    mastered_entry_source_id: &str,
+    eligible_remainder: &[String],
+) -> Phase6QuestionPlanRepair {
+    let removed = unanswered
+        .iter()
+        .filter(|question| question.entry_source_id == mastered_entry_source_id)
+        .map(|question| question.question_id.clone())
+        .collect::<Vec<_>>();
+    let preserved = unanswered
+        .iter()
+        .filter(|question| question.entry_source_id != mastered_entry_source_id)
+        .map(|question| question.question_id.clone())
+        .collect::<Vec<_>>();
+    let replenished = eligible_remainder
+        .first()
+        .cloned()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let shortage_questions = if removed.is_empty() || !replenished.is_empty() {
+        0
+    } else {
+        removed.len() as u32
+    };
+    Phase6QuestionPlanRepair {
+        removed_unanswered_question_ids: removed,
+        preserved_unanswered_question_ids: preserved,
+        replenished_entry_source_ids: replenished,
+        shortage_questions,
+    }
+}
+
+pub fn rebuild_unanswered_plan(
+    unanswered: &[Phase6QuestionRef],
+    accepted_count: usize,
+    target_questions: u32,
+    eligible_remainder: &[String],
+) -> Phase6QuestionPlanRepair {
+    let needed = target_questions.saturating_sub(accepted_count as u32) as usize;
+    let replenished = eligible_remainder
+        .iter()
+        .take(needed)
+        .cloned()
+        .collect::<Vec<_>>();
+    Phase6QuestionPlanRepair {
+        removed_unanswered_question_ids: unanswered
+            .iter()
+            .map(|question| question.question_id.clone())
+            .collect(),
+        preserved_unanswered_question_ids: Vec::new(),
+        shortage_questions: needed.saturating_sub(replenished.len()) as u32,
+        replenished_entry_source_ids: replenished,
     }
 }
 
@@ -101,10 +174,8 @@ impl AnswerEvaluator {
             };
             (outcome, Some(normalized))
         } else {
-            let (outcome, normalized) = evaluate_meaning_input(
-                &answer.response,
-                &question.accepted_meanings,
-            );
+            let (outcome, normalized) =
+                evaluate_meaning_input(&answer.response, &question.accepted_meanings);
             (outcome, Some(normalized))
         };
         let correct_answer = if question.question_type.is_choice_type() {
@@ -122,7 +193,11 @@ impl AnswerEvaluator {
                 .or_else(|| question.accepted_meanings.first().cloned())
                 .unwrap_or_default()
         } else {
-            question.accepted_meanings.first().cloned().unwrap_or_default()
+            question
+                .accepted_meanings
+                .first()
+                .cloned()
+                .unwrap_or_default()
         };
         StudyResult {
             question_id: question.question_id.clone(),
@@ -192,9 +267,9 @@ fn evaluate_meaning_input(response: &str, meanings: &[String]) -> (AnswerOutcome
         if parts.iter().any(|part| part == &normalized)
             || (!is_stopword(&normalized)
                 && normalized.chars().count() >= 2
-                && parts.iter().any(|part| {
-                    part.contains(&normalized) || normalized.contains(part)
-                }))
+                && parts
+                    .iter()
+                    .any(|part| part.contains(&normalized) || normalized.contains(part)))
         {
             return (AnswerOutcome::FuzzyCorrect, normalized);
         }
@@ -236,7 +311,10 @@ fn normalize_meaning_segment(text: &str) -> String {
 }
 
 fn is_stopword(text: &str) -> bool {
-    matches!(text, "" | "\u{7684}" | "\u{4e86}" | "\u{662f}" | "\u{5728}" | "\u{548c}")
+    matches!(
+        text,
+        "" | "\u{7684}" | "\u{4e86}" | "\u{662f}" | "\u{5728}" | "\u{548c}"
+    )
 }
 
 impl QuestionBuilder {
@@ -248,7 +326,11 @@ impl QuestionBuilder {
         session_id: &str,
         question_type_weights: &[QuestionTypeWeight],
     ) -> Vec<StudyQuestion> {
-        let distractors = if distractors.is_empty() { words } else { distractors };
+        let distractors = if distractors.is_empty() {
+            words
+        } else {
+            distractors
+        };
         if matches!(mode, SessionMode::RootAffix) {
             Self::build_root_affix_questions(words, session_id)
         } else if matches!(mode, SessionMode::NewWord) {
@@ -263,6 +345,7 @@ impl QuestionBuilder {
             )
         } else {
             let fallback_types = match mode {
+                SessionMode::HighFrequency => vec![QuestionType::EnToCnInput],
                 SessionMode::Review => QuestionType::all_four(),
                 SessionMode::MixedTest => vec![
                     QuestionType::EnToCnChoice,
@@ -1359,11 +1442,20 @@ fn distractor_similarity_score(correct: &str, candidate: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{QuestionBuilder, WordForQuestion};
+    use super::{session_definition, QuestionBuilder, WordForQuestion};
     use std::collections::HashSet;
     use word_domain_models::{
         EntryExample, MeaningZh, QuestionType, QuestionTypeWeight, SessionMode,
     };
+
+    #[test]
+    fn high_frequency_mode_only_uses_english_to_chinese_input() {
+        let definition = session_definition(SessionMode::HighFrequency);
+        assert_eq!(definition.question_types, vec![QuestionType::EnToCnInput]);
+        assert!(!definition.loops_all_types_per_word);
+        assert!(!definition.batch_only);
+        assert!(!definition.from_wrong_pool);
+    }
 
     #[test]
     fn stable_seed_has_fixed_width_cross_target_value() {

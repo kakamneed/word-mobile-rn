@@ -1,15 +1,20 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
+use word_domain_core::progress::phase6_skip_evidence;
+use word_domain_core::study::{
+    phase6_mode_accepts_weights, rebuild_unanswered_plan, repair_after_mastery,
+};
 use word_domain_core::{
-    project_learning_evidence, project_report, project_wrong_words, summarize_results,
-    AnswerEvaluator, DomainContext, ProjectLearningEvidenceInput, QuestionBuilder,
-    ReportHistoryInput, WordForQuestion, WrongWordProjectionInput,
+    project_learning_evidence, project_report, project_wrong_words, session_definition,
+    summarize_results, AnswerEvaluator, DomainContext, ProjectLearningEvidenceInput,
+    QuestionBuilder, ReportHistoryInput, WordForQuestion, WrongWordProjectionInput,
 };
 use word_domain_models::{
-    AnsweredStudyQuestion, EntryExample, MeaningZh, QuestionTypeWeight, SessionMode,
-    SessionProgress, StartSessionEntryPayload, StartSessionRequest, StartSessionResponse,
-    StudyAnswer, StudyQuestion, StudyResult, StudySession,
+    AnsweredStudyQuestion, EntryExample, MeaningZh, Phase6AcceptedAnswer, Phase6MasteryRevision,
+    Phase6SessionSnapshot, Phase6SourceRef, QuestionTypeWeight, SessionMode, SessionProgress,
+    StartSessionEntryPayload, StartSessionRequest, StartSessionResponse, StudyAnswer,
+    StudyQuestion, StudyResult, StudySession,
 };
 
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -101,6 +106,11 @@ pub enum Command {
     ResolveDispute,
     ExcludeEntry,
     AbandonSession,
+    CapturePhase6SixModes,
+    CapturePhase6Mastery,
+    SetMastery,
+    RestoreMastery,
+    ReconcileSession,
 }
 
 impl Command {
@@ -121,6 +131,11 @@ impl Command {
             "resolveDispute" => Some(Self::ResolveDispute),
             "excludeEntry" => Some(Self::ExcludeEntry),
             "abandonSession" => Some(Self::AbandonSession),
+            "capturePhase6SixModes" => Some(Self::CapturePhase6SixModes),
+            "capturePhase6Mastery" => Some(Self::CapturePhase6Mastery),
+            "setMastery" => Some(Self::SetMastery),
+            "restoreMastery" => Some(Self::RestoreMastery),
+            "reconcileSession" => Some(Self::ReconcileSession),
             _ => None,
         }
     }
@@ -168,6 +183,92 @@ struct WrongWordsPayload {
 struct ReportPayload {
     learned_count: u64,
     history: Vec<ReportHistoryInput>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6RootRecord {
+    root: String,
+    gloss: String,
+    examples: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6Eligibility {
+    learned_before_local_day: Vec<String>,
+    mixed: Vec<String>,
+    wrong_word_state: Vec<String>,
+    high_frequency: Vec<String>,
+    #[serde(default)]
+    high_frequency_outcomes: Vec<Phase6HighFrequencyOutcome>,
+    root_affix_records: Vec<Phase6RootRecord>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6HighFrequencyOutcome {
+    entry_source_id: String,
+    outcome: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6SixModesPayload {
+    daily_targets: BTreeMap<String, u32>,
+    #[serde(default)]
+    question_type_weights: BTreeMap<String, BTreeMap<String, u32>>,
+    eligibility: Phase6Eligibility,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6SkipInput {
+    question_id: String,
+    entry_source_id: String,
+    response: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6MasteryPayload {
+    skip: Phase6SkipInput,
+    snapshot: Phase6SessionSnapshot,
+    set_mastery: Phase6MasteryRevision,
+    eligible_remainder: Vec<String>,
+    pools: Vec<String>,
+    restore_mastery: Phase6MasteryRevision,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetMasteryPayload {
+    snapshot: Phase6SessionSnapshot,
+    mastery: Phase6MasteryRevision,
+    eligible_remainder: Vec<String>,
+    pools: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RestoreMasteryPayload {
+    accepted_answers: Vec<Phase6AcceptedAnswer>,
+    mastery: Phase6MasteryRevision,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6ReconcileChanges {
+    target_questions: u32,
+    source: Phase6SourceRef,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Phase6ReconcilePayload {
+    snapshot: Phase6SessionSnapshot,
+    changes: Phase6ReconcileChanges,
+    eligible_remainder: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -491,6 +592,11 @@ fn dispatch(
         Command::ResolveDispute => resolve_dispute(typed_payload(payload)?),
         Command::ExcludeEntry => exclude_entry(typed_payload(payload)?),
         Command::AbandonSession => abandon_session(typed_payload(payload)?),
+        Command::CapturePhase6SixModes => capture_phase6_six_modes(typed_payload(payload)?),
+        Command::CapturePhase6Mastery => capture_phase6_mastery(typed_payload(payload)?),
+        Command::SetMastery => set_mastery_command(typed_payload(payload)?),
+        Command::RestoreMastery => restore_mastery_command(typed_payload(payload)?),
+        Command::ReconcileSession => reconcile_session(typed_payload(payload)?),
     }
 }
 
@@ -503,6 +609,268 @@ fn to_value<T: Serialize>(value: T) -> Result<Value, ProtocolResponse> {
             None,
         )
     })
+}
+
+fn required_target(targets: &BTreeMap<String, u32>, mode: &str) -> Result<u32, ProtocolResponse> {
+    targets
+        .get(mode)
+        .copied()
+        .ok_or_else(|| invalid_data("Every Phase 6 mode requires an explicit daily target."))
+}
+
+fn configured_weights(
+    weights: &BTreeMap<String, BTreeMap<String, u32>>,
+    mode: &str,
+) -> Result<Value, ProtocolResponse> {
+    let configured = weights
+        .get(mode)
+        .ok_or_else(|| invalid_data("Every configurable mode requires frozen question weights."))?;
+    if configured.values().copied().sum::<u32>() != 100 {
+        return Err(invalid_data("Phase 6 question weights must total 100."));
+    }
+    to_value(configured)
+}
+
+fn capture_phase6_six_modes(payload: Phase6SixModesPayload) -> Result<Value, ProtocolResponse> {
+    for mode in payload.question_type_weights.keys() {
+        let parsed_mode = match mode.as_str() {
+            "review" => SessionMode::Review,
+            "mixedTest" => SessionMode::MixedTest,
+            "wrongWordReinforcement" => SessionMode::WrongWordReinforcement,
+            _ => {
+                return Err(invalid_data(
+                    "Question weights are not accepted for this fixed Phase 6 mode.",
+                ))
+            }
+        };
+        if !phase6_mode_accepts_weights(&parsed_mode) {
+            return Err(invalid_data(
+                "Question weights are not accepted for this fixed Phase 6 mode.",
+            ));
+        }
+    }
+    if payload.eligibility.root_affix_records.iter().any(|record| {
+        record.root.trim().is_empty()
+            || record.gloss.trim().is_empty()
+            || record
+                .examples
+                .iter()
+                .filter(|item| !item.trim().is_empty())
+                .count()
+                < 2
+    }) {
+        return Err(invalid_data(
+            "Root-affix mode requires validated records with two relevant examples.",
+        ));
+    }
+    let ordinary_pools = [
+        &payload.eligibility.learned_before_local_day,
+        &payload.eligibility.mixed,
+        &payload.eligibility.wrong_word_state,
+        &payload.eligibility.high_frequency,
+    ];
+    if ordinary_pools
+        .iter()
+        .flat_map(|pool| pool.iter())
+        .any(|entry| entry.trim().is_empty())
+    {
+        return Err(invalid_data(
+            "Phase 6 eligible entry ids must be non-empty.",
+        ));
+    }
+    let mut positive_high_frequency = BTreeMap::<&str, u32>::new();
+    for outcome in &payload.eligibility.high_frequency_outcomes {
+        if matches!(outcome.outcome.as_str(), "correct" | "fuzzyCorrect") {
+            *positive_high_frequency
+                .entry(outcome.entry_source_id.as_str())
+                .or_default() += 1;
+        }
+    }
+    if payload.eligibility.high_frequency.iter().any(|entry| {
+        positive_high_frequency
+            .get(entry.as_str())
+            .copied()
+            .unwrap_or_default()
+            >= 3
+    }) {
+        return Err(invalid_data(
+            "Mastered high-frequency entries cannot remain eligible.",
+        ));
+    }
+
+    let new_word_rules = session_definition(SessionMode::NewWord);
+    let review_rules = session_definition(SessionMode::Review);
+    let mixed_rules = session_definition(SessionMode::MixedTest);
+    let wrong_rules = session_definition(SessionMode::WrongWordReinforcement);
+    let high_rules = session_definition(SessionMode::HighFrequency);
+    let root_rules = session_definition(SessionMode::RootAffix);
+    Ok(json!({
+        "planUnit": "question",
+        "modes": {
+            "newWord": {
+                "targetQuestions": required_target(&payload.daily_targets, "newWord")?,
+                "questionsPerEntry": new_word_rules.question_types.len(),
+                "questionTypes": new_word_rules.question_types,
+                "configurableWeights": false
+            },
+            "review": {
+                "targetQuestions": required_target(&payload.daily_targets, "review")?,
+                "eligibleEntryRule": "learnedBeforeLocalDay",
+                "questionTypes": review_rules.question_types,
+                "materializedWeights": configured_weights(&payload.question_type_weights, "review")?,
+                "configurableWeights": true
+            },
+            "mixedTest": {
+                "targetQuestions": required_target(&payload.daily_targets, "mixedTest")?,
+                "questionTypes": mixed_rules.question_types,
+                "materializedWeights": configured_weights(&payload.question_type_weights, "mixedTest")?,
+                "configurableWeights": true
+            },
+            "wrongWordReinforcement": {
+                "targetQuestions": required_target(&payload.daily_targets, "wrongWordReinforcement")?,
+                "eligibleEntryRule": "authoritativeWrongWordState",
+                "questionTypes": wrong_rules.question_types,
+                "materializedWeights": configured_weights(&payload.question_type_weights, "wrongWordReinforcement")?,
+                "configurableWeights": true
+            },
+            "highFrequency": {
+                "targetQuestions": required_target(&payload.daily_targets, "highFrequency")?,
+                "questionTypes": high_rules.question_types,
+                "masteryRule": {"positiveAnswersRequired": 3, "scope": "entry"},
+                "configurableWeights": false
+            },
+            "rootAffix": {
+                "targetQuestions": required_target(&payload.daily_targets, "rootAffix")?,
+                "questionTypes": root_rules.question_types,
+                "requiresValidatedRecord": true,
+                "minimumRelevantExamples": 2,
+                "configurableWeights": false
+            }
+        },
+        "todayActions": {
+            "perMode": "startOrContinue",
+            "primary": "nextUnfinishedAvailableMode",
+            "studyModePicker": false
+        }
+    }))
+}
+
+fn mastery_set_projection(payload: &SetMasteryPayload) -> Value {
+    let repair = repair_after_mastery(
+        &payload.snapshot.unanswered,
+        &payload.mastery.entry_source_id,
+        &payload.eligible_remainder,
+    );
+    let excluded_pools = payload
+        .pools
+        .iter()
+        .filter(|pool| pool.as_str() != "rootAffix")
+        .cloned()
+        .collect::<Vec<_>>();
+    let unaffected_pools = payload
+        .pools
+        .iter()
+        .filter(|pool| pool.as_str() == "rootAffix")
+        .cloned()
+        .collect::<Vec<_>>();
+    json!({
+        "actionMeaning": "markMastered",
+        "reversible": true,
+        "answerCreated": false,
+        "historicalAnswerCount": payload.snapshot.accepted_answers.len(),
+        "mastery": {
+            "entrySourceId": payload.mastery.entry_source_id,
+            "active": true,
+            "reason": payload.mastery.reason,
+            "revision": payload.mastery.revision
+        },
+        "removedUnansweredQuestionIds": repair.removed_unanswered_question_ids,
+        "preservedUnansweredQuestionIds": repair.preserved_unanswered_question_ids,
+        "replenishedEntrySourceIds": repair.replenished_entry_source_ids,
+        "targetQuestions": payload.snapshot.target_questions,
+        "shortageQuestions": repair.shortage_questions,
+        "excludedPools": excluded_pools,
+        "unaffectedPools": unaffected_pools
+    })
+}
+
+fn mastery_restore_projection(payload: &RestoreMasteryPayload) -> Value {
+    json!({
+        "answerCreated": false,
+        "historicalAnswerCount": payload.accepted_answers.len(),
+        "mastery": {
+            "entrySourceId": payload.mastery.entry_source_id,
+            "active": false,
+            "reason": payload.mastery.reason,
+            "revision": payload.mastery.revision
+        },
+        "futureEligibilityRestored": true
+    })
+}
+
+fn set_mastery_command(payload: SetMasteryPayload) -> Result<Value, ProtocolResponse> {
+    Ok(mastery_set_projection(&payload))
+}
+
+fn restore_mastery_command(payload: RestoreMasteryPayload) -> Result<Value, ProtocolResponse> {
+    Ok(mastery_restore_projection(&payload))
+}
+
+fn capture_phase6_mastery(payload: Phase6MasteryPayload) -> Result<Value, ProtocolResponse> {
+    if payload.skip.question_id.trim().is_empty()
+        || payload.skip.entry_source_id.trim().is_empty()
+        || !payload.skip.response.is_empty()
+        || payload.set_mastery.entry_source_id != payload.restore_mastery.entry_source_id
+        || payload.restore_mastery.revision <= payload.set_mastery.revision
+    {
+        return Err(invalid_data("The Phase 6 skip input is invalid."));
+    }
+    let set_payload = SetMasteryPayload {
+        snapshot: payload.snapshot,
+        mastery: payload.set_mastery,
+        eligible_remainder: payload.eligible_remainder,
+        pools: payload.pools,
+    };
+    let restore_payload = RestoreMasteryPayload {
+        accepted_answers: set_payload.snapshot.accepted_answers.clone(),
+        mastery: payload.restore_mastery,
+    };
+    Ok(json!({
+        "skip": phase6_skip_evidence(),
+        "setMastery": mastery_set_projection(&set_payload),
+        "restoreMastery": mastery_restore_projection(&restore_payload)
+    }))
+}
+
+fn reconcile_session(payload: Phase6ReconcilePayload) -> Result<Value, ProtocolResponse> {
+    let completed_questions = payload.snapshot.accepted_answers.len() as u32;
+    if payload.changes.target_questions < completed_questions {
+        return Err(invalid_data(
+            "A reconciled target cannot discard accepted answer history.",
+        ));
+    }
+    let repair = rebuild_unanswered_plan(
+        &payload.snapshot.unanswered,
+        completed_questions as usize,
+        payload.changes.target_questions,
+        &payload.eligible_remainder,
+    );
+    let available_questions =
+        completed_questions + repair.replenished_entry_source_ids.len() as u32;
+    Ok(json!({
+        "mode": payload.snapshot.mode,
+        "targetQuestions": payload.changes.target_questions,
+        "source": payload.changes.source,
+        "acceptedAnswers": payload.snapshot.accepted_answers,
+        "discardedUnansweredQuestionIds": repair.removed_unanswered_question_ids,
+        "rebuiltUnansweredEntrySourceIds": repair.replenished_entry_source_ids,
+        "completedQuestions": completed_questions,
+        "availableQuestions": available_questions,
+        "shortageQuestions": repair.shortage_questions,
+        "complete": available_questions >= payload.changes.target_questions,
+        "acceptedHistoryRewritten": false,
+        "planMutationScope": "futureIntentUntilExplicitApply"
+    }))
 }
 
 fn fixture_words(payloads: &[StartSessionEntryPayload]) -> Vec<WordForQuestion> {
@@ -746,6 +1114,11 @@ fn build_session(
     context: &DomainContext,
     request: StartSessionRequest,
 ) -> Result<Value, ProtocolResponse> {
+    if !request.question_type_weights.is_empty() && !phase6_mode_accepts_weights(&request.mode) {
+        return Err(invalid_data(
+            "Question weights are not accepted for this fixed study mode.",
+        ));
+    }
     let words = if request.entry_payloads.is_empty() {
         request
             .entry_source_ids
@@ -832,6 +1205,7 @@ fn complete_session(
             SessionMode::Review => "Review complete",
             SessionMode::MixedTest => "Check wrong words",
             SessionMode::WrongWordReinforcement => "Continue with new words",
+            SessionMode::HighFrequency => "Continue with high-frequency words",
             SessionMode::RootAffix => "Continue with review",
         }
         .to_string()
@@ -1121,4 +1495,117 @@ fn abandon_session(payload: AbandonSessionPayload) -> Result<Value, ProtocolResp
 
 fn invalid_data(message: &'static str) -> ProtocolResponse {
     ProtocolResponse::failure(String::new(), "invalid_data", message, None)
+}
+
+#[cfg(test)]
+mod phase6_tests {
+    use super::execute_v1;
+    use serde_json::Value;
+
+    fn fixture(relative_path: &str) -> Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(relative_path);
+        serde_json::from_str(&std::fs::read_to_string(path).expect("read Phase 6 fixture"))
+            .expect("parse Phase 6 fixture")
+    }
+
+    fn assert_fixture(request_path: &str, expected_path: &str) {
+        let request = fixture(request_path);
+        let expected = fixture(expected_path);
+        let response: Value = serde_json::from_str(&execute_v1(&request.to_string()))
+            .expect("parse protocol response");
+        assert_eq!(response.get("error"), None, "protocol returned an error");
+        assert_eq!(response["result"], expected);
+    }
+
+    #[test]
+    fn phase6_six_mode_contract_matches_registered_fixture() {
+        assert_fixture(
+            "fixtures/domain/v1/requests/phase6-six-modes.json",
+            "fixtures/domain/v1/expected/phase6-six-modes.json",
+        );
+    }
+
+    #[test]
+    fn phase6_mastery_contract_matches_registered_fixture() {
+        assert_fixture(
+            "fixtures/domain/v1/requests/phase6-mastery.json",
+            "fixtures/domain/v1/expected/phase6-mastery.json",
+        );
+    }
+
+    #[test]
+    fn phase6_reconcile_contract_matches_registered_fixture() {
+        assert_fixture(
+            "fixtures/domain/v1/requests/phase6-reconcile.json",
+            "fixtures/domain/v1/expected/phase6-reconcile.json",
+        );
+    }
+
+    #[test]
+    fn fixed_modes_reject_question_weights() {
+        let mut request = fixture("fixtures/domain/v1/requests/phase6-six-modes.json");
+        request["requestId"] = Value::String("phase6-fixed-weight-rejection".to_string());
+        request["payload"]["questionTypeWeights"]["highFrequency"] =
+            serde_json::json!({"enToCnInput": 100});
+        let response: Value = serde_json::from_str(&execute_v1(&request.to_string()))
+            .expect("parse protocol response");
+        assert_eq!(response["error"]["code"], "invalid_data");
+
+        let build_request = serde_json::json!({
+            "protocolVersion": 1,
+            "command": "buildSession",
+            "requestId": "phase6-build-fixed-weight-rejection",
+            "context": request["context"],
+            "payload": {
+                "mode": "highFrequency",
+                "wordbookId": null,
+                "entrySourceIds": ["entry-high-a"],
+                "questionTypeWeights": [{"questionType": "cnToEnChoice", "weight": 100}]
+            }
+        });
+        let build_response: Value = serde_json::from_str(&execute_v1(&build_request.to_string()))
+            .expect("parse build-session response");
+        assert_eq!(build_response["error"]["code"], "invalid_data");
+    }
+
+    #[test]
+    fn set_and_restore_mastery_are_distinct_reversible_commands() {
+        let fixture_request = fixture("fixtures/domain/v1/requests/phase6-mastery.json");
+        let context = fixture_request["context"].clone();
+        let payload = &fixture_request["payload"];
+        let set_request = serde_json::json!({
+            "protocolVersion": 1,
+            "command": "setMastery",
+            "requestId": "phase6-set-mastery",
+            "context": context,
+            "payload": {
+                "snapshot": payload["snapshot"],
+                "mastery": payload["setMastery"],
+                "eligibleRemainder": payload["eligibleRemainder"],
+                "pools": payload["pools"]
+            }
+        });
+        let set_response: Value = serde_json::from_str(&execute_v1(&set_request.to_string()))
+            .expect("parse set mastery response");
+        assert_eq!(set_response["result"]["answerCreated"], false);
+        assert_eq!(set_response["result"]["mastery"]["active"], true);
+
+        let restore_request = serde_json::json!({
+            "protocolVersion": 1,
+            "command": "restoreMastery",
+            "requestId": "phase6-restore-mastery",
+            "context": fixture_request["context"],
+            "payload": {
+                "acceptedAnswers": payload["snapshot"]["acceptedAnswers"],
+                "mastery": payload["restoreMastery"]
+            }
+        });
+        let restore_response: Value =
+            serde_json::from_str(&execute_v1(&restore_request.to_string()))
+                .expect("parse restore mastery response");
+        assert_eq!(restore_response["result"]["answerCreated"], false);
+        assert_eq!(restore_response["result"]["mastery"]["active"], false);
+    }
 }

@@ -1,4 +1,6 @@
-use word_domain_models::{AnswerOutcome, SessionProgress, SessionSummary, StudyResult};
+use word_domain_models::{
+    AnswerOutcome, Phase6SkipEvidence, SessionProgress, SessionSummary, StudyResult,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct StudyEntryState {
@@ -58,10 +60,15 @@ pub fn summarize_results(
     total_questions: u32,
     completed_at: &str,
 ) -> SessionSummary {
-    SessionSummary::from_results_with_total(
-        session_id,
-        results,
-        total_questions,
-        completed_at,
-    )
+    SessionSummary::from_results_with_total(session_id, results, total_questions, completed_at)
+}
+
+pub fn phase6_skip_evidence() -> Phase6SkipEvidence {
+    Phase6SkipEvidence {
+        accepted_answer_created: true,
+        outcome: "incorrect".to_string(),
+        reveals_canonical_answer: true,
+        updates_wrong_words_and_reports: true,
+        requires_explicit_next: true,
+    }
 }
