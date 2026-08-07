@@ -23,6 +23,46 @@ function Get-TextSha256([string]$Text) {
     finally { $sha.Dispose() }
 }
 
+function Get-ValueSha256([object]$Value) {
+    return Get-TextSha256 ($Value | ConvertTo-Json -Depth 20 -Compress)
+}
+
+function Get-FixtureInventory([string]$FixtureRoot, [object]$FixtureManifest) {
+    $seenIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $seenPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $inventory = foreach ($collection in @('fixtures', 'lifecycleFixtures')) {
+        foreach ($fixture in @($FixtureManifest.$collection)) {
+            $id = [string]$fixture.id
+            $requestPath = [string]$fixture.request
+            $expectedPath = [string]$fixture.expected
+            if ([string]::IsNullOrWhiteSpace($id) -or -not $seenIds.Add($id)) { throw "Duplicate or empty fixture id: $id" }
+            foreach ($path in @($requestPath, $expectedPath)) {
+                if ([string]::IsNullOrWhiteSpace($path) -or -not $seenPaths.Add($path)) { throw "Duplicate or empty fixture path: $path" }
+                if (-not (Test-Path -LiteralPath (Join-Path $FixtureRoot $path) -PathType Leaf)) { throw "Fixture file is missing: $path" }
+            }
+            [ordered]@{
+                id = $id
+                collection = $collection
+                requestPath = $requestPath
+                requestSha256 = Get-FileSha256 (Join-Path $FixtureRoot $requestPath)
+                expectedPath = $expectedPath
+                expectedSha256 = Get-FileSha256 (Join-Path $FixtureRoot $expectedPath)
+            }
+        }
+    }
+    return @($inventory | Sort-Object { $_.id })
+}
+
+function Get-ArtifactEntry([string]$Path, [string]$RelativePath, [switch]$IncludeGzip) {
+    $entry = [ordered]@{
+        path = $RelativePath
+        sha256 = Get-FileSha256 $Path
+        rawBytes = (Get-Item -LiteralPath $Path).Length
+    }
+    if ($IncludeGzip) { $entry.gzipBytes = Get-GzipSize $Path }
+    return $entry
+}
+
 function Get-GzipSize([string]$Path) {
     $input = [IO.File]::OpenRead($Path)
     $output = New-Object IO.MemoryStream
@@ -56,11 +96,17 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
     & wasm-pack build (Join-Path $repositoryRoot 'crates\domain-wasm') --release --target web --out-dir $packageDirectory --out-name word_domain_wasm
     if ($LASTEXITCODE -ne 0) { throw 'wasm-pack build failed.' }
 
+    $packageJsonPath = Join-Path $packageDirectory 'package.json'
     $wasmPath = Join-Path $packageDirectory 'word_domain_wasm_bg.wasm'
+    $wasmTypesPath = Join-Path $packageDirectory 'word_domain_wasm_bg.wasm.d.ts'
     $jsPath = Join-Path $packageDirectory 'word_domain_wasm.js'
+    $jsTypesPath = Join-Path $packageDirectory 'word_domain_wasm.d.ts'
     $sourceLock = Get-Content (Join-Path $repositoryRoot 'fixtures\domain\v1\source-lock.json') -Raw | ConvertFrom-Json
-    $fixtureManifest = Get-Content (Join-Path $repositoryRoot 'fixtures\domain\v1\manifest.json') -Raw | ConvertFrom-Json
-    $phase4FixturePath = Join-Path $repositoryRoot 'fixtures\domain\v1\phase4-projections.json'
+    $fixtureRoot = Join-Path $repositoryRoot 'fixtures\domain\v1'
+    $fixtureManifestPath = Join-Path $fixtureRoot 'manifest.json'
+    $fixtureManifest = Get-Content $fixtureManifestPath -Raw | ConvertFrom-Json
+    $fixtureInventory = @(Get-FixtureInventory -FixtureRoot $fixtureRoot -FixtureManifest $fixtureManifest)
+    $phase6Inventory = @($fixtureInventory | Where-Object { $_.id.StartsWith('phase6-', [StringComparison]::Ordinal) })
     $actualCommit = (& git -C $repositoryRoot rev-parse HEAD).Trim()
     $dirty = @(& git -C $repositoryRoot status --short).Count -gt 0
     if ($Commit -and $actualCommit -ne $Commit) { throw "Build commit $actualCommit does not match required commit $Commit." }
@@ -84,14 +130,21 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
             wasmPack = (& wasm-pack --version).Trim()
         }
         artifacts = [ordered]@{
-            javascript = [ordered]@{ path = 'package/word_domain_wasm.js'; sha256 = Get-FileSha256 $jsPath; rawBytes = (Get-Item $jsPath).Length }
-            wasm = [ordered]@{ path = 'package/word_domain_wasm_bg.wasm'; sha256 = Get-FileSha256 $wasmPath; rawBytes = (Get-Item $wasmPath).Length; gzipBytes = Get-GzipSize $wasmPath }
+            packageJson = Get-ArtifactEntry $packageJsonPath 'package/package.json'
+            javascript = Get-ArtifactEntry $jsPath 'package/word_domain_wasm.js'
+            javascriptTypes = Get-ArtifactEntry $jsTypesPath 'package/word_domain_wasm.d.ts'
+            wasm = Get-ArtifactEntry $wasmPath 'package/word_domain_wasm_bg.wasm' -IncludeGzip
+            wasmTypes = Get-ArtifactEntry $wasmTypesPath 'package/word_domain_wasm_bg.wasm.d.ts'
         }
         fixtures = [ordered]@{
-            phase4Projections = [ordered]@{
-                path = 'fixtures/domain/v1/phase4-projections.json'
-                sha256 = Get-TextSha256 ((Get-Content $phase4FixturePath -Raw).Replace("`r`n", "`n"))
-            }
+            manifestPath = 'fixtures/domain/v1/manifest.json'
+            fixtureManifestSha256 = Get-TextSha256 ((Get-Content $fixtureManifestPath -Raw).Replace("`r`n", "`n"))
+            fixtureCount = $fixtureInventory.Count
+            fixtureInventorySha256 = Get-ValueSha256 $fixtureInventory
+            fixtureInventory = $fixtureInventory
+            phase6FixtureIds = @($phase6Inventory | ForEach-Object { $_.id })
+            phase6FixtureCount = $phase6Inventory.Count
+            phase6FixtureInventorySha256 = Get-ValueSha256 $phase6Inventory
         }
         budgets = [ordered]@{
             wasmRawBytes = 1048576

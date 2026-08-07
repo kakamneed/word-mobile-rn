@@ -33,6 +33,13 @@ $script:LockPath = Join-Path $script:RepositoryRoot 'fixtures\domain\v1\source-l
 $script:PromotionsPath = Join-Path $script:RepositoryRoot 'fixtures\domain\v1\source-lock-promotions.json'
 $script:LedgerPath = 'docs/features/learning.md'
 $script:AuthoritativePaths = @(
+    'crates/domain-models/src/study.rs'
+    'crates/domain-models/src/projections.rs'
+    'crates/domain-core/src/study.rs'
+    'crates/domain-core/src/progress.rs'
+    'crates/domain-protocol/src/v1.rs'
+    'crates/domain-wasm/src/lib.rs'
+    'fixtures/domain/v1/manifest.json'
     'crates/study-core/src/question_builder.rs'
     'crates/study-core/src/session_summary.rs'
     'crates/storage-core/src/models/study_question.rs'
@@ -92,10 +99,42 @@ function Read-JsonFile {
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 
+function Get-FixtureInventoryPaths {
+    param([string]$Root)
+
+    $manifestPath = Join-Path $Root 'fixtures\domain\v1\manifest.json'
+    $manifest = Read-JsonFile -Path $manifestPath
+    $seenIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $seenPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    [string[]]$paths = @()
+    foreach ($collection in @('fixtures', 'lifecycleFixtures')) {
+        if ($null -eq $manifest.$collection) { throw "Fixture manifest is missing $collection." }
+        foreach ($fixture in @($manifest.$collection)) {
+            $id = [string]$fixture.id
+            if ([string]::IsNullOrWhiteSpace($id) -or -not $seenIds.Add($id)) { throw "Duplicate or empty fixture id: $id" }
+            foreach ($candidate in @([string]$fixture.request, [string]$fixture.expected)) {
+                if ([string]::IsNullOrWhiteSpace($candidate) -or
+                    [IO.Path]::IsPathRooted($candidate) -or
+                    $candidate.Contains('\') -or
+                    @($candidate.Split('/') | Where-Object { $_ -eq '' -or $_ -eq '.' -or $_ -eq '..' }).Count -gt 0) {
+                    throw "Fixture path is not a normalized relative POSIX path: $candidate"
+                }
+                if (-not $seenPaths.Add($candidate)) { throw "Duplicate fixture path: $candidate" }
+                $relativePath = "fixtures/domain/v1/$candidate"
+                if (-not (Test-Path -LiteralPath (Join-Path $Root $relativePath) -PathType Leaf)) { throw "Registered fixture file is missing: $relativePath" }
+                $paths += $relativePath
+            }
+        }
+    }
+    [Array]::Sort($paths, [StringComparer]::Ordinal)
+    return $paths
+}
+
 function Get-SourceLockSnapshot {
     param([int]$AcceptedWave)
 
-    $entries = foreach ($relativePath in $script:AuthoritativePaths) {
+    [string[]]$allPaths = @($script:AuthoritativePaths) + @(Get-FixtureInventoryPaths -Root $script:RepositoryRoot)
+    $entries = foreach ($relativePath in $allPaths) {
         $absolutePath = Join-Path $script:RepositoryRoot $relativePath
         if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
             throw "Authoritative source is missing: $relativePath"
@@ -233,6 +272,19 @@ function Assert-PromotionEvidence {
 }
 
 function Invoke-ContractSelfTest {
+    [string[]]$phase6Paths = @(
+        'crates/domain-models/src/study.rs',
+        'crates/domain-models/src/projections.rs',
+        'crates/domain-core/src/study.rs',
+        'crates/domain-core/src/progress.rs',
+        'crates/domain-protocol/src/v1.rs',
+        'crates/domain-wasm/src/lib.rs',
+        'fixtures/domain/v1/manifest.json'
+    )
+    foreach ($path in $phase6Paths) {
+        if ($script:AuthoritativePaths -cnotcontains $path) { throw "Self-test missing authoritative Phase 6 path: $path" }
+    }
+
     $accepted = [pscustomobject]@{
         acceptedWave = 0
         aggregateSha256 = 'old-digest'
@@ -262,9 +314,61 @@ function Invoke-ContractSelfTest {
         throw 'Self-test expected drift to fail closed.'
     }
 
+    foreach ($path in $phase6Paths) {
+        $acceptedPath = [pscustomobject]@{
+            acceptedWave = 0
+            aggregateSha256 = 'old-digest'
+            authoritativeInputs = @([pscustomobject]@{ path = $path; sha256 = 'old-source' })
+            learningLedger = [pscustomobject]@{ path = $script:LedgerPath; sha256 = 'ledger' }
+        }
+        $changedPath = [pscustomobject]@{
+            aggregateSha256 = 'new-digest'
+            authoritativeInputs = @([pscustomobject]@{ path = $path; sha256 = 'new-source' })
+            learningLedger = [pscustomobject]@{ path = $script:LedgerPath; sha256 = 'ledger' }
+        }
+        try {
+            Compare-SourceLockSnapshot -Accepted $acceptedPath -Current $changedPath -CheckedWave 1 | Out-Null
+            throw "Self-test expected mutation rejection for $path"
+        }
+        catch {
+            if ($_.Exception.Message.IndexOf($path, [StringComparison]::Ordinal) -lt 0) { throw }
+        }
+    }
+
     $testDir = Join-Path ([IO.Path]::GetTempPath()) "word-source-lock-$PID"
     [IO.Directory]::CreateDirectory($testDir) | Out-Null
     try {
+        $fixtureRoot = Join-Path $testDir 'fixtures\domain\v1'
+        [IO.Directory]::CreateDirectory((Join-Path $fixtureRoot 'requests')) | Out-Null
+        [IO.Directory]::CreateDirectory((Join-Path $fixtureRoot 'expected')) | Out-Null
+        [IO.File]::WriteAllText((Join-Path $fixtureRoot 'requests\one.json'), "{}`n")
+        [IO.File]::WriteAllText((Join-Path $fixtureRoot 'expected\one.json'), "{}`n")
+        $fixtureManifestPath = Join-Path $fixtureRoot 'manifest.json'
+        Write-JsonAtomically -Path $fixtureManifestPath -Value ([ordered]@{
+            fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json' })
+            lifecycleFixtures = @()
+        })
+        [string[]]$fixturePaths = @(Get-FixtureInventoryPaths -Root $testDir)
+        [string[]]$expectedFixturePaths = @('fixtures/domain/v1/expected/one.json', 'fixtures/domain/v1/requests/one.json')
+        for ($index = 0; $index -lt $expectedFixturePaths.Count; $index++) {
+            if (-not [StringComparer]::Ordinal.Equals($fixturePaths[$index], $expectedFixturePaths[$index])) { throw 'Self-test fixture inventory mismatch.' }
+        }
+
+        foreach ($badManifest in @(
+            [ordered]@{ fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json' }, [ordered]@{ id = 'one'; request = 'requests/two.json'; expected = 'expected/two.json' }); lifecycleFixtures = @() },
+            [ordered]@{ fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'requests/one.json' }); lifecycleFixtures = @() },
+            [ordered]@{ fixtures = @([ordered]@{ id = 'one'; request = 'requests/missing.json'; expected = 'expected/one.json' }); lifecycleFixtures = @() }
+        )) {
+            Write-JsonAtomically -Path $fixtureManifestPath -Value $badManifest
+            $rejected = $false
+            try { Get-FixtureInventoryPaths -Root $testDir | Out-Null } catch { $rejected = $true }
+            if (-not $rejected) { throw 'Self-test expected invalid fixture inventory rejection.' }
+        }
+        Write-JsonAtomically -Path $fixtureManifestPath -Value ([ordered]@{
+            fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json' })
+            lifecycleFixtures = @()
+        })
+
         $reviewPath = Join-Path $testDir 'review.json'
         $parityPath = Join-Path $testDir 'parity.json'
         Write-JsonAtomically -Path $reviewPath -Value ([ordered]@{
