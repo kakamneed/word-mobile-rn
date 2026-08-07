@@ -12,6 +12,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$fixtureHashEncoding = 'utf8-lf-normalized-json-v1'
+$gzipImplementation = 'node:zlib.gzipSync'
+[string[]]$packageOutputNames = @(
+    'package.json'
+    'word_domain_wasm.js'
+    'word_domain_wasm.d.ts'
+    'word_domain_wasm_bg.wasm'
+    'word_domain_wasm_bg.wasm.d.ts'
+)
 
 function Get-FileSha256([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -25,6 +34,12 @@ function Get-TextSha256([string]$Text) {
 
 function Get-ValueSha256([object]$Value) {
     return Get-TextSha256 ($Value | ConvertTo-Json -Depth 20 -Compress)
+}
+
+function Get-NormalizedJsonSha256([string]$Path) {
+    $text = [IO.File]::ReadAllText($Path)
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+    return Get-TextSha256 $text.Replace("`r`n", "`n").Replace("`r", "`n")
 }
 
 function Get-FixtureInventory([string]$FixtureRoot, [object]$FixtureManifest) {
@@ -44,9 +59,9 @@ function Get-FixtureInventory([string]$FixtureRoot, [object]$FixtureManifest) {
                 id = $id
                 collection = $collection
                 requestPath = $requestPath
-                requestSha256 = Get-FileSha256 (Join-Path $FixtureRoot $requestPath)
+                requestSha256 = Get-NormalizedJsonSha256 (Join-Path $FixtureRoot $requestPath)
                 expectedPath = $expectedPath
-                expectedSha256 = Get-FileSha256 (Join-Path $FixtureRoot $expectedPath)
+                expectedSha256 = Get-NormalizedJsonSha256 (Join-Path $FixtureRoot $expectedPath)
             }
         }
     }
@@ -64,14 +79,22 @@ function Get-ArtifactEntry([string]$Path, [string]$RelativePath, [switch]$Includ
 }
 
 function Get-GzipSize([string]$Path) {
-    $input = [IO.File]::OpenRead($Path)
-    $output = New-Object IO.MemoryStream
-    try {
-        $gzip = New-Object IO.Compression.GZipStream($output, [IO.Compression.CompressionMode]::Compress, $true)
-        try { $input.CopyTo($gzip) } finally { $gzip.Dispose() }
-        return $output.Length
+    $script = "const fs=require('node:fs');const z=require('node:zlib');process.stdout.write(String(z.gzipSync(fs.readFileSync(process.argv[1])).byteLength));"
+    [string[]]$output = @(& node -e $script $Path)
+    if ($LASTEXITCODE -ne 0) { throw 'Node gzipSync measurement failed.' }
+    if ($output.Length -ne 1 -or $output[0] -notmatch '^\d+$') { throw 'Node gzipSync returned an invalid size.' }
+    return [long]$output[0]
+}
+
+function Assert-ExactPackageOutputs([string]$PackageDirectory) {
+    [string[]]$actual = @(Get-ChildItem -LiteralPath $PackageDirectory -File | ForEach-Object { $_.Name })
+    [string[]]$expected = @($packageOutputNames)
+    [Array]::Sort($actual, [StringComparer]::Ordinal)
+    [Array]::Sort($expected, [StringComparer]::Ordinal)
+    if ($actual.Length -ne $expected.Length) { throw 'Generated package output count mismatch.' }
+    for ($index = 0; $index -lt $expected.Length; $index++) {
+        if (-not [StringComparer]::Ordinal.Equals($expected[$index], $actual[$index])) { throw 'Generated package output path mismatch.' }
     }
-    finally { $input.Dispose(); $output.Dispose() }
 }
 
 function Write-Json([string]$Path, [object]$Value) {
@@ -95,6 +118,9 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
 
     & wasm-pack build (Join-Path $repositoryRoot 'crates\domain-wasm') --release --target web --out-dir $packageDirectory --out-name word_domain_wasm
     if ($LASTEXITCODE -ne 0) { throw 'wasm-pack build failed.' }
+    $generatedIgnore = Join-Path $packageDirectory '.gitignore'
+    if (Test-Path -LiteralPath $generatedIgnore) { Remove-Item -LiteralPath $generatedIgnore -Force }
+    Assert-ExactPackageOutputs -PackageDirectory $packageDirectory
 
     $packageJsonPath = Join-Path $packageDirectory 'package.json'
     $wasmPath = Join-Path $packageDirectory 'word_domain_wasm_bg.wasm'
@@ -125,6 +151,7 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
             target = 'wasm32-unknown-unknown'
             profile = 'release'
             command = 'wasm-pack build crates/domain-wasm --release --target web --out-dir <output>/package --out-name word_domain_wasm'
+            gzipImplementation = $gzipImplementation
             rustc = (& rustc --version).Trim()
             cargo = (& cargo --version).Trim()
             wasmPack = (& wasm-pack --version).Trim()
@@ -138,7 +165,8 @@ function Invoke-PackageBuild([string]$Destination, [string]$Commit, [bool]$Relea
         }
         fixtures = [ordered]@{
             manifestPath = 'fixtures/domain/v1/manifest.json'
-            fixtureManifestSha256 = Get-TextSha256 ((Get-Content $fixtureManifestPath -Raw).Replace("`r`n", "`n"))
+            hashEncoding = $fixtureHashEncoding
+            fixtureManifestSha256 = Get-NormalizedJsonSha256 $fixtureManifestPath
             fixtureCount = $fixtureInventory.Count
             fixtureInventorySha256 = Get-ValueSha256 $fixtureInventory
             fixtureInventory = $fixtureInventory
@@ -200,9 +228,11 @@ if ($CleanCommittedWorktree) {
         if ($manifestOne.artifacts.wasm.sha256 -ne $manifestTwo.artifacts.wasm.sha256) { throw 'Optimized WASM hashes differ across clean builds.' }
 
         $finalRoot = Assert-SafeBuildPath (Join-Path $repositoryRoot 'artifacts\domain-wasm')
-        if (Test-Path -LiteralPath $finalRoot) { Remove-Item -LiteralPath $finalRoot -Recurse -Force }
-        [IO.Directory]::CreateDirectory($finalRoot) | Out-Null
-        Copy-Item -LiteralPath (Join-Path $buildOne 'package') -Destination (Join-Path $finalRoot 'package') -Recurse
+        $finalPackage = Join-Path $finalRoot 'package'
+        [IO.Directory]::CreateDirectory($finalPackage) | Out-Null
+        foreach ($outputName in $packageOutputNames) {
+            Copy-Item -LiteralPath (Join-Path (Join-Path $buildOne 'package') $outputName) -Destination (Join-Path $finalPackage $outputName) -Force
+        }
         $manifestOne | Add-Member -NotePropertyName reproducibility -NotePropertyValue ([ordered]@{
             checked = $true
             builds = 2

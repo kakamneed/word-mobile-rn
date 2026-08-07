@@ -14,6 +14,8 @@ const fixtureRoot = resolve(root, 'fixtures/domain/v1');
 const artifactRoot = resolve(root, 'artifacts/domain-wasm');
 const sha256Bytes = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const sha256File = (path) => sha256Bytes(readFileSync(path));
+const normalizedJsonSha256Bytes = (bytes) => sha256Bytes(Buffer.from(bytes.toString('utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'), 'utf8'));
+const normalizedJsonSha256 = (path) => normalizedJsonSha256Bytes(readFileSync(path));
 const normalizedTextSha256 = (path) => sha256Bytes(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'));
 const inventoryDigest = (entries) => sha256Bytes(JSON.stringify(entries));
 
@@ -24,9 +26,9 @@ function fixtureInventory() {
       id: item.id,
       collection,
       requestPath: item.request,
-      requestSha256: sha256File(resolve(fixtureRoot, item.request)),
+      requestSha256: normalizedJsonSha256(resolve(fixtureRoot, item.request)),
       expectedPath: item.expected,
-      expectedSha256: sha256File(resolve(fixtureRoot, item.expected)),
+      expectedSha256: normalizedJsonSha256(resolve(fixtureRoot, item.expected)),
     })))
     .sort((left, right) => left.id.localeCompare(right.id));
 }
@@ -41,7 +43,7 @@ function artifactEntry(path, includeGzip = false) {
   };
 }
 
-function createManifestFixture() {
+function createManifestFixture({ candidate = false } = {}) {
   const directory = mkdtempSync(resolve(tmpdir(), 'word-domain-manifest-'));
   const packageDirectory = resolve(directory, 'package');
   cpSync(resolve(artifactRoot, 'package'), packageDirectory, { recursive: true });
@@ -54,11 +56,11 @@ function createManifestFixture() {
     protocolVersion: 1,
     source: {
       commit,
-      dirty: false,
+      dirty: candidate,
       sourceLockSha256: sourceLock.aggregateSha256,
       cargoLockSha256: normalizedTextSha256(resolve(root, 'Cargo.lock')),
     },
-    build: { target: 'wasm32-unknown-unknown', profile: 'release', command: 'test fixture', rustc: 'test', cargo: 'test', wasmPack: 'test' },
+    build: { target: 'wasm32-unknown-unknown', profile: 'release', command: 'test fixture', gzipImplementation: 'node:zlib.gzipSync', rustc: 'test', cargo: 'test', wasmPack: 'test' },
     artifacts: {
       packageJson: artifactEntry(resolve(packageDirectory, 'package.json')),
       javascript: artifactEntry(resolve(packageDirectory, 'word_domain_wasm.js')),
@@ -68,7 +70,8 @@ function createManifestFixture() {
     },
     fixtures: {
       manifestPath: 'fixtures/domain/v1/manifest.json',
-      fixtureManifestSha256: normalizedTextSha256(resolve(fixtureRoot, 'manifest.json')),
+      hashEncoding: 'utf8-lf-normalized-json-v1',
+      fixtureManifestSha256: normalizedJsonSha256(resolve(fixtureRoot, 'manifest.json')),
       fixtureCount: inventory.length,
       fixtureInventorySha256: inventoryDigest(inventory),
       fixtureInventory: inventory,
@@ -77,8 +80,8 @@ function createManifestFixture() {
       phase6FixtureInventorySha256: inventoryDigest(phase6),
     },
     budgets: { wasmRawBytes: 1048576, wasmGzipBytes: 524288, javascriptRawBytes: 65536 },
-    releaseReady: true,
-    reproducibility: { checked: true, builds: 2 },
+    releaseReady: !candidate,
+    ...(candidate ? {} : { reproducibility: { checked: true, builds: 2 } }),
   };
   const manifestPath = resolve(directory, 'manifest.json');
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
@@ -100,6 +103,36 @@ test('accepts a complete five-output and fixture-bound manifest', () => {
   }
 });
 
+test('normalizes fixture JSON line endings and rejects semantic mutation', () => {
+  const lf = Buffer.from('{\n  "value": 1\n}\n');
+  const crlf = Buffer.from('{\r\n  "value": 1\r\n}\r\n');
+  const semanticMutation = Buffer.from('{\n  "value": 2\n}\n');
+  assert.equal(normalizedJsonSha256Bytes(lf), normalizedJsonSha256Bytes(crlf));
+  assert.notEqual(normalizedJsonSha256Bytes(lf), normalizedJsonSha256Bytes(semanticMutation));
+});
+
+test('accepts a live-HEAD candidate without release reproducibility claims', () => {
+  const fixture = createManifestFixture({ candidate: true });
+  try {
+    const result = validate(fixture.manifestPath);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  } finally {
+    rmSync(fixture.directory, { recursive: true, force: true });
+  }
+});
+
+test('rejects candidate reproducibility claims', () => {
+  const fixture = createManifestFixture({ candidate: true });
+  try {
+    fixture.manifest.reproducibility = { checked: true, builds: 2 };
+    writeFileSync(fixture.manifestPath, `${JSON.stringify(fixture.manifest, null, 2)}\n`);
+    const result = validate(fixture.manifestPath);
+    assert.notEqual(result.status, 0);
+  } finally {
+    rmSync(fixture.directory, { recursive: true, force: true });
+  }
+});
+
 for (const mutation of [
   ['missing artifact', (manifest) => { delete manifest.artifacts.packageJson; }],
   ['extra artifact', (manifest) => { manifest.artifacts.extra = manifest.artifacts.javascript; }],
@@ -108,6 +141,9 @@ for (const mutation of [
   ['stale inventory digest', (manifest) => { manifest.fixtures.fixtureInventorySha256 = '0'.repeat(64); }],
   ['reordered inventory', (manifest) => { manifest.fixtures.fixtureInventory.reverse(); }],
   ['stale Phase 6 ids', (manifest) => { manifest.fixtures.phase6FixtureIds.pop(); }],
+  ['noncanonical fixture hash encoding', (manifest) => { manifest.fixtures.hashEncoding = 'raw-bytes'; }],
+  ['noncanonical gzip implementation', (manifest) => { manifest.build.gzipImplementation = 'dotnet-gzip'; }],
+  ['semantic fixture hash mutation', (manifest) => { manifest.fixtures.fixtureInventory[0].requestSha256 = normalizedJsonSha256Bytes(Buffer.from('{"mutated":true}\n')); }],
 ]) {
   test(`rejects ${mutation[0]}`, () => {
     const fixture = createManifestFixture();

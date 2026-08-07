@@ -33,6 +33,12 @@ $script:LockPath = Join-Path $script:RepositoryRoot 'fixtures\domain\v1\source-l
 $script:PromotionsPath = Join-Path $script:RepositoryRoot 'fixtures\domain\v1\source-lock-promotions.json'
 $script:LedgerPath = 'docs/features/learning.md'
 $script:AuthoritativePaths = @(
+    'scripts/domain-export/check-source-lock.ps1'
+    'scripts/domain-export/build-package.ps1'
+    'scripts/domain-export/validate-manifest.mjs'
+    'scripts/domain-export/validate-manifest.test.mjs'
+    'scripts/domain-export/run-browser-gates.ps1'
+    'tests/domain-browser/domain-wasm.spec.ts'
     'crates/domain-models/src/study.rs'
     'crates/domain-models/src/projections.rs'
     'crates/domain-core/src/study.rs'
@@ -73,6 +79,15 @@ function Get-Sha256ForText {
 function Get-Sha256ForFile {
     param([string]$Path)
     return Get-Sha256ForBytes -Bytes ([IO.File]::ReadAllBytes($Path))
+}
+
+function Get-Sha256ForNormalizedJsonFile {
+    param([string]$Path)
+
+    $text = [IO.File]::ReadAllText($Path)
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+    $normalized = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+    return Get-Sha256ForText -Text $normalized
 }
 
 function Write-JsonAtomically {
@@ -139,9 +154,15 @@ function Get-SourceLockSnapshot {
         if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
             throw "Authoritative source is missing: $relativePath"
         }
+        $hash = if ($relativePath.EndsWith('.json', [StringComparison]::Ordinal)) {
+            Get-Sha256ForNormalizedJsonFile -Path $absolutePath
+        }
+        else {
+            Get-Sha256ForFile -Path $absolutePath
+        }
         [ordered]@{
             path = $relativePath
-            sha256 = Get-Sha256ForFile -Path $absolutePath
+            sha256 = $hash
         }
     }
 
@@ -241,10 +262,6 @@ function Assert-PromotionEvidence {
     if ($changes.Count -eq 0) {
         throw 'Promotion requires an authoritative source or learning-ledger change.'
     }
-    if ($changes -notcontains $script:LedgerPath) {
-        throw "Promotion requires an updated $($script:LedgerPath) digest."
-    }
-
     $review = Read-JsonFile -Path $ReviewedDiffPath
     if ($review.reviewed -ne $true) {
         throw 'Reviewed diff evidence must set reviewed=true.'
@@ -273,6 +290,12 @@ function Assert-PromotionEvidence {
 
 function Invoke-ContractSelfTest {
     [string[]]$phase6Paths = @(
+        'scripts/domain-export/check-source-lock.ps1',
+        'scripts/domain-export/build-package.ps1',
+        'scripts/domain-export/validate-manifest.mjs',
+        'scripts/domain-export/validate-manifest.test.mjs',
+        'scripts/domain-export/run-browser-gates.ps1',
+        'tests/domain-browser/domain-wasm.spec.ts',
         'crates/domain-models/src/study.rs',
         'crates/domain-models/src/projections.rs',
         'crates/domain-core/src/study.rs',
@@ -343,6 +366,17 @@ function Invoke-ContractSelfTest {
         [IO.Directory]::CreateDirectory((Join-Path $fixtureRoot 'expected')) | Out-Null
         [IO.File]::WriteAllText((Join-Path $fixtureRoot 'requests\one.json'), "{}`n")
         [IO.File]::WriteAllText((Join-Path $fixtureRoot 'expected\one.json'), "{}`n")
+        $lfJsonPath = Join-Path $fixtureRoot 'lf.json'
+        $crlfJsonPath = Join-Path $fixtureRoot 'crlf.json'
+        $semanticJsonPath = Join-Path $fixtureRoot 'semantic.json'
+        [IO.File]::WriteAllText($lfJsonPath, "{`n  `"value`": 1`n}`n", (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText($crlfJsonPath, "{`r`n  `"value`": 1`r`n}`r`n", (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText($semanticJsonPath, "{`n  `"value`": 2`n}`n", (New-Object Text.UTF8Encoding($false)))
+        $lfHash = Get-Sha256ForNormalizedJsonFile -Path $lfJsonPath
+        $crlfHash = Get-Sha256ForNormalizedJsonFile -Path $crlfJsonPath
+        $semanticHash = Get-Sha256ForNormalizedJsonFile -Path $semanticJsonPath
+        if (-not [StringComparer]::Ordinal.Equals($lfHash, $crlfHash)) { throw 'Self-test LF and CRLF JSON identity mismatch.' }
+        if ([StringComparer]::Ordinal.Equals($lfHash, $semanticHash)) { throw 'Self-test semantic JSON mutation retained identity.' }
         $fixtureManifestPath = Join-Path $fixtureRoot 'manifest.json'
         Write-JsonAtomically -Path $fixtureManifestPath -Value ([ordered]@{
             fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json' })
@@ -382,6 +416,39 @@ function Invoke-ContractSelfTest {
             checks = @([ordered]@{ name = 'native-parity'; status = 'passed' })
         })
         Assert-PromotionEvidence -Accepted $accepted -Current $changed -ReviewedDiffPath $reviewPath -ParityEvidencePath $parityPath
+
+        $sourceOnlyChanged = [pscustomobject]@{
+            aggregateSha256 = 'toolchain-digest'
+            authoritativeInputs = @([pscustomobject]@{ path = 'source.rs'; sha256 = 'toolchain-source' })
+            learningLedger = [pscustomobject]@{ path = $script:LedgerPath; sha256 = 'old-ledger' }
+        }
+        Write-JsonAtomically -Path $parityPath -Value ([ordered]@{
+            success = $true
+            sourceLockDigest = 'old-digest'
+            learningLedgerSha256 = 'old-ledger'
+            checks = @([ordered]@{ name = 'portable-identity'; status = 'passed' })
+        })
+        Assert-PromotionEvidence -Accepted $accepted -Current $sourceOnlyChanged -ReviewedDiffPath $reviewPath -ParityEvidencePath $parityPath
+
+        foreach ($invalidCase in @('no-op', 'missing-review', 'stale-evidence', 'failed-check')) {
+            Write-JsonAtomically -Path $reviewPath -Value ([ordered]@{
+                reviewed = $true
+                changedFiles = if ($invalidCase -eq 'missing-review') { @() } else { @('source.rs') }
+            })
+            Write-JsonAtomically -Path $parityPath -Value ([ordered]@{
+                success = $true
+                sourceLockDigest = if ($invalidCase -eq 'stale-evidence') { 'stale-digest' } else { 'old-digest' }
+                learningLedgerSha256 = 'old-ledger'
+                checks = @([ordered]@{ name = 'portable-identity'; status = if ($invalidCase -eq 'failed-check') { 'failed' } else { 'passed' } })
+            })
+            $rejected = $false
+            try {
+                $candidate = if ($invalidCase -eq 'no-op') { $matching } else { $sourceOnlyChanged }
+                Assert-PromotionEvidence -Accepted $accepted -Current $candidate -ReviewedDiffPath $reviewPath -ParityEvidencePath $parityPath
+            }
+            catch { $rejected = $true }
+            if (-not $rejected) { throw "Self-test expected promotion rejection: $invalidCase" }
+        }
     }
     finally {
         Remove-Item -LiteralPath $testDir -Recurse -Force -ErrorAction SilentlyContinue

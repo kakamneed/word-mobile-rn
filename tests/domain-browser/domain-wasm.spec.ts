@@ -13,6 +13,9 @@ const fixtureManifest = JSON.parse(
   readFileSync(resolve(repositoryRoot, 'fixtures/domain/v1/manifest.json'), 'utf8'),
 );
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+const normalizedJsonSha256 = (path: string) => createHash('sha256')
+  .update(readFileSync(path, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'))
+  .digest('hex');
 const inventoryDigest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const normalizedTextSha256 = (path: string) => createHash('sha256')
   .update(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'))
@@ -23,9 +26,9 @@ const liveInventory = ['fixtures', 'lifecycleFixtures']
     id: fixture.id,
     collection,
     requestPath: fixture.request,
-    requestSha256: sha256(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.request)),
+    requestSha256: normalizedJsonSha256(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.request)),
     expectedPath: fixture.expected,
-    expectedSha256: sha256(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.expected)),
+    expectedSha256: normalizedJsonSha256(resolve(repositoryRoot, 'fixtures/domain/v1', fixture.expected)),
   })))
   .sort((left, right) => left.id.localeCompare(right.id));
 
@@ -80,6 +83,7 @@ test('generated package executes canonical results and structured errors', async
   expect(manifest.fixtures.fixtureManifestSha256).toBe(
     normalizedTextSha256(resolve(repositoryRoot, 'fixtures/domain/v1/manifest.json')),
   );
+  expect(manifest.fixtures.hashEncoding).toBe('utf8-lf-normalized-json-v1');
   expect(manifest.fixtures.fixtureInventory).toEqual(liveInventory);
   expect(manifest.fixtures.fixtureCount).toBe(liveInventory.length);
   expect(manifest.fixtures.fixtureInventorySha256).toBe(inventoryDigest(liveInventory));
@@ -133,6 +137,7 @@ test('generated package executes canonical results and structured errors', async
       fixtureIds: fixtures.map((fixture: { id: string }) => fixture.id),
       fixtureCount: fixtures.length,
       fixtureInventorySha256: manifest.fixtures.fixtureInventorySha256,
+      fixtureHashEncoding: manifest.fixtures.hashEncoding,
       ...measurements,
       outputs: undefined,
     }, null, 2)}\n`,

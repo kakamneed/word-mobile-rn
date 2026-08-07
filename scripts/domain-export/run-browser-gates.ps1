@@ -31,6 +31,9 @@ function Assert-BrowserMeasurements([object[]]$Measurements, [object]$Manifest) 
         if (-not [StringComparer]::Ordinal.Equals([string]$measurement.fixtureInventorySha256, [string]$Manifest.fixtures.fixtureInventorySha256)) {
             throw "$($measurement.browser) fixture inventory digest mismatch."
         }
+        if (-not [StringComparer]::Ordinal.Equals([string]$measurement.fixtureHashEncoding, [string]$Manifest.fixtures.hashEncoding)) {
+            throw "$($measurement.browser) fixture hash encoding mismatch."
+        }
     }
 }
 
@@ -38,12 +41,14 @@ function Invoke-BrowserGateSelfTest {
     $manifest = [pscustomobject]@{ fixtures = [pscustomobject]@{
         fixtureInventory = @([pscustomobject]@{ id = 'one' }, [pscustomobject]@{ id = 'phase6-two' })
         fixtureInventorySha256 = 'fixture-digest'
+        hashEncoding = 'utf8-lf-normalized-json-v1'
     } }
     $valid = @('chromium', 'firefox', 'webkit') | ForEach-Object { [pscustomobject]@{
         browser = $_
         fixtureIds = @('one', 'phase6-two')
         fixtureCount = 2
         fixtureInventorySha256 = 'fixture-digest'
+        fixtureHashEncoding = 'utf8-lf-normalized-json-v1'
     } }
     Assert-BrowserMeasurements $valid $manifest
 
@@ -51,11 +56,13 @@ function Invoke-BrowserGateSelfTest {
         @($valid | Select-Object -First 2),
         @($valid[0], $valid[0], $valid[2]),
         @($valid | ForEach-Object { $_.PSObject.Copy() }),
+        @($valid | ForEach-Object { $_.PSObject.Copy() }),
         @($valid | ForEach-Object { $_.PSObject.Copy() })
     )
     $mutations[2][0].fixtureIds = @('one')
     $mutations[2][0].fixtureCount = 1
     $mutations[3][0].fixtureInventorySha256 = 'mutated'
+    $mutations[4][0].fixtureHashEncoding = 'raw-bytes'
     foreach ($mutation in $mutations) {
         $rejected = $false
         try { Assert-BrowserMeasurements $mutation $manifest } catch { $rejected = $true }
@@ -96,7 +103,7 @@ if ($WriteEvidence) {
     $fixtureDigest = [string]$manifest.fixtures.fixtureInventorySha256
     $evidence = [ordered]@{
         schemaVersion = 1
-        wave = 4
+        wave = 6
         generatedAtUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
         success = $true
         sourceLockDigest = [string]$sourceLock.aggregateSha256
@@ -109,6 +116,7 @@ if ($WriteEvidence) {
             fixtureIds = @($manifest.fixtures.fixtureInventory | ForEach-Object { $_.id })
             fixtureCount = $fixtureCount
             fixtureInventorySha256 = $fixtureDigest
+            fixtureHashEncoding = [string]$manifest.fixtures.hashEncoding
         }
         browsers = @($measurements)
         checks = @(

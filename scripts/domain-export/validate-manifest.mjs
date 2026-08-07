@@ -8,6 +8,9 @@ const manifestPath = resolve(process.argv[2] ?? 'artifacts/domain-wasm/manifest.
 const root = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(.:)/, '$1')), '../..');
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+const normalizedJsonSha256 = (path) => createHash('sha256')
+  .update(readFileSync(path, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'))
+  .digest('hex');
 const normalizedTextSha256 = (path) => createHash('sha256')
   .update(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'))
   .digest('hex');
@@ -34,9 +37,9 @@ function fixtureInventory(fixtureManifest) {
         id: fixture.id,
         collection,
         requestPath: fixture.request,
-        requestSha256: sha256(resolve(root, 'fixtures/domain/v1', fixture.request)),
+        requestSha256: normalizedJsonSha256(resolve(root, 'fixtures/domain/v1', fixture.request)),
         expectedPath: fixture.expected,
-        expectedSha256: sha256(resolve(root, 'fixtures/domain/v1', fixture.expected)),
+        expectedSha256: normalizedJsonSha256(resolve(root, 'fixtures/domain/v1', fixture.expected)),
       };
     });
   });
@@ -55,6 +58,7 @@ for (const [name, value] of Object.entries({
   target: manifest.build?.target,
   profile: manifest.build?.profile,
   command: manifest.build?.command,
+  gzipImplementation: manifest.build?.gzipImplementation,
   wasmSha256: manifest.artifacts?.wasm?.sha256,
   javascriptSha256: manifest.artifacts?.javascript?.sha256,
   fixtureManifestSha256: manifest.fixtures?.fixtureManifestSha256,
@@ -62,19 +66,29 @@ for (const [name, value] of Object.entries({
   phase6FixtureInventorySha256: manifest.fixtures?.phase6FixtureInventorySha256,
 })) required(value, name);
 
-if (manifest.source.dirty !== false || manifest.releaseReady !== true) throw new Error('Pin-ready manifest must record dirty=false and releaseReady=true.');
-if (manifest.reproducibility?.checked !== true || manifest.reproducibility?.builds !== 2) throw new Error('Two-build reproducibility evidence is required.');
+if (manifest.build.gzipImplementation !== 'node:zlib.gzipSync') throw new Error('Manifest gzip implementation is not canonical.');
+if (manifest.fixtures?.hashEncoding !== 'utf8-lf-normalized-json-v1') throw new Error('Fixture hash encoding is not canonical.');
+
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-try {
-  execFileSync(
-    'git',
-    ['merge-base', '--is-ancestor', manifest.source.commit, head],
-    { cwd: root, stdio: 'ignore' },
-  );
-} catch {
-  throw new Error(
-    `Manifest commit ${manifest.source.commit} is not an ancestor of HEAD ${head}.`,
-  );
+if (manifest.releaseReady === true) {
+  if (manifest.source.dirty !== false) throw new Error('Pin-ready manifest must record dirty=false.');
+  if (manifest.reproducibility?.checked !== true || manifest.reproducibility?.builds !== 2) throw new Error('Two-build reproducibility evidence is required.');
+  try {
+    execFileSync(
+      'git',
+      ['merge-base', '--is-ancestor', manifest.source.commit, head],
+      { cwd: root, stdio: 'ignore' },
+    );
+  } catch {
+    throw new Error(
+      `Manifest commit ${manifest.source.commit} is not an ancestor of HEAD ${head}.`,
+    );
+  }
+} else if (manifest.releaseReady === false) {
+  if (manifest.reproducibility !== undefined) throw new Error('Candidate manifest must not claim reproducibility evidence.');
+  if (manifest.source.commit !== head) throw new Error('Candidate manifest must reference the live HEAD.');
+} else {
+  throw new Error('Manifest releaseReady must be boolean.');
 }
 const sourceLock = JSON.parse(readFileSync(resolve(root, 'fixtures/domain/v1/source-lock.json'), 'utf8'));
 if (manifest.source.sourceLockSha256 !== sourceLock.aggregateSha256) throw new Error('Manifest source-lock digest is stale.');
@@ -99,7 +113,7 @@ if (manifest.artifacts.javascript.rawBytes > manifest.budgets.javascriptRawBytes
 
 const fixtureManifestPath = resolve(root, manifest.fixtures.manifestPath);
 if (manifest.fixtures.manifestPath !== 'fixtures/domain/v1/manifest.json') throw new Error('Fixture manifest path is not canonical.');
-if (manifest.fixtures.fixtureManifestSha256 !== normalizedTextSha256(fixtureManifestPath)) throw new Error('Fixture manifest hash is stale.');
+if (manifest.fixtures.fixtureManifestSha256 !== normalizedJsonSha256(fixtureManifestPath)) throw new Error('Fixture manifest hash is stale.');
 const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, 'utf8'));
 const inventory = fixtureInventory(fixtureManifest);
 if (!sameJson(manifest.fixtures.fixtureInventory, inventory)) throw new Error('Fixture inventory is missing, extra, duplicated, stale, or reordered.');
