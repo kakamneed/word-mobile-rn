@@ -1,0 +1,28 @@
+{
+  "protocolVersion": 1,
+  "command": "capturePhase6Mastery",
+  "requestId": "phase6-mastery",
+  "context": {
+    "nowUtc": "2026-08-07T00:10:00.000Z",
+    "localDay": "2026-08-07",
+    "sessionId": "phase6-mastery",
+    "orderingSeed": "phase6-mastery-v1"
+  },
+  "payload": {
+    "skip": {"questionId": "question-skip", "entrySourceId": "entry-skip", "response": ""},
+    "snapshot": {
+      "mode": "review",
+      "targetQuestions": 4,
+      "acceptedAnswers": [{"questionId": "accepted-1", "entrySourceId": "entry-a", "outcome": "correct"}],
+      "unanswered": [
+        {"questionId": "master-current", "entrySourceId": "entry-master"},
+        {"questionId": "master-later", "entrySourceId": "entry-master"},
+        {"questionId": "keep-later", "entrySourceId": "entry-b"}
+      ]
+    },
+    "setMastery": {"entrySourceId": "entry-master", "reason": "mastered", "revision": 7},
+    "eligibleRemainder": ["entry-c"],
+    "pools": ["newWord", "review", "mixedTest", "wrongWordReinforcement", "highFrequency", "rootAffix"],
+    "restoreMastery": {"entrySourceId": "entry-master", "reason": "learnerReversed", "revision": 8}
+  }
+}

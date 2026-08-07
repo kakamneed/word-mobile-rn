@@ -1,0 +1,49 @@
+{
+  "planUnit": "question",
+  "modes": {
+    "newWord": {
+      "targetQuestions": 8,
+      "questionsPerEntry": 4,
+      "questionTypes": ["exampleToCnChoice", "enToCnChoice", "cnToEnChoice", "enToCnInput"],
+      "configurableWeights": false
+    },
+    "review": {
+      "targetQuestions": 3,
+      "eligibleEntryRule": "learnedBeforeLocalDay",
+      "questionTypes": ["exampleToCnChoice", "enToCnChoice", "cnToEnChoice", "enToCnInput"],
+      "materializedWeights": {"exampleToCnChoice": 25, "enToCnChoice": 25, "cnToEnChoice": 25, "enToCnInput": 25},
+      "configurableWeights": true
+    },
+    "mixedTest": {
+      "targetQuestions": 3,
+      "questionTypes": ["enToCnChoice", "cnToEnChoice", "enToCnInput"],
+      "materializedWeights": {"enToCnChoice": 34, "cnToEnChoice": 33, "enToCnInput": 33},
+      "configurableWeights": true
+    },
+    "wrongWordReinforcement": {
+      "targetQuestions": 3,
+      "eligibleEntryRule": "authoritativeWrongWordState",
+      "questionTypes": ["enToCnChoice", "cnToEnChoice", "enToCnInput"],
+      "materializedWeights": {"enToCnChoice": 34, "cnToEnChoice": 33, "enToCnInput": 33},
+      "configurableWeights": true
+    },
+    "highFrequency": {
+      "targetQuestions": 3,
+      "questionTypes": ["enToCnInput"],
+      "masteryRule": {"positiveAnswersRequired": 3, "scope": "entry"},
+      "configurableWeights": false
+    },
+    "rootAffix": {
+      "targetQuestions": 2,
+      "questionTypes": ["glossToRootInput", "rootToGlossInput"],
+      "requiresValidatedRecord": true,
+      "minimumRelevantExamples": 2,
+      "configurableWeights": false
+    }
+  },
+  "todayActions": {
+    "perMode": "startOrContinue",
+    "primary": "nextUnfinishedAvailableMode",
+    "studyModePicker": false
+  }
+}

@@ -1043,10 +1043,7 @@ fn baseline_study_skip_answer() {
     }
 
     let summary = remaining.summary.as_ref().expect("completion summary");
-    assert_eq!(
-        summary.skipped_count, 1,
-        "One skipped answer expected"
-    );
+    assert_eq!(summary.skipped_count, 1, "One skipped answer expected");
     assert_eq!(summary.total_questions, 3);
 }
 
@@ -1298,7 +1295,10 @@ fn canonical_domain_fixture_output(request: &Value) -> Value {
             let modes = [
                 ("review", SessionMode::Review),
                 ("mixedTest", SessionMode::MixedTest),
-                ("wrongWordReinforcement", SessionMode::WrongWordReinforcement),
+                (
+                    "wrongWordReinforcement",
+                    SessionMode::WrongWordReinforcement,
+                ),
                 ("rootAffix", SessionMode::RootAffix),
             ];
             let mut output = serde_json::Map::new();
@@ -1320,9 +1320,9 @@ fn canonical_domain_fixture_output(request: &Value) -> Value {
             let entry = request["payload"]["entries"]
                 .as_array()
                 .and_then(|entries| {
-                    entries.iter().find(|entry| {
-                        entry["sourceId"].as_str() == Some(&question.entry_source_id)
-                    })
+                    entries
+                        .iter()
+                        .find(|entry| entry["sourceId"].as_str() == Some(&question.entry_source_id))
                 })
                 .expect("feedback entry remains available after submission");
             let response = question
@@ -1383,7 +1383,10 @@ fn canonical_domain_fixture_output(request: &Value) -> Value {
             );
             let response = StartSessionResponse {
                 session: StudySession {
-                    session_id: request["context"]["sessionId"].as_str().unwrap().to_string(),
+                    session_id: request["context"]["sessionId"]
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
                     mode: SessionMode::MixedTest,
                     total_words: request["payload"]["entries"].as_array().unwrap().len() as u32,
                     wordbook_id: Some(42),
@@ -1502,6 +1505,40 @@ fn assert_canonical_fixture_claims(id: &str, output: &Value) {
         }
         _ => panic!("missing invariant assertions for fixture {id}"),
     }
+}
+
+#[test]
+fn phase6_fixture_contracts_are_registered_for_future_semantic_execution() {
+    let fixture_root = domain_fixture_root();
+    let manifest: Value = serde_json::from_str(
+        &fs::read_to_string(fixture_root.join("manifest.json")).expect("read fixture manifest"),
+    )
+    .expect("parse fixture manifest");
+    let mut registered = std::collections::HashMap::new();
+
+    for array_name in ["fixtures", "lifecycleFixtures"] {
+        let fixtures = manifest[array_name]
+            .as_array()
+            .unwrap_or_else(|| panic!("manifest {array_name} must be an array"));
+        for fixture in fixtures {
+            let id = fixture["id"].as_str().expect("fixture id");
+            let request_path = fixture_root.join(fixture["request"].as_str().expect("request path"));
+            let expected_path = fixture_root.join(fixture["expected"].as_str().expect("expected path"));
+            let request: Value = serde_json::from_str(
+                &fs::read_to_string(request_path).expect("read registered fixture request"),
+            )
+            .expect("parse registered fixture request");
+            let _: Value = serde_json::from_str(
+                &fs::read_to_string(expected_path).expect("read registered fixture expectation"),
+            )
+            .expect("parse registered fixture expectation");
+            assert!(registered.insert(id, request["command"].clone()).is_none());
+        }
+    }
+
+    assert_eq!(registered["phase6-six-modes"], "capturePhase6SixModes");
+    assert_eq!(registered["phase6-reconcile"], "reconcileSession");
+    assert_eq!(registered["phase6-mastery"], "capturePhase6Mastery");
 }
 
 #[test]

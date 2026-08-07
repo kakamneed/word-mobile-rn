@@ -1,0 +1,29 @@
+{
+  "skip": {
+    "acceptedAnswerCreated": true,
+    "outcome": "incorrect",
+    "revealsCanonicalAnswer": true,
+    "updatesWrongWordsAndReports": true,
+    "requiresExplicitNext": true
+  },
+  "setMastery": {
+    "actionMeaning": "markMastered",
+    "reversible": true,
+    "answerCreated": false,
+    "historicalAnswerCount": 1,
+    "mastery": {"entrySourceId": "entry-master", "active": true, "reason": "mastered", "revision": 7},
+    "removedUnansweredQuestionIds": ["master-current", "master-later"],
+    "preservedUnansweredQuestionIds": ["keep-later"],
+    "replenishedEntrySourceIds": ["entry-c"],
+    "targetQuestions": 4,
+    "shortageQuestions": 0,
+    "excludedPools": ["newWord", "review", "mixedTest", "wrongWordReinforcement", "highFrequency"],
+    "unaffectedPools": ["rootAffix"]
+  },
+  "restoreMastery": {
+    "answerCreated": false,
+    "historicalAnswerCount": 1,
+    "mastery": {"entrySourceId": "entry-master", "active": false, "reason": "learnerReversed", "revision": 8},
+    "futureEligibilityRestored": true
+  }
+}

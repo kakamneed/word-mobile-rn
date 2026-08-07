@@ -1,0 +1,18 @@
+{
+  "mode": "mixedTest",
+  "targetQuestions": 6,
+  "source": {"bookId": "kaoyan", "version": "2"},
+  "acceptedAnswers": [
+    {"questionId": "accepted-1", "entrySourceId": "entry-a", "outcome": "correct"},
+    {"questionId": "accepted-2", "entrySourceId": "entry-b", "outcome": "incorrect"},
+    {"questionId": "accepted-3", "entrySourceId": "entry-c", "outcome": "correct"}
+  ],
+  "discardedUnansweredQuestionIds": ["old-4", "old-5"],
+  "rebuiltUnansweredEntrySourceIds": ["entry-f", "entry-g"],
+  "completedQuestions": 3,
+  "availableQuestions": 5,
+  "shortageQuestions": 1,
+  "complete": false,
+  "acceptedHistoryRewritten": false,
+  "planMutationScope": "futureIntentUntilExplicitApply"
+}

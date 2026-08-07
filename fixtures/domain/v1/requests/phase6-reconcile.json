@@ -1,0 +1,32 @@
+{
+  "protocolVersion": 1,
+  "command": "reconcileSession",
+  "requestId": "phase6-reconcile",
+  "context": {
+    "nowUtc": "2026-08-07T00:05:00.000Z",
+    "localDay": "2026-08-07",
+    "sessionId": "phase6-reconcile",
+    "orderingSeed": "phase6-reconcile-v1"
+  },
+  "payload": {
+    "snapshot": {
+      "mode": "mixedTest",
+      "targetQuestions": 5,
+      "source": {"bookId": "kaoyan", "version": "1"},
+      "acceptedAnswers": [
+        {"questionId": "accepted-1", "entrySourceId": "entry-a", "outcome": "correct"},
+        {"questionId": "accepted-2", "entrySourceId": "entry-b", "outcome": "incorrect"},
+        {"questionId": "accepted-3", "entrySourceId": "entry-c", "outcome": "correct"}
+      ],
+      "unanswered": [
+        {"questionId": "old-4", "entrySourceId": "entry-d"},
+        {"questionId": "old-5", "entrySourceId": "entry-e"}
+      ]
+    },
+    "changes": {
+      "targetQuestions": 6,
+      "source": {"bookId": "kaoyan", "version": "2"}
+    },
+    "eligibleRemainder": ["entry-f", "entry-g"]
+  }
+}

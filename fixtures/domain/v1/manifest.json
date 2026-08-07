@@ -9,12 +9,15 @@
     {"id":"study-progress-summary","request":"requests/study-progress-summary.json","expected":"expected/study-progress-summary.json","claims":["question-unit totals","carry-over totals","duplicate-submit cap","distinct word totals"]},
     {"id":"study-resume-state","request":"requests/study-resume-state.json","expected":"expected/study-resume-state.json","claims":["answered history","current question","resume index and total"]},
     {"id":"wrong-word-identity","request":"requests/wrong-word-identity.json","expected":"expected/wrong-word-identity.json","claims":["real entrySourceId","no unknown identity"]},
-    {"id":"report-local-day","request":"requests/report-local-day.json","expected":"expected/report-local-day.json","claims":["explicit local day","zero-answer filtering","mode normalization"]}
+    {"id":"report-local-day","request":"requests/report-local-day.json","expected":"expected/report-local-day.json","claims":["explicit local day","zero-answer filtering","mode normalization"]},
+    {"id":"phase6-six-modes","request":"requests/phase6-six-modes.json","expected":"expected/phase6-six-modes.json","claims":["six question-unit targets","fixed New Word order","review eligibility","mixed and wrong-word vocabulary","high-frequency three-positive mastery","validated root-affix directions","materialized configurable ratios","Today mode entry"]}
   ],
   "lifecycleFixtures": [
     {"id":"lifecycle-transition","request":"requests/lifecycle-transition.json","expected":"expected/lifecycle-transition.json","claims":["answer required before next","last question completes session","timestamp advances"]},
     {"id":"lifecycle-dispute","request":"requests/lifecycle-dispute.json","expected":"expected/lifecycle-dispute.json","claims":["dispute becomes correct accepted event","accepted meaning provenance","completion records remain canonical"]},
     {"id":"lifecycle-exclusion","request":"requests/lifecycle-exclusion.json","expected":"expected/lifecycle-exclusion.json","claims":["exclusion becomes skipped accepted event","no completion records","plan exclusion identity"]},
-    {"id":"lifecycle-abandon","request":"requests/lifecycle-abandon.json","expected":"expected/lifecycle-abandon.json","claims":["active session becomes abandoned","history and frozen plan preserved"]}
+    {"id":"lifecycle-abandon","request":"requests/lifecycle-abandon.json","expected":"expected/lifecycle-abandon.json","claims":["active session becomes abandoned","history and frozen plan preserved"]},
+    {"id":"phase6-reconcile","request":"requests/phase6-reconcile.json","expected":"expected/phase6-reconcile.json","claims":["explicit apply","accepted answers preserved","incompatible unanswered work rebuilt","target retained through shortage","completion never deletes history"]},
+    {"id":"phase6-mastery","request":"requests/phase6-mastery.json","expected":"expected/phase6-mastery.json","claims":["skip is incorrect accepted evidence","mastery creates no answer","reversible owner-scoped mastery","five pools filtered","all matching unanswered work pruned","eligible remainder replenished","root-affix unaffected"]}
   ]
 }

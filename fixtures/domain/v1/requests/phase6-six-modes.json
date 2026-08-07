@@ -1,0 +1,36 @@
+{
+  "protocolVersion": 1,
+  "command": "capturePhase6SixModes",
+  "requestId": "phase6-six-modes",
+  "context": {
+    "nowUtc": "2026-08-07T00:00:00.000Z",
+    "localDay": "2026-08-07",
+    "sessionId": "phase6-six-modes",
+    "orderingSeed": "phase6-six-modes-v1"
+  },
+  "payload": {
+    "dailyTargets": {
+      "newWord": 8,
+      "review": 3,
+      "mixedTest": 3,
+      "wrongWordReinforcement": 3,
+      "highFrequency": 3,
+      "rootAffix": 2
+    },
+    "questionTypeWeights": {
+      "review": {"exampleToCnChoice": 25, "enToCnChoice": 25, "cnToEnChoice": 25, "enToCnInput": 25},
+      "mixedTest": {"enToCnChoice": 34, "cnToEnChoice": 33, "enToCnInput": 33},
+      "wrongWordReinforcement": {"enToCnChoice": 34, "cnToEnChoice": 33, "enToCnInput": 33}
+    },
+    "eligibility": {
+      "learnedBeforeLocalDay": ["entry-review-a", "entry-review-b", "entry-review-c"],
+      "mixed": ["entry-mixed-a", "entry-mixed-b", "entry-mixed-c"],
+      "wrongWordState": ["entry-wrong-a", "entry-wrong-b", "entry-wrong-c"],
+      "highFrequency": ["entry-high-a", "entry-high-b", "entry-high-c"],
+      "rootAffixRecords": [
+        {"entrySourceId": "root-port", "root": "port", "gloss": "carry", "examples": ["transport", "portable"]},
+        {"entrySourceId": "affix-re", "root": "re-", "gloss": "again", "examples": ["rewrite", "rebuild"]}
+      ]
+    }
+  }
+}
