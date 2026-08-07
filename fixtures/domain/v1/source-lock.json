@@ -1,17 +1,45 @@
 {
     "schemaVersion":  1,
-    "acceptedWave":  4,
-    "capturedAtUtc":  "2026-07-29T12:21:31Z",
-    "gitCommit":  "f29845a80adb73fd1bb691f020f92105733b060d",
+    "acceptedWave":  6,
+    "capturedAtUtc":  "2026-08-07T11:16:12Z",
+    "gitCommit":  "4e8e5b786f9196dd143df40c9e7c37619dfa8f02",
     "gitDirty":  true,
     "authoritativeInputs":  [
                                 {
+                                    "path":  "crates/domain-models/src/study.rs",
+                                    "sha256":  "aa3dce271313e0f4839846272a255bc8f58ba0c834f6b572d5fd812887572943"
+                                },
+                                {
+                                    "path":  "crates/domain-models/src/projections.rs",
+                                    "sha256":  "087a5d54acf15b17bb41d398176504218991b497aecb33a18531ff69d819c3dd"
+                                },
+                                {
+                                    "path":  "crates/domain-core/src/study.rs",
+                                    "sha256":  "038f4a2014347510e43ecef34400266636da5d0c4fc31c2919493e6f5307d6a1"
+                                },
+                                {
+                                    "path":  "crates/domain-core/src/progress.rs",
+                                    "sha256":  "b00fa6d84972a05a6edd377796e713f23bbb48702fab79110bd6abeff9030e7a"
+                                },
+                                {
+                                    "path":  "crates/domain-protocol/src/v1.rs",
+                                    "sha256":  "e727a357d97bf2e6ff687d2bf01a7adb17e2bc63e6631293e3ffd1b4df4f55a1"
+                                },
+                                {
+                                    "path":  "crates/domain-wasm/src/lib.rs",
+                                    "sha256":  "74571fc1e0bf9b063d039cbe6451e8d51f4e0b2031fdb18468177d1902478a8c"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/manifest.json",
+                                    "sha256":  "811f762dc18fc975fe44b4f955a5f91a4bb16610b7f816c1bfbe6fc3dbcecc02"
+                                },
+                                {
                                     "path":  "crates/study-core/src/question_builder.rs",
-                                    "sha256":  "0a31f5859d8d5d62e134392ccaafa1ddff817f402a5ed91de94ce5fd39e8af4d"
+                                    "sha256":  "fcfc097d207690bb8ffddb7b5a0056aff97cc8a0b7a8f390e62fee52546b54b8"
                                 },
                                 {
                                     "path":  "crates/study-core/src/session_summary.rs",
-                                    "sha256":  "4e0667d2e949a07935c6309344d9a8569f94447ab96f8e3e1ebdeebbc5a869c6"
+                                    "sha256":  "1b687d6087d424e9632eed97bfb2d77ae95cab615a8442c55d80e5ec7a68261f"
                                 },
                                 {
                                     "path":  "crates/storage-core/src/models/study_question.rs",
@@ -31,7 +59,7 @@
                                 },
                                 {
                                     "path":  "crates/app-core/src/facade/study_facade.rs",
-                                    "sha256":  "c2744b4f95fbdefe46e6bd1775582bd5e211afa7de77efb7917c9871e5b85666"
+                                    "sha256":  "e76c8077cbcfb2619f2d84ce38b4c0eb6b36d6c3bd57c83e51b3788d2616d0ba"
                                 },
                                 {
                                     "path":  "crates/app-core/src/services/reports_service.rs",
@@ -39,20 +67,132 @@
                                 },
                                 {
                                     "path":  "crates/app-core/src/services/wrong_words_service.rs",
-                                    "sha256":  "2fa7104cf5df82da86058bb982427f3a562d6faf2c56964909bb1e762b9dbd21"
+                                    "sha256":  "31804896fddc63d4db5812bc1f56a615d9c74a50d6d176850dd66591bc67abb9"
                                 },
                                 {
                                     "path":  "crates/platform-mobile/src/bridge.rs",
-                                    "sha256":  "71c1a6dfb9c940731b17ee2db5d218b25abd129570001b505a768c37ac6219a4"
+                                    "sha256":  "0ca7b2235969e5bd6285e42550e8d134bbdbc8729c95df2894e35d5714f1ba37"
                                 },
                                 {
                                     "path":  "apps/flutter_mobile/test/study_question_display_test.dart",
-                                    "sha256":  "e6ed8aa636d95bbf1e9ad083d64c2c5e4e3377fcad3e4f402217db02e971e864"
+                                    "sha256":  "bd9b2021b4379e584ee071a3cb393c5d507cb42d1901d3a0610b78879aa96636"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/lifecycle-abandon.json",
+                                    "sha256":  "aae5007c234f7d243df48a9f5b692b05c8159813fafe934264a97b91b808819b"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/lifecycle-dispute.json",
+                                    "sha256":  "a68bed7aece558dc3b5b5fb84833f5c09e7b18ee211a6adb0dd9d5c0217d1672"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/lifecycle-exclusion.json",
+                                    "sha256":  "43c3b5d31220a52370bcf64d45c56df39c2cc21c7b23bce18c846862f5ce5ae4"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/lifecycle-transition.json",
+                                    "sha256":  "cd438a0a590017b13a2f6168e9ec16ae85ec225b801a129bd75a7cd16882d6ce"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/phase6-mastery.json",
+                                    "sha256":  "5e501c2ba97256a7be5b052413bc87b79def605a491a7bbd3cdabe1ab8bab9f5"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/phase6-reconcile.json",
+                                    "sha256":  "56884190ebb1b8e1326f859e627ac3ed83ff595b162b7528162d09c6372494db"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/phase6-six-modes.json",
+                                    "sha256":  "276acfd5a6bd35f2232a2108d177160a4be5b47a160669fc3bcd8fe3811d0194"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/report-local-day.json",
+                                    "sha256":  "98c3ea23a5a099dd7ef79da6faf84c09d78174791c03969f4d7181af94b65a96"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/study-newword.json",
+                                    "sha256":  "5b468b8b273c1ae3268194662db3db01632c04857ab523e159554f65a94262c8"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/study-non-newword-modes.json",
+                                    "sha256":  "a1f0cd3d3937046f582a4e87b580eb7f1b5603d994a6ef0e8d369036311ee3ee"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/study-post-submit-feedback.json",
+                                    "sha256":  "abe88e3545eebbd799536c2d11003e94da68e760e320353fc9f670f3975737ad"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/study-progress-summary.json",
+                                    "sha256":  "648c68eaea08fde0324fdcf8bcc9f33ac90f2c7ba77f997420400193e8dc1b75"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/study-resume-state.json",
+                                    "sha256":  "b89703e229a9fec642f4299c87542abc21c1157dca023a5931437bd7e7c7963c"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/expected/wrong-word-identity.json",
+                                    "sha256":  "376741aaaac7ddd615ba7b2d874633df6a6b9d06f6a4f5121ebf602a5db73fe7"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/lifecycle-abandon.json",
+                                    "sha256":  "3175db27b5b144657ff47d20fd3be85c5425e172f6c196d18018d8c0229b4e85"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/lifecycle-dispute.json",
+                                    "sha256":  "2cc086174a3d2583844c58d2ea6802a30ccc3513a7f8d92cd4155aaf280169bb"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/lifecycle-exclusion.json",
+                                    "sha256":  "03e72605aca51fa9753868082b2ab871fd6216ed1a906c8c8e29164f95bfaecd"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/lifecycle-transition.json",
+                                    "sha256":  "775579ca7979d4850bea0cd71f5ba075bb989ff91764caa06aaa962b2a783537"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/phase6-mastery.json",
+                                    "sha256":  "7af1fe734d64d31eb2e54660fc3555e9015dcd2a991bd9c11d347bfdd20ac651"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/phase6-reconcile.json",
+                                    "sha256":  "62d18c7800d7287468afc367d525d56534e1a3485647e25c528d149645cba613"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/phase6-six-modes.json",
+                                    "sha256":  "66cb04f47710063271aafc844f1a4846b534316b458b74a97432339319eacf07"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/report-local-day.json",
+                                    "sha256":  "398900cb3215c8e8f359ab5ed317659445f2236f6aaf632a718ef42f245be83e"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/study-newword.json",
+                                    "sha256":  "1926a1840af5a1748ec2dae020bd0f7a0798561f56ecc404b93f557d09bb555f"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/study-non-newword-modes.json",
+                                    "sha256":  "345dedd27549f3df21cc5dcf62673c1cc93b565094211c0b1a545ffda863a5df"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/study-post-submit-feedback.json",
+                                    "sha256":  "1157a98dc7b6e5b3e148afbf7af6e88a9d66b61bc968a37e847866f2db642f72"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/study-progress-summary.json",
+                                    "sha256":  "21a88fbeb6431679067317f063985961ba990ed193f6316cce26b224d73a4d40"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/study-resume-state.json",
+                                    "sha256":  "ad7399b2c3dc97626bcb0bb3a12c679f2541be5dc584196e504eb7bc2a779793"
+                                },
+                                {
+                                    "path":  "fixtures/domain/v1/requests/wrong-word-identity.json",
+                                    "sha256":  "bdab408f5125b8920152870d882372b441954df8afe2e6e42df22667e144e010"
                                 }
                             ],
     "learningLedger":  {
                            "path":  "docs/features/learning.md",
-                           "sha256":  "b777e3205a900fbb39ca2ad0c8e2574dab0d1d060d20969a3f5f9c71aed26dbf"
+                           "sha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55"
                        },
-    "aggregateSha256":  "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27"
+    "aggregateSha256":  "c690baf8cd2e64cd2dcad90562a6bb35d2333284a542f349ebbb145a8401a528"
 }

@@ -674,6 +674,301 @@
                                                          }
                                                      ]
                                       }
+                       },
+                       {
+                           "wave":  6,
+                           "promotedAtUtc":  "2026-08-07T11:16:12Z",
+                           "oldAggregateSha256":  "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27",
+                           "newAggregateSha256":  "c690baf8cd2e64cd2dcad90562a6bb35d2333284a542f349ebbb145a8401a528",
+                           "oldLearningLedgerSha256":  "b777e3205a900fbb39ca2ad0c8e2574dab0d1d060d20969a3f5f9c71aed26dbf",
+                           "newLearningLedgerSha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55",
+                           "changedFiles":  [
+                                                "apps/flutter_mobile/test/study_question_display_test.dart",
+                                                "crates/app-core/src/facade/study_facade.rs",
+                                                "crates/app-core/src/services/wrong_words_service.rs",
+                                                "crates/domain-core/src/progress.rs",
+                                                "crates/domain-core/src/study.rs",
+                                                "crates/domain-models/src/projections.rs",
+                                                "crates/domain-models/src/study.rs",
+                                                "crates/domain-protocol/src/v1.rs",
+                                                "crates/domain-wasm/src/lib.rs",
+                                                "crates/platform-mobile/src/bridge.rs",
+                                                "crates/study-core/src/question_builder.rs",
+                                                "crates/study-core/src/session_summary.rs",
+                                                "fixtures/domain/v1/expected/lifecycle-abandon.json",
+                                                "fixtures/domain/v1/expected/lifecycle-dispute.json",
+                                                "fixtures/domain/v1/expected/lifecycle-exclusion.json",
+                                                "fixtures/domain/v1/expected/lifecycle-transition.json",
+                                                "fixtures/domain/v1/expected/phase6-mastery.json",
+                                                "fixtures/domain/v1/expected/phase6-reconcile.json",
+                                                "fixtures/domain/v1/expected/phase6-six-modes.json",
+                                                "fixtures/domain/v1/expected/report-local-day.json",
+                                                "fixtures/domain/v1/expected/study-newword.json",
+                                                "fixtures/domain/v1/expected/study-non-newword-modes.json",
+                                                "fixtures/domain/v1/expected/study-post-submit-feedback.json",
+                                                "fixtures/domain/v1/expected/study-progress-summary.json",
+                                                "fixtures/domain/v1/expected/study-resume-state.json",
+                                                "fixtures/domain/v1/expected/wrong-word-identity.json",
+                                                "fixtures/domain/v1/manifest.json",
+                                                "fixtures/domain/v1/requests/lifecycle-abandon.json",
+                                                "fixtures/domain/v1/requests/lifecycle-dispute.json",
+                                                "fixtures/domain/v1/requests/lifecycle-exclusion.json",
+                                                "fixtures/domain/v1/requests/lifecycle-transition.json",
+                                                "fixtures/domain/v1/requests/phase6-mastery.json",
+                                                "fixtures/domain/v1/requests/phase6-reconcile.json",
+                                                "fixtures/domain/v1/requests/phase6-six-modes.json",
+                                                "fixtures/domain/v1/requests/report-local-day.json",
+                                                "fixtures/domain/v1/requests/study-newword.json",
+                                                "fixtures/domain/v1/requests/study-non-newword-modes.json",
+                                                "fixtures/domain/v1/requests/study-post-submit-feedback.json",
+                                                "fixtures/domain/v1/requests/study-progress-summary.json",
+                                                "fixtures/domain/v1/requests/study-resume-state.json",
+                                                "fixtures/domain/v1/requests/wrong-word-identity.json",
+                                                "docs/features/learning.md"
+                                            ],
+                           "reviewedDiff":  {
+                                                "path":  "fixtures/domain/v1/evidence/wave-6-reviewed-diff.json",
+                                                "sha256":  "5149d8b751c58ee7df3ad6c990ecb24aed344a6ca469e0b2db419f6da68d5908"
+                                            },
+                           "parityEvidence":  {
+                                                  "path":  "fixtures/domain/v1/evidence/wave-6.json",
+                                                  "sha256":  "83f3cb8a032c50391b8f681fc9f870ac5293c4b63442b6f4b80823ceeb84d6b4"
+                                              },
+                           "review":  {
+                                          "schemaVersion":  1,
+                                          "wave":  6,
+                                          "reviewed":  true,
+                                          "changedFiles":  [
+                                                               "apps/flutter_mobile/test/study_question_display_test.dart",
+                                                               "crates/app-core/src/facade/study_facade.rs",
+                                                               "crates/app-core/src/services/wrong_words_service.rs",
+                                                               "crates/domain-core/src/progress.rs",
+                                                               "crates/domain-core/src/study.rs",
+                                                               "crates/domain-models/src/projections.rs",
+                                                               "crates/domain-models/src/study.rs",
+                                                               "crates/domain-protocol/src/v1.rs",
+                                                               "crates/domain-wasm/src/lib.rs",
+                                                               "crates/platform-mobile/src/bridge.rs",
+                                                               "crates/study-core/src/question_builder.rs",
+                                                               "crates/study-core/src/session_summary.rs",
+                                                               "docs/features/learning.md",
+                                                               "docs/features/plan-page.md",
+                                                               "docs/features/today-page.md",
+                                                               "fixtures/domain/v1/expected/lifecycle-abandon.json",
+                                                               "fixtures/domain/v1/expected/lifecycle-dispute.json",
+                                                               "fixtures/domain/v1/expected/lifecycle-exclusion.json",
+                                                               "fixtures/domain/v1/expected/lifecycle-transition.json",
+                                                               "fixtures/domain/v1/expected/phase6-mastery.json",
+                                                               "fixtures/domain/v1/expected/phase6-reconcile.json",
+                                                               "fixtures/domain/v1/expected/phase6-six-modes.json",
+                                                               "fixtures/domain/v1/expected/report-local-day.json",
+                                                               "fixtures/domain/v1/expected/study-newword.json",
+                                                               "fixtures/domain/v1/expected/study-non-newword-modes.json",
+                                                               "fixtures/domain/v1/expected/study-post-submit-feedback.json",
+                                                               "fixtures/domain/v1/expected/study-progress-summary.json",
+                                                               "fixtures/domain/v1/expected/study-resume-state.json",
+                                                               "fixtures/domain/v1/expected/wrong-word-identity.json",
+                                                               "fixtures/domain/v1/manifest.json",
+                                                               "fixtures/domain/v1/requests/lifecycle-abandon.json",
+                                                               "fixtures/domain/v1/requests/lifecycle-dispute.json",
+                                                               "fixtures/domain/v1/requests/lifecycle-exclusion.json",
+                                                               "fixtures/domain/v1/requests/lifecycle-transition.json",
+                                                               "fixtures/domain/v1/requests/phase6-mastery.json",
+                                                               "fixtures/domain/v1/requests/phase6-reconcile.json",
+                                                               "fixtures/domain/v1/requests/phase6-six-modes.json",
+                                                               "fixtures/domain/v1/requests/report-local-day.json",
+                                                               "fixtures/domain/v1/requests/study-newword.json",
+                                                               "fixtures/domain/v1/requests/study-non-newword-modes.json",
+                                                               "fixtures/domain/v1/requests/study-post-submit-feedback.json",
+                                                               "fixtures/domain/v1/requests/study-progress-summary.json",
+                                                               "fixtures/domain/v1/requests/study-resume-state.json",
+                                                               "fixtures/domain/v1/requests/wrong-word-identity.json",
+                                                               "scripts/domain-export/build-package.ps1",
+                                                               "scripts/domain-export/check-source-lock.ps1",
+                                                               "scripts/domain-export/run-browser-gates.ps1",
+                                                               "scripts/domain-export/validate-manifest.mjs",
+                                                               "scripts/domain-export/validate-manifest.test.mjs",
+                                                               "tests/domain-browser/domain-wasm.spec.ts"
+                                                           ],
+                                          "summary":  "Reviewed the additive Phase 6 producer changes, complete manifest-bound fixture inventory, promotion and reproducibility toolchain, and learning, Plan, and Today ledger boundaries before Wave 6 promotion.",
+                                          "provenanceLimit":  "This review establishes deterministic producer and three-browser candidate parity only. It does not establish mobile-device, Word Net receiver, packaged Tauri, content-rights, cloud/restore, or human UAT acceptance."
+                                      },
+                           "parity":  {
+                                          "schemaVersion":  1,
+                                          "wave":  4,
+                                          "generatedAtUtc":  "2026-08-07T11:13:40Z",
+                                          "success":  true,
+                                          "sourceLockDigest":  "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27",
+                                          "learningLedgerSha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55",
+                                          "artifact":  {
+                                                           "commit":  "4e8e5b786f9196dd143df40c9e7c37619dfa8f02",
+                                                           "dirty":  true,
+                                                           "wasmSha256":  "0ae3a88af1806413b717b75a0a9d875274ac04483ff480bf003fbde164198c9c",
+                                                           "javascriptSha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399",
+                                                           "fixtureIds":  [
+                                                                              "lifecycle-abandon",
+                                                                              "lifecycle-dispute",
+                                                                              "lifecycle-exclusion",
+                                                                              "lifecycle-transition",
+                                                                              "phase6-mastery",
+                                                                              "phase6-reconcile",
+                                                                              "phase6-six-modes",
+                                                                              "report-local-day",
+                                                                              "study-newword",
+                                                                              "study-non-newword-modes",
+                                                                              "study-post-submit-feedback",
+                                                                              "study-progress-summary",
+                                                                              "study-resume-state",
+                                                                              "wrong-word-identity"
+                                                                          ],
+                                                           "fixtureCount":  14,
+                                                           "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990"
+                                                       },
+                                          "browsers":  [
+                                                           {
+                                                               "browser":  "chromium",
+                                                               "fixtureIds":  [
+                                                                                  "lifecycle-abandon",
+                                                                                  "lifecycle-dispute",
+                                                                                  "lifecycle-exclusion",
+                                                                                  "lifecycle-transition",
+                                                                                  "phase6-mastery",
+                                                                                  "phase6-reconcile",
+                                                                                  "phase6-six-modes",
+                                                                                  "report-local-day",
+                                                                                  "study-newword",
+                                                                                  "study-non-newword-modes",
+                                                                                  "study-post-submit-feedback",
+                                                                                  "study-progress-summary",
+                                                                                  "study-resume-state",
+                                                                                  "wrong-word-identity"
+                                                                              ],
+                                                               "fixtureCount":  14,
+                                                               "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
+                                                               "startupMs":  29.799999997019768,
+                                                               "firstCommandMs":  18.600000001490116,
+                                                               "repeatCommandMs":  0.15599999994039535,
+                                                               "error":  {
+                                                                             "protocolVersion":  1,
+                                                                             "requestId":  "",
+                                                                             "source":  {
+                                                                                            "name":  "word-mobile-domain",
+                                                                                            "package":  "word-domain-protocol",
+                                                                                            "version":  "0.1.0"
+                                                                                        },
+                                                                             "error":  {
+                                                                                           "code":  "missing_required_field",
+                                                                                           "message":  "A required request field is missing.",
+                                                                                           "details":  {
+                                                                                                           "field":  "requestId"
+                                                                                                       }
+                                                                                       }
+                                                                         }
+                                                           },
+                                                           {
+                                                               "browser":  "firefox",
+                                                               "fixtureIds":  [
+                                                                                  "lifecycle-abandon",
+                                                                                  "lifecycle-dispute",
+                                                                                  "lifecycle-exclusion",
+                                                                                  "lifecycle-transition",
+                                                                                  "phase6-mastery",
+                                                                                  "phase6-reconcile",
+                                                                                  "phase6-six-modes",
+                                                                                  "report-local-day",
+                                                                                  "study-newword",
+                                                                                  "study-non-newword-modes",
+                                                                                  "study-post-submit-feedback",
+                                                                                  "study-progress-summary",
+                                                                                  "study-resume-state",
+                                                                                  "wrong-word-identity"
+                                                                              ],
+                                                               "fixtureCount":  14,
+                                                               "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
+                                                               "startupMs":  197,
+                                                               "firstCommandMs":  1,
+                                                               "repeatCommandMs":  0.4,
+                                                               "error":  {
+                                                                             "protocolVersion":  1,
+                                                                             "requestId":  "",
+                                                                             "source":  {
+                                                                                            "name":  "word-mobile-domain",
+                                                                                            "package":  "word-domain-protocol",
+                                                                                            "version":  "0.1.0"
+                                                                                        },
+                                                                             "error":  {
+                                                                                           "code":  "missing_required_field",
+                                                                                           "message":  "A required request field is missing.",
+                                                                                           "details":  {
+                                                                                                           "field":  "requestId"
+                                                                                                       }
+                                                                                       }
+                                                                         }
+                                                           },
+                                                           {
+                                                               "browser":  "webkit",
+                                                               "fixtureIds":  [
+                                                                                  "lifecycle-abandon",
+                                                                                  "lifecycle-dispute",
+                                                                                  "lifecycle-exclusion",
+                                                                                  "lifecycle-transition",
+                                                                                  "phase6-mastery",
+                                                                                  "phase6-reconcile",
+                                                                                  "phase6-six-modes",
+                                                                                  "report-local-day",
+                                                                                  "study-newword",
+                                                                                  "study-non-newword-modes",
+                                                                                  "study-post-submit-feedback",
+                                                                                  "study-progress-summary",
+                                                                                  "study-resume-state",
+                                                                                  "wrong-word-identity"
+                                                                              ],
+                                                               "fixtureCount":  14,
+                                                               "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
+                                                               "startupMs":  52,
+                                                               "firstCommandMs":  6,
+                                                               "repeatCommandMs":  0.52,
+                                                               "error":  {
+                                                                             "protocolVersion":  1,
+                                                                             "requestId":  "",
+                                                                             "source":  {
+                                                                                            "name":  "word-mobile-domain",
+                                                                                            "package":  "word-domain-protocol",
+                                                                                            "version":  "0.1.0"
+                                                                                        },
+                                                                             "error":  {
+                                                                                           "code":  "missing_required_field",
+                                                                                           "message":  "A required request field is missing.",
+                                                                                           "details":  {
+                                                                                                           "field":  "requestId"
+                                                                                                       }
+                                                                                       }
+                                                                         }
+                                                           }
+                                                       ],
+                                          "checks":  [
+                                                         {
+                                                             "name":  "canonical-generated-wasm-fixtures",
+                                                             "status":  "passed",
+                                                             "detail":  "14 artifact-bound canonical fixtures (150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990) and a structured error executed through the generated package; native parity is verified independently by the Rust workspace gate."
+                                                         },
+                                                         {
+                                                             "name":  "playwright-chromium",
+                                                             "status":  "passed",
+                                                             "detail":  "Generated web package imported and executed in Chromium."
+                                                         },
+                                                         {
+                                                             "name":  "playwright-firefox",
+                                                             "status":  "passed",
+                                                             "detail":  "Generated web package imported and executed in Firefox."
+                                                         },
+                                                         {
+                                                             "name":  "playwright-webkit",
+                                                             "status":  "passed",
+                                                             "detail":  "Generated web package imported and executed in Playwright WebKit."
+                                                         }
+                                                     ]
+                                      }
                        }
                    ]
 }

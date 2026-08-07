@@ -2,7 +2,7 @@
 
 > Slug: `plan-page`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-08-06`
 
 ## Product Intent
 
@@ -62,6 +62,8 @@ No direct provider calls. AI passage eligibility and content depend indirectly o
 
 ## Implementation Log
 
+- `2026-08-07`: Phase 6 producer promotion captures the canonical six question-unit targets, fixed New Word multiplication, configurable Review/Mixed/Wrong ratios, and explicit saved-plan versus apply-to-today boundary in the reviewed Wave 6 fixture set. The promotion proves the producer contract and browser artifact parity, not mobile or Word Net UI acceptance.
+- `2026-08-06`: Added `highFrequencyPerDay` to saved/today plan JSON, growth rules, Rust Today targets/completions, Plan editing, Study target hydration, Today task cards, and completion calculation. New backend plans default to 10 questions; older decoded/constructed plans remain backward-compatible at zero when the field is absent outside the backend default payload.
 - `2026-04-24`: Flutter main learning flow began recovering Plan/Study behavior from RN parity.
 - `2026-05-19`: Plan active plan and wordbooks moved toward shell-level preload/cache expectations.
 - `2026-06-25`: Rebuilt this feature ledger as the durable cross-platform Plan page record.
@@ -103,6 +105,7 @@ Desktop should add focused parity checks for:
 
 ## Known Pitfalls
 
+- Do not infer a high-frequency session size from the 100-word learning pool; use `highFrequencyPerDay` from the frozen Today plan.
 - Do not compute or clamp Today/Study target counts in Flutter.
 - Do not use `saved_wordbooks_json` as today's source after a day snapshot exists.
 - Do not default missing review wordbook snapshot to the global default wordbook; fall back to `today_wordbooks_json`.
@@ -113,6 +116,9 @@ Desktop should add focused parity checks for:
 
 ## Verification
 
+- Mobile (`2026-08-06`): `flutter test test\croc_bti_model_test.dart test\today_task_breakdown_test.dart` passed all 17 cases, including unchanged legacy Plan/Today behavior while the new backend field is additive.
+- Mobile (`2026-08-06`): targeted `flutter analyze --no-pub` over the eight changed Plan/Croc/Study/Today/Reports Dart files passed with no issues.
+- Shared/domain (`2026-08-06`): `cargo check --workspace` passed with existing platform dead-code warnings.
 - Mobile:
   - `flutter analyze --no-pub`
   - Manual expected flows: edit target, save for future, apply to today, leave dirty Plan, switch wordbook from Medical English, pull-refresh Today, enter Study.

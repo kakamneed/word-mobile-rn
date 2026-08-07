@@ -127,6 +127,7 @@ Reward state is also durable:
 
 ## Implementation Log
 
+- `2026-08-07`: Phase 6 producer promotion records Today entry for all six canonical modes and accepted-answer-preserving reconciliation when changed targets or sources are explicitly applied. The reviewed fixture keeps targets authoritative, reports supply shortages, and never treats saving a future plan as a same-day mutation; receiver and device acceptance remain separate gates.
 - `2026-04-24`: Today moved back toward the primary task flow after earlier diagnostics-heavy screens.
 - `2026-04-29`: Removed the "plan and wordbook" card from Today. Added a plan edit action beside task breakdown.
 - `2026-04-29`: Added the daily reward card below AI reading with left pull control and right reward image area.
