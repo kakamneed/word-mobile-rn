@@ -1,10 +1,34 @@
 {
     "schemaVersion":  1,
     "acceptedWave":  6,
-    "capturedAtUtc":  "2026-08-07T11:16:12Z",
-    "gitCommit":  "4e8e5b786f9196dd143df40c9e7c37619dfa8f02",
+    "capturedAtUtc":  "2026-08-07T12:16:42Z",
+    "gitCommit":  "b0f09ee734594208290834c3554da59be72e24e0",
     "gitDirty":  true,
     "authoritativeInputs":  [
+                                {
+                                    "path":  "scripts/domain-export/check-source-lock.ps1",
+                                    "sha256":  "1fae1dd34f90b25c1ea34de54a5b0f1602e5533400e575d7e120dd7aba04e247"
+                                },
+                                {
+                                    "path":  "scripts/domain-export/build-package.ps1",
+                                    "sha256":  "f12bca9b37e5a1b926f98ae2fceb9df3be49e81e43be89f36ccd2d66325adb32"
+                                },
+                                {
+                                    "path":  "scripts/domain-export/validate-manifest.mjs",
+                                    "sha256":  "b462f9fe531adbb337a923631fbccc332f26d3a4a08420876376b4b3f0f8f78d"
+                                },
+                                {
+                                    "path":  "scripts/domain-export/validate-manifest.test.mjs",
+                                    "sha256":  "825affbc3c0c05a41aad0232c30ada79d0d62e1ecc06a7aeacd12ff37a0b7ecd"
+                                },
+                                {
+                                    "path":  "scripts/domain-export/run-browser-gates.ps1",
+                                    "sha256":  "4aaf200191b9cfd41595f8d2a42dc87e55f0158bea7547c092366f9d95815953"
+                                },
+                                {
+                                    "path":  "tests/domain-browser/domain-wasm.spec.ts",
+                                    "sha256":  "6e834ed45e46b87ff6e749f98332362b7ba49e61ecee18719c4b64e369a42376"
+                                },
                                 {
                                     "path":  "crates/domain-models/src/study.rs",
                                     "sha256":  "aa3dce271313e0f4839846272a255bc8f58ba0c834f6b572d5fd812887572943"
@@ -194,5 +218,5 @@
                            "path":  "docs/features/learning.md",
                            "sha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55"
                        },
-    "aggregateSha256":  "c690baf8cd2e64cd2dcad90562a6bb35d2333284a542f349ebbb145a8401a528"
+    "aggregateSha256":  "e4421e2a4170e7acf06b23edffdc7da14d5da86d54ccc5511039cf7b0d102bf8"
 }
