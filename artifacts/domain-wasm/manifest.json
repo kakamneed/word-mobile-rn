@@ -2,37 +2,175 @@
     "schemaVersion":  1,
     "protocolVersion":  1,
     "source":  {
-                   "commit":  "b9af329bb13b12d2ee7a06afbd289f1e53c6be40",
+                   "commit":  "c15a8501e519d8cdf779d44774f2abc7decea29d",
                    "dirty":  false,
-                   "sourceLockSha256":  "debd3a2d9ecf986012aca38f8a7f18e8ed11b361587c9fdd71835ed346740f27",
+                   "sourceLockSha256":  "e4421e2a4170e7acf06b23edffdc7da14d5da86d54ccc5511039cf7b0d102bf8",
                    "cargoLockSha256":  "60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a"
                },
     "build":  {
                   "target":  "wasm32-unknown-unknown",
                   "profile":  "release",
                   "command":  "wasm-pack build crates/domain-wasm --release --target web --out-dir \u003coutput\u003e/package --out-name word_domain_wasm",
+                  "gzipImplementation":  "node:zlib.gzipSync",
                   "rustc":  "rustc 1.94.0-nightly (fa5eda19b 2025-12-12)",
                   "cargo":  "cargo 1.94.0-nightly (2c283a9a5 2025-12-04)",
                   "wasmPack":  "wasm-pack 0.15.0"
               },
     "artifacts":  {
+                      "packageJson":  {
+                                          "path":  "package/package.json",
+                                          "sha256":  "f143a94103a321588a56a15805cd7795ccf81bf4fc45c0dbb2692616d3b920de",
+                                          "rawBytes":  532
+                                      },
                       "javascript":  {
                                          "path":  "package/word_domain_wasm.js",
                                          "sha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399",
                                          "rawBytes":  6648
                                      },
+                      "javascriptTypes":  {
+                                              "path":  "package/word_domain_wasm.d.ts",
+                                              "sha256":  "62b4596a74bd64a6ba63351a3e06169715656a82189504a2b57d637517e8c490",
+                                              "rawBytes":  1604
+                                          },
                       "wasm":  {
                                    "path":  "package/word_domain_wasm_bg.wasm",
-                                   "sha256":  "bf609ab5cd86a285a271868a87d3710c781476f40c8d61f1f098f46ce9411fa7",
-                                   "rawBytes":  814337,
-                                   "gzipBytes":  276077
-                               }
+                                   "sha256":  "0ae3a88af1806413b717b75a0a9d875274ac04483ff480bf003fbde164198c9c",
+                                   "rawBytes":  898389,
+                                   "gzipBytes":  304749
+                               },
+                      "wasmTypes":  {
+                                        "path":  "package/word_domain_wasm_bg.wasm.d.ts",
+                                        "sha256":  "ccc814841c5db91e9e458bce44271913c3e530867399e4c976e6f9254dd99fb3",
+                                        "rawBytes":  478
+                                    }
                   },
     "fixtures":  {
-                     "phase4Projections":  {
-                                               "path":  "fixtures/domain/v1/phase4-projections.json",
-                                               "sha256":  "aa49c89aae22a6794cb4ac69443de2cf40e0949add1a7e3c594bf814cde61562"
-                                           }
+                     "manifestPath":  "fixtures/domain/v1/manifest.json",
+                     "hashEncoding":  "utf8-lf-normalized-json-v1",
+                     "fixtureManifestSha256":  "811f762dc18fc975fe44b4f955a5f91a4bb16610b7f816c1bfbe6fc3dbcecc02",
+                     "fixtureCount":  14,
+                     "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
+                     "fixtureInventory":  [
+                                              {
+                                                  "id":  "lifecycle-abandon",
+                                                  "collection":  "lifecycleFixtures",
+                                                  "requestPath":  "requests/lifecycle-abandon.json",
+                                                  "requestSha256":  "3175db27b5b144657ff47d20fd3be85c5425e172f6c196d18018d8c0229b4e85",
+                                                  "expectedPath":  "expected/lifecycle-abandon.json",
+                                                  "expectedSha256":  "aae5007c234f7d243df48a9f5b692b05c8159813fafe934264a97b91b808819b"
+                                              },
+                                              {
+                                                  "id":  "lifecycle-dispute",
+                                                  "collection":  "lifecycleFixtures",
+                                                  "requestPath":  "requests/lifecycle-dispute.json",
+                                                  "requestSha256":  "2cc086174a3d2583844c58d2ea6802a30ccc3513a7f8d92cd4155aaf280169bb",
+                                                  "expectedPath":  "expected/lifecycle-dispute.json",
+                                                  "expectedSha256":  "a68bed7aece558dc3b5b5fb84833f5c09e7b18ee211a6adb0dd9d5c0217d1672"
+                                              },
+                                              {
+                                                  "id":  "lifecycle-exclusion",
+                                                  "collection":  "lifecycleFixtures",
+                                                  "requestPath":  "requests/lifecycle-exclusion.json",
+                                                  "requestSha256":  "03e72605aca51fa9753868082b2ab871fd6216ed1a906c8c8e29164f95bfaecd",
+                                                  "expectedPath":  "expected/lifecycle-exclusion.json",
+                                                  "expectedSha256":  "43c3b5d31220a52370bcf64d45c56df39c2cc21c7b23bce18c846862f5ce5ae4"
+                                              },
+                                              {
+                                                  "id":  "lifecycle-transition",
+                                                  "collection":  "lifecycleFixtures",
+                                                  "requestPath":  "requests/lifecycle-transition.json",
+                                                  "requestSha256":  "775579ca7979d4850bea0cd71f5ba075bb989ff91764caa06aaa962b2a783537",
+                                                  "expectedPath":  "expected/lifecycle-transition.json",
+                                                  "expectedSha256":  "cd438a0a590017b13a2f6168e9ec16ae85ec225b801a129bd75a7cd16882d6ce"
+                                              },
+                                              {
+                                                  "id":  "phase6-mastery",
+                                                  "collection":  "lifecycleFixtures",
+                                                  "requestPath":  "requests/phase6-mastery.json",
+                                                  "requestSha256":  "7af1fe734d64d31eb2e54660fc3555e9015dcd2a991bd9c11d347bfdd20ac651",
+                                                  "expectedPath":  "expected/phase6-mastery.json",
+                                                  "expectedSha256":  "5e501c2ba97256a7be5b052413bc87b79def605a491a7bbd3cdabe1ab8bab9f5"
+                                              },
+                                              {
+                                                  "id":  "phase6-reconcile",
+                                                  "collection":  "lifecycleFixtures",
+                                                  "requestPath":  "requests/phase6-reconcile.json",
+                                                  "requestSha256":  "62d18c7800d7287468afc367d525d56534e1a3485647e25c528d149645cba613",
+                                                  "expectedPath":  "expected/phase6-reconcile.json",
+                                                  "expectedSha256":  "56884190ebb1b8e1326f859e627ac3ed83ff595b162b7528162d09c6372494db"
+                                              },
+                                              {
+                                                  "id":  "phase6-six-modes",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/phase6-six-modes.json",
+                                                  "requestSha256":  "66cb04f47710063271aafc844f1a4846b534316b458b74a97432339319eacf07",
+                                                  "expectedPath":  "expected/phase6-six-modes.json",
+                                                  "expectedSha256":  "276acfd5a6bd35f2232a2108d177160a4be5b47a160669fc3bcd8fe3811d0194"
+                                              },
+                                              {
+                                                  "id":  "report-local-day",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/report-local-day.json",
+                                                  "requestSha256":  "398900cb3215c8e8f359ab5ed317659445f2236f6aaf632a718ef42f245be83e",
+                                                  "expectedPath":  "expected/report-local-day.json",
+                                                  "expectedSha256":  "98c3ea23a5a099dd7ef79da6faf84c09d78174791c03969f4d7181af94b65a96"
+                                              },
+                                              {
+                                                  "id":  "study-newword",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/study-newword.json",
+                                                  "requestSha256":  "1926a1840af5a1748ec2dae020bd0f7a0798561f56ecc404b93f557d09bb555f",
+                                                  "expectedPath":  "expected/study-newword.json",
+                                                  "expectedSha256":  "5b468b8b273c1ae3268194662db3db01632c04857ab523e159554f65a94262c8"
+                                              },
+                                              {
+                                                  "id":  "study-non-newword-modes",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/study-non-newword-modes.json",
+                                                  "requestSha256":  "345dedd27549f3df21cc5dcf62673c1cc93b565094211c0b1a545ffda863a5df",
+                                                  "expectedPath":  "expected/study-non-newword-modes.json",
+                                                  "expectedSha256":  "a1f0cd3d3937046f582a4e87b580eb7f1b5603d994a6ef0e8d369036311ee3ee"
+                                              },
+                                              {
+                                                  "id":  "study-post-submit-feedback",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/study-post-submit-feedback.json",
+                                                  "requestSha256":  "1157a98dc7b6e5b3e148afbf7af6e88a9d66b61bc968a37e847866f2db642f72",
+                                                  "expectedPath":  "expected/study-post-submit-feedback.json",
+                                                  "expectedSha256":  "abe88e3545eebbd799536c2d11003e94da68e760e320353fc9f670f3975737ad"
+                                              },
+                                              {
+                                                  "id":  "study-progress-summary",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/study-progress-summary.json",
+                                                  "requestSha256":  "21a88fbeb6431679067317f063985961ba990ed193f6316cce26b224d73a4d40",
+                                                  "expectedPath":  "expected/study-progress-summary.json",
+                                                  "expectedSha256":  "648c68eaea08fde0324fdcf8bcc9f33ac90f2c7ba77f997420400193e8dc1b75"
+                                              },
+                                              {
+                                                  "id":  "study-resume-state",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/study-resume-state.json",
+                                                  "requestSha256":  "ad7399b2c3dc97626bcb0bb3a12c679f2541be5dc584196e504eb7bc2a779793",
+                                                  "expectedPath":  "expected/study-resume-state.json",
+                                                  "expectedSha256":  "b89703e229a9fec642f4299c87542abc21c1157dca023a5931437bd7e7c7963c"
+                                              },
+                                              {
+                                                  "id":  "wrong-word-identity",
+                                                  "collection":  "fixtures",
+                                                  "requestPath":  "requests/wrong-word-identity.json",
+                                                  "requestSha256":  "bdab408f5125b8920152870d882372b441954df8afe2e6e42df22667e144e010",
+                                                  "expectedPath":  "expected/wrong-word-identity.json",
+                                                  "expectedSha256":  "376741aaaac7ddd615ba7b2d874633df6a6b9d06f6a4f5121ebf602a5db73fe7"
+                                              }
+                                          ],
+                     "phase6FixtureIds":  [
+                                              "phase6-mastery",
+                                              "phase6-reconcile",
+                                              "phase6-six-modes"
+                                          ],
+                     "phase6FixtureCount":  3,
+                     "phase6FixtureInventorySha256":  "8901439adc06dda06c1718b37055b945e82fea99a5fe50e18d59e625a519cd77"
                  },
     "budgets":  {
                     "wasmRawBytes":  1048576,
@@ -46,6 +184,6 @@
     "reproducibility":  {
                             "checked":  true,
                             "builds":  2,
-                            "normalizedManifestSha256":  "2174dd749b1f71ed1d4d2bc6e525ac56e92817cb1a9e7651380965b6a75a8d4c"
+                            "normalizedManifestSha256":  "e207d9dbafb0e75522e61b898b7a6024987665d33ce080462a8cd91decd4a5ee"
                         }
 }
