@@ -1,8 +1,8 @@
 {
     "schemaVersion":  1,
     "acceptedWave":  6,
-    "capturedAtUtc":  "2026-08-07T12:16:42Z",
-    "gitCommit":  "b0f09ee734594208290834c3554da59be72e24e0",
+    "capturedAtUtc":  "2026-08-08T11:18:43Z",
+    "gitCommit":  "6bb7b62937c9398cdadf1804c6d741c45182e69c",
     "gitDirty":  true,
     "authoritativeInputs":  [
                                 {
@@ -27,7 +27,7 @@
                                 },
                                 {
                                     "path":  "tests/domain-browser/domain-wasm.spec.ts",
-                                    "sha256":  "6e834ed45e46b87ff6e749f98332362b7ba49e61ecee18719c4b64e369a42376"
+                                    "sha256":  "a27d4e888c0ca455964cefb43690fc5a98e97b630d85134c4ae5f7e6ab75aa74"
                                 },
                                 {
                                     "path":  "crates/domain-models/src/study.rs",
@@ -47,7 +47,7 @@
                                 },
                                 {
                                     "path":  "crates/domain-protocol/src/v1.rs",
-                                    "sha256":  "e727a357d97bf2e6ff687d2bf01a7adb17e2bc63e6631293e3ffd1b4df4f55a1"
+                                    "sha256":  "98c39fcbad83f9cff55a0628eb3d177cf4a60795219019ffc62baa1e52ffc639"
                                 },
                                 {
                                     "path":  "crates/domain-wasm/src/lib.rs",
@@ -218,5 +218,5 @@
                            "path":  "docs/features/learning.md",
                            "sha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55"
                        },
-    "aggregateSha256":  "e4421e2a4170e7acf06b23edffdc7da14d5da86d54ccc5511039cf7b0d102bf8"
+    "aggregateSha256":  "fd37dadedab847d3aa2d7fb35831975cfeb6fb3d095bc9556ce7cf1c41cf57a1"
 }

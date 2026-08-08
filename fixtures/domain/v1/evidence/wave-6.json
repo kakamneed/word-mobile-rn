@@ -1,14 +1,14 @@
 {
     "schemaVersion":  1,
     "wave":  6,
-    "generatedAtUtc":  "2026-08-07T12:15:39Z",
+    "generatedAtUtc":  "2026-08-08T11:17:59Z",
     "success":  true,
-    "sourceLockDigest":  "c690baf8cd2e64cd2dcad90562a6bb35d2333284a542f349ebbb145a8401a528",
+    "sourceLockDigest":  "e4421e2a4170e7acf06b23edffdc7da14d5da86d54ccc5511039cf7b0d102bf8",
     "learningLedgerSha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55",
     "artifact":  {
-                     "commit":  "b0f09ee734594208290834c3554da59be72e24e0",
+                     "commit":  "6bb7b62937c9398cdadf1804c6d741c45182e69c",
                      "dirty":  true,
-                     "wasmSha256":  "0ae3a88af1806413b717b75a0a9d875274ac04483ff480bf003fbde164198c9c",
+                     "wasmSha256":  "e33c174224fbc5218dd1f4faf837e5cddd48f38d03d3d5cde0051e1c8c9b8ea4",
                      "javascriptSha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399",
                      "fixtureIds":  [
                                         "lifecycle-abandon",
@@ -52,9 +52,534 @@
                          "fixtureCount":  14,
                          "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                          "fixtureHashEncoding":  "utf8-lf-normalized-json-v1",
-                         "startupMs":  104.30000000074506,
-                         "firstCommandMs":  55.29999999701977,
-                         "repeatCommandMs":  0.26,
+                         "startupMs":  19.199999999254942,
+                         "firstCommandMs":  16.899999998509884,
+                         "repeatCommandMs":  0.11200000002980232,
+                         "transitionModes":  [
+                                                 {
+                                                     "mode":  "newWord",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-newWord",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "newWord",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "newWord",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "review",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-review",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "review",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "review",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "mixedTest",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-mixedTest",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "mixedTest",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "mixedTest",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "wrongWordReinforcement",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-wrongWordReinforcement",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "wrongWordReinforcement",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "wrongWordReinforcement",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "highFrequency",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-highFrequency",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "highFrequency",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "highFrequency",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "rootAffix",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-rootAffix",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "rootAffix",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "rootAffix",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 }
+                                             ],
+                         "unknownMode":  {
+                                             "protocolVersion":  1,
+                                             "requestId":  "lifecycle-transition-unknown-mode",
+                                             "source":  {
+                                                            "name":  "word-mobile-domain",
+                                                            "package":  "word-domain-protocol",
+                                                            "version":  "0.1.0"
+                                                        },
+                                             "error":  {
+                                                           "code":  "invalid_data",
+                                                           "message":  "The request contains invalid data."
+                                                       }
+                                         },
                          "error":  {
                                        "protocolVersion":  1,
                                        "requestId":  "",
@@ -93,9 +618,534 @@
                          "fixtureCount":  14,
                          "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                          "fixtureHashEncoding":  "utf8-lf-normalized-json-v1",
-                         "startupMs":  241,
-                         "firstCommandMs":  2,
-                         "repeatCommandMs":  0.44,
+                         "startupMs":  267,
+                         "firstCommandMs":  1,
+                         "repeatCommandMs":  0.36,
+                         "transitionModes":  [
+                                                 {
+                                                     "mode":  "newWord",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-newWord",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "newWord",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "newWord",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "review",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-review",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "review",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "review",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "mixedTest",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-mixedTest",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "mixedTest",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "mixedTest",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "wrongWordReinforcement",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-wrongWordReinforcement",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "wrongWordReinforcement",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "wrongWordReinforcement",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "highFrequency",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-highFrequency",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "highFrequency",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "highFrequency",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "rootAffix",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-rootAffix",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "rootAffix",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "rootAffix",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 }
+                                             ],
+                         "unknownMode":  {
+                                             "protocolVersion":  1,
+                                             "requestId":  "lifecycle-transition-unknown-mode",
+                                             "source":  {
+                                                            "name":  "word-mobile-domain",
+                                                            "package":  "word-domain-protocol",
+                                                            "version":  "0.1.0"
+                                                        },
+                                             "error":  {
+                                                           "code":  "invalid_data",
+                                                           "message":  "The request contains invalid data."
+                                                       }
+                                         },
                          "error":  {
                                        "protocolVersion":  1,
                                        "requestId":  "",
@@ -134,9 +1184,534 @@
                          "fixtureCount":  14,
                          "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                          "fixtureHashEncoding":  "utf8-lf-normalized-json-v1",
-                         "startupMs":  292,
+                         "startupMs":  35,
                          "firstCommandMs":  3,
-                         "repeatCommandMs":  0.4,
+                         "repeatCommandMs":  0.28,
+                         "transitionModes":  [
+                                                 {
+                                                     "mode":  "newWord",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-newWord",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "newWord",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "newWord",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "review",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-review",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "review",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "review",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "mixedTest",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-mixedTest",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "mixedTest",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "mixedTest",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "wrongWordReinforcement",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-wrongWordReinforcement",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "wrongWordReinforcement",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "wrongWordReinforcement",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "highFrequency",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-highFrequency",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "highFrequency",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "highFrequency",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 },
+                                                 {
+                                                     "mode":  "rootAffix",
+                                                     "response":  {
+                                                                      "protocolVersion":  1,
+                                                                      "requestId":  "lifecycle-transition-rootAffix",
+                                                                      "source":  {
+                                                                                     "name":  "word-mobile-domain",
+                                                                                     "package":  "word-domain-protocol",
+                                                                                     "version":  "0.1.0"
+                                                                                 },
+                                                                      "result":  {
+                                                                                     "acceptedAnswers":  [
+                                                                                                             {
+                                                                                                                 "acceptedAt":  "2026-07-29T00:01:00.000Z",
+                                                                                                                 "elapsedMs":  50,
+                                                                                                                 "entrySourceId":  "entry-1",
+                                                                                                                 "eventId":  "accepted:submit-1",
+                                                                                                                 "feedback":  {
+                                                                                                                                  "correctAnswer":  "path",
+                                                                                                                                  "hintAvailable":  false,
+                                                                                                                                  "outcome":  "correct",
+                                                                                                                                  "submitted":  true
+                                                                                                                              },
+                                                                                                                 "localDay":  "2026-07-29",
+                                                                                                                 "mode":  "rootAffix",
+                                                                                                                 "normalizedResponse":  "path",
+                                                                                                                 "outcome":  "correct",
+                                                                                                                 "questionFingerprint":  "question-1",
+                                                                                                                 "questionId":  "question-1",
+                                                                                                                 "sessionId":  "session-1",
+                                                                                                                 "source":  {
+                                                                                                                                "bookId":  "book",
+                                                                                                                                "entrySourceId":  "entry-1",
+                                                                                                                                "version":  "1"
+                                                                                                                            },
+                                                                                                                 "submissionId":  "submit-1",
+                                                                                                                 "userResponse":  "path"
+                                                                                                             }
+                                                                                                         ],
+                                                                                     "currentQuestionIndex":  1,
+                                                                                     "dailySnapshotId":  "daily-1",
+                                                                                     "engineVersion":  "phase-3",
+                                                                                     "localDay":  "2026-07-29",
+                                                                                     "materializedReviewSchedule":  [
+                                                                                                                        {
+                                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                                            "questionType":  "enToCnInput"
+                                                                                                                        }
+                                                                                                                    ],
+                                                                                     "mode":  "rootAffix",
+                                                                                     "ownerEpoch":  3,
+                                                                                     "planFingerprint":  "plan-1",
+                                                                                     "questionPlan":  [
+                                                                                                          {
+                                                                                                              "acceptedMeanings":  [
+                                                                                                                                       "path"
+                                                                                                                                   ],
+                                                                                                              "canonicalAnswer":  "path",
+                                                                                                              "choices":  null,
+                                                                                                              "correctChoiceLabel":  null,
+                                                                                                              "entrySourceId":  "entry-1",
+                                                                                                              "prompt":  "orbit",
+                                                                                                              "questionId":  "question-1",
+                                                                                                              "questionIndex":  0,
+                                                                                                              "questionType":  "enToCnInput",
+                                                                                                              "totalQuestions":  1,
+                                                                                                              "word":  "orbit"
+                                                                                                          }
+                                                                                                      ],
+                                                                                     "schemaVersion":  1,
+                                                                                     "sessionId":  "session-1",
+                                                                                     "slotId":  "guest:one",
+                                                                                     "sourceRefs":  [
+                                                                                                        {
+                                                                                                            "bookId":  "book",
+                                                                                                            "entrySourceId":  "entry-1",
+                                                                                                            "version":  "1"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "startedAt":  "2026-07-29T00:00:00.000Z",
+                                                                                     "state":  "completed",
+                                                                                     "updatedAt":  "2026-07-29T00:02:00.000Z"
+                                                                                 }
+                                                                  }
+                                                 }
+                                             ],
+                         "unknownMode":  {
+                                             "protocolVersion":  1,
+                                             "requestId":  "lifecycle-transition-unknown-mode",
+                                             "source":  {
+                                                            "name":  "word-mobile-domain",
+                                                            "package":  "word-domain-protocol",
+                                                            "version":  "0.1.0"
+                                                        },
+                                             "error":  {
+                                                           "code":  "invalid_data",
+                                                           "message":  "The request contains invalid data."
+                                                       }
+                                         },
                          "error":  {
                                        "protocolVersion":  1,
                                        "requestId":  "",

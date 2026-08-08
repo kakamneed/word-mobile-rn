@@ -3,13 +3,9 @@
   "wave": 6,
   "reviewed": true,
   "changedFiles": [
-    "scripts/domain-export/build-package.ps1",
-    "scripts/domain-export/check-source-lock.ps1",
-    "scripts/domain-export/run-browser-gates.ps1",
-    "scripts/domain-export/validate-manifest.mjs",
-    "scripts/domain-export/validate-manifest.test.mjs",
+    "crates/domain-protocol/src/v1.rs",
     "tests/domain-browser/domain-wasm.spec.ts"
   ],
-  "summary": "Reviewed the six-file portable artifact identity repair: Node gzipSync measurement, LF-normalized UTF-8 JSON fixture hashes, exact five-output packaging, fail-closed manifest checks, and matching three-browser inventory validation.",
-  "provenanceLimit": "This review establishes deterministic producer-toolchain behavior and Chromium, Firefox, and Playwright WebKit candidate parity only. It does not establish mobile-device, Word Net receiver, packaged Tauri, content-rights, cloud/restore, or human UAT acceptance."
+  "summary": "Reviewed the two-file lifecycle repair: all six canonical Phase 6 modes now deserialize and retain canonical completion-fact identity, unknown modes remain rejected, and the same variants execute through the generated WASM in Chromium, Firefox, and Playwright WebKit.",
+  "provenanceLimit": "This review establishes shared protocol and three-browser candidate behavior only. It does not establish mobile-device, Word Net receiver, packaged Tauri, content-rights, cloud/restore, or human UAT acceptance."
 }
