@@ -4,6 +4,16 @@ import { resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 
+export function validateFixtureSourceLockBinding(fixtureManifest, sourceLock) {
+  if (!/^[a-f0-9]{64}$/.test(fixtureManifest?.sourceLockDigest ?? '')) {
+    throw new Error('Fixture manifest source-lock digest is not lowercase SHA-256.');
+  }
+  if (fixtureManifest.sourceLockDigest !== sourceLock?.aggregateSha256) {
+    throw new Error('Fixture manifest source-lock digest is stale.');
+  }
+}
+
+if (!new URL(import.meta.url).searchParams.has('binding-test')) {
 const manifestPath = resolve(process.argv[2] ?? 'artifacts/domain-wasm/manifest.json');
 const root = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(.:)/, '$1')), '../..');
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -115,6 +125,7 @@ const fixtureManifestPath = resolve(root, manifest.fixtures.manifestPath);
 if (manifest.fixtures.manifestPath !== 'fixtures/domain/v1/manifest.json') throw new Error('Fixture manifest path is not canonical.');
 if (manifest.fixtures.fixtureManifestSha256 !== normalizedJsonSha256(fixtureManifestPath)) throw new Error('Fixture manifest hash is stale.');
 const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, 'utf8'));
+validateFixtureSourceLockBinding(fixtureManifest, sourceLock);
 const inventory = fixtureInventory(fixtureManifest);
 if (!sameJson(manifest.fixtures.fixtureInventory, inventory)) throw new Error('Fixture inventory is missing, extra, duplicated, stale, or reordered.');
 if (manifest.fixtures.fixtureCount !== inventory.length) throw new Error('Fixture count is stale.');
@@ -125,3 +136,4 @@ if (!sameJson(manifest.fixtures.phase6FixtureIds, phase6Ids)) throw new Error('P
 if (manifest.fixtures.phase6FixtureCount !== phase6Inventory.length) throw new Error('Phase 6 fixture count is stale.');
 if (manifest.fixtures.phase6FixtureInventorySha256 !== valueSha256(phase6Inventory)) throw new Error('Phase 6 fixture inventory digest is stale.');
 console.log(`Manifest valid for ${manifest.source.commit}; WASM ${manifest.artifacts.wasm.sha256}.`);
+}

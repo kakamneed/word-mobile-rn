@@ -103,6 +103,18 @@ test('accepts a complete five-output and fixture-bound manifest', () => {
   }
 });
 
+test('rejects a fixture manifest bound to a different source lock', async () => {
+  const module = await import(`./validate-manifest.mjs?binding-test=${Date.now()}`);
+  assert.equal(typeof module.validateFixtureSourceLockBinding, 'function');
+  assert.throws(
+    () => module.validateFixtureSourceLockBinding(
+      { sourceLockDigest: '0'.repeat(64) },
+      { aggregateSha256: '1'.repeat(64) },
+    ),
+    /Fixture manifest source-lock digest is stale/,
+  );
+});
+
 test('normalizes fixture JSON line endings and rejects semantic mutation', () => {
   const lf = Buffer.from('{\n  "value": 1\n}\n');
   const crlf = Buffer.from('{\r\n  "value": 1\r\n}\r\n');

@@ -12,9 +12,13 @@ param(
     [Parameter(ParameterSetName = 'SelfTest', Mandatory = $true)]
     [switch]$SelfTest,
 
+    [Parameter(ParameterSetName = 'BindFixtureManifest', Mandatory = $true)]
+    [switch]$BindFixtureManifest,
+
     [Parameter(ParameterSetName = 'Capture', Mandatory = $true)]
     [Parameter(ParameterSetName = 'Check', Mandatory = $true)]
     [Parameter(ParameterSetName = 'Promote', Mandatory = $true)]
+    [Parameter(ParameterSetName = 'BindFixtureManifest', Mandatory = $true)]
     [ValidateRange(0, 99)]
     [int]$Wave,
 
@@ -114,6 +118,70 @@ function Read-JsonFile {
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 
+function Assert-ExactJsonProperties {
+    param(
+        [object]$Value,
+        [string[]]$Expected,
+        [string]$Label
+    )
+
+    [string[]]$actual = @($Value.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    [string[]]$expectedSorted = @($Expected)
+    [Array]::Sort($actual, [StringComparer]::Ordinal)
+    [Array]::Sort($expectedSorted, [StringComparer]::Ordinal)
+    if ($actual.Length -ne $expectedSorted.Length) { throw "$Label properties are not exact: expected $($expectedSorted -join ','), received $($actual -join ',')." }
+    for ($index = 0; $index -lt $actual.Length; $index++) {
+        if (-not [StringComparer]::Ordinal.Equals($actual[$index], $expectedSorted[$index])) {
+            throw "$Label properties are not exact: expected $($expectedSorted -join ','), received $($actual -join ',')."
+        }
+    }
+}
+
+function Get-FixtureManifestProjectionHash {
+    param([string]$Path)
+
+    $manifest = Read-JsonFile -Path $Path
+    Assert-ExactJsonProperties -Value $manifest -Expected @('schemaVersion', 'protocolVersion', 'sourceLockDigest', 'fixtures', 'lifecycleFixtures') -Label 'Fixture manifest'
+    if ([int]$manifest.schemaVersion -ne 1) { throw 'Fixture manifest schemaVersion must be 1.' }
+    if ([int]$manifest.protocolVersion -lt 1) { throw 'Fixture manifest protocolVersion must be positive.' }
+    if ([string]$manifest.sourceLockDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'Fixture manifest sourceLockDigest must be lowercase SHA-256.' }
+
+    $collections = [ordered]@{}
+    foreach ($collection in @('fixtures', 'lifecycleFixtures')) {
+        if ($null -eq $manifest.$collection) { throw "Fixture manifest is missing $collection." }
+        $projected = @()
+        foreach ($fixture in @($manifest.$collection)) {
+            if ($null -eq $fixture -or @($fixture.PSObject.Properties).Count -eq 0) { continue }
+            Assert-ExactJsonProperties -Value $fixture -Expected @('id', 'request', 'expected', 'claims') -Label "Fixture manifest $collection entry"
+            if ([string]::IsNullOrWhiteSpace([string]$fixture.id) -or
+                [string]::IsNullOrWhiteSpace([string]$fixture.request) -or
+                [string]::IsNullOrWhiteSpace([string]$fixture.expected)) {
+                throw "Fixture manifest $collection entry identity is incomplete."
+            }
+            [string[]]$claims = @($fixture.claims | ForEach-Object { [string]$_ })
+            if ($claims.Length -eq 0 -or @($claims | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+                throw "Fixture manifest $collection entry claims are incomplete."
+            }
+            $projected += [ordered]@{
+                id = [string]$fixture.id
+                request = [string]$fixture.request
+                expected = [string]$fixture.expected
+                claims = $claims
+            }
+        }
+        $collections[$collection] = $projected
+    }
+    if (@($collections.fixtures).Count -eq 0) { throw 'Fixture manifest fixtures must not be empty.' }
+
+    $projection = [ordered]@{
+        schemaVersion = [int]$manifest.schemaVersion
+        protocolVersion = [int]$manifest.protocolVersion
+        fixtures = @($collections.fixtures)
+        lifecycleFixtures = @($collections.lifecycleFixtures)
+    }
+    return Get-Sha256ForText -Text ($projection | ConvertTo-Json -Depth 20 -Compress)
+}
+
 function Get-FixtureInventoryPaths {
     param([string]$Root)
 
@@ -154,7 +222,10 @@ function Get-SourceLockSnapshot {
         if (-not (Test-Path -LiteralPath $absolutePath -PathType Leaf)) {
             throw "Authoritative source is missing: $relativePath"
         }
-        $hash = if ($relativePath.EndsWith('.json', [StringComparison]::Ordinal)) {
+        $hash = if ([StringComparer]::Ordinal.Equals($relativePath, 'fixtures/domain/v1/manifest.json')) {
+            Get-FixtureManifestProjectionHash -Path $absolutePath
+        }
+        elseif ($relativePath.EndsWith('.json', [StringComparison]::Ordinal)) {
             Get-Sha256ForNormalizedJsonFile -Path $absolutePath
         }
         else {
@@ -378,6 +449,59 @@ function Invoke-ContractSelfTest {
         if (-not [StringComparer]::Ordinal.Equals($lfHash, $crlfHash)) { throw 'Self-test LF and CRLF JSON identity mismatch.' }
         if ([StringComparer]::Ordinal.Equals($lfHash, $semanticHash)) { throw 'Self-test semantic JSON mutation retained identity.' }
         $fixtureManifestPath = Join-Path $fixtureRoot 'manifest.json'
+        $fixtureManifest = [ordered]@{
+            schemaVersion = 1
+            protocolVersion = 1
+            sourceLockDigest = ('1' * 64)
+            fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json'; claims = @('one claim') })
+            lifecycleFixtures = @()
+        }
+        Write-JsonAtomically -Path $fixtureManifestPath -Value $fixtureManifest
+        $projectionHash = Get-FixtureManifestProjectionHash -Path $fixtureManifestPath
+        $fixtureManifest.sourceLockDigest = ('2' * 64)
+        Write-JsonAtomically -Path $fixtureManifestPath -Value $fixtureManifest
+        if (-not [StringComparer]::Ordinal.Equals($projectionHash, (Get-FixtureManifestProjectionHash -Path $fixtureManifestPath))) {
+            throw 'Self-test fixture manifest back-reference changed its source projection.'
+        }
+        foreach ($mutation in @('protocol', 'fixture', 'claim', 'path', 'order')) {
+            $changedManifest = [ordered]@{
+                schemaVersion = 1
+                protocolVersion = if ($mutation -eq 'protocol') { 2 } else { 1 }
+                sourceLockDigest = ('3' * 64)
+                fixtures = @(
+                    [ordered]@{
+                        id = if ($mutation -eq 'fixture') { 'changed' } else { 'one' }
+                        request = if ($mutation -eq 'path') { 'requests/changed.json' } else { 'requests/one.json' }
+                        expected = 'expected/one.json'
+                        claims = @($(if ($mutation -eq 'claim') { 'changed claim' } else { 'one claim' }))
+                    }
+                )
+                lifecycleFixtures = if ($mutation -eq 'order') {
+                    @([ordered]@{ id = 'two'; request = 'requests/two.json'; expected = 'expected/two.json'; claims = @('two claim') })
+                } else { @() }
+            }
+            Write-JsonAtomically -Path $fixtureManifestPath -Value $changedManifest
+            if ([StringComparer]::Ordinal.Equals($projectionHash, (Get-FixtureManifestProjectionHash -Path $fixtureManifestPath))) {
+                throw "Self-test fixture manifest $mutation mutation retained projection identity."
+            }
+        }
+        $orderedManifest = [ordered]@{
+            schemaVersion = 1
+            protocolVersion = 1
+            sourceLockDigest = ('4' * 64)
+            fixtures = @(
+                [ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json'; claims = @('one claim') },
+                [ordered]@{ id = 'two'; request = 'requests/two.json'; expected = 'expected/two.json'; claims = @('two claim') }
+            )
+            lifecycleFixtures = @()
+        }
+        Write-JsonAtomically -Path $fixtureManifestPath -Value $orderedManifest
+        $orderedHash = Get-FixtureManifestProjectionHash -Path $fixtureManifestPath
+        [Array]::Reverse($orderedManifest.fixtures)
+        Write-JsonAtomically -Path $fixtureManifestPath -Value $orderedManifest
+        if ([StringComparer]::Ordinal.Equals($orderedHash, (Get-FixtureManifestProjectionHash -Path $fixtureManifestPath))) {
+            throw 'Self-test fixture manifest order mutation retained projection identity.'
+        }
         Write-JsonAtomically -Path $fixtureManifestPath -Value ([ordered]@{
             fixtures = @([ordered]@{ id = 'one'; request = 'requests/one.json'; expected = 'expected/one.json' })
             lifecycleFixtures = @()
@@ -459,6 +583,20 @@ function Invoke-ContractSelfTest {
 
 if ($SelfTest) {
     Invoke-ContractSelfTest
+    exit 0
+}
+
+if ($BindFixtureManifest) {
+    $before = Get-SourceLockSnapshot -AcceptedWave $Wave
+    $manifestPath = Join-Path $script:RepositoryRoot 'fixtures\domain\v1\manifest.json'
+    $manifest = Read-JsonFile -Path $manifestPath
+    $manifest.sourceLockDigest = [string]$before.aggregateSha256
+    Write-JsonAtomically -Path $manifestPath -Value $manifest
+    $after = Get-SourceLockSnapshot -AcceptedWave $Wave
+    if (-not [StringComparer]::Ordinal.Equals([string]$before.aggregateSha256, [string]$after.aggregateSha256)) {
+        throw 'Fixture manifest binding changed the projected source-lock aggregate.'
+    }
+    Write-Output "Bound fixture manifest to source-lock digest $($after.aggregateSha256)."
     exit 0
 }
 

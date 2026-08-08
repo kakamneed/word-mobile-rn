@@ -93,6 +93,7 @@ Focused mobile checks from the conversation history:
 
 ## Implementation Log
 
+- `2026-08-08` - The Phase 6 aggregate exposed a stale fixture-manifest back-reference after the six-mode source-lock promotion. The source-lock contract now hashes a strict ordered semantic projection of the fixture manifest that omits only `sourceLockDigest`, then binds that field to the measured aggregate and remeasures to prove stability. The release validator independently rejects a fixture manifest whose bound digest differs from the accepted source lock.
 - `2026-08-07` - Phase 6 producer promotion records the additive canonical six-mode protocol and complete fixture inventory. The reviewed candidate runs every manifest request/expected pair through Chromium, Firefox, and Playwright WebKit before the source lock advances to Wave 6. This is producer artifact evidence only; it does not establish mobile device, Word Net receiver, packaged Tauri, content-rights, or human UAT acceptance.
 - `2026-08-06` - Added `SessionMode::HighFrequency` end to end. It draws only Kaoyan entries with positive real-exam counts, uses only `EnToCnInput`, displays the headword with all imported parts of speech in the existing small subtitle, and reuses the existing Study feedback, trash/mastered, resume, summary, report, and Today progress surfaces.
 - `2026-08-06` - Added a persistent high-frequency pool contract: initialize from rank 1-100, remove globally mastered entries before every draw, refill the next 50 ranked eligible entries when the pool falls to 50 or fewer, cap at 100, and randomize each session draw inside the pool.
@@ -237,6 +238,7 @@ Focused mobile checks from the conversation history:
 
 ## Known Pitfalls
 
+- A manifest cannot both contain and byte-hash its own aggregate digest. Keep the fixture registry in the source lock through the stable semantic projection, and bind the excluded back-reference only through the reviewed bind operation; never hand-edit it after promotion.
 - `2026-08-06` - Keep the learning pool size separate from the daily target. The pool is capped at 100, while `highFrequencyPerDay` controls how many random pool entries become questions in one session.
 - `2026-08-06` - Fixed-type modes must opt out of plan question-type weights. Allowing an empty or personalized weight map into high-frequency generation could silently restore choice questions.
 - Release `1.0.3+4` still exhibits the longstanding issues "键盘收起弹出卡顿" and "每日刚进入固定会有一次双击提交长卡顿" according to the user's selected-device observation. Treat these as unresolved performance risks, not Phase 15 regressions or Phase 15 fixes.
@@ -298,6 +300,7 @@ Focused mobile checks from the conversation history:
 
 ## Verification
 
+- Shared/domain (`2026-08-08`): RED reproduced the missing non-self-referential fixture projection and missing manifest/source-lock cross-check. Final source-lock self-test, manifest mutation suite, three-browser artifact gate, promotion, and receiver checks are recorded after the repaired chain completes.
 - Mobile/shared (`2026-08-07`): `cargo test -p word-app-core mastered_answered_entry_keeps_answer_and_does_not_add_replacement` passed, proving a submitted answer remains recorded, no question is pruned in a one-question-per-word mode, and the two-question total receives no replacement. `cargo test -p word-app-core mastered_entry` passed both existing pre-answer prune/completion cases. `flutter test test\study_question_display_test.dart` passed 32/32, including submitted-card mastered availability and input auto-keyboard policy; targeted `flutter analyze` reported no issues.
 - Mobile (`2026-08-06`): `flutter test test\croc_bti_model_test.dart test\today_task_breakdown_test.dart` passed 17/17 after preserving the Croc BTI total question budget. Three earlier analyzer starts timed out without diagnostics, then the final targeted `flutter analyze --no-pub` over the eight changed Dart files passed with no issues after dependencies were resolved.
 - Mobile (`2026-08-06`): `flutter test test\study_question_display_test.dart` passed 31/31, including the generic word-plus-part-of-speech hero, Chinese-input submission, feedback, progress, and existing mastered action surfaces reused by high-frequency mode.
