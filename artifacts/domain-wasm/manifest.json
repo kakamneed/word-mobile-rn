@@ -2,9 +2,9 @@
     "schemaVersion":  1,
     "protocolVersion":  1,
     "source":  {
-                   "commit":  "c15a8501e519d8cdf779d44774f2abc7decea29d",
+                   "commit":  "49a5005fce1238e3aa5e1be404ec6d8116b19332",
                    "dirty":  false,
-                   "sourceLockSha256":  "e4421e2a4170e7acf06b23edffdc7da14d5da86d54ccc5511039cf7b0d102bf8",
+                   "sourceLockSha256":  "fd37dadedab847d3aa2d7fb35831975cfeb6fb3d095bc9556ce7cf1c41cf57a1",
                    "cargoLockSha256":  "60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a"
                },
     "build":  {
@@ -34,9 +34,9 @@
                                           },
                       "wasm":  {
                                    "path":  "package/word_domain_wasm_bg.wasm",
-                                   "sha256":  "0ae3a88af1806413b717b75a0a9d875274ac04483ff480bf003fbde164198c9c",
-                                   "rawBytes":  898389,
-                                   "gzipBytes":  304749
+                                   "sha256":  "e33c174224fbc5218dd1f4faf837e5cddd48f38d03d3d5cde0051e1c8c9b8ea4",
+                                   "rawBytes":  899017,
+                                   "gzipBytes":  304687
                                },
                       "wasmTypes":  {
                                         "path":  "package/word_domain_wasm_bg.wasm.d.ts",
@@ -184,6 +184,6 @@
     "reproducibility":  {
                             "checked":  true,
                             "builds":  2,
-                            "normalizedManifestSha256":  "e207d9dbafb0e75522e61b898b7a6024987665d33ce080462a8cd91decd4a5ee"
+                            "normalizedManifestSha256":  "62178ea00cba30a56aff6b01ecf8e04bb427766d276fd8c0bf97db03009cf382"
                         }
 }
