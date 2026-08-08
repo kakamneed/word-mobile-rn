@@ -114,16 +114,38 @@ test('generated package executes canonical results and structured errors', async
       outputs.push({ id: fixture.id, value: JSON.parse(domain.execute_v1(fixture.request)).result });
     }
 
+    const transitionFixture = cases.find((fixture) => fixture.id === 'lifecycle-transition');
+    if (!transitionFixture) throw new Error('The canonical lifecycle transition fixture is missing.');
+    const transitionModes = ['newWord', 'review', 'mixedTest', 'wrongWordReinforcement', 'highFrequency', 'rootAffix'].map((mode) => {
+      const request = JSON.parse(transitionFixture.request);
+      request.requestId = `lifecycle-transition-${mode}`;
+      request.payload.snapshot.mode = mode;
+      request.payload.snapshot.acceptedAnswers[0].mode = mode;
+      return { mode, response: JSON.parse(domain.execute_v1(JSON.stringify(request))) };
+    });
+    const unknownModeRequest = JSON.parse(transitionFixture.request);
+    unknownModeRequest.requestId = 'lifecycle-transition-unknown-mode';
+    unknownModeRequest.payload.snapshot.mode = 'futureMode';
+    unknownModeRequest.payload.snapshot.acceptedAnswers[0].mode = 'futureMode';
+    const unknownMode = JSON.parse(domain.execute_v1(JSON.stringify(unknownModeRequest)));
+
     const repeatStart = performance.now();
     for (let index = 0; index < 25; index += 1) domain.execute_v1(cases[index % cases.length].request);
     const repeatCommandMs = (performance.now() - repeatStart) / 25;
     const error = JSON.parse(domain.execute_v1('{"protocolVersion":1,"command":"missing"}'));
-    return { startupMs, firstCommandMs, repeatCommandMs, outputs, error };
+    return { startupMs, firstCommandMs, repeatCommandMs, outputs, transitionModes, unknownMode, error };
   }, { moduleUrl: `${origin}${modulePath}`, cases: fixtures });
 
   for (const fixture of fixtures) {
     expect(measurements.outputs.find((output) => output.id === fixture.id)?.value).toEqual(fixture.expected);
   }
+  for (const transition of measurements.transitionModes) {
+    expect(transition.response.error, transition.mode).toBeUndefined();
+    expect(transition.response.result.mode, transition.mode).toBe(transition.mode);
+    expect(transition.response.result.state, transition.mode).toBe('completed');
+  }
+  expect(measurements.unknownMode.error.code).toBe('invalid_data');
+  expect(measurements.unknownMode.result).toBeUndefined();
   expect(measurements.error.error.code).toBeTruthy();
   expect(measurements.error.result).toBeUndefined();
   expect(measurements.startupMs).toBeLessThanOrEqual(manifest.budgets.startupMs);

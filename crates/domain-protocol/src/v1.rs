@@ -294,6 +294,10 @@ struct CompleteSessionPayload {
 enum LifecycleMode {
     NewWord,
     Review,
+    MixedTest,
+    WrongWordReinforcement,
+    HighFrequency,
+    RootAffix,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -1308,7 +1312,14 @@ fn completion_records(
             "{}:{}:{}:{}",
             snapshot.slot_id,
             snapshot.local_day,
-            match snapshot.mode { LifecycleMode::NewWord => "newWord", LifecycleMode::Review => "review" },
+            match snapshot.mode {
+                LifecycleMode::NewWord => "newWord",
+                LifecycleMode::Review => "review",
+                LifecycleMode::MixedTest => "mixedTest",
+                LifecycleMode::WrongWordReinforcement => "wrongWordReinforcement",
+                LifecycleMode::HighFrequency => "highFrequency",
+                LifecycleMode::RootAffix => "rootAffix",
+            },
             question.entry_source_id
         ),
         "slotId": snapshot.slot_id,
@@ -1541,6 +1552,39 @@ mod phase6_tests {
             "fixtures/domain/v1/requests/phase6-reconcile.json",
             "fixtures/domain/v1/expected/phase6-reconcile.json",
         );
+    }
+
+    #[test]
+    fn lifecycle_transition_accepts_all_six_modes_and_rejects_unknown_mode() {
+        let fixture_request = fixture("fixtures/domain/v1/requests/lifecycle-transition.json");
+        for mode in [
+            "newWord",
+            "review",
+            "mixedTest",
+            "wrongWordReinforcement",
+            "highFrequency",
+            "rootAffix",
+        ] {
+            let mut request = fixture_request.clone();
+            request["requestId"] = serde_json::json!(format!("lifecycle-transition-{mode}"));
+            request["payload"]["snapshot"]["mode"] = serde_json::json!(mode);
+            request["payload"]["snapshot"]["acceptedAnswers"][0]["mode"] = serde_json::json!(mode);
+            let response: Value = serde_json::from_str(&execute_v1(&request.to_string()))
+                .expect("parse lifecycle transition response");
+            assert_eq!(response.get("error"), None, "{mode} transition failed");
+            assert_eq!(response["result"]["mode"], mode);
+            assert_eq!(response["result"]["state"], "completed");
+        }
+
+        let mut unknown = fixture_request;
+        unknown["requestId"] = Value::String("lifecycle-transition-unknown".to_string());
+        unknown["payload"]["snapshot"]["mode"] = Value::String("futureMode".to_string());
+        unknown["payload"]["snapshot"]["acceptedAnswers"][0]["mode"] =
+            Value::String("futureMode".to_string());
+        let response: Value = serde_json::from_str(&execute_v1(&unknown.to_string()))
+            .expect("parse unknown-mode response");
+        assert_eq!(response["error"]["code"], "invalid_data");
+        assert_eq!(response.get("result"), None);
     }
 
     #[test]
