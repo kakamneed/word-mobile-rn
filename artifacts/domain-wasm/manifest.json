@@ -2,9 +2,9 @@
     "schemaVersion":  1,
     "protocolVersion":  1,
     "source":  {
-                   "commit":  "49a5005fce1238e3aa5e1be404ec6d8116b19332",
+                   "commit":  "30b5c25ad25d867a5c9b1633444f4688df20578c",
                    "dirty":  false,
-                   "sourceLockSha256":  "fd37dadedab847d3aa2d7fb35831975cfeb6fb3d095bc9556ce7cf1c41cf57a1",
+                   "sourceLockSha256":  "6dfc51dc116fbd2015c91ae597d2f534586ba15dbba89f7d3ce8594968e85c06",
                    "cargoLockSha256":  "60be5d0c73e1275387682d7342f7825a570b3f299cc71e8ae28cedf8c57ebb0a"
                },
     "build":  {
@@ -47,7 +47,7 @@
     "fixtures":  {
                      "manifestPath":  "fixtures/domain/v1/manifest.json",
                      "hashEncoding":  "utf8-lf-normalized-json-v1",
-                     "fixtureManifestSha256":  "811f762dc18fc975fe44b4f955a5f91a4bb16610b7f816c1bfbe6fc3dbcecc02",
+                     "fixtureManifestSha256":  "e5e84f19692d733271498a3f77be5b37c954bba24bcb8b784df00d610ff8c75e",
                      "fixtureCount":  14,
                      "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                      "fixtureInventory":  [
@@ -184,6 +184,6 @@
     "reproducibility":  {
                             "checked":  true,
                             "builds":  2,
-                            "normalizedManifestSha256":  "62178ea00cba30a56aff6b01ecf8e04bb427766d276fd8c0bf97db03009cf382"
+                            "normalizedManifestSha256":  "9884bf62ac57f992c6e64d6745d5f93d45ee4473f0241ed6d87d83abf18dc033"
                         }
 }
