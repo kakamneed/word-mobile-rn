@@ -3,9 +3,34 @@
   "wave": 6,
   "reviewed": true,
   "changedFiles": [
-    "crates/domain-protocol/src/v1.rs",
-    "tests/domain-browser/domain-wasm.spec.ts"
+    "apps/flutter_mobile/test/study_question_display_test.dart",
+    "crates/app-core/src/facade/study_facade.rs",
+    "crates/app-core/src/services/wrong_words_service.rs",
+    "crates/platform-mobile/src/bridge.rs",
+    "crates/study-core/src/question_builder.rs",
+    "crates/study-core/src/session_summary.rs",
+    "docs/features/learning.md",
+    "fixtures/domain/v1/manifest.json",
+    "scripts/domain-export/check-source-lock.ps1",
+    "scripts/domain-export/validate-manifest.mjs",
+    "scripts/domain-export/validate-manifest.test.mjs"
   ],
-  "summary": "Reviewed the two-file lifecycle repair: all six canonical Phase 6 modes now deserialize and retain canonical completion-fact identity, unknown modes remain rejected, and the same variants execute through the generated WASM in Chromium, Firefox, and Playwright WebKit.",
-  "provenanceLimit": "This review establishes shared protocol and three-browser candidate behavior only. It does not establish mobile-device, Word Net receiver, packaged Tauri, content-rights, cloud/restore, or human UAT acceptance."
+  "currentRepairPaths": [
+    "docs/features/learning.md",
+    "fixtures/domain/v1/manifest.json",
+    "scripts/domain-export/check-source-lock.ps1",
+    "scripts/domain-export/validate-manifest.mjs",
+    "scripts/domain-export/validate-manifest.test.mjs"
+  ],
+  "historicalDirtySnapshotRecoveryPaths": [
+    "apps/flutter_mobile/test/study_question_display_test.dart",
+    "crates/app-core/src/facade/study_facade.rs",
+    "crates/app-core/src/services/wrong_words_service.rs",
+    "crates/platform-mobile/src/bridge.rs",
+    "crates/study-core/src/question_builder.rs",
+    "crates/study-core/src/session_summary.rs"
+  ],
+  "excludedLineEndingOnlyPaths": 14,
+  "summary": "Reviewed the five-file fixture source-lock binding repair and the six authoritative paths whose accepted dirty-snapshot bytes differ semantically from the clean committed predecessor. The historical recovery paths are evidence classifications only and are not current product changes. Fourteen CRLF-only differences are excluded.",
+  "provenanceLimit": "This review establishes the fixture/source-lock integrity repair and historical dirty-snapshot recovery classification only. It does not establish mobile-device, Word Net receiver, packaged Tauri, content-rights, cloud/restore, or human UAT acceptance."
 }

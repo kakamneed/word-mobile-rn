@@ -1,13 +1,13 @@
 {
     "schemaVersion":  1,
     "wave":  6,
-    "generatedAtUtc":  "2026-08-08T11:17:59Z",
+    "generatedAtUtc":  "2026-08-09T04:52:53Z",
     "success":  true,
-    "sourceLockDigest":  "e4421e2a4170e7acf06b23edffdc7da14d5da86d54ccc5511039cf7b0d102bf8",
-    "learningLedgerSha256":  "f4767a4036f41f243129eb7dcc3aa25a330041615a85fd3f20efa913534cdc55",
+    "sourceLockDigest":  "fd37dadedab847d3aa2d7fb35831975cfeb6fb3d095bc9556ce7cf1c41cf57a1",
+    "learningLedgerSha256":  "6280e4e2ce1703a822fadb88ee3c991dbb94dfc4db2e3431c2e944389335fb23",
     "artifact":  {
-                     "commit":  "6bb7b62937c9398cdadf1804c6d741c45182e69c",
-                     "dirty":  true,
+                     "commit":  "2386238511e456c6f378cf986b62fbfdb6ccca79",
+                     "dirty":  false,
                      "wasmSha256":  "e33c174224fbc5218dd1f4faf837e5cddd48f38d03d3d5cde0051e1c8c9b8ea4",
                      "javascriptSha256":  "0102c84b618c67fe3e8e4ea4e42a880c0b28c7fffca35835fb307b5f0e02a399",
                      "fixtureIds":  [
@@ -52,9 +52,9 @@
                          "fixtureCount":  14,
                          "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                          "fixtureHashEncoding":  "utf8-lf-normalized-json-v1",
-                         "startupMs":  19.199999999254942,
-                         "firstCommandMs":  16.899999998509884,
-                         "repeatCommandMs":  0.11200000002980232,
+                         "startupMs":  17.199999999720603,
+                         "firstCommandMs":  17.100000000093132,
+                         "repeatCommandMs":  0.14,
                          "transitionModes":  [
                                                  {
                                                      "mode":  "newWord",
@@ -618,8 +618,8 @@
                          "fixtureCount":  14,
                          "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                          "fixtureHashEncoding":  "utf8-lf-normalized-json-v1",
-                         "startupMs":  267,
-                         "firstCommandMs":  1,
+                         "startupMs":  208,
+                         "firstCommandMs":  0,
                          "repeatCommandMs":  0.36,
                          "transitionModes":  [
                                                  {
@@ -1184,9 +1184,9 @@
                          "fixtureCount":  14,
                          "fixtureInventorySha256":  "150f1bb7952ace3e7b3bcdd3baffe953392b64c3e0b2ccd6cbc4a592289df990",
                          "fixtureHashEncoding":  "utf8-lf-normalized-json-v1",
-                         "startupMs":  35,
-                         "firstCommandMs":  3,
-                         "repeatCommandMs":  0.28,
+                         "startupMs":  71,
+                         "firstCommandMs":  5,
+                         "repeatCommandMs":  0.44,
                          "transitionModes":  [
                                                  {
                                                      "mode":  "newWord",
