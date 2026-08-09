@@ -1,7 +1,7 @@
 {
     "schemaVersion":  1,
     "protocolVersion":  1,
-    "sourceLockDigest":  "57c6a0cdaa84843153195cea3553005bd502a36d9066eaf465124b060f088b01",
+    "sourceLockDigest":  "6dfc51dc116fbd2015c91ae597d2f534586ba15dbba89f7d3ce8594968e85c06",
     "fixtures":  [
                      {
                          "id":  "study-newword",
