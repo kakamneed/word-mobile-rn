@@ -54,6 +54,7 @@ class _AuthScreenState extends State<AuthScreen> {
           : RustLocalDataOwnerGateway(widget.sdk!.localDataOwner),
       restoreCloudData: widget.sdk?.sync.restoreCloudDataToLocal,
       backfillLocalLearning: widget.sdk?.sync.backfillLocalLearningToCloud,
+      mergeCloudLearning: widget.sdk?.sync.mergeSharedStudyEventsToLocal,
       shouldRestoreCloudData: widget.sdk?.sync.shouldRestoreCloudData,
     );
     _mode = switch (widget.initialMode) {

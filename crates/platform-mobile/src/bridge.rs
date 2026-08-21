@@ -4801,6 +4801,7 @@ fn build_recent_study_word_points_payload(
              WHERE substr(r.answered_at, 1, 10) >= ?1
                AND r.question_id NOT LIKE 'cloud_restore:%'
                AND s.session_id NOT LIKE 'cloud_restore:%'
+               AND s.session_id NOT LIKE 'cloud_event:%'
              ORDER BY r.answered_at ASC, r.id ASC",
         )
         .map_err(|e| format!("Failed to prepare study word point query: {e}"))?;
@@ -9807,6 +9808,11 @@ pub fn restore_cloud_data_snapshot(request_json: String) -> Result<String, Strin
 
     with_runtime(|runtime, conn| {
         ensure_seed_vocabulary_imported(conn, &runtime.paths().bundled_resource_path(""))?;
+        if request.get("mergeStudyEventsOnly").and_then(|value| value.as_bool()).unwrap_or(false) {
+            let merged = merge_cloud_study_events(conn, request.get("studyEvents"))?;
+            return serde_json::to_string(&serde_json::json!({ "restored": false, "mergedStudyEvents": merged }))
+                .map_err(|e| format!("JSON serialization failed: {e}"));
+        }
         clear_cloud_restored_learning(conn)?;
         let restored_plan = restore_cloud_plan_config(conn, request.get("planConfig"))?;
         let restored_wordbooks =
@@ -9837,6 +9843,55 @@ pub fn restore_cloud_data_snapshot(request_json: String) -> Result<String, Strin
         }))
         .map_err(|e| format!("JSON serialization failed: {e}"))
     })
+}
+
+fn merge_cloud_study_events(conn: &word_storage_core::Connection, value: Option<&serde_json::Value>) -> Result<usize, String> {
+    let Some(items) = value.and_then(|value| value.as_array()) else { return Ok(0); };
+    let mut merged = 0usize;
+    for item in items {
+        if item.get("event_type").and_then(|value| value.as_str()) != Some("answer_submitted") { continue; }
+        let Some(payload) = item.get("payload_json").and_then(|value| value.as_object()) else { continue; };
+        let event_id = payload.get("eventId").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let question_id = payload.get("questionId").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let entry_id = payload.get("entryId").and_then(|value| value.as_i64()).unwrap_or(0);
+        let entry_source_id = payload.get("entrySourceId").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let mode = payload.get("mode").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let question_type = payload.get("questionType").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let outcome = payload.get("outcome").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let user_response = payload.get("userResponse").and_then(|value| value.as_str()).unwrap_or("");
+        let canonical_answer = payload.get("canonicalAnswer").and_then(|value| value.as_str()).unwrap_or("").trim();
+        let response_time_ms = payload.get("responseTimeMs").and_then(|value| value.as_i64()).unwrap_or(-1);
+        let hint_used = payload.get("hintUsed").and_then(|value| value.as_bool());
+        let answered_at = item.get("occurred_at").and_then(|value| value.as_str()).unwrap_or("").trim();
+        if payload.get("schemaVersion").and_then(|value| value.as_i64()) != Some(1)
+            || event_id.is_empty() || question_id.is_empty() || entry_id <= 0 || entry_source_id.is_empty()
+            || payload.get("bookVersion").and_then(|value| value.as_str()) != Some("2026.1")
+            || !matches!(mode, "newWord" | "review" | "mixedTest" | "wrongWordReinforcement" | "highFrequency" | "rootAffix")
+            || !matches!(question_type, "enToCnChoice" | "exampleToCnChoice" | "exampleToCnChoiceNoTranslation" | "cnToEnChoice" | "enToCnInput" | "wordSkeletonInput" | "glossToRootInput" | "rootToGlossInput")
+            || !matches!(outcome, "correct" | "fuzzyCorrect" | "incorrect" | "skipped")
+            || canonical_answer.is_empty() || response_time_ms < 0 || hint_used.is_none() || answered_at.is_empty()
+        { continue; }
+        let entry_matches = conn.query_row("SELECT EXISTS(SELECT 1 FROM entries WHERE id = ?1 AND source_entry_key = ?2)", rusqlite::params![entry_id, entry_source_id], |row| row.get::<_, i64>(0))
+            .map(|value| value != 0).map_err(|e| format!("Failed to validate shared study entry: {e}"))?;
+        if !entry_matches { continue; }
+        let marker_key = format!("cloud_study_event:{event_id}");
+        let transaction = conn.unchecked_transaction().map_err(|e| format!("Failed to start shared study event merge: {e}"))?;
+        let already_merged = transaction.query_row("SELECT EXISTS(SELECT 1 FROM app_settings WHERE key = ?1)", [marker_key.as_str()], |row| row.get::<_, i64>(0))
+            .map(|value| value != 0).map_err(|e| format!("Failed to check shared study event marker: {e}"))?;
+        if already_merged { transaction.rollback().map_err(|e| format!("Failed to close duplicate merge: {e}"))?; continue; }
+        let session_id = format!("cloud_event:{}", item.get("session_id").and_then(|value| value.as_str()).unwrap_or("shared"));
+        transaction.execute("INSERT OR IGNORE INTO study_sessions (session_id, mode, total_words, wordbook_id, started_at, completed_at) VALUES (?1, ?2, 0, NULL, ?3, ?3)", rusqlite::params![session_id, mode, answered_at])
+            .map_err(|e| format!("Failed to create shared study session: {e}"))?;
+        transaction.execute("INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response, normalized_response, correct_answer, outcome, response_time_ms, answered_at, hint_used) VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8, ?9, ?10)", rusqlite::params![session_id, format!("cloud_event:{event_id}:{question_id}"), entry_id, question_type, user_response, canonical_answer, outcome, response_time_ms, answered_at, i64::from(hint_used.unwrap_or(false))])
+            .map_err(|e| format!("Failed to insert shared study result: {e}"))?;
+        transaction.execute("UPDATE study_sessions SET total_words = (SELECT COUNT(*) FROM study_results WHERE session_id = ?1) WHERE session_id = ?1", [session_id.as_str()])
+            .map_err(|e| format!("Failed to update shared study session count: {e}"))?;
+        transaction.execute("INSERT INTO app_settings (key, value_json, updated_at) VALUES (?1, '{\"merged\":true}', datetime('now'))", [marker_key.as_str()])
+            .map_err(|e| format!("Failed to mark shared study event: {e}"))?;
+        transaction.commit().map_err(|e| format!("Failed to commit shared study event: {e}"))?;
+        merged = merged.saturating_add(1);
+    }
+    Ok(merged)
 }
 
 pub fn restore_cloud_ai_passage_snapshot(request_json: String) -> Result<String, String> {
@@ -13008,6 +13063,38 @@ mod tests {
     use std::net::TcpListener;
     use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn shared_study_events_merge_once_without_reentering_mobile_aggregates() {
+        let conn = Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute("INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'shared-event-test', 'ready')", []).expect("source");
+        conn.execute("INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma) VALUES (1, 1, 'KaoYan_3_1', 'process', 'process')", []).expect("entry");
+        let events = serde_json::json!([{
+            "event_type": "answer_submitted",
+            "session_id": "web-session",
+            "occurred_at": "2026-08-21T08:00:00+00:00",
+            "payload_json": {
+                "schemaVersion": 1, "eventId": "web-1", "questionId": "q-1",
+                "entryId": 1, "entrySourceId": "KaoYan_3_1", "bookVersion": "2026.1",
+                "mode": "highFrequency", "questionType": "enToCnInput", "outcome": "correct",
+                "userResponse": "process", "canonicalAnswer": "process",
+                "responseTimeMs": 1200, "hintUsed": true
+            }
+        }]);
+
+        assert_eq!(merge_cloud_study_events(&conn, Some(&events)).unwrap(), 1);
+        assert_eq!(merge_cloud_study_events(&conn, Some(&events)).unwrap(), 0);
+        let result: (String, i64) = conn.query_row(
+            "SELECT outcome, hint_used FROM study_results WHERE question_id LIKE 'cloud_event:%'",
+            [], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).expect("merged result");
+        assert_eq!(result, ("correct".to_string(), 1));
+        let aggregate_candidates: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM study_results WHERE session_id NOT LIKE 'cloud_event:%'", [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(aggregate_candidates, 0);
+    }
 
     struct EnvGuard {
         key: &'static str,

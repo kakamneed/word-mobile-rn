@@ -218,6 +218,36 @@ class SyncClient {
     return flushPendingToCloud();
   }
 
+  Future<void> mergeSharedStudyEventsToLocal(String userId) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty || CloudBackendConfig.usesWordAdmin) return;
+    await _authService.ensureInitialized();
+    const pageSize = 500;
+    var offset = 0;
+    while (true) {
+      final response = await _authService.client
+          .from('study_events')
+          .select('event_id,device_id,session_id,event_type,payload_json,occurred_at,ingested_at,idempotency_key')
+          .eq('user_id', normalizedUserId)
+          .eq('event_type', 'answer_submitted')
+          .order('ingested_at')
+          .order('event_id')
+          .range(offset, offset + pageSize - 1);
+      final rows = _mapList(response);
+      if (rows.isEmpty) break;
+      await _bridge.call(
+        'restoreCloudDataSnapshot',
+        _codec.encodeRequest({
+          'userId': normalizedUserId,
+          'mergeStudyEventsOnly': true,
+          'studyEvents': rows,
+        }),
+      );
+      if (rows.length < pageSize) break;
+      offset += pageSize;
+    }
+  }
+
   /// Fetch AI passage rows directly from Supabase, bypassing the local sync
   /// queue. Used when local history is empty but cloud data may exist.
   Future<List<Map<String, dynamic>>> fetchCloudAiPassages() async {

@@ -360,6 +360,37 @@ void main() {
     expect(state.phase, AuthAccountPhase.signedInActive);
     expect(backfillCount, 1);
   });
+
+  test(
+    'active non-empty account incrementally merges shared cloud learning',
+    () async {
+      final mergedUserIds = <String>[];
+      final manager = AuthSessionManager(
+        auth: _FakeAuthGateway(
+          restoredSession: _validSession(),
+          cloudDataAccessAvailable: true,
+        ),
+        localDataOwner: _FakeLocalDataOwnerGateway(
+          result: const LocalDataOwnerResult(
+            ownerUserId: 'user-1',
+            resetPerformed: false,
+            restoredSnapshot: true,
+            hasLocalLearningData: true,
+          ),
+        ),
+        mergeCloudLearning: (userId) async {
+          mergedUserIds.add(userId);
+        },
+        isConfigured: () => true,
+      );
+
+      final state = await manager.resolveStartupState();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(state.phase, AuthAccountPhase.signedInActive);
+      expect(mergedUserIds, ['user-1']);
+    },
+  );
   test(
     'startup auth resolution does not force close an already requested Study route',
     () {

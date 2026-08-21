@@ -124,6 +124,7 @@ class AuthSessionManager {
   final LocalDataOwnerGateway? _localDataOwner;
   final Future<void> Function(String userId)? _restoreCloudData;
   final Future<void> Function()? _backfillLocalLearning;
+  final Future<void> Function(String userId)? _mergeCloudLearning;
   final Future<bool> Function(String userId, LocalDataOwnerResult ownerResult)?
   _shouldRestoreCloudData;
 
@@ -133,6 +134,7 @@ class AuthSessionManager {
     LocalDataOwnerGateway? localDataOwner,
     Future<void> Function(String userId)? restoreCloudData,
     Future<void> Function()? backfillLocalLearning,
+    Future<void> Function(String userId)? mergeCloudLearning,
     Future<bool> Function(String userId, LocalDataOwnerResult ownerResult)?
     shouldRestoreCloudData,
   }) : _auth = auth ?? _defaultAuthGateway(),
@@ -140,6 +142,7 @@ class AuthSessionManager {
        _localDataOwner = localDataOwner,
        _restoreCloudData = restoreCloudData,
        _backfillLocalLearning = backfillLocalLearning,
+       _mergeCloudLearning = mergeCloudLearning,
        _shouldRestoreCloudData = shouldRestoreCloudData;
 
   static SupabaseAuthGateway _defaultAuthGateway() {
@@ -325,10 +328,12 @@ class AuthSessionManager {
         if (shouldRestore) {
           await _restoreCloudData?.call(session.user.id);
         }
+        _startCloudMerge(session.user.id);
         if (ownerResult.hasLocalLearningData) {
           await _backfillLocalLearning?.call();
         }
       } else {
+        _startCloudMerge(session.user.id);
         await _backfillLocalLearning?.call();
       }
       return AuthAccountState.signedInActive(session);
@@ -345,6 +350,10 @@ class AuthSessionManager {
         'Cloud data check failed: $error',
       );
     }
+  }
+
+  void _startCloudMerge(String userId) {
+    _mergeCloudLearning?.call(userId).ignore();
   }
 
   Future<AuthAccountState> _stateFromAuthFailure(
