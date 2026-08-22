@@ -4783,6 +4783,139 @@ fn enqueue_ai_passages_snapshot(conn: &word_storage_core::Connection) -> Result<
     Ok(enqueued)
 }
 
+fn build_all_study_events_payload(
+    conn: &word_storage_core::Connection,
+) -> Result<Option<serde_json::Value>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.id, s.session_id, s.mode, r.question_id, r.entry_id,
+                r.question_type, r.user_response, r.correct_answer, r.outcome,
+                r.response_time_ms, r.answered_at, r.hint_used, e.source_entry_key,
+                COALESCE(wb.code, (
+                  SELECT linked.code FROM wordbook_entries linked_entry
+                  JOIN wordbooks linked ON linked.id = linked_entry.wordbook_id
+                  WHERE linked_entry.entry_id = r.entry_id
+                  ORDER BY linked_entry.rank_in_book ASC, linked.id ASC LIMIT 1
+                ), 'unassigned')
+         FROM study_results r
+         JOIN study_sessions s ON s.session_id = r.session_id
+         JOIN entries e ON e.id = r.entry_id
+         LEFT JOIN wordbooks wb ON wb.id = s.wordbook_id
+         WHERE r.question_id NOT LIKE 'cloud_restore:%'
+           AND r.question_id NOT LIKE 'cloud_event:%'
+           AND s.session_id NOT LIKE 'cloud_restore:%'
+           AND s.session_id NOT LIKE 'cloud_event:%'
+         ORDER BY r.id ASC",
+        )
+        .map_err(|e| format!("Failed to prepare shared study event query: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, String>(8)?,
+                row.get::<_, i64>(9)?,
+                row.get::<_, String>(10)?,
+                row.get::<_, i64>(11)?,
+                row.get::<_, String>(12)?,
+                row.get::<_, String>(13)?,
+            ))
+        })
+        .map_err(|e| format!("Failed to query shared study event rows: {e}"))?;
+    let mut events = Vec::new();
+    for row in rows {
+        let (
+            result_id,
+            session_id,
+            mode,
+            question_id,
+            entry_id,
+            question_type,
+            user_response,
+            correct_answer,
+            outcome,
+            response_time_ms,
+            answered_at,
+            hint_used,
+            entry_source_id,
+            book_id,
+        ) = row.map_err(|e| format!("Failed to decode shared study event row: {e}"))?;
+        let mode = normalize_persisted_enum_text(&mode);
+        let question_type = match normalize_persisted_enum_text(&question_type).as_str() {
+            "meaning" | "choice" | "unknown" => "enToCnChoice".to_string(),
+            "spelling" | "input" => "enToCnInput".to_string(),
+            value => value.to_string(),
+        };
+        let outcome = normalize_persisted_enum_text(&outcome);
+        if !matches!(
+            mode.as_str(),
+            "newWord"
+                | "review"
+                | "mixedTest"
+                | "wrongWordReinforcement"
+                | "highFrequency"
+                | "rootAffix"
+        ) || !matches!(
+            question_type.as_str(),
+            "enToCnChoice"
+                | "exampleToCnChoice"
+                | "exampleToCnChoiceNoTranslation"
+                | "cnToEnChoice"
+                | "enToCnInput"
+                | "wordSkeletonInput"
+                | "glossToRootInput"
+                | "rootToGlossInput"
+        ) || !matches!(
+            outcome.as_str(),
+            "correct" | "fuzzyCorrect" | "incorrect" | "skipped"
+        ) || entry_id <= 0
+            || entry_source_id.trim().is_empty()
+            || answered_at.trim().is_empty()
+        {
+            continue;
+        }
+        let local_day = local_date_from_rfc3339(&answered_at)
+            .unwrap_or_else(|| answered_at.get(0..10).unwrap_or(&answered_at).to_string());
+        events.push(serde_json::json!({
+            "localResultId": result_id,
+            "sessionId": session_id,
+            "occurredAt": answered_at,
+            "payloadJson": {
+                "schemaVersion": 1,
+                "eventId": format!("word-mobile:{session_id}:{question_id}:{answered_at}"),
+                "questionId": question_id,
+                "entryId": entry_id,
+                "entrySourceId": entry_source_id,
+                "bookId": book_id,
+                "bookVersion": "2026.1",
+                "mode": mode,
+                "questionType": question_type,
+                "outcome": outcome,
+                "userResponse": user_response,
+                "canonicalAnswer": if correct_answer.trim().is_empty() { "(unavailable)" } else { correct_answer.as_str() },
+                "responseTimeMs": response_time_ms.max(0),
+                "hintUsed": hint_used != 0,
+                "localDay": local_day,
+                "legacyPointProjection": true
+            }
+        }));
+    }
+    if events.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(serde_json::json!({
+        "type": "study_events_backfill",
+        "schemaVersion": 1,
+        "events": events
+    })))
+}
+
 fn build_recent_study_word_points_payload(
     conn: &word_storage_core::Connection,
     window_days: i64,
@@ -9182,6 +9315,15 @@ pub fn enqueue_cloud_backfill(request_json: String) -> Result<String, String> {
         .unwrap_or(365)
         .clamp(1, 3650);
     with_runtime_conn(|conn| {
+        let study_events = match build_all_study_events_payload(conn)? {
+            Some(payload) => {
+                let event_count = payload.get("events").and_then(|value| value.as_array())
+                    .map(|items| items.len()).unwrap_or(0);
+                enqueue_sync_snapshot(conn, "study_events", &payload, "study_events:all_local_results");
+                event_count
+            }
+            None => 0,
+        };
         let study_points = match build_recent_study_word_points_payload(conn, window_days)? {
             Some(payload) => {
                 let point_count = payload
@@ -9220,6 +9362,7 @@ pub fn enqueue_cloud_backfill(request_json: String) -> Result<String, String> {
         Ok(serde_json::json!({
             "enqueued": study_points > 0 || wrong_words > 0 || ai_passages > 0,
             "studyPoints": study_points,
+            "studyEvents": study_events,
             "wrongWords": wrong_words,
             "aiPassages": ai_passages,
             "windowDays": window_days,
@@ -13094,6 +13237,27 @@ mod tests {
             "SELECT COUNT(*) FROM study_results WHERE session_id NOT LIKE 'cloud_event:%'", [], |row| row.get(0),
         ).unwrap();
         assert_eq!(aggregate_candidates, 0);
+    }
+
+    #[test]
+    fn mobile_backfill_exports_all_local_answers_as_shared_events() {
+        let conn = Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute("INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'mobile-event-test', 'ready')", []).expect("source");
+        conn.execute("INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma) VALUES (1, 1, 'KaoYan_3_1', 'process', 'process')", []).expect("entry");
+        conn.execute("INSERT INTO wordbooks (id, code, name, source_book_id, source_version_id, total_entries) VALUES (1, 'kaoyan', 'Kaoyan', 'kaoyan', 1, 1)", []).expect("book");
+        conn.execute("INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (1, 1, 1)", []).expect("book entry");
+        conn.execute("INSERT INTO study_sessions (session_id, mode, total_words, wordbook_id, started_at, completed_at) VALUES ('local-old', 'highFrequency', 1, 1, '2024-01-01T00:00:00Z', '2024-01-01T00:01:00Z'), ('cloud_event:web', 'review', 1, 1, '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z')", []).expect("sessions");
+        conn.execute("INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response, correct_answer, outcome, response_time_ms, answered_at, hint_used) VALUES ('local-old', 'q-local', 1, 'enToCnInput', 'process', 'process', 'correct', 1200, '2024-01-01T00:00:30Z', 1), ('cloud_event:web', 'cloud_event:web:q', 1, 'enToCnInput', 'process', 'process', 'correct', 900, '2026-01-01T00:00:30Z', 0)", []).expect("results");
+
+        let payload = build_all_study_events_payload(&conn).expect("event payload").expect("events");
+        let events = payload.get("events").and_then(|value| value.as_array()).expect("events array");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].get("localResultId").and_then(|value| value.as_i64()), Some(1));
+        assert_eq!(events[0].pointer("/payloadJson/localDay").and_then(|value| value.as_str()), Some("2024-01-01"));
+        assert_eq!(events[0].pointer("/payloadJson/bookId").and_then(|value| value.as_str()), Some("kaoyan"));
+        assert_eq!(events[0].pointer("/payloadJson/entrySourceId").and_then(|value| value.as_str()), Some("KaoYan_3_1"));
+        assert_eq!(events[0].pointer("/payloadJson/legacyPointProjection").and_then(|value| value.as_bool()), Some(true));
     }
 
     struct EnvGuard {

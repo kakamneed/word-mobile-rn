@@ -3,6 +3,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import '../cloud/cloud_backend_config.dart';
 import 'local_data_owner_client.dart';
 import '../supabase/supabase_auth_service.dart';
@@ -37,6 +39,65 @@ class SyncOutboxItem {
     attemptCount: json['attemptCount'] as int? ?? 0,
     status: json['status'] as String? ?? 'pending',
   );
+}
+
+class MobileStudyEventRows {
+  final String deviceId;
+  final List<Map<String, dynamic>> rows;
+
+  const MobileStudyEventRows({required this.deviceId, required this.rows});
+}
+
+String _uuidFromMd5(String value) {
+  final hex = md5.convert(utf8.encode(value)).toString();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+}
+
+MobileStudyEventRows mobileStudyEventRowsForTest({
+  required String userId,
+  required Map<String, dynamic> payload,
+}) {
+  final normalizedUserId = userId.trim();
+  if (normalizedUserId.isEmpty) {
+    throw const FormatException('Expected study event user id');
+  }
+  final deviceId = _uuidFromMd5('$normalizedUserId:word-mobile-rn');
+  final rawEvents = payload['events'];
+  if (rawEvents is! List<dynamic>) {
+    throw const FormatException('Expected study events list');
+  }
+  final rows = <Map<String, dynamic>>[];
+  for (final rawEvent in rawEvents.whereType<Map>()) {
+    final event = rawEvent.cast<String, dynamic>();
+    final localResultId = event['localResultId'];
+    final sessionId = event['sessionId']?.toString().trim() ?? '';
+    final occurredAt = event['occurredAt']?.toString().trim() ?? '';
+    final payloadJson = event['payloadJson'];
+    if (localResultId is! num ||
+        localResultId.toInt() <= 0 ||
+        sessionId.isEmpty ||
+        occurredAt.isEmpty ||
+        payloadJson is! Map) {
+      throw const FormatException('Invalid local study event');
+    }
+    final eventIdentity = payloadJson['eventId']?.toString().trim() ?? '';
+    if (eventIdentity.isEmpty) {
+      throw const FormatException('Expected stable study event identity');
+    }
+    final eventDigest = md5.convert(utf8.encode(eventIdentity)).toString();
+    final idempotencyKey = 'word-mobile:$normalizedUserId:$eventDigest';
+    rows.add({
+      'event_id': _uuidFromMd5('$normalizedUserId:$idempotencyKey'),
+      'user_id': normalizedUserId,
+      'device_id': deviceId,
+      'session_id': sessionId,
+      'event_type': 'answer_submitted',
+      'payload_json': payloadJson.cast<String, dynamic>(),
+      'occurred_at': occurredAt,
+      'idempotency_key': idempotencyKey,
+    });
+  }
+  return MobileStudyEventRows(deviceId: deviceId, rows: rows);
 }
 
 class SyncDomainPendingCount {
@@ -152,6 +213,9 @@ class SyncClient {
           await _recordSyncResult(item.id, succeeded: true);
         } else if (item.domain == 'study_word_points') {
           await _uploadStudyWordPoints(userId: userId, item: item);
+          await _recordSyncResult(item.id, succeeded: true);
+        } else if (item.domain == 'study_events') {
+          await _uploadStudyEvents(userId: userId, item: item);
           await _recordSyncResult(item.id, succeeded: true);
         } else if (item.domain == 'wrong_word_entries') {
           await _uploadWrongWordEntries(userId: userId, item: item);
@@ -586,6 +650,40 @@ class SyncClient {
           rows,
           onConflict: 'user_id,point_date,entry_id,mode,question_type',
         );
+  }
+
+  Future<void> _uploadStudyEvents({
+    required String userId,
+    required SyncOutboxItem item,
+  }) async {
+    final payload = jsonDecode(item.payloadJson);
+    if (payload is! Map<String, dynamic>) {
+      throw const FormatException('Expected study_events payload object');
+    }
+    final mapped = mobileStudyEventRowsForTest(
+      userId: userId,
+      payload: payload,
+    );
+    await _authService.client.from('devices').upsert({
+      'device_id': mapped.deviceId,
+      'user_id': userId,
+      'platform': 'flutter-mobile',
+      'device_label': 'Word Mobile',
+      'app_version': 'shared-study-v1',
+      'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+      'revoked_at': null,
+    }, onConflict: 'device_id');
+    const chunkSize = 100;
+    for (var offset = 0; offset < mapped.rows.length; offset += chunkSize) {
+      final end = (offset + chunkSize).clamp(0, mapped.rows.length);
+      await _authService.client
+          .from('study_events')
+          .upsert(
+            mapped.rows.sublist(offset, end),
+            onConflict: 'idempotency_key',
+            ignoreDuplicates: true,
+          );
+    }
   }
 
   Future<void> _uploadWrongWordEntries({
