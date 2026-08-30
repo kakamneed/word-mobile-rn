@@ -195,6 +195,9 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 
 ## Implementation Log
 
+- `2026-07-28`: Phase 15 regression gating found three stale widget-test expectations that still asserted the retired red/yellow row copy. The existing mobile implementation already renders the four-level contract (`模糊 / 眼熟 / 不会 / 致错`), so only those expectations were aligned to the existing mock counts; no production Wrong Words behavior changed.
+- `2026-07-23`: Simulation-practice wrong words now expose all three familiarity levels (`fuzzy`, `familiar`, `unknown`) plus causal-error evidence. The deterministic ordering weights are `1 / 2 / 3 / 5`; source sheets show the same four counts per paper and section. Legacy `uncertainMarkCount` remains decode-only compatibility for older payloads.
+- `2026-07-20`: Simulation-practice wrong words now decode and display `uncertain`, `unknown`, and causal-error counts separately. Ordering uses weights `1.5 / 3 / 5`, and inflected forms arrive under one canonical report word.
 - `2026-04-29`: User reported wrong words page showing 0-error entries. Mobile-visible list was changed to filter `errorCount > 0` while keeping learned records available in storage.
 - `2026-04-29`: User reported needing to manually scroll to detail. Inline detail expansion and return-to-selected-card behavior were added.
 - `2026-04-29`: User refined scroll behavior: scroll should reveal the detail label top, not page bottom.
@@ -206,6 +209,8 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - `2026-06-25`: Ledger created from conversation history using `cross-platform-feature-ledger`.
 - `2026-07-17`: Added the page-level learning-content selector and a separate simulated-practice list. `sortExamPracticeWrongWords` filters unmarked corpus-frequency rows, sorts by total red/yellow marks, then red count, then word, and never reads `study_results.errorCount`.
 - `2026-07-17`: Corrected priority coverage so marked exercise words outside the corpus top-200 frequency slice are appended to the shared priority payload instead of disappearing from the practice wrong-word page.
+- `2026-07-18`: Removed the page-level learning-content selector. `MobileRootShell` now passes the mode selected on Today into Wrong Words, keeping one navigation-wide source of truth.
+- `2026-07-18`: Practice wrong-word rows now open a source sheet. The shared priority payload groups marked occurrences by exercise article and resolves each source to the bundled paper title and section title, with per-source red/yellow counts and an explicit legacy-record fallback.
 
 ## Mobile Lessons Learned
 
@@ -219,6 +224,7 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - Question type strings like `enToCnChoice` and outcomes like `incorrect` must be translated for users; leaking enum names looks broken.
 - Highlighting wrong words in examples helps users connect the detail card to the mistake context.
 - Word-study mistakes and exercise annotations are different evidence streams. Keep their sorting, totals, filters, and empty states separate even when they share one tab.
+- A cross-tab content mode belongs to the root shell. If each destination owns its own selector, the same bottom navigation visibly disagrees about what the user selected on Today.
 
 ## Desktop Follow-Up Notes
 
@@ -235,10 +241,13 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - `2026-05-01`: Wrong-word display identity changed from `word` to `(entryKind, lower(word))` for duplicate merging.
 - `2026-05-01`: Root/affix wrong items split from ordinary wrong words through `entryKind`.
 - `2026-05-01`: Root/affix details changed to enrich from bundled virtual-card assets when normal entry tables are empty.
-- `2026-07-17`: Wrong Words gained an in-page content route: word mode keeps `getWrongWords`, while practice mode switches to exercise mark evidence from `getExamVocabularyPriority`.
+- `2026-07-18`: The practice/word route moved from an in-page selector to the Today-controlled root-shell mode; Wrong Words now only renders the mode it receives.
 
 ## Known Pitfalls
 
+- When practice annotation labels change, update list-row and source-sheet expectations together. A stale red/yellow assertion can make an unchanged current four-level surface fail unrelated release regression gates.
+- Do not collapse `fuzzy`, `familiar`, and `unknown` into one yellow count. Their order is user-authored evidence, and the practice notebook, source detail, SDK, and Rust aggregate must preserve the same `1 / 2 / 3` severity weights before the separate causal weight `5`.
+- Practice wrong-word filtering, sorting, summary totals, source detail, and SDK decoding must all include `uncertain`; adding the backend score alone silently drops fuzzy-word evidence from the visible notebook.
 - Do not show 0-error entries in the visible wrong-word list.
 - Do not remove learned records from storage just because they are hidden from the wrong page.
 - Do not merge ordinary words and root/affix entries solely by surface text.
@@ -249,9 +258,13 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
 - Do not make Flutter the source of wrong-word score or risk truth.
 - Do not rank the practice list by `priorityScore`, corpus frequency, or study error count. Its visible order is explicitly red/yellow mark count.
 - `getExamVocabularyPriority` must retain marked words even when they are outside the frequency-ranked top slice.
+- Do not reconstruct a source from visible text. Prefer exercise article metadata and use the stable `paperId:sectionId` article identity only as a fallback for legacy rows.
 
 ## Verification
 
+- `2026-07-28`: The first isolated `flutter test test\wrong_words_screen_test.dart --no-pub --no-test-assets -r expanded` failed because three expectations still used red/yellow copy while the widget rendered the four-level contract. After aligning only those expectations, the same focused test passed 1/1. `reports_screen_test.dart` passed separately 1/1; no release-device verification was claimed.
+- `2026-07-23`: The combined Flutter practice reader/client/wrong-word suites passed 40/40; targeted Flutter analysis reported no issues. Rust storage passed 14/14 and mobile bridge passed 45/45, including legacy mark compatibility and the schema-22 exact-level path. Device verification was not run.
+- `2026-07-20`: `flutter test test\exam_practice_wrong_words_test.dart test\exam_practice_screen_test.dart` passed 29/29 and `flutter analyze` passed with no issues.
 - Mobile:
   - `flutter analyze --no-pub`
   - Manual checks from screenshots:
@@ -271,3 +284,4 @@ AI must not invent wrong-word priority, error count, or risk breakdown. Those st
   - Regression: word and root/affix entries with same text stay separate.
   - Regression: root/affix wrong list and detail are enriched from asset-backed card data.
 - `2026-07-17`: `flutter test --no-pub test\wrong_words_screen_test.dart test\exam_practice_wrong_words_test.dart` passed practice-mode rendering and red/yellow ordering coverage; targeted Flutter analysis reported no issues.
+- `2026-07-18`: Focused Wrong Words, Reports, and practice sorting tests passed 3/3, including selector absence and the paper/section source sheet. Targeted Flutter analysis reported no issues; `cargo check -p word-platform-mobile` passed with pre-existing unused-helper warnings only.

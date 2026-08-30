@@ -209,6 +209,7 @@ impl AnswerEvaluator {
             outcome,
             response_time_ms: answer.response_time_ms,
             answered_at: answered_at.to_string(),
+            hint_used: false,
         }
     }
 
@@ -561,6 +562,9 @@ impl QuestionBuilder {
     ) -> StudyQuestion {
         let accepted_meanings: Vec<String> =
             word.meanings.iter().map(|m| m.meaning_cn.clone()).collect();
+        let real_exam_example = Self::real_exam_example(word);
+        let real_exam_sentence = real_exam_example.map(|example| example.sentence_en.clone());
+        let real_exam_source = real_exam_example.map(|example| example.sentence_cn.clone());
 
         let question_id = format!("{}_{}", session_id, question_index);
 
@@ -590,8 +594,8 @@ impl QuestionBuilder {
                     phonetic_uk: word.phonetic_uk.clone(),
                     prompt: word.word.clone(),
                     accepted_meanings,
-                    example_sentence: None,
-                    example_translation: None,
+                    example_sentence: real_exam_sentence,
+                    example_translation: real_exam_source,
                     choices: Some(choices),
                     correct_choice_label: Some(correct_label),
                     question_index,
@@ -665,8 +669,8 @@ impl QuestionBuilder {
                     phonetic_uk: word.phonetic_uk.clone(),
                     prompt,
                     accepted_meanings,
-                    example_sentence: None,
-                    example_translation: None,
+                    example_sentence: real_exam_sentence,
+                    example_translation: real_exam_source,
                     choices: Some(choices),
                     correct_choice_label: Some(correct_label),
                     question_index,
@@ -683,8 +687,8 @@ impl QuestionBuilder {
                 phonetic_uk: word.phonetic_uk.clone(),
                 prompt: word.word.clone(),
                 accepted_meanings,
-                example_sentence: None,
-                example_translation: None,
+                example_sentence: real_exam_sentence,
+                example_translation: real_exam_source,
                 choices: None,
                 correct_choice_label: None,
                 question_index,
@@ -1306,6 +1310,15 @@ impl QuestionBuilder {
             })
     }
 
+    fn real_exam_example(word: &WordForQuestion) -> Option<&EntryExample> {
+        word.examples.iter().find(|example| {
+            example
+                .sentence_cn
+                .trim_start()
+                .starts_with("\u{771f}\u{9898}\u{6765}\u{6e90}\u{ff1a}")
+        })
+    }
+
     fn meanings_matching_target_pos<'a>(
         word: &'a WordForQuestion,
         target_pos: Option<&str>,
@@ -1563,6 +1576,33 @@ mod tests {
         let allowed = ["评论；说起", "抱怨；发牢骚", "反复呼喊；吟唱"];
         for text in texts.iter().filter(|text| *text != "咕哝；抱怨") {
             assert!(allowed.contains(&text.as_str()));
+        }
+    }
+
+    #[test]
+    fn ordinary_questions_carry_real_exam_example_source() {
+        let target = build_word_with_examples(
+            "segment",
+            "segment",
+            Some("n"),
+            &[("n", "段；片；部分")],
+            &[(
+                "Demand from the food service segment grew.",
+                "真题来源：KAOYAN-ENGLISH-1 / Kaoyan English I 2010",
+            )],
+        );
+
+        for question_type in [QuestionType::EnToCnChoice, QuestionType::EnToCnInput] {
+            let question =
+                QuestionBuilder::build_single_question(&target, &question_type, &[], "sess", 0, 1);
+            assert_eq!(
+                question.example_sentence.as_deref(),
+                Some("Demand from the food service segment grew.")
+            );
+            assert_eq!(
+                question.example_translation.as_deref(),
+                Some("真题来源：KAOYAN-ENGLISH-1 / Kaoyan English I 2010")
+            );
         }
     }
 

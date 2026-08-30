@@ -67,8 +67,9 @@ fn save_session_results(
         };
         conn.execute(
             "INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response,
-                                       normalized_response, correct_answer, outcome, response_time_ms, answered_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                                       normalized_response, correct_answer, outcome, response_time_ms, answered_at,
+                                       hint_used)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 session.session_id,
                 result.question_id,
@@ -80,6 +81,7 @@ fn save_session_results(
                 serde_json::to_string(&result.outcome).unwrap_or_default(),
                 result.response_time_ms,
                 result.answered_at,
+                result.hint_used,
             ],
         )
         .map_err(|e| StorageError::Database(format!("Failed to save result: {e}")))?;
@@ -250,6 +252,7 @@ fn active_session_key(mode: &SessionMode) -> String {
         SessionMode::Review => "review",
         SessionMode::MixedTest => "mixedTest",
         SessionMode::WrongWordReinforcement => "wrongWordReinforcement",
+        SessionMode::HighFrequency => "highFrequency",
         SessionMode::RootAffix => "rootAffix",
     };
     format!("active_study_session_{suffix}")

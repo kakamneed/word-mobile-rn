@@ -3,7 +3,8 @@ param(
   [string]$JavaHome = "C:\Program Files\Microsoft\jdk-21.0.10.7-hotspot",
   [string]$AndroidSdkRoot = "D:\Android\Sdk",
   [string]$AdbPath = "D:\Android\Sdk\platform-tools\adb.exe",
-  [string]$PackageName = "com.wordmobile"
+  [string]$PackageName = "com.wordmobile",
+  [string]$DeviceSerial = $env:ANDROID_DEVICE_SERIAL
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,7 +14,7 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $projectRoot)
 $apkPath = Join-Path $projectRoot "build\app\outputs\flutter-apk\app-release.apk"
 $supabaseEnvPath = Join-Path $repoRoot ".env.supabase.local"
 $env:GRADLE_USER_HOME = "D:\projects\word-mobile-rn\apps\mobile\.gradle-home"
-$env:GRADLE_OPTS = "-Xmx2g -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8"
+$env:GRADLE_OPTS = "-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=128m -Dfile.encoding=UTF-8 -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1"
 
 $env:JAVA_HOME = $JavaHome
 $env:ANDROID_HOME = $AndroidSdkRoot
@@ -105,16 +106,33 @@ if (-not (($apkListing | Out-String) -match 'lib/arm64-v8a/libword_platform_mobi
 }
 
 Write-Host "[4/6] adb devices"
-& $AdbPath devices
+$connectedDevices = @(
+  (& $AdbPath devices) |
+    Select-Object -Skip 1 |
+    Where-Object { $_ -match "^(\S+)\s+device\s*$" } |
+    ForEach-Object { $matches[1] }
+)
+if ($DeviceSerial) {
+  if ($connectedDevices -notcontains $DeviceSerial) {
+    throw "Requested adb device '$DeviceSerial' is not connected"
+  }
+} elseif ($connectedDevices.Count -gt 1) {
+  throw "Multiple adb devices are connected. Set ANDROID_DEVICE_SERIAL before retrying: $($connectedDevices -join ', ')"
+}
+$adbArgs = @()
+if ($DeviceSerial) {
+  $adbArgs = @("-s", $DeviceSerial)
+}
+& $AdbPath @adbArgs devices
 
 Write-Host "[5/6] adb install -r"
-& $AdbPath install -r $apkPath
+& $AdbPath @adbArgs install -r $apkPath
 if ($LASTEXITCODE -ne 0) {
   throw "adb install failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "[6/6] launch app"
-& $AdbPath shell monkey -p $PackageName -c android.intent.category.LAUNCHER 1
+& $AdbPath @adbArgs shell monkey -p $PackageName -c android.intent.category.LAUNCHER 1
 if ($LASTEXITCODE -ne 0) {
   throw "app launch failed with exit code $LASTEXITCODE"
 }

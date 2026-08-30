@@ -4,7 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
+import 'exam_analysis_task_notifications.dart';
 import 'exam_paper_import_dialog.dart';
+import 'exam_practice_screen.dart'
+    show
+        examCurrentHighlightColor,
+        examPriorHighlightColor,
+        normalizeExamWordFamily;
 import 'wrong_word_graph_screen.dart';
 
 enum _AiToolMode { passage, import, paperImport, paperAnalysis, graph }
@@ -57,6 +63,7 @@ class AiScreen extends StatefulWidget {
     required this.isSignedIn,
     this.generateOnOpen = false,
     this.showPassageFirst = false,
+    this.isActive = true,
     this.onWrongWordsImported,
     this.onAiPassageGenerated,
   });
@@ -65,6 +72,7 @@ class AiScreen extends StatefulWidget {
   final bool isSignedIn;
   final bool generateOnOpen;
   final bool showPassageFirst;
+  final bool isActive;
   final VoidCallback? onWrongWordsImported;
   final VoidCallback? onAiPassageGenerated;
 
@@ -78,6 +86,10 @@ class _AiScreenState extends State<AiScreen> {
 
   TodayAiPassageContext? _context;
   List<AiPassageHistoryItem> _history = const [];
+  ExamAnalysisInbox _analysisInbox = const ExamAnalysisInbox(
+    items: [],
+    unreadCount: 0,
+  );
   AiPassage? _passage;
   String _stylePreference = '';
   final List<_AiChatMessage> _messages = [];
@@ -86,19 +98,75 @@ class _AiScreenState extends State<AiScreen> {
   bool _loading = true;
   bool _busy = false;
   bool _handledOpenIntent = false;
+  bool _loadingAnalysisInbox = false;
+  bool _analysisInboxRefreshQueued = false;
+  bool _analysisInboxAnnouncementQueued = false;
   _AiToolMode _mode = _AiToolMode.passage;
 
   @override
   void initState() {
     super.initState();
+    ExamAnalysisTaskNotifications.unreadCount.addListener(
+      _handleAnalysisTaskUpdate,
+    );
     _load();
+    if (widget.isActive) {
+      unawaited(_refreshAnalysisInbox(announce: true));
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AiScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) {
+      unawaited(_refreshAnalysisInbox(announce: true));
+    }
   }
 
   @override
   void dispose() {
+    ExamAnalysisTaskNotifications.unreadCount.removeListener(
+      _handleAnalysisTaskUpdate,
+    );
     _input.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleAnalysisTaskUpdate() {
+    if (widget.isActive) {
+      unawaited(_refreshAnalysisInbox(announce: true));
+    }
+  }
+
+  Future<void> _refreshAnalysisInbox({required bool announce}) async {
+    if (_loadingAnalysisInbox) {
+      _analysisInboxRefreshQueued = true;
+      _analysisInboxAnnouncementQueued |= announce;
+      return;
+    }
+    _loadingAnalysisInbox = true;
+    try {
+      final inbox = await widget.sdk.examPractice.getAnalysisTasks();
+      if (!mounted) return;
+      setState(() => _analysisInbox = inbox);
+      if (announce && inbox.unreadCount > 0) {
+        _appendText('有 ${inbox.unreadCount} 份新的大题 AI 总结，点击“试卷分析”查看。');
+        final read = await widget.sdk.examPractice.markAnalysisTasksRead();
+        if (mounted) setState(() => _analysisInbox = read);
+        ExamAnalysisTaskNotifications.unreadCount.value = 0;
+      }
+    } catch (_) {
+      // Keep the rest of the AI workbench available if the inbox cannot load.
+    } finally {
+      _loadingAnalysisInbox = false;
+      if (mounted && _analysisInboxRefreshQueued) {
+        final queuedAnnouncement = _analysisInboxAnnouncementQueued;
+        _analysisInboxRefreshQueued = false;
+        _analysisInboxAnnouncementQueued = false;
+        unawaited(_refreshAnalysisInbox(announce: queuedAnnouncement));
+      }
+    }
   }
 
   Future<void> _load({bool showFullLoading = true}) async {
@@ -388,13 +456,14 @@ class _AiScreenState extends State<AiScreen> {
       _busy = true;
     });
     try {
-      final items = await widget.sdk.examPractice.getVocabularyPriority();
+      final inbox = await widget.sdk.examPractice.getAnalysisTasks();
       if (!mounted) return;
+      setState(() => _analysisInbox = inbox);
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
-        builder: (context) => _ExamPrioritySheet(items: items),
+        builder: (context) => _ExamPrioritySheet(tasks: _analysisInbox.items),
       );
     } catch (error) {
       if (mounted) {
@@ -1061,9 +1130,9 @@ class _BubbleShell extends StatelessWidget {
 }
 
 class _ExamPrioritySheet extends StatelessWidget {
-  const _ExamPrioritySheet({required this.items});
+  const _ExamPrioritySheet({required this.tasks});
 
-  final List<ExamVocabularyPriority> items;
+  final List<ExamAnalysisTask> tasks;
 
   @override
   Widget build(BuildContext context) {
@@ -1078,44 +1147,756 @@ class _ExamPrioritySheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Text(
-              '\u5355\u8bcd\u4f18\u5148\u5ea6',
+              '试卷 AI 分析',
               style: Theme.of(context).textTheme.titleLarge,
             ),
           ),
           Expanded(
-            child: items.isEmpty
-                ? const Center(
-                    child: Text(
-                      '\u6682\u65e0\u53ef\u5206\u6790\u7684\u8bd5\u5377\u8bcd\u6c47',
-                    ),
-                  )
-                : ListView.separated(
-                    controller: controller,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(child: Text('${index + 1}')),
-                        title: Text(
-                          item.word,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Text(
-                          '\u8de8 ${item.paperCount} \u4efd\u8bd5\u5377 \u00b7 ${item.articleCount} \u7bc7\u6587\u7ae0 \u00b7 ${item.occurrenceCount} \u6b21\n'
-                          '\u4e0d\u4f1a ${item.unknownMarkCount} \u00b7 \u81f4\u9519 ${item.wrongAssociationCount} \u00b7 \u5df2\u638c\u63e1 ${item.masteredMarkCount}',
-                        ),
-                        trailing: Text(item.priorityScore.toStringAsFixed(1)),
-                      );
-                    },
-                  ),
+            child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              children: [
+                if (tasks.isEmpty) const Text('暂无大题 AI 总结。'),
+                if (tasks.isNotEmpty) ExamAnalysisTaskList(tasks: tasks),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class ExamAnalysisTaskList extends StatelessWidget {
+  const ExamAnalysisTaskList({super.key, required this.tasks});
+
+  final List<ExamAnalysisTask> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < tasks.length; index++) ...[
+          _ExamAnalysisTaskTile(task: tasks[index]),
+          if (index < tasks.length - 1) const Divider(height: 1),
+        ],
+      ],
+    );
+  }
+}
+
+class _ExamAnalysisTaskTile extends StatelessWidget {
+  const _ExamAnalysisTaskTile({required this.task});
+
+  final ExamAnalysisTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorSummary = _examAnalysisTaskErrorSummary(task.error);
+    final statusText = task.isRunning
+        ? '生成中'
+        : task.isCompleted
+        ? '已完成'
+        : errorSummary.isNotEmpty
+        ? '等待重试'
+        : '生成失败';
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusColor = task.isCompleted
+        ? colorScheme.primary
+        : task.isRunning
+        ? colorScheme.tertiary
+        : colorScheme.error;
+    return ListTile(
+      key: ValueKey('exam-analysis-task-${task.taskId}'),
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        task.isRunning
+            ? Icons.hourglass_top
+            : task.isCompleted
+            ? Icons.task_alt
+            : Icons.error_outline,
+        color: statusColor,
+      ),
+      title: Text(task.paperTitle),
+      subtitle: Text(
+        errorSummary.isEmpty
+            ? '${task.sectionTitle} · $statusText'
+            : '${task.sectionTitle} · $statusText\n$errorSummary',
+      ),
+      isThreeLine: errorSummary.isNotEmpty,
+      trailing: task.isCompleted
+          ? const Icon(Icons.chevron_right)
+          : Text(statusText, style: TextStyle(color: statusColor)),
+      onTap: task.isCompleted
+          ? () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ExamAnalysisReportScreen(task: task),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class ExamAnalysisReportScreen extends StatelessWidget {
+  const ExamAnalysisReportScreen({super.key, required this.task});
+
+  final ExamAnalysisTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('${task.sectionTitle} · AI 分析')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        children: [
+          Text(task.paperTitle, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(
+                Icons.task_alt,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '已完成',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 32),
+          _ExamAnalysisReportBody(task: task),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExamAnalysisReportBody extends StatelessWidget {
+  const _ExamAnalysisReportBody({required this.task});
+
+  final ExamAnalysisTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final reviewFormat = '${task.review['reviewFormat'] ?? ''}';
+    final isStructuredReview =
+        reviewFormat == 'cloze-review-v1' ||
+        reviewFormat == 'reading-review-v1';
+    if (isStructuredReview) {
+      return _StoredStructuredReview(review: task.review);
+    }
+    return _LegacyExamAnalysisReport(findings: task.findings);
+  }
+}
+
+class _StoredStructuredReview extends StatelessWidget {
+  const _StoredStructuredReview({required this.review});
+
+  final Map<String, dynamic> review;
+
+  @override
+  Widget build(BuildContext context) {
+    List<dynamic> asList(dynamic value) =>
+        value is List<dynamic> ? value : const <dynamic>[];
+    final questions = asList(review['questions']);
+    final correct = asList(review['correctMarkedQuestions']);
+    final vocabulary = asList(review['vocabularyPriority']);
+    Map<String, dynamic> asMap(dynamic value) =>
+        value is Map<String, dynamic> ? value : <String, dynamic>{};
+    final isReading = review['reviewFormat'] == 'reading-review-v1';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ReportSectionHeading(icon: Icons.fact_check_outlined, title: '错题逐题复盘'),
+        const SizedBox(height: 12),
+        for (final raw in questions)
+          Builder(
+            builder: (context) {
+              final item = asMap(raw);
+              final contextText =
+                  '${item['annotatedContext'] ?? item['contextSentence'] ?? ''}'
+                      .trim();
+              return _StructuredQuestionReview(
+                item: item,
+                contextText: contextText,
+                isReading: isReading,
+                options: asList(item['optionAnalysis']).map(asMap).toList(),
+                markedVocabulary: vocabulary.map(asMap).toList(),
+              );
+            },
+          ),
+        if (correct.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const _ReportSectionHeading(
+            icon: Icons.rule_outlined,
+            title: '答对题中的标记辨析',
+          ),
+          const SizedBox(height: 8),
+          for (final raw in correct)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Builder(
+                builder: (context) {
+                  final item = asMap(raw);
+                  return _NumberedReportLine(
+                    number:
+                        '${item['questionNumber'] ?? item['questionId'] ?? ''}',
+                    text: '${item['distinction'] ?? ''}',
+                  );
+                },
+              ),
+            ),
+          const Divider(height: 32),
+        ],
+        const _ReportSectionHeading(
+          icon: Icons.format_list_numbered,
+          title: '标记词重要程度',
+        ),
+        const SizedBox(height: 8),
+        for (final raw in vocabulary)
+          Builder(
+            builder: (context) {
+              final item = asMap(raw);
+              final markScope = '${item['markScope'] ?? ''}'.trim();
+              final markStatus = markScope == 'prior'
+                  ? ' · 已有紫色标记'
+                  : markScope == 'current'
+                  ? ' · 本篇标记'
+                  : '';
+              return _VocabularyPriorityItem(
+                priority: '${item['priority'] ?? ''}',
+                word: '${item['word'] ?? ''}',
+                meaning: '${item['meaning'] ?? ''}',
+                frequency:
+                    '${'${item['examFamilyRoot'] ?? ''}'.trim().isEmpty ? '真题出现 ${item['displayExamFrequency'] ?? item['examFrequency'] ?? 0} 次' : '同源词族真题出现 ${item['displayExamFrequency'] ?? item['examFamilyFrequency'] ?? 0} 次 · 本词条单独 ${item['examFrequency'] ?? 0} 次'}'
+                    '$markStatus'
+                    '${item['examRank'] == null
+                        ? ''
+                        : '${item['examFamilyRoot'] ?? ''}'.trim().isEmpty
+                        ? ' · 排名 ${item['examRank']}'
+                        : ' · 本词严格排名 ${item['examRank']}'}',
+                reason: '${item['priorityReason'] ?? ''}'.trim(),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _StructuredQuestionReview extends StatelessWidget {
+  const _StructuredQuestionReview({
+    required this.item,
+    required this.contextText,
+    required this.isReading,
+    required this.options,
+    required this.markedVocabulary,
+  });
+
+  final Map<String, dynamic> item;
+  final String contextText;
+  final bool isReading;
+  final List<Map<String, dynamic>> options;
+  final List<Map<String, dynamic>> markedVocabulary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedAnswer = '${item['selectedAnswer'] ?? '未作答'}';
+    final correctAnswer = '${item['correctAnswer'] ?? '暂无'}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '第 ${item['questionNumber'] ?? item['questionId'] ?? ''} 题',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (isReading && '${item['stem'] ?? ''}'.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text('${item['stem']}'),
+        ],
+        if (isReading) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              _AnswerFact(
+                icon: Icons.cancel_outlined,
+                label: '你的答案',
+                value: selectedAnswer,
+                color: theme.colorScheme.error,
+              ),
+              _AnswerFact(
+                icon: Icons.check_circle_outline,
+                label: '正确答案',
+                value: correctAnswer,
+                color: theme.colorScheme.primary,
+              ),
+            ],
+          ),
+          if ('${item['evidenceLocation'] ?? ''}'.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('原文定位：${item['evidenceLocation']}'),
+          ],
+        ],
+        if (contextText.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow,
+              border: Border(
+                left: BorderSide(color: theme.colorScheme.primary, width: 3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('所需原文', style: theme.textTheme.labelLarge),
+                const SizedBox(height: 4),
+                _MarkedOriginalContext(
+                  contextText: contextText,
+                  markedVocabulary: markedVocabulary,
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (options.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text('选项辨析', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 6),
+          for (final option in options)
+            _OptionAnalysisRow(
+              option: option,
+              selectedAnswer: selectedAnswer,
+              correctAnswer: correctAnswer,
+            ),
+        ],
+        if ('${item['analysis'] ?? ''}'.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text('解析', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text('${item['analysis']}'),
+        ],
+        if ('${item['knowledgeGap'] ?? ''}'.trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text('真正缺口', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text('${item['knowledgeGap']}'),
+        ],
+        const Divider(height: 32),
+      ],
+    );
+  }
+}
+
+class _MarkedOriginalContext extends StatelessWidget {
+  const _MarkedOriginalContext({
+    required this.contextText,
+    required this.markedVocabulary,
+  });
+
+  final String contextText;
+  final List<Map<String, dynamic>> markedVocabulary;
+
+  @override
+  Widget build(BuildContext context) {
+    final markers = _ExamContextMarker.fromVocabulary(markedVocabulary);
+    if (markers.isEmpty) return Text(contextText);
+    final sanitized = _removeProviderGlosses(contextText, markers);
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    while (cursor < sanitized.length) {
+      final match = _nextExamContextMarkerMatch(sanitized, cursor, markers);
+      if (match == null) {
+        spans.add(TextSpan(text: sanitized.substring(cursor)));
+        break;
+      }
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: sanitized.substring(cursor, match.start)));
+      }
+      spans.add(
+        TextSpan(
+          text: sanitized.substring(match.start, match.end),
+          style: TextStyle(
+            backgroundColor: match.marker.isPrior
+                ? examPriorHighlightColor(match.marker.mark)
+                : examCurrentHighlightColor(match.marker.mark),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+      if (match.marker.meaning.isNotEmpty) {
+        spans.add(
+          TextSpan(
+            text: '（${match.marker.meaning}）',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.tertiary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+      }
+      cursor = match.end;
+    }
+    return Text.rich(TextSpan(children: spans));
+  }
+}
+
+class _ExamContextMarker {
+  const _ExamContextMarker({
+    required this.word,
+    required this.meaning,
+    required this.mark,
+    required this.isPrior,
+  });
+
+  final String word;
+  final String meaning;
+  final String mark;
+  final bool isPrior;
+
+  String get normalized => word.toLowerCase();
+  String get family => normalizeExamWordFamily(word);
+
+  static List<_ExamContextMarker> fromVocabulary(
+    List<Map<String, dynamic>> vocabulary,
+  ) {
+    final byWord = <String, _ExamContextMarker>{};
+    for (final item in vocabulary) {
+      final word = '${item['word'] ?? ''}'.trim();
+      if (word.isEmpty) continue;
+      final marker = _ExamContextMarker(
+        word: word,
+        meaning: '${item['meaning'] ?? ''}'.trim(),
+        mark: '${item['mark'] ?? 'unknown'}'.trim(),
+        isPrior: '${item['markScope'] ?? ''}'.trim() == 'prior',
+      );
+      final existing = byWord[marker.normalized];
+      // Current-article marking wins when a vocabulary item appears in both scopes.
+      if (existing == null || (existing.isPrior && !marker.isPrior)) {
+        byWord[marker.normalized] = marker;
+      }
+    }
+    return byWord.values.toList(growable: false);
+  }
+}
+
+class _ExamContextMarkerMatch {
+  const _ExamContextMarkerMatch({
+    required this.start,
+    required this.end,
+    required this.marker,
+  });
+
+  final int start;
+  final int end;
+  final _ExamContextMarker marker;
+}
+
+String _removeProviderGlosses(String text, List<_ExamContextMarker> markers) {
+  var sanitized = text;
+  for (final marker in markers) {
+    final escaped = RegExp.escape(marker.word);
+    final chineseGloss = r'[\u4e00-\u9fff，、；：\s]+';
+    sanitized = sanitized.replaceAll(
+      RegExp(
+        '($escaped)(?:（$chineseGloss）|\\($chineseGloss\\))',
+        caseSensitive: false,
+      ),
+      r'$1',
+    );
+  }
+  return sanitized;
+}
+
+_ExamContextMarkerMatch? _nextExamContextMarkerMatch(
+  String text,
+  int start,
+  List<_ExamContextMarker> markers,
+) {
+  _ExamContextMarkerMatch? best;
+  for (final marker in markers) {
+    final match = RegExp(
+      '(?<![A-Za-z])${RegExp.escape(marker.word)}(?![A-Za-z])',
+      caseSensitive: false,
+    ).firstMatch(text.substring(start));
+    if (match == null) continue;
+    final candidate = _ExamContextMarkerMatch(
+      start: start + match.start,
+      end: start + match.end,
+      marker: marker,
+    );
+    if (best == null ||
+        candidate.start < best.start ||
+        (candidate.start == best.start && candidate.end > best.end)) {
+      best = candidate;
+    }
+  }
+
+  final familyByRoot = <String, _ExamContextMarker>{
+    for (final marker in markers.where((marker) => !marker.word.contains(' ')))
+      marker.family: marker,
+  };
+  for (final token in RegExp(
+    r"[A-Za-z]+(?:['’-][A-Za-z]+)?",
+  ).allMatches(text.substring(start))) {
+    final marker = familyByRoot[normalizeExamWordFamily(token.group(0)!)];
+    if (marker == null) continue;
+    final candidate = _ExamContextMarkerMatch(
+      start: start + token.start,
+      end: start + token.end,
+      marker: marker,
+    );
+    if (best == null || candidate.start < best.start) best = candidate;
+    break;
+  }
+  return best;
+}
+
+class _AnswerFact extends StatelessWidget {
+  const _AnswerFact({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 5),
+        Text('$label：$value'),
+      ],
+    );
+  }
+}
+
+class _OptionAnalysisRow extends StatelessWidget {
+  const _OptionAnalysisRow({
+    required this.option,
+    required this.selectedAnswer,
+    required this.correctAnswer,
+  });
+
+  final Map<String, dynamic> option;
+  final String selectedAnswer;
+  final String correctAnswer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = '${option['label'] ?? ''}';
+    final isCorrect = label == correctAnswer;
+    final isSelected = label == selectedAnswer;
+    final color = isCorrect
+        ? theme.colorScheme.primary
+        : isSelected
+        ? theme.colorScheme.error
+        : theme.colorScheme.outline;
+    final meaning = '${option['meaning'] ?? ''}'.trim();
+    final analysis = '${option['analysis'] ?? ''}'.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: color),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              [meaning, analysis].where((value) => value.isNotEmpty).join('：'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportSectionHeading extends StatelessWidget {
+  const _ReportSectionHeading({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 22),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+        ),
+      ],
+    );
+  }
+}
+
+class _NumberedReportLine extends StatelessWidget {
+  const _NumberedReportLine({required this.number, required this.text});
+
+  final String number;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 52,
+          child: Text(
+            '第 $number 题',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
+    );
+  }
+}
+
+class _VocabularyPriorityItem extends StatelessWidget {
+  const _VocabularyPriorityItem({
+    required this.priority,
+    required this.word,
+    required this.meaning,
+    required this.frequency,
+    required this.reason,
+  });
+
+  final String priority;
+  final String word;
+  final String meaning;
+  final String frequency;
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 30,
+            child: Text(
+              priority,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  [word, meaning].where((value) => value.isNotEmpty).join('  '),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (frequency.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    frequency,
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+                if (reason.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(reason),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegacyExamAnalysisReport extends StatelessWidget {
+  const _LegacyExamAnalysisReport({required this.findings});
+
+  final List<ExamAnalysisFinding> findings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _ReportSectionHeading(
+          icon: Icons.fact_check_outlined,
+          title: '错题逐题复盘',
+        ),
+        const SizedBox(height: 10),
+        if (findings.isEmpty) const Text('现有标记与作答证据不足以确定致错词。'),
+        for (final finding in findings)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: _NumberedReportLine(
+              number: '${finding.questionNumber}',
+              text:
+                  '${finding.word}  ${finding.reasoning}  '
+                  '置信度 ${(finding.confidence * 100).round()}%',
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String _examAnalysisTaskErrorSummary(String error) {
+  if (error.isEmpty) return '';
+  if (error.contains('AI provider unavailable') ||
+      error.contains('No available accounts') ||
+      error.contains('HTTP 503')) {
+    return 'AI 服务暂时不可用，未生成该大题分析。请稍后返回大题报告重试。';
+  }
+  if (error.contains('TimeoutException')) {
+    return 'AI 服务响应超时，未生成该大题分析。请稍后返回大题报告重试。';
+  }
+  if (error.contains('大题分析未覆盖全部错题')) {
+    return 'AI 分析未完成，未保存部分结果。请返回大题报告重试。';
+  }
+  return error;
 }
 
 class _ToolSelector extends StatelessWidget {

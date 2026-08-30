@@ -148,6 +148,8 @@ pub struct StudyResult {
     pub outcome: AnswerOutcome,
     pub response_time_ms: u64,
     pub answered_at: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hint_used: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

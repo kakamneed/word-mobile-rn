@@ -30,6 +30,7 @@ pub fn get_today_home_state(conn: &Connection) -> Result<TodayHomeState, Storage
         review_words_per_day: plan.review_words_per_day,
         mixed_test_per_day: plan.mixed_test_per_day,
         wrong_word_test_per_day: plan.wrong_word_test_per_day,
+        high_frequency_per_day: 0,
         root_affix_per_day: None,
         growth_interval_days: plan.growth_interval_days,
         growth_increment: plan.growth_increment,
@@ -68,6 +69,10 @@ pub fn get_today_home_state(conn: &Connection) -> Result<TodayHomeState, Storage
         wrong_word_test_base_target: Some(plan.wrong_word_test_per_day as u32),
         wrong_word_test_carryover_target: Some(0),
         wrong_word_test_completed: 0,
+        high_frequency_target: plan.high_frequency_per_day as u32,
+        high_frequency_base_target: Some(plan.high_frequency_per_day as u32),
+        high_frequency_carryover_target: Some(0),
+        high_frequency_completed: 0,
         root_affix_target: None,
         root_affix_base_target: Some(0),
         root_affix_carryover_target: Some(0),
@@ -118,6 +123,12 @@ pub fn build_today_home_state(seed: TodayHomeStateSeed) -> TodayHomeState {
         wrong_word_test_base_target: targets.wrong_word_test_base_target,
         wrong_word_test_carryover_target: targets.wrong_word_test_carryover_target,
         wrong_word_test_completed: seed.completions.wrong_word_test_completed,
+        high_frequency_target: targets
+            .high_frequency_target
+            .unwrap_or(plan.high_frequency_per_day.max(0) as u32),
+        high_frequency_base_target: targets.high_frequency_base_target,
+        high_frequency_carryover_target: targets.high_frequency_carryover_target,
+        high_frequency_completed: seed.completions.high_frequency_completed,
         root_affix_target: Some(targets.root_affix_target.unwrap_or_else(|| {
             plan.root_affix_per_day
                 .map(|value| value.max(0) as u32)
@@ -152,11 +163,13 @@ fn build_daily_progress(snapshot: &DailySnapshot) -> DailyProgress {
         + snapshot.review_words_target
         + snapshot.mixed_test_target
         + snapshot.wrong_word_test_target
+        + snapshot.high_frequency_target
         + snapshot.root_affix_target.unwrap_or(0);
     let completed_tasks = snapshot.new_words_completed
         + snapshot.review_words_completed
         + snapshot.mixed_test_completed
         + snapshot.wrong_word_test_completed
+        + snapshot.high_frequency_completed
         + snapshot.root_affix_completed.unwrap_or(0);
 
     let next_recommended_action = if snapshot.new_words_completed < snapshot.new_words_target {
@@ -167,6 +180,8 @@ fn build_daily_progress(snapshot: &DailySnapshot) -> DailyProgress {
         "Continue with mixed test".to_string()
     } else if snapshot.wrong_word_test_completed < snapshot.wrong_word_test_target {
         "Continue with wrong-word reinforcement".to_string()
+    } else if snapshot.high_frequency_completed < snapshot.high_frequency_target {
+        "Continue with high-frequency words".to_string()
     } else if snapshot.root_affix_completed.unwrap_or(0) < snapshot.root_affix_target.unwrap_or(0) {
         "Continue with root/affix".to_string()
     } else {

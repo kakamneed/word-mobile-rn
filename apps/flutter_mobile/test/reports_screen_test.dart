@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_mobile/bridge/bridge.dart';
+import 'package:flutter_mobile/features/learning_content_mode_selector.dart';
 import 'package:flutter_mobile/features/reports_screen.dart';
 import 'package:flutter_mobile/sdk/sdk.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,14 +15,13 @@ void main() {
       MaterialApp(
         home: ReportsScreen(
           sdk: WordSdk.bridgeForTesting(bridge: _ReportsBridge()),
+          content: LearningContentMode.examPractice,
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.text('模拟练习'));
-    await tester.pump(const Duration(milliseconds: 100));
-
+    expect(find.byType(SegmentedButton<LearningContentMode>), findsNothing);
     expect(find.text('考试类型'), findsOneWidget);
     expect(find.text('整卷正确率'), findsOneWidget);
     await tester.scrollUntilVisible(

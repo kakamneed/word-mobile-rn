@@ -151,6 +151,7 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - `2026-06-25`: Ledger created from conversation history using `cross-platform-feature-ledger`.
 - `2026-07-17`: Added `getExamPracticeReport` across Dart, Rust, Android JNI/Java/Kotlin, and iOS C/Swift. The Rust aggregate groups submitted objective attempts by exam, paper, and section, then classifies listening, cloze, reading, and new-type sections.
 - `2026-07-17`: Added the report content selector, exam-family dropdown, whole-paper line, and four fixed type panels. Empty type series say `暂无趋势数据` and do not fabricate failures.
+- `2026-07-18`: Removed the Reports-level content selector. Reports consumes the single learning-content mode owned by `MobileRootShell` and changed only from the Today selector.
 
 ## Mobile Lessons Learned
 
@@ -160,6 +161,7 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - Per-mode card totals and compact trend charts must share the same domain aggregation, otherwise they visibly disagree.
 - Flutter chart fixes should not patch aggregate meaning; the fix belongs in Rust when the truth is wrong.
 - A paper trend is not a time-series of repeated sessions; the current contract exposes the latest persisted per-question state for each paper. Stable paper identity prevents same-year CET sets from collapsing into one point.
+- Shared bottom-navigation destinations must consume the Today-selected content mode instead of maintaining independent defaults.
 
 ## Desktop Follow-Up Notes
 
@@ -173,6 +175,7 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - `2026-05-02`: Report date semantics changed from `study_sessions.completed_at` to local date derived from `study_results.answered_at`.
 - `2026-05-02`: Series semantics changed from possible zero-answer filler rows to answered-day-only rows for `dailySeries` and `modeSeries`.
 - `2026-07-17`: Reports gained a second aggregate route for exam practice; study-day reports remain unchanged in word mode.
+- `2026-07-18`: Reports no longer exposes its own mode route control; the root shell selects which existing aggregate view is visible.
 
 ## Known Pitfalls
 
@@ -184,6 +187,7 @@ None for the core report aggregate. AI may later explain trends or suggest study
 - Do not consider an empty mode chart a report failure; it may simply have no answered questions.
 - Do not include translation/writing reference answers in accuracy. Only attempts with persisted non-null correctness are reportable.
 - Do not use year alone as paper identity; multiple CET sets can share a year and month.
+- Do not reintroduce a Reports-local practice/word toggle; it creates mode drift from Today and Wrong Words.
 
 ## Verification
 
@@ -198,3 +202,4 @@ None for the core report aggregate. AI may later explain trends or suggest study
   - Regression: unfinished session with `2026-04-30T16:01:00Z` answers groups as local `2026-05-01`.
   - Regression: zero-answer history rows do not create chart points or study days.
 - `2026-07-17`: `flutter test --no-pub test\reports_screen_test.dart` passed exam selection and paper/type trend rendering; `cargo test -p word-platform-mobile exam_report_classifies_supported_objective_sections --lib`, `cargo check -p word-platform-mobile`, and targeted Flutter analysis passed. Native route presence was verified across Dart plus Android/iOS surfaces; an APK/device smoke was not run.
+- `2026-07-18`: The focused report regression passed with practice mode supplied by the parent and asserted no local segmented selector; targeted Flutter analysis reported no issues.

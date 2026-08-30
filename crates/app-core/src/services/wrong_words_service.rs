@@ -150,7 +150,10 @@ fn apply_priority_fields(entry: &mut Value, context: &word_domain_core::DomainCo
             .unwrap_or(0),
         last_wrong_at,
         correct_since_last_wrong: correct_since_last_wrong.max(0.0) as u64,
-        is_active: entry.get("isActive").and_then(Value::as_bool).unwrap_or(true),
+        is_active: entry
+            .get("isActive")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
     };
     let projection = word_domain_core::score_wrong_word(context, &input);
     entry["errorRate"] = serde_json::json!(projection.error_rate);

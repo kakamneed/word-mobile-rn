@@ -70,10 +70,37 @@ class StartSessionEntryPayload {
 }
 
 /// Study question.
+class StudyDerivationalMeaning {
+  final String word;
+  final String meaning;
+
+  const StudyDerivationalMeaning({required this.word, required this.meaning});
+
+  factory StudyDerivationalMeaning.fromJson(Map<String, dynamic> json) =>
+      StudyDerivationalMeaning(
+        word: _requiredString(json, 'word'),
+        meaning: _requiredString(json, 'meaning'),
+      );
+}
+
+class StudySynonymGroup {
+  final String meaning;
+  final List<String> words;
+
+  const StudySynonymGroup({required this.meaning, required this.words});
+
+  factory StudySynonymGroup.fromJson(Map<String, dynamic> json) =>
+      StudySynonymGroup(
+        meaning: _requiredString(json, 'meaning'),
+        words: _jsonStringList(json['words']),
+      );
+}
+
 class StudyQuestion {
   final String questionId;
   final String questionType;
   final String entrySourceId;
+  final int? entryId;
   final String word;
   final String prompt;
   final String? partOfSpeech;
@@ -89,11 +116,17 @@ class StudyQuestion {
   final String? userHint;
   final bool hasHint;
   final List<WordHintSuggestion> hintSuggestions;
+  final bool examMarked;
+  final String? examMarkLevel;
+  final List<StudyDerivationalMeaning> derivationalFamily;
+  final List<StudySynonymGroup> synonymGroups;
+  final int errorCount;
 
   const StudyQuestion({
     required this.questionId,
     required this.questionType,
     required this.entrySourceId,
+    this.entryId,
     required this.word,
     required this.prompt,
     this.partOfSpeech,
@@ -109,6 +142,11 @@ class StudyQuestion {
     this.userHint,
     this.hasHint = false,
     this.hintSuggestions = const [],
+    this.examMarked = false,
+    this.examMarkLevel,
+    this.derivationalFamily = const [],
+    this.synonymGroups = const [],
+    this.errorCount = 0,
   });
 
   factory StudyQuestion.fromJson(Map<String, dynamic> json) {
@@ -143,10 +181,12 @@ class StudyQuestion {
     }
 
     final word = _requiredString(json, 'word');
+    final entryId = _jsonInt(json['entryId']);
     return StudyQuestion(
       questionId: _requiredString(json, 'questionId'),
       questionType: questionType,
       entrySourceId: _requiredString(json, 'entrySourceId'),
+      entryId: entryId > 0 ? entryId : null,
       word: word,
       prompt: _studyQuestionPrompt(json, questionType, word),
       partOfSpeech: _jsonNullableString(json['partOfSpeech']),
@@ -165,6 +205,18 @@ class StudyQuestion {
           .whereType<Map<String, dynamic>>()
           .map(WordHintSuggestion.fromJson)
           .toList(growable: false),
+      examMarked: _jsonBool(json['examMarked']),
+      examMarkLevel: _jsonNullableString(json['examMarkLevel']),
+      derivationalFamily:
+          (json['derivationalFamily'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map(StudyDerivationalMeaning.fromJson)
+              .toList(growable: false),
+      synonymGroups: (json['synonymGroups'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(StudySynonymGroup.fromJson)
+          .toList(growable: false),
+      errorCount: _jsonInt(json['errorCount']),
     );
   }
 
@@ -179,10 +231,16 @@ class StudyQuestion {
     String? userHint,
     bool? hasHint,
     List<WordHintSuggestion>? hintSuggestions,
+    bool? examMarked,
+    String? examMarkLevel,
+    List<StudyDerivationalMeaning>? derivationalFamily,
+    List<StudySynonymGroup>? synonymGroups,
+    int? errorCount,
   }) => StudyQuestion(
     questionId: questionId,
     questionType: questionType,
     entrySourceId: entrySourceId,
+    entryId: entryId,
     word: word,
     prompt: prompt,
     partOfSpeech: partOfSpeech,
@@ -198,6 +256,11 @@ class StudyQuestion {
     userHint: userHint ?? this.userHint,
     hasHint: hasHint ?? this.hasHint,
     hintSuggestions: hintSuggestions ?? this.hintSuggestions,
+    examMarked: examMarked ?? this.examMarked,
+    examMarkLevel: examMarkLevel ?? this.examMarkLevel,
+    derivationalFamily: derivationalFamily ?? this.derivationalFamily,
+    synonymGroups: synonymGroups ?? this.synonymGroups,
+    errorCount: errorCount ?? this.errorCount,
   );
 }
 
@@ -499,12 +562,14 @@ class StartSessionResponse {
   final StudyQuestion currentQuestion;
   final SessionProgress progress;
   final List<AnsweredStudyQuestion> answeredQuestions;
+  final int masteredCount;
 
   const StartSessionResponse({
     required this.session,
     required this.currentQuestion,
     required this.progress,
     this.answeredQuestions = const [],
+    this.masteredCount = 0,
   });
 
   factory StartSessionResponse.fromJson(Map<String, dynamic> json) =>
@@ -519,6 +584,7 @@ class StartSessionResponse {
         answeredQuestions: _answeredStudyQuestionList(
           json['answeredQuestions'],
         ),
+        masteredCount: _jsonInt(json['masteredCount']),
       );
 }
 
@@ -532,6 +598,7 @@ class SubmitAnswerResponse {
   final SessionProgress progress;
   final HintPrompt? hintPrompt;
   final List<AnsweredStudyQuestion> answeredQuestions;
+  final int masteredCount;
 
   const SubmitAnswerResponse({
     required this.result,
@@ -542,6 +609,7 @@ class SubmitAnswerResponse {
     required this.progress,
     this.hintPrompt,
     this.answeredQuestions = const [],
+    this.masteredCount = 0,
   });
 
   factory SubmitAnswerResponse.fromJson(Map<String, dynamic> json) =>
@@ -568,6 +636,7 @@ class SubmitAnswerResponse {
         answeredQuestions: _answeredStudyQuestionList(
           json['answeredQuestions'],
         ),
+        masteredCount: _jsonInt(json['masteredCount']),
       );
 }
 
@@ -621,6 +690,7 @@ class MarkStudyEntryMasteredResponse {
   final String? nextAction;
   final SessionProgress progress;
   final List<AnsweredStudyQuestion> answeredQuestions;
+  final int masteredCount;
 
   const MarkStudyEntryMasteredResponse({
     required this.entrySourceId,
@@ -632,6 +702,7 @@ class MarkStudyEntryMasteredResponse {
     this.nextAction,
     required this.progress,
     this.answeredQuestions = const [],
+    this.masteredCount = 0,
   });
 
   factory MarkStudyEntryMasteredResponse.fromJson(Map<String, dynamic> json) =>
@@ -657,6 +728,7 @@ class MarkStudyEntryMasteredResponse {
         answeredQuestions: _answeredStudyQuestionList(
           json['answeredQuestions'],
         ),
+        masteredCount: _jsonInt(json['masteredCount']),
       );
 }
 
@@ -732,11 +804,15 @@ class StudyClient {
     required String questionId,
     required String response,
     required int responseTimeMs,
+    bool hintUsed = false,
+    String? studyMode,
   }) async {
     final request = <String, dynamic>{
       'questionId': questionId,
       'response': response,
       'responseTimeMs': responseTimeMs,
+      'hintUsed': hintUsed,
+      'studyMode': studyMode,
     };
 
     final raw = await _bridge.call(

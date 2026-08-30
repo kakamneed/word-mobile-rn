@@ -128,6 +128,110 @@ function answerStats(papers) {
   );
 }
 
+function decodeHtmlEntities(value) {
+  const named = new Map([
+    ['nbsp', ' '],
+    ['amp', '&'],
+    ['quot', '"'],
+    ['apos', "'"],
+    ['lt', '<'],
+    ['gt', '>'],
+  ]);
+  return String(value ?? '')
+    .replace(/&([a-z]+);/giu, (match, name) => named.get(name.toLowerCase()) ?? match)
+    .replace(/&#(x[0-9a-f]+|\d+);/giu, (match, code) => {
+      const value = code[0].toLowerCase() === 'x'
+        ? Number.parseInt(code.slice(1), 16)
+        : Number.parseInt(code, 10);
+      return Number.isFinite(value) ? String.fromCodePoint(value) : match;
+    });
+}
+
+export function extractQuestionStemFromExplanation(explanation) {
+  const lines = decodeHtmlEntities(
+    String(explanation ?? '')
+      .replace(/<br\s*\/?>/giu, '\n')
+      .replace(/<\/(?:p|div|li)>/giu, '\n')
+      .replace(/<[^>]+>/gu, ' '),
+  )
+    .split(/\n/gu)
+    .map((line) => cleanText(line))
+    .filter(Boolean);
+  const overviewIndex = lines.findIndex((line) =>
+    /(?:题目.*选项.*概览|选项.*(?:概览|翻译))/u.test(line),
+  );
+  if (overviewIndex < 0) return '';
+  return lines.slice(overviewIndex + 1).find((line) =>
+    /[A-Za-z]{3}/u.test(line) &&
+    !/[\u3400-\u9fff]/u.test(line) &&
+    !/^[A-D][.．\s]/iu.test(line)
+  ) ?? '';
+}
+
+function isPlaceholderQuestionStem(stem) {
+  return /^Question\s+\d+$/iu.test(cleanText(stem));
+}
+
+export function repairPlaceholderQuestionStems(papers) {
+  let updatedQuestions = 0;
+  for (const paper of papers ?? []) {
+    for (const section of paper.sections ?? []) {
+      if (!/(?:阅读\s*Text\s*\d+|Reading\s*Text\s*\d+)/iu.test(section.title ?? '')) continue;
+      for (const question of section.questions ?? []) {
+        if (!isPlaceholderQuestionStem(question.stem) || !question.choices?.length) continue;
+        const recovered = extractQuestionStemFromExplanation(question.explanation);
+        if (!recovered) continue;
+        question.stem = recovered;
+        updatedQuestions += 1;
+      }
+    }
+  }
+  return { updatedQuestions };
+}
+
+function questionChoiceSignature(question) {
+  const choices = question?.choices ?? [];
+  if (choices.length < 2) return '';
+  return choices
+    .map((choice) => {
+      const text = cleanText(choice.text)
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, '');
+      return `${cleanText(choice.label).toUpperCase()}:${text}`;
+    })
+    .join('|');
+}
+
+export function mergePlaceholderQuestionStems(papers) {
+  const stemsByPaper = new Map();
+  for (const paper of papers ?? []) {
+    if (!stemsByPaper.has(paper.id)) stemsByPaper.set(paper.id, new Map());
+    const stems = stemsByPaper.get(paper.id);
+    for (const section of paper.sections ?? []) {
+      for (const question of section.questions ?? []) {
+        const signature = questionChoiceSignature(question);
+        if (!signature || isPlaceholderQuestionStem(question.stem)) continue;
+        stems.set(signature, cleanText(question.stem));
+      }
+    }
+  }
+  let updatedQuestions = 0;
+  for (const paper of papers ?? []) {
+    const stems = stemsByPaper.get(paper.id);
+    if (!stems) continue;
+    for (const section of paper.sections ?? []) {
+      for (const question of section.questions ?? []) {
+        if (!isPlaceholderQuestionStem(question.stem)) continue;
+        const recovered = stems.get(questionChoiceSignature(question));
+        if (!recovered) continue;
+        question.stem = recovered;
+        updatedQuestions += 1;
+      }
+    }
+  }
+  return { updatedQuestions };
+}
+
 function paperAnswerCount(paper) {
   return paper.sections.reduce(
     (sum, section) => sum + section.questions.filter((question) => Boolean(question.answer)).length,
@@ -877,7 +981,9 @@ export function importExamPapers(options) {
     });
   }
 
+  mergePlaceholderQuestionStems(allPapers);
   const dedupedPapers = dedupePapers(allPapers).sort((left, right) => left.id.localeCompare(right.id));
+  repairPlaceholderQuestionStems(dedupedPapers);
   const translationOverridesPath = options.paragraphTranslationsPath ?? path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     'exam-paper-paragraph-translations.json',

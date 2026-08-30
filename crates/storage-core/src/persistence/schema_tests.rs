@@ -3,6 +3,44 @@ use rusqlite::Connection;
 use super::schema;
 
 #[test]
+fn schema_23_upgrade_adds_hint_usage_without_changing_existing_results() {
+    let conn = Connection::open_in_memory().expect("open in-memory database");
+    conn.execute_batch(
+        "CREATE TABLE _schema_version (version INTEGER NOT NULL PRIMARY KEY, applied_at TEXT);
+         INSERT INTO _schema_version (version) VALUES (23);
+         CREATE TABLE study_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            question_id TEXT NOT NULL,
+            entry_id INTEGER NOT NULL,
+            question_type TEXT NOT NULL,
+            user_response TEXT NOT NULL,
+            normalized_response TEXT,
+            correct_answer TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            response_time_ms INTEGER NOT NULL,
+            answered_at TEXT NOT NULL
+         );
+         INSERT INTO study_results (
+            session_id, question_id, entry_id, question_type, user_response,
+            correct_answer, outcome, response_time_ms, answered_at
+         ) VALUES ('s-old', 'q-old', 1, 'enToCnInput', 'x', 'x', 'correct', 1, '2026-08-20');",
+    )
+    .expect("seed schema 23");
+
+    schema::apply_schema(&conn).expect("upgrade schema");
+
+    let hint_used: i64 = conn
+        .query_row(
+            "SELECT hint_used FROM study_results WHERE question_id = 'q-old'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("read migrated hint usage");
+    assert_eq!(hint_used, 0);
+}
+
+#[test]
 fn reward_image_and_local_leaderboard_tables_are_created_without_data_loss() {
     let conn = Connection::open_in_memory().expect("open in-memory database");
     schema::apply_schema(&conn).expect("apply initial schema");

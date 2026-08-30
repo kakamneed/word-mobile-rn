@@ -328,14 +328,13 @@ class AuthSessionManager {
         if (shouldRestore) {
           await _restoreCloudData?.call(session.user.id);
         }
-        _startCloudMerge(session.user.id);
         if (ownerResult.hasLocalLearningData) {
-          await _backfillLocalLearning?.call();
+          _startCloudBackfill();
         }
       } else {
-        _startCloudMerge(session.user.id);
-        await _backfillLocalLearning?.call();
+        _startCloudBackfill();
       }
+      _startCloudMerge(session.user.id);
       return AuthAccountState.signedInActive(session);
     } catch (error) {
       final message = error.toString();
@@ -350,6 +349,10 @@ class AuthSessionManager {
         'Cloud data check failed: $error',
       );
     }
+  }
+
+  void _startCloudBackfill() {
+    _backfillLocalLearning?.call().ignore();
   }
 
   void _startCloudMerge(String userId) {

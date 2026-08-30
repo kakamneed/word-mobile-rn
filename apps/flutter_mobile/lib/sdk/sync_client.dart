@@ -220,6 +220,9 @@ class SyncClient {
         } else if (item.domain == 'wrong_word_entries') {
           await _uploadWrongWordEntries(userId: userId, item: item);
           await _recordSyncResult(item.id, succeeded: true);
+        } else if (item.domain == 'word_disputed_meaning') {
+          await _uploadWordDisputedMeaning(userId: userId, item: item);
+          await _recordSyncResult(item.id, succeeded: true);
         } else if (item.domain == 'ai_passages') {
           await _uploadAiPassage(userId: userId, item: item);
           await _recordSyncResult(item.id, succeeded: true);
@@ -291,7 +294,9 @@ class SyncClient {
     while (true) {
       final response = await _authService.client
           .from('study_events')
-          .select('event_id,device_id,session_id,event_type,payload_json,occurred_at,ingested_at,idempotency_key')
+          .select(
+            'event_id,device_id,session_id,event_type,payload_json,occurred_at,ingested_at,idempotency_key',
+          )
           .eq('user_id', normalizedUserId)
           .eq('event_type', 'answer_submitted')
           .order('ingested_at')
@@ -322,7 +327,9 @@ class SyncClient {
       try {
         final rows = await _authService.client
             .from('ai_passages')
-            .select('passage_id,title,payload_json,validation_status,generated_at')
+            .select(
+              'passage_id,title,payload_json,validation_status,generated_at',
+            )
             .eq('user_id', userId)
             .order('generated_at', ascending: false);
         return _mapList(rows);
@@ -404,7 +411,9 @@ class SyncClient {
           .eq('user_id', normalizedUserId);
       final aiPassageRows = await _authService.client
           .from('ai_passages')
-          .select('passage_id,title,payload_json,validation_status,generated_at')
+          .select(
+            'passage_id,title,payload_json,validation_status,generated_at',
+          )
           .eq('user_id', normalizedUserId)
           .order('generated_at', ascending: false);
       final crocBtiRows = await _authService.client
@@ -419,9 +428,7 @@ class SyncClient {
       final reportList = _mapList(reportRows);
       final wrongWordList = _mapList(wrongWordRows);
       final aiPassageList = _mapList(aiPassageRows);
-      final crocBtiProfile = crocBtiRows.isNotEmpty
-          ? crocBtiRows.first
-          : null;
+      final crocBtiProfile = crocBtiRows.isNotEmpty ? crocBtiRows.first : null;
       final request = {
         'userId': normalizedUserId,
         'planConfig': planList.isEmpty ? null : planList.first,
@@ -549,7 +556,9 @@ class SyncClient {
       'review_words_per_day': _intValue(plan['reviewWordsPerDay']),
       'mixed_test_per_day': _intValue(plan['mixedTestPerDay']),
       'wrong_word_test_per_day': _intValue(plan['wrongWordTestPerDay']),
+      'high_frequency_per_day': _intValue(plan['highFrequencyPerDay']),
       'root_affix_per_day': _nullableIntValue(plan['rootAffixPerDay']),
+      'question_type_weights_by_mode': plan['questionTypeWeightsByMode'],
       'growth_rule_mode': plan['growthRuleMode'] as String?,
       'shared_growth_rule': plan['sharedGrowthRule'],
       'growth_rules_by_mode': plan['growthRulesByMode'],
@@ -730,6 +739,23 @@ class SyncClient {
         .upsert(rows, onConflict: 'user_id,entry_id');
   }
 
+  Future<void> _uploadWordDisputedMeaning({
+    required String userId,
+    required SyncOutboxItem item,
+  }) async {
+    final payload = jsonDecode(item.payloadJson);
+    if (payload is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Expected word_disputed_meaning payload object',
+      );
+    }
+    final row = wordDisputedMeaningSyncRowForTest(
+      userId: userId,
+      payload: payload,
+    );
+    await _authService.client.from('word_disputed_meanings').insert(row);
+  }
+
   Future<void> _uploadAiPassage({
     required String userId,
     required SyncOutboxItem item,
@@ -905,6 +931,40 @@ class SyncClient {
         '${hex.substring(20, 32)}';
   }
 }
+
+Map<String, dynamic> wordDisputedMeaningSyncRowForTest({
+  required String userId,
+  required Map<String, dynamic> payload,
+}) {
+  final entrySourceId = _requiredSyncText(
+    payload['entrySourceId'],
+    'entrySourceId',
+  );
+  final submittedMeaning = _requiredSyncText(
+    payload['submittedMeaning'],
+    'submittedMeaning',
+  );
+  return {
+    'user_id': _requiredSyncText(userId, 'userId'),
+    'entry_source_id': entrySourceId,
+    'word': _optionalSyncText(payload['word']),
+    'submitted_meaning': submittedMeaning,
+    'question_id': _optionalSyncText(payload['questionId']),
+    'question_type': _optionalSyncText(payload['questionType']),
+    'source': 'user_dispute',
+    'status': 'pending',
+  };
+}
+
+String _requiredSyncText(Object? value, String fieldName) {
+  final text = _optionalSyncText(value);
+  if (text.isEmpty) {
+    throw FormatException('Expected non-empty $fieldName');
+  }
+  return text;
+}
+
+String _optionalSyncText(Object? value) => value?.toString().trim() ?? '';
 
 class _WordAdminSnapshotSummary {
   const _WordAdminSnapshotSummary({

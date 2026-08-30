@@ -12,8 +12,8 @@ const allowedExamsByBook = new Map([
   ['MEDICAL_RESP.json', new Set()],
 ]);
 const maxExamplesPerWord = 8;
-const minSentenceChars = 24;
-const maxSentenceChars = 260;
+const minSentenceChars = 8;
+const maxSentenceChars = 500;
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
@@ -85,8 +85,18 @@ function inflectedForms(word) {
   return [...forms].sort((a, b) => b.length - a.length);
 }
 
-function patternFor(word) {
-  const forms = inflectedForms(word);
+function frequencySurfaceForms(content) {
+  return Object.keys(content?.realExamFrequency?.surfaceForms ?? {})
+    .map(normalizeWord)
+    .filter(Boolean);
+}
+
+function matchingForms(word, content) {
+  return [...new Set([...inflectedForms(word), ...frequencySurfaceForms(content)])]
+    .sort((a, b) => b.length - a.length);
+}
+
+function patternFor(forms) {
   if (forms.length === 0) return null;
   const source = forms.map(escapeRegExp).join('|');
   return new RegExp(`(?<![A-Za-z])(?:${source})(?![A-Za-z])`, 'iu');
@@ -190,14 +200,24 @@ function sourceLabel(meta) {
   return parts.filter(Boolean).join(' / ');
 }
 
-function scoreMatch(word, sentence, meta, existingKeys) {
-  const normalized = normalizeWord(word);
+function scoreMatch(entry, sentence, meta, existingKeys) {
+  const normalized = entry.normalized;
   const lower = sentence.toLowerCase();
   let score = 0;
   if (lower.includes(` ${normalized} `)) score += 30;
-  if (meta.textKind === 'passage') score += 20;
-  if (meta.textKind === 'choice') score += 12;
-  if (meta.questionKind === 'objective') score += 8;
+  const scope = entry.frequencyScope;
+  if (
+    scope &&
+    meta.exam === scope.exam &&
+    meta.year >= scope.minYear &&
+    meta.year <= scope.maxYear
+  ) {
+    score += 5000;
+  }
+  if (meta.textKind === 'passage') score += 1000;
+  if (meta.textKind === 'stem') score += 100;
+  if (meta.textKind === 'choice') score += 10;
+  if (meta.questionKind === 'objective') score += 4;
   const len = sentence.length;
   if (len >= 45 && len <= 160) score += 12;
   if (existingKeys.has(sentence.toLowerCase())) score -= 80;
@@ -216,6 +236,9 @@ function buildEntryIndex() {
       const word = displayWord(item);
       const normalized = normalizeWord(word);
       if (!normalized) continue;
+      const content = wordContent(item);
+      const forms = matchingForms(word, content);
+      const frequency = content?.realExamFrequency;
       entries.push({
         item,
         book,
@@ -223,7 +246,15 @@ function buildEntryIndex() {
         word,
         wordId: wordId(item, word),
         normalized,
-        pattern: patternFor(word),
+        forms,
+        pattern: patternFor(forms),
+        frequencyScope: frequency?.occurrences > 0
+          ? {
+              exam: frequency.exam,
+              minYear: frequency.minYear,
+              maxYear: frequency.maxYear,
+            }
+          : null,
       });
     }
   }
@@ -242,9 +273,12 @@ function existingExampleKeys(content) {
 function enrich() {
   const { corpus, stats: corpusStats } = collectExamCorpus();
   const { books, entries } = buildEntryIndex();
+  const entryByKey = new Map(
+    entries.map((entry) => [`${entry.fileName}\u0000${entry.wordId}`, entry]),
+  );
   const byForm = new Map();
   for (const entry of entries) {
-    for (const form of inflectedForms(entry.word)) {
+    for (const form of entry.forms) {
       if (!byForm.has(form)) byForm.set(form, []);
       byForm.get(form).push(entry);
     }
@@ -274,6 +308,7 @@ function enrich() {
     corpus: corpusStats,
     books: {},
     unmatchedSamples: {},
+    frequencyScopeGaps: {},
   };
 
   for (const book of books) {
@@ -282,7 +317,10 @@ function enrich() {
     let totalRawMatches = 0;
     let cappedEntries = 0;
     let writtenExamples = 0;
+    let positiveFrequencyEntries = 0;
+    let positiveFrequencyEntriesWithInScopeExamples = 0;
     const unmatched = [];
+    const frequencyScopeGaps = [];
     for (const item of book.items) {
       const word = displayWord(item);
       const id = wordId(item, word);
@@ -299,8 +337,23 @@ function enrich() {
         seenSentence.add(sentenceKey);
         deduped.push(match);
       }
-      deduped.sort((a, b) => scoreMatch(word, b.sentence, b.meta, existingKeys) - scoreMatch(word, a.sentence, a.meta, existingKeys));
+      const entry = entryByKey.get(key);
+      deduped.sort((a, b) => scoreMatch(entry, b.sentence, b.meta, existingKeys) - scoreMatch(entry, a.sentence, a.meta, existingKeys));
       const selected = deduped.slice(0, maxExamplesPerWord);
+      const frequency = content?.realExamFrequency;
+      if (frequency?.occurrences > 0) {
+        positiveFrequencyEntries += 1;
+        const hasInScopeExample = selected.some((match) =>
+          match.meta.exam === frequency.exam &&
+          match.meta.year >= frequency.minYear &&
+          match.meta.year <= frequency.maxYear
+        );
+        if (hasInScopeExample) {
+          positiveFrequencyEntriesWithInScopeExamples += 1;
+        } else {
+          frequencyScopeGaps.push(word);
+        }
+      }
       if (deduped.length > maxExamplesPerWord) cappedEntries += 1;
       if (selected.length > 0) {
         matchedEntries += 1;
@@ -330,8 +383,11 @@ function enrich() {
       rawMatches: totalRawMatches,
       writtenExamples,
       cappedEntries,
+      positiveFrequencyEntries,
+      positiveFrequencyEntriesWithInScopeExamples,
     };
     report.unmatchedSamples[book.fileName] = unmatched;
+    report.frequencyScopeGaps[book.fileName] = frequencyScopeGaps;
     writeJson(book.filePath, book.items);
   }
 

@@ -2,7 +2,7 @@
 
 > Slug: `exam-paper-import`
 > Status: `mobile_in_progress`
-> Updated: `2026-07-18`
+> Updated: `2026-08-02`
 
 ## Product Intent
 
@@ -44,6 +44,11 @@ No model/provider dependency in the current import path. Future answer-quality c
 
 ## Implementation Log
 
+- `2026-08-12` - Placeholder-stem audit: a manifest-wide scan found 4,047 `Question N` values among 6,600 normalized questions, but that raw total includes legitimate blank/selection/writing rows. Restricting the audit to kaoyan `text1`-`text5` standard reading found 127 unresolved English I stems and 65 English II stems before repair; CET Section C standard reading also contains roughly 850 placeholders. The defect is therefore corpus-wide and originates in incomplete upstream stem data or failed source merging, not Flutter text rendering.
+- `2026-08-12` - Asset modification points: restored the two missing 2008 English I Text 2 stems (`In the first paragraph, the author discusses` and `Which of the following best summarizes the main idea of the text?`) from the contemporaneous full-paper PDF, with a second independent New Oriental transcription used as a cross-check. Added a focused importer regression so these two stems cannot silently regress to `Question 1`/`Question 5`.
+- `2026-08-12` - Remaining risk: after the verified two-question repair, 125 English I and 65 English II standard-reading placeholders remain. The existing explanation-overview repair returns zero for the 2008 pair because those explanations contain option summaries and locations but no English stem. Remaining items must be restored from a verifiable full-paper or structured source; choice text and explanation prose are insufficient authority for inventing a stem.
+- `2026-08-12` - Verification: `node --test scripts\\import-exam-papers.test.mjs` passed 6/6; `node scripts\\check-exam-paper-import.mjs` passed with 149 papers, 6,600 questions, 6,420 answers, and unchanged capability totals. A post-repair scoped audit reported English I standard-reading unresolved `125` across 56 sections and English II unresolved `65` across 17 sections.
+
 - `2026-07-15` - Modification points: Added normalized import assets and scripts for GitHub-sourced kaoyan English, CET-4, and CET-6 datasets; Flutter asset bundling now includes `apps/flutter_mobile/assets/exam-papers/`.
 - `2026-07-15` - Problems encountered: Initial GitHub sources had mixed answer coverage. `XixiGod7/kaoyan-english` had structured questions but not answers; `TsekaLuk/Kaoyan-English1-Papers` only yielded one trusted kaoyan answer block; `Drhm1224/cet6-all-in-one` could not be cloned normally on Windows because the repo contains an invalid NTFS path, so selected answer files had to be downloaded individually.
 - `2026-07-15` - Discovery: `https://zhenti.kaoyansou.cn/` registers an English subject on the main API, but `/api/question/subject/2` returns an empty list. The usable public English endpoints are on `https://english.kaoyansou.cn/api`, especially `/paper/filters`, `/paper/list`, and `/paper/{id}`.
@@ -58,6 +63,9 @@ No model/provider dependency in the current import path. Future answer-quality c
 - `2026-07-15` - Verification discovery: The current answer-presence contract is `Boolean(question.answer)` and is independent of choice labels. The regenerated assets contain 6,420 answer-bearing questions: 6,159 objective and 261 translation; the remaining 180 writing questions intentionally have no answer. All 149 retained papers have at least one answer, while 15 zero-answer papers are recorded as dropped.
 - `2026-07-16` - Modification points: The focused checker now reports answer presence separately from renderer capabilities and rejects only a question explicitly declared auto-gradable when its answer cannot be rendered by its choices. Current coverage is 6,600 browsable/answerable, 5,266 auto-gradable/causal-analyzable, and 6,420 answer-bearing questions.
 - `2026-07-16` - Modification points: User imports now accept image or UTF-8 TXT sources in the AI workbench, pass through a reviewable normalized draft, and persist only normalized paper JSON plus provenance/warnings in SQLite. Saved user papers merge into the same offline catalog with distinct `user` origin; raw image bytes are not retained.
+- `2026-07-18` - Root-cause correction: Whole-paper deduplication previously favored Kaoyansou because it had answers and explanations, but discarded real stems held by the structured `XixiGod7/kaoyan-english` copy. The importer now merges non-placeholder stems into the answer-rich paper by normalized choice signature before deduplication.
+- `2026-07-18` - Asset modification points: Added conservative explanation-overview parsing and `scripts/repair-exam-question-stems.mjs`, then backfilled current Kaoyan assets. The reported 2010 Text 1 now has five real English stems; the repair is idempotent and preserves Kaoyansou answers/explanations.
+- `2026-07-18` - Translation asset modification points: Added 21 paragraph-aligned Chinese translations for 2010 Kaoyan English I Text 1-4 to `scripts/exam-paper-paragraph-translations.json`, applied them to the bundled `kaoyan-english-1.json`, and added a production-asset regression test so a future import cannot silently clear or misalign them.
 
 ## Mobile Lessons Learned
 
@@ -81,10 +89,14 @@ Desktop should expose provenance and answer coverage columns so incomplete answe
 - For non-listening sections, do not merge top-level `tiMuJson`; it is not the canonical question list and can create duplicate no-answer questions.
 - For translation sections, treat `conts[].zcont` as the prompt/source text and `conts[].econt` as the reference translation when `tm[].daan.zhengque` is absent.
 - Do not silently mix question text from one source with answers from another unless year, exam type, section, and question numbering are matched.
+- Question-number matching alone is insufficient across sources because one source numbers a Text locally and another uses paper-wide numbers. Require the same paper identity and normalized ordered choices before merging a stem.
 - Keep `droppedZeroAnswerPapers` in the report when pruning, so future source refreshes can distinguish intentionally removed zero-answer papers from parser regressions.
 - Do not assume every dropped old GitHub paper has a kaoyansou replacement; compare by normalized paper id before reporting coverage.
 - Upstream exam-content rights remain unverified even when a public API returns answers and explanations.
 - Do not use `hasAnswer` as a proxy for `autoGradable`; translation answers and objective records without a standard-choice shape remain answer-bearing but not automatically scored.
+- `2026-08-02` current asset integrity: `load_exam_paper` uses `serde_json::from_str`, so an invalid aggregate resource prevents normal catalog/paper loading even when individual text and choices appear present. Do not treat earlier importer checks as current proof after manual or downstream asset edits; add a strict parse gate before packaging.
+- Current assets still contain 192 reading-objective `Question n` placeholders for which the available structured source and explanation overview do not provide a stable full-stem match. They remain an explicit source-coverage gap; do not synthesize stems from choices or answer-analysis prose.
+- Kaoyansou reading explanations contain translated stems, choices, and paragraph summaries, but not a dependable sentence-complete translation of every source paragraph. Do not promote those summaries into `paragraphTranslations`. The type-filtered full-corpus audit found 296 relevant passage-bearing sections and 292 still without paragraph translations after the four 2010 reading sections were populated; the separately configured 2010 cloze section is normalized as generic objective data and is outside that count.
 
 ## Verification
 
@@ -94,3 +106,6 @@ Desktop should expose provenance and answer coverage columns so incomplete answe
 - Answer-presence audit: manifest and report totals agree at `papers=149`, `questions=6600`, and `answerBearingQuestions=6420`; no retained paper has zero answers, and the report lists 15 dropped zero-answer papers.
 - `2026-07-16`: `node --test scripts\check-exam-paper-import.test.mjs scripts\import-exam-papers.test.mjs` passed 4/4; the import review widget and SDK draft tests passed. Manual image/TXT picker smoke was not run because no Android device was connected.
 - `2026-07-18`: `node --test scripts\import-exam-papers.test.mjs scripts\check-exam-paper-import.test.mjs` passed 4/4. `node scripts\check-exam-paper-import.mjs` passed with `papers=149`, `questions=6600`, `answers=6420`, answer-bearing objective `6159/6159`, translation `261/261`, and writing `0/180`; latest years remain `cet4:2025`, `cet6:2025`, `kaoyan-english-1:2026`, and `kaoyan-english-2:2026`. `git diff --check` passed with only Git CRLF conversion warnings.
+- `2026-07-18`: Stem recovery tests passed 4/4, covering explanation-overview extraction, punctuation-tolerant structured-source merge, and existing importer flows. The focused asset checker passed unchanged totals; a second repair run reported `updatedQuestions=0` before structured-source enrichment, and all five 2010 Text 1 stems were inspected as real English questions.
+- `2026-07-18`: Paragraph-translation import tests passed 5/5 and assert 2010 Text 1-4 alignment at `5/5/5/6` paragraphs. The asset checker passed with 149 papers, 6,600 questions, and 6,420 answers; the overlay command updated the five configured 2010 sections (one cloze and four reading sections).
+- `2026-08-02`: `Test-Json` reported `false` for `cet4.json`, `cet6.json`, `kaoyan-english-1.json`, and `kaoyan-english-2.json`. This test did not modify assets. The Rust loader's strict parser was inspected and has no tolerant fallback.

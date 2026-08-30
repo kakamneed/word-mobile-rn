@@ -98,6 +98,9 @@ Wrong-word image/text import can add candidate words, but imported user words ma
 
 ## Implementation Log
 
+- `2026-08-12` - The Kaoyan derivational-family builder now separates the lexical `real/reality/really` branch from `realize/realise/realization` even when a source dictionary exposes all members in one broad `同根` block. Regenerating the 2010-2026 frequency assets changed the `real` family to 47 occurrences across `real`, `reality`, and `really`; the packaged portable family index uses the same boundary.
+- `2026-08-10` - Real-exam example coverage repair: `scripts/enrich-seed-vocab-real-exam-examples.mjs` now reuses each entry's audited `realExamFrequency.surfaceForms` and source scope when matching and ranking examples. For Kaoyan positive-frequency entries, English I 2010-2026 source sentences outrank older English I and English II matches; `segment` now starts with its 2013 English I translation sentence followed by the three 2010 English I passage sentences.
+- `2026-08-10` - Coverage audit: 2,109 of 2,134 positive Kaoyan English I frequency entries have an in-scope sentence. The remaining 25 are recorded in `docs/seed-vocab-real-exam-examples-report.json`: 24 occur only as cloze choices, often incorrect distractors, and `crew` is the brand token in `J.Crew`. No sentence is fabricated for those source fragments.
 - `2026-04/05`: User reported `assimilate` gloss showing a stray `<` in AI passages, study questions, and options, indicating seed vocabulary pollution rather than a single UI bug.
 - `2026-04/05`: User reported option text pollution such as `基金会 A`, and repeated distractor pools. Requirement clarified: options should be more random, same POS where possible, and not just three repeated global candidates.
 - `2026-04/05`: User reported input-answer boundary: meaningful partial answer like `润滑油` should be accepted, but single function words like `的` should not.
@@ -115,6 +118,8 @@ Wrong-word image/text import can add candidate words, but imported user words ma
 - `2026-07-15` - Modification points: Enriched CET4, CET6, Kaoyan, and medical seed vocab books with real-exam examples matched from bundled CET/Kaoyan paper assets via `scripts/enrich-seed-vocab-real-exam-examples.mjs`; added `scripts/check-seed-vocab-real-exam-examples.mjs` and `docs/seed-vocab-real-exam-examples-report.json`.
 - `2026-07-15` - Problems encountered: A naive sentence-by-entry regex scan timed out. The matcher now builds an inverted index of headword forms and inflections before scanning passage/stem/choice sentence tokens.
 - `2026-07-15` - Modification points: Tightened real-exam example enrichment so each wordbook only consumes its own exam-family corpus. This removed cross-family examples such as Kaoyan entries using CET sentences and cleared medical examples until a medical source corpus is available.
+- `2026-07-27` - Modification points: Changed real-exam example ranking in `scripts/enrich-seed-vocab-real-exam-examples.mjs` so passage/original paper text strongly outranks stems and choices. Added `scripts/repair-seed-vocab-real-exam-meanings.mjs` and repaired clear exam-context extended meanings for `mobile`, `stock`, `cancel`, `explosive`, and `collapse`.
+- `2026-07-27` - Problems encountered: Some correct real-exam sentences used extended senses missing from the seed gloss, such as `mobile phone/apps`, `stock market`/`to stock`, `cancel student debt`, `explosive situation`, and institutional `collapse`. These need seed-level meaning repair rather than UI-only filtering.
 - `2026-07-16` - Diagnosis: `KaoYan_3.json` still contains abbreviation-like headwords such as `a.` and `vs.`. These are vocabulary data-quality issues: they can carry legitimate-looking meanings and distractors, but they should not enter normal Study target selection.
 - `2026-07-16` - Diagnosis: The `1.0.2+3` APK contains the four raw seed books without precomputed choice distractors. On first-run maintenance, `rebuild_seed_question_preps` ranks same-book/same-POS candidates by `Reverse(seed_text_overlap_score)`, so meanings with the greatest textual overlap are selected first. This reproduces the reported `curb`, `displace`, `insert`, and `oven` choices and is the direct cause of ambiguous answers in that APK/runtime path.
 - `2026-07-16` - Modification points: Added `scripts/list-seed-vocab-choice-conflicts.mjs` and focused Node tests. The inventory can audit Git `HEAD`, the current worktree, or reproduce APK runtime ranking directly from an APK without mutating seed data.
@@ -136,6 +141,7 @@ Wrong-word image/text import can add candidate words, but imported user words ma
 - Keep source word, source meaning, POS, and book aligned by distractor index so audits can explain and reproduce every option.
 - Same POS is only a first-pass filter. Distractor repair must also reject near-synonyms and overlapping Chinese fragments, otherwise users can still see multiple visually correct options.
 - Real exam examples should live in the existing `realExamSentence` field because the mobile bridge already imports that field into `entry_examples`; adding a parallel field would not affect study questions without more runtime work.
+- Prefer original exam passage sentences over stems and options. Stems/options remain valid fallback examples, but they should not displace a good source-passage sentence for the same word.
 
 ## Desktop Follow-Up Notes
 
@@ -154,6 +160,8 @@ Desktop should turn these mobile lessons into tooling, not just parity:
 
 ## Known Pitfalls
 
+- `2026-08-12` - Dictionary `同根` blocks are not always precise enough to union transitively. A single broad block can collapse distinct derivational branches, so known branch boundaries must be applied before union-find grouping and mirrored by runtime projection for existing installs.
+- A counted paper occurrence is not always a usable example sentence. Cloze distractors are legitimate frequency occurrences but must not be inserted into the passage as if they were correct answers; brand-token matches such as `J.Crew -> crew` also require audit rather than fabricated examples.
 - Do not clean vocabulary only at render time; polluted data must be corrected before it reaches shared payloads.
 - Do not let option labels (`A/B/C/D`) become part of meaning text.
 - Do not compare user choice by displayed text from one gloss group while storing a different correct-answer gloss group.
@@ -164,6 +172,7 @@ Desktop should turn these mobile lessons into tooling, not just parity:
 - Do not treat a zero-conflict generated report as proof of coverage unless every required book, entry, and seven-option source tuple was audited.
 - Do not write raw exam text into seed vocabulary without cleaning Unicode replacement characters; `check-seed-vocab-question-preps` treats `\uFFFD` as a blocking data-quality failure.
 - Do not improve coverage by borrowing examples from another exam family; source relevance is part of the wordbook contract, so lower coverage is preferable to misleading provenance.
+- Do not keep a real-exam example when the corresponding entry gloss lacks the exam-context sense; either add a short reviewed extension to the seed meaning or choose a different example.
 - Do not extend the older corrupted repair script for stricter semantic repair; use the strict repair path and keep punctuation/tokenization rules in ASCII or Unicode escapes to avoid Windows encoding damage.
 - Do not count a seed entry as study-ready just because it has a headword and Chinese meaning. Headword token quality must reject dotted abbreviations and single-letter tokens before study payloads are built.
 - Do not rank distractors by descending Chinese meaning overlap. That strategy systematically chooses synonyms, contained meanings, and identical answer components, making multiple options defensible.
@@ -174,6 +183,8 @@ Desktop should turn these mobile lessons into tooling, not just parity:
 
 ## Verification
 
+- Shared/data (`2026-08-12`): `node --test scripts\kaoyan-english-1-vocab-frequency.test.mjs` passed 8/8, including an explicit `real` versus `realize` branch test. Regeneration completed over 17 papers from 2010-2026 and retained 6,326 appeared vocabulary headwords and 39,377 matched occurrences; scoped diff inspection showed one changed line in `KaoYan_3.json`, and the packaged family index reports `real/reality/really` at 47 combined occurrences.
+- `2026-08-10`: The real-exam generator completed with Kaoyan `2794/3728` entries and `12,897` examples; positive-frequency in-scope coverage is `2109/2134`. Its focused Node suite passed 2/2, the existing frequency suite passed 3/3, and the real-exam checker reported zero over-limit, empty, missing-source, target-missing, duplicate, or cross-exam examples. Question-prep, graph-relation, choice-conflict, and exam-import checks also passed.
 - Choice conflict inventory: `node --test scripts\list-seed-vocab-choice-conflicts.test.mjs` passed 3 tests on 2026-07-16, covering the four reported ambiguity patterns, false-positive guards, and runtime overlap ranking.
 - Current runtime inventory: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=worktree-runtime` scanned 11,537 entries on 2026-07-16 and reported 7,907 problem rows / 26,634 conflicting choices across all four books.
 - APK runtime inventory: `node scripts\list-seed-vocab-choice-conflicts.mjs --source=apk-runtime --apk=releases/word-mobile-1.0.2+3.apk` scanned 11,537 entries on 2026-07-16 and reported 7,875 problem rows / 26,550 conflicting choices across all four books.
@@ -191,6 +202,7 @@ Desktop should turn these mobile lessons into tooling, not just parity:
 - Strict repair: `node scripts\repair-seed-vocab-choice-conflicts-strict.mjs` passed on 2026-07-15 and rebuilt 11,537 entries across the four bundled seed books with `incomplete=0`.
 - Strict audit: `node scripts\audit-seed-vocab-choice-conflicts.mjs` passed again on 2026-07-15 after the strict repair with zero target-CN, target-EN, internal-option, missing-source, source-shape, or POS conflicts.
 - Real exam example audit: `node scripts\check-seed-vocab-real-exam-examples.mjs` passed on 2026-07-15 with source-family isolation. Coverage is CET4 `2066/2607` with `10,744` examples from `cet4`, CET6 `1808/2345` with `8,896` examples from `cet6`, Kaoyan `2697/3728` with `11,894` examples from `kaoyan-english-1/2`, and medical `0/2857` with no examples because no medical exam corpus is bundled. `crossExam=0` for every book.
+- Real exam meaning repair: `node scripts\repair-seed-vocab-real-exam-meanings.mjs` passed on 2026-07-27 with 7 reviewed patches and 0 misses. `node scripts\check-seed-vocab-real-exam-examples.mjs`, `node scripts\check-seed-vocab-question-preps.mjs`, `node scripts\check-seed-vocab-graph-relations.mjs`, `node scripts\audit-seed-vocab-choice-conflicts.mjs`, `node scripts\check-exam-paper-import.mjs`, and `cargo check` passed afterward. `cargo check` reported four pre-existing unused-code warnings in `crates/platform-mobile/src/bridge.rs`.
 - Mobile: targeted Rust bridge tests pass for same-wordbook/same-POS question prep generation.
 - Desktop: pending; first parity should verify desktop can inspect the same payload fields without reimplementing quiz generation.
 - Shared/domain:

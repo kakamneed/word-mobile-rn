@@ -313,6 +313,52 @@ class ExamWordToken {
   );
 }
 
+List<ExamWordToken> _normalizeExamWordTokenOffsets(
+  String source,
+  List<ExamWordToken> tokens, {
+  required bool declaredUtf16,
+}) {
+  bool matches(ExamWordToken token, int start, int end) =>
+      start >= 0 &&
+      end >= start &&
+      end <= source.length &&
+      source.substring(start, end) == token.text;
+
+  if (declaredUtf16 ||
+      tokens.every(
+        (token) => matches(token, token.startOffset, token.endOffset),
+      )) {
+    return tokens
+        .where((token) => matches(token, token.startOffset, token.endOffset))
+        .toList(growable: false);
+  }
+
+  var byteOffset = 0;
+  var codeUnitOffset = 0;
+  final codeUnitByUtf8Byte = <int, int>{0: 0};
+  for (final rune in source.runes) {
+    byteOffset += utf8.encode(String.fromCharCode(rune)).length;
+    codeUnitOffset += rune > 0xFFFF ? 2 : 1;
+    codeUnitByUtf8Byte[byteOffset] = codeUnitOffset;
+  }
+  return tokens
+      .map((token) {
+        final start = codeUnitByUtf8Byte[token.startOffset];
+        final end = codeUnitByUtf8Byte[token.endOffset];
+        if (start == null || end == null || !matches(token, start, end)) {
+          return null;
+        }
+        return ExamWordToken(
+          text: token.text,
+          normalized: token.normalized,
+          startOffset: start,
+          endOffset: end,
+        );
+      })
+      .whereType<ExamWordToken>()
+      .toList(growable: false);
+}
+
 class ExamWordInspection {
   const ExamWordInspection({
     required this.occurrenceId,
@@ -384,13 +430,19 @@ class ExamTextAnnotation {
 class ExamAnnotationState {
   const ExamAnnotationState({
     required this.currentMeanings,
+    required this.currentMarks,
+    required this.priorMarks,
     required this.priorWords,
+    required this.causalWords,
     required this.annotations,
   });
 
   final Map<String, String> currentMeanings;
+  final Map<String, String> currentMarks;
+  final Map<String, String> priorMarks;
   Set<String> get currentWords => currentMeanings.keys.toSet();
   final Set<String> priorWords;
+  final Set<String> causalWords;
   final List<ExamTextAnnotation> annotations;
 
   factory ExamAnnotationState.fromJson(Map<String, dynamic> json) {
@@ -400,15 +452,150 @@ class ExamAnnotationState {
           _string(item['normalized']): _string(item['meaning']),
     };
     final current = meaningsFrom(json['currentMarks']);
+    final marks = {
+      for (final item in _maps(json['currentMarks']))
+        if (_string(item['normalized']).isNotEmpty)
+          _string(item['normalized']): _string(
+            item['mark'],
+            fallback: 'unknown',
+          ),
+    };
     final prior = meaningsFrom(json['priorMarks']);
+    final priorMarks = {
+      for (final item in _maps(json['priorMarks']))
+        if (_string(item['normalized']).isNotEmpty)
+          _string(item['normalized']): _string(
+            item['mark'],
+            fallback: 'unknown',
+          ),
+    };
     return ExamAnnotationState(
       currentMeanings: current,
+      currentMarks: marks,
+      priorMarks: priorMarks,
       priorWords: prior.keys.toSet(),
+      causalWords: (json['causalWords'] as List<dynamic>? ?? const [])
+          .map(_string)
+          .where((word) => word.isNotEmpty)
+          .toSet(),
       annotations: _maps(
         json['annotations'],
       ).map(ExamTextAnnotation.fromJson).toList(growable: false),
     );
   }
+}
+
+class ExamAnalysisFinding {
+  const ExamAnalysisFinding({
+    required this.questionNumber,
+    required this.word,
+    required this.reasoning,
+    required this.confidence,
+  });
+
+  final int questionNumber;
+  final String word;
+  final String reasoning;
+  final double confidence;
+
+  factory ExamAnalysisFinding.fromJson(Map<String, dynamic> json) =>
+      ExamAnalysisFinding(
+        questionNumber: _integer(json['questionNumber']),
+        word: _string(json['word']),
+        reasoning: _string(json['reasoning']),
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'questionNumber': questionNumber,
+    'word': word,
+    'reasoning': reasoning,
+    'confidence': confidence,
+  };
+}
+
+class ExamAnalysisAttempt {
+  const ExamAnalysisAttempt({
+    required this.questionId,
+    required this.attemptId,
+  });
+
+  final String questionId;
+  final String attemptId;
+
+  Map<String, String> toJson() => {
+    'questionId': questionId,
+    'attemptId': attemptId,
+  };
+}
+
+class ExamAnalysisTask {
+  const ExamAnalysisTask({
+    required this.taskId,
+    required this.exam,
+    required this.paperId,
+    required this.paperTitle,
+    required this.sectionId,
+    required this.sectionTitle,
+    required this.status,
+    required this.unread,
+    required this.createdAt,
+    required this.completedAt,
+    required this.findings,
+    required this.review,
+    required this.error,
+  });
+
+  final String taskId;
+  final String exam;
+  final String paperId;
+  final String paperTitle;
+  final String sectionId;
+  final String sectionTitle;
+  final String status;
+  final bool unread;
+  final String createdAt;
+  final String completedAt;
+  final List<ExamAnalysisFinding> findings;
+  final Map<String, dynamic> review;
+  final String error;
+
+  bool get isCompleted => status == 'completed';
+  bool get isRunning => status == 'running';
+
+  factory ExamAnalysisTask.fromJson(Map<String, dynamic> json) =>
+      ExamAnalysisTask(
+        taskId: _string(json['taskId']),
+        exam: _string(json['exam']),
+        paperId: _string(json['paperId']),
+        paperTitle: _string(json['paperTitle']),
+        sectionId: _string(json['sectionId']),
+        sectionTitle: _string(json['sectionTitle']),
+        status: _string(json['status'], fallback: 'failed'),
+        unread: json['unread'] == true,
+        createdAt: _string(json['createdAt']),
+        completedAt: _string(json['completedAt']),
+        findings: _maps(
+          json['findings'],
+        ).map(ExamAnalysisFinding.fromJson).toList(growable: false),
+        review: _normalizeExamAnalysisReview(json['review']),
+        error: _string(json['error']),
+      );
+}
+
+class ExamAnalysisInbox {
+  const ExamAnalysisInbox({required this.items, required this.unreadCount});
+
+  final List<ExamAnalysisTask> items;
+  final int unreadCount;
+
+  factory ExamAnalysisInbox.fromJson(Map<String, dynamic> json) =>
+      ExamAnalysisInbox(
+        items: _maps(
+          json['items'],
+        ).map(ExamAnalysisTask.fromJson).toList(growable: false),
+        unreadCount: _integer(json['unreadCount']),
+      );
 }
 
 class ExamPracticeClient {
@@ -494,6 +681,72 @@ class ExamPracticeClient {
     return _codec.decodeResponse(raw);
   }
 
+  Future<Map<String, dynamic>> analyzeSectionVocabulary({
+    required String exam,
+    required String paperId,
+    required String sectionId,
+    required List<ExamAnalysisAttempt> attempts,
+    Set<String> purePurpleWords = const {},
+  }) async {
+    final raw = await _bridge.call(
+      'analyzeExamSectionVocabulary',
+      _codec.encodeRequest({
+        'exam': exam,
+        'paperId': paperId,
+        'sectionId': sectionId,
+        'attempts': attempts
+            .map((attempt) => attempt.toJson())
+            .toList(growable: false),
+        'purePurpleWords': purePurpleWords.toList(growable: false)..sort(),
+      }),
+    );
+    return _codec.decodeResponse(raw);
+  }
+
+  Future<ExamAnalysisTask> saveAnalysisTask({
+    required String taskId,
+    required String exam,
+    required String paperId,
+    required String paperTitle,
+    required String sectionId,
+    required String sectionTitle,
+    required String status,
+    required String createdAt,
+    String completedAt = '',
+    List<ExamAnalysisFinding> findings = const [],
+    Map<String, dynamic> review = const {},
+    String error = '',
+  }) async {
+    final raw = await _bridge.call(
+      'saveExamAnalysisTask',
+      _codec.encodeRequest({
+        'taskId': taskId,
+        'exam': exam,
+        'paperId': paperId,
+        'paperTitle': paperTitle,
+        'sectionId': sectionId,
+        'sectionTitle': sectionTitle,
+        'status': status,
+        'createdAt': createdAt,
+        'completedAt': completedAt,
+        'findings': findings.map((finding) => finding.toJson()).toList(),
+        'review': review,
+        'error': error,
+      }),
+    );
+    return ExamAnalysisTask.fromJson(_codec.decodeResponse(raw));
+  }
+
+  Future<ExamAnalysisInbox> getAnalysisTasks() async {
+    final raw = await _bridge.call('getExamAnalysisTasks');
+    return ExamAnalysisInbox.fromJson(_codec.decodeResponse(raw));
+  }
+
+  Future<ExamAnalysisInbox> markAnalysisTasksRead() async {
+    final raw = await _bridge.call('markExamAnalysisTasksRead');
+    return ExamAnalysisInbox.fromJson(_codec.decodeResponse(raw));
+  }
+
   Future<ExamAttempt> saveAttempt({
     required String attemptId,
     required String paperId,
@@ -538,9 +791,14 @@ class ExamPracticeClient {
       _codec.encodeRequest({'text': text}),
     );
     final json = _codec.decodeResponse(raw);
-    return _maps(
+    final tokens = _maps(
       json['tokens'],
     ).map(ExamWordToken.fromJson).toList(growable: false);
+    return _normalizeExamWordTokenOffsets(
+      text,
+      tokens,
+      declaredUtf16: json['offsetEncoding'] == 'utf16',
+    );
   }
 
   Future<ExamWordInspection> inspectWord({
@@ -650,10 +908,13 @@ class ExamVocabularyPriority {
     required this.paperCount,
     required this.articleCount,
     required this.occurrenceCount,
+    this.fuzzyMarkCount = 0,
+    this.familiarMarkCount = 0,
     required this.unknownMarkCount,
     required this.wrongAssociationCount,
     required this.masteredMarkCount,
     required this.factors,
+    required this.sources,
   });
 
   final String word;
@@ -661,10 +922,13 @@ class ExamVocabularyPriority {
   final int paperCount;
   final int articleCount;
   final int occurrenceCount;
+  final int fuzzyMarkCount;
+  final int familiarMarkCount;
   final int unknownMarkCount;
   final int wrongAssociationCount;
   final int masteredMarkCount;
   final List<Map<String, dynamic>> factors;
+  final List<ExamVocabularySource> sources;
 
   factory ExamVocabularyPriority.fromJson(Map<String, dynamic> json) =>
       ExamVocabularyPriority(
@@ -673,10 +937,53 @@ class ExamVocabularyPriority {
         paperCount: _integer(json['paperCount']),
         articleCount: _integer(json['articleCount']),
         occurrenceCount: _integer(json['occurrenceCount']),
+        fuzzyMarkCount: _integer(
+          json['fuzzyMarkCount'] ?? json['uncertainMarkCount'],
+        ),
+        familiarMarkCount: _integer(json['familiarMarkCount']),
         unknownMarkCount: _integer(json['unknownMarkCount']),
         wrongAssociationCount: _integer(json['wrongAssociationCount']),
         masteredMarkCount: _integer(json['masteredMarkCount']),
         factors: _maps(json['factors']).toList(growable: false),
+        sources: _maps(
+          json['sources'],
+        ).map(ExamVocabularySource.fromJson).toList(growable: false),
+      );
+}
+
+class ExamVocabularySource {
+  const ExamVocabularySource({
+    required this.paperId,
+    required this.paperTitle,
+    required this.sectionId,
+    required this.sectionTitle,
+    this.fuzzyMarkCount = 0,
+    this.familiarMarkCount = 0,
+    required this.unknownMarkCount,
+    required this.wrongAssociationCount,
+  });
+
+  final String paperId;
+  final String paperTitle;
+  final String sectionId;
+  final String sectionTitle;
+  final int fuzzyMarkCount;
+  final int familiarMarkCount;
+  final int unknownMarkCount;
+  final int wrongAssociationCount;
+
+  factory ExamVocabularySource.fromJson(Map<String, dynamic> json) =>
+      ExamVocabularySource(
+        paperId: _string(json['paperId']),
+        paperTitle: _string(json['paperTitle']),
+        sectionId: _string(json['sectionId']),
+        sectionTitle: _string(json['sectionTitle']),
+        fuzzyMarkCount: _integer(
+          json['fuzzyMarkCount'] ?? json['uncertainMarkCount'],
+        ),
+        familiarMarkCount: _integer(json['familiarMarkCount']),
+        unknownMarkCount: _integer(json['unknownMarkCount']),
+        wrongAssociationCount: _integer(json['wrongAssociationCount']),
       );
 }
 
@@ -765,6 +1072,34 @@ class ExamPracticeReport {
 
 Map<String, dynamic> _map(dynamic value) =>
     value is Map<String, dynamic> ? value : const <String, dynamic>{};
+
+Map<String, dynamic> _normalizeExamAnalysisReview(dynamic value) {
+  final source = _map(value);
+  if (source.isEmpty) return const <String, dynamic>{};
+  final review = Map<String, dynamic>.from(source);
+  for (final key in const [
+    'questions',
+    'correctMarkedQuestions',
+    'vocabularyPriority',
+    'limitations',
+  ]) {
+    if (review[key] is! List) review[key] = <dynamic>[];
+  }
+  review['questions'] = (review['questions'] as List<dynamic>)
+      .whereType<Map<String, dynamic>>()
+      .map((question) {
+        final normalized = Map<String, dynamic>.from(question);
+        if (normalized['optionAnalysis'] is! List) {
+          normalized['optionAnalysis'] = <dynamic>[];
+        }
+        if (normalized['candidates'] is! List) {
+          normalized['candidates'] = <dynamic>[];
+        }
+        return normalized;
+      })
+      .toList(growable: false);
+  return review;
+}
 
 Iterable<Map<String, dynamic>> _maps(dynamic value) =>
     value is List ? value.whereType<Map<String, dynamic>>() : const [];

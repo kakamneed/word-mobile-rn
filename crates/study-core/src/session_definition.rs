@@ -25,6 +25,9 @@ impl SessionDefinition {
             SessionMode::Review => "Words are drawn from already-learned vocabulary.",
             SessionMode::MixedTest => "Words are drawn from the full learned vocabulary pool.",
             SessionMode::WrongWordReinforcement => "Words are drawn from the wrong-word pool.",
+            SessionMode::HighFrequency => {
+                "Words are drawn from the ranked real-exam frequency pool."
+            }
             SessionMode::RootAffix => "Items are drawn from the scoped root/affix pool.",
         };
         Self {

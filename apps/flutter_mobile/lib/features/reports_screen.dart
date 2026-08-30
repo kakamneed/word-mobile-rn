@@ -7,9 +7,14 @@ import '../widgets/crocodile_frame_animation.dart';
 import 'learning_content_mode_selector.dart';
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key, required this.sdk});
+  const ReportsScreen({
+    super.key,
+    required this.sdk,
+    this.content = LearningContentMode.wordStudy,
+  });
 
   final WordSdk sdk;
+  final LearningContentMode content;
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -18,7 +23,6 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   ReportsOverview? _reports;
   ExamPracticeReport? _practiceReport;
-  LearningContentMode _content = LearningContentMode.wordStudy;
   String? _selectedExam;
   Map<String, dynamic>? _selectedPracticePaper;
   Map<String, dynamic>? _selectedDay;
@@ -76,10 +80,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         });
       }
     }
-  }
-
-  void _changeContent(LearningContentMode value) {
-    setState(() => _content = value);
   }
 
   String _examLabel(String exam) => switch (exam) {
@@ -211,6 +211,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       'review' => '复习',
       'mixedTest' => '混合测试',
       'wrongWordReinforcement' => '错词强化',
+      'highFrequency' => '高频词',
       'rootAffix' => '词根词缀',
       _ => mode,
     };
@@ -222,6 +223,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       'review' => const Color(0xFF007AFF),
       'mixedTest' => const Color(0xFFFF9500),
       'wrongWordReinforcement' => const Color(0xFFFF3B30),
+      'highFrequency' => const Color(0xFFB06A21),
       'rootAffix' => const Color(0xFF8E44AD),
       _ => Theme.of(context).colorScheme.primary,
     };
@@ -232,26 +234,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final reports = _reports;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('报告'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(58),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: LearningContentModeSelector(
-              value: _content,
-              onChanged: _changeContent,
-            ),
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('报告')),
       body: _loading
           ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
           ? _ReportsMessage(message: _error!, onRetry: _load)
           : reports == null || _practiceReport == null
           ? _ReportsMessage(message: '还没有可展示的学习报告。', onRetry: _load)
-          : _content == LearningContentMode.examPractice
+          : widget.content == LearningContentMode.examPractice
           ? _buildPracticeReport(_practiceReport!)
           : CrocodileRefreshIndicator(
               onRefresh: () => _load(showFullLoading: false),

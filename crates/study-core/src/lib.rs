@@ -51,12 +51,12 @@ mod domain_compatibility_tests {
             response_time_ms: 100,
         };
         let native = AnswerEvaluator::evaluate(&question, &answer, "2026-07-28T00:00:00Z");
-        let direct = word_domain_core::AnswerEvaluator::evaluate(
-            &question,
-            &answer,
-            "2026-07-28T00:00:00Z",
+        let direct =
+            word_domain_core::AnswerEvaluator::evaluate(&question, &answer, "2026-07-28T00:00:00Z");
+        assert_eq!(
+            serde_json::to_value(native).unwrap(),
+            serde_json::to_value(direct).unwrap()
         );
-        assert_eq!(serde_json::to_value(native).unwrap(), serde_json::to_value(direct).unwrap());
     }
 
     #[test]
@@ -67,9 +67,15 @@ mod domain_compatibility_tests {
         let direct_review = word_domain_core::session_definition(SessionMode::Review);
 
         assert!(native_new.rules.loops_all_types_per_word);
-        assert_eq!(native_new.rules.loops_all_types_per_word, direct_new.loops_all_types_per_word);
+        assert_eq!(
+            native_new.rules.loops_all_types_per_word,
+            direct_new.loops_all_types_per_word
+        );
         assert!(!native_review.rules.loops_all_types_per_word);
-        assert_eq!(native_review.rules.loops_all_types_per_word, direct_review.loops_all_types_per_word);
+        assert_eq!(
+            native_review.rules.loops_all_types_per_word,
+            direct_review.loops_all_types_per_word
+        );
     }
 
     #[test]
@@ -93,6 +99,9 @@ mod domain_compatibility_tests {
             1,
             "2026-07-28T00:01:00Z",
         );
-        assert_eq!(serde_json::to_value(native).unwrap(), serde_json::to_value(direct).unwrap());
+        assert_eq!(
+            serde_json::to_value(native).unwrap(),
+            serde_json::to_value(direct).unwrap()
+        );
     }
 }

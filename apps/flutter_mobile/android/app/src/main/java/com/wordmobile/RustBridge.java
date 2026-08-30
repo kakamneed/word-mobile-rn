@@ -45,6 +45,7 @@ public final class RustBridge {
     copyBundledAssetDirectory(context.getAssets(), "seed-vocab", new File(bundledResourcesDir, "seed-vocab"));
     copyBundledAssetDirectory(context.getAssets(), "seed-medical", new File(bundledResourcesDir, "seed-medical"));
     copyBundledAssetDirectory(context.getAssets(), "flutter_assets/assets/exam-papers", new File(bundledResourcesDir, "exam-papers"));
+    copyBundledAssetDirectory(context.getAssets(), "flutter_assets/assets/exam-dictionary", new File(bundledResourcesDir, "exam-dictionary"));
     String result =
         nativeInit(
             filesDir.getAbsolutePath(),
@@ -160,6 +161,22 @@ public final class RustBridge {
 
   public static String analyzeExamQuestionVocabulary(String requestJson) {
     return requirePayload(nativeAnalyzeExamQuestionVocabulary(requestJson), "analyzeExamQuestionVocabulary");
+  }
+
+  public static String analyzeExamSectionVocabulary(String requestJson) {
+    return requirePayload(nativeAnalyzeExamSectionVocabulary(requestJson), "analyzeExamSectionVocabulary");
+  }
+
+  public static String saveExamAnalysisTask(String requestJson) {
+    return requirePayload(nativeSaveExamAnalysisTask(requestJson), "saveExamAnalysisTask");
+  }
+
+  public static String getExamAnalysisTasks() {
+    return requirePayload(nativeGetExamAnalysisTasks(), "getExamAnalysisTasks");
+  }
+
+  public static String markExamAnalysisTasksRead() {
+    return requirePayload(nativeMarkExamAnalysisTasksRead(), "markExamAnalysisTasksRead");
   }
 
   public static String saveExamAttempt(String requestJson) {
@@ -488,6 +505,10 @@ public final class RustBridge {
   private static native String nativeGetExamPracticeReport();
 
   private static native String nativeAnalyzeExamQuestionVocabulary(String requestJson);
+  private static native String nativeAnalyzeExamSectionVocabulary(String requestJson);
+  private static native String nativeSaveExamAnalysisTask(String requestJson);
+  private static native String nativeGetExamAnalysisTasks();
+  private static native String nativeMarkExamAnalysisTasksRead();
   private static native String nativeSaveExamAttempt(String requestJson);
 
   private static native String nativeGetExamAttempt(String requestJson);

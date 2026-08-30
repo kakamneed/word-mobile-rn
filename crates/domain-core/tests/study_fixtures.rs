@@ -48,7 +48,11 @@ impl EntryPayload {
         let meanings = if self.meaning_details.is_empty() {
             self.meanings
                 .into_iter()
-                .map(|meaning_cn| MeaningZh { pos: String::new(), meaning_cn, meaning_en: None })
+                .map(|meaning_cn| MeaningZh {
+                    pos: String::new(),
+                    meaning_cn,
+                    meaning_en: None,
+                })
                 .collect()
         } else {
             self.meaning_details
@@ -77,26 +81,41 @@ impl EntryPayload {
 }
 
 fn fixture(path: &str) -> Value {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").join(path);
-    serde_json::from_str(&std::fs::read_to_string(path).expect("read fixture")).expect("parse fixture")
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(path);
+    serde_json::from_str(&std::fs::read_to_string(path).expect("read fixture"))
+        .expect("parse fixture")
 }
 
 #[test]
 fn study_fixture_newword_matches_locked_type_major_four_question_contract() {
-    let request: Envelope<StudyPayload> = serde_json::from_value(fixture(
-        "fixtures/domain/v1/requests/study-newword.json",
-    ))
-    .expect("typed request");
+    let request: Envelope<StudyPayload> =
+        serde_json::from_value(fixture("fixtures/domain/v1/requests/study-newword.json"))
+            .expect("typed request");
     let expected = fixture("fixtures/domain/v1/expected/study-newword.json");
     let questions = QuestionBuilder::build_session_questions(
         &SessionMode::NewWord,
-        &request.payload.entries.into_iter().map(EntryPayload::into_word).collect::<Vec<_>>(),
-        &request.payload.distractors.into_iter().map(EntryPayload::into_word).collect::<Vec<_>>(),
+        &request
+            .payload
+            .entries
+            .into_iter()
+            .map(EntryPayload::into_word)
+            .collect::<Vec<_>>(),
+        &request
+            .payload
+            .distractors
+            .into_iter()
+            .map(EntryPayload::into_word)
+            .collect::<Vec<_>>(),
         &request.context.session_id,
         &request.payload.question_type_weights,
     );
 
-    assert_eq!(serde_json::to_value(questions).unwrap(), expected["questions"]);
+    assert_eq!(
+        serde_json::to_value(questions).unwrap(),
+        expected["questions"]
+    );
 }
 
 #[test]
@@ -104,10 +123,31 @@ fn study_fixture_progress_deduplicates_question_identity_and_caps_total() {
     let request = fixture("fixtures/domain/v1/requests/study-progress-summary.json");
     let expected = fixture("fixtures/domain/v1/expected/study-progress-summary.json");
     let context: DomainContext = serde_json::from_value(request["context"].clone()).unwrap();
-    let results: Vec<StudyResult> = serde_json::from_value(request["payload"]["results"].clone()).unwrap();
-    let total = request["payload"]["expectedTotalQuestions"].as_u64().unwrap() as u32;
+    let results: Vec<StudyResult> =
+        serde_json::from_value(request["payload"]["results"].clone()).unwrap();
+    let total = request["payload"]["expectedTotalQuestions"]
+        .as_u64()
+        .unwrap() as u32;
 
-    assert_eq!(serde_json::to_value(question_progress(&results.iter().map(|r| r.question_id.clone()).collect::<Vec<_>>(), total)).unwrap(), expected["progress"]);
-    assert_eq!(serde_json::to_value(summarize_results(&context.session_id, &results, total, &context.now_utc)).unwrap(), expected["summary"]);
+    assert_eq!(
+        serde_json::to_value(question_progress(
+            &results
+                .iter()
+                .map(|r| r.question_id.clone())
+                .collect::<Vec<_>>(),
+            total
+        ))
+        .unwrap(),
+        expected["progress"]
+    );
+    assert_eq!(
+        serde_json::to_value(summarize_results(
+            &context.session_id,
+            &results,
+            total,
+            &context.now_utc
+        ))
+        .unwrap(),
+        expected["summary"]
+    );
 }
-

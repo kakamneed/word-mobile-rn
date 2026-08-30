@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity() {
     private val wrongWordImportPickRequest = 4207
     private val maxWrongWordImportBytes = 8 * 1024 * 1024
     private val bridgeExecutor = Executors.newSingleThreadExecutor()
+    private val aiBridgeExecutor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingWrongWordImportResult: MethodChannel.Result? = null
     private var pendingWrongWordImportSourceType: String = "text"
@@ -274,9 +275,25 @@ class MainActivity : FlutterActivity() {
                             runBridgeCall(result) { RustBridge.getExamPracticeReport() }
                         }
                         "analyzeExamQuestionVocabulary" -> {
-                            runBridgeCall(result) {
+                            runAiBridgeCall(result) {
                                 RustBridge.analyzeExamQuestionVocabulary(call.arguments as? String ?: "")
                             }
+                        }
+                        "analyzeExamSectionVocabulary" -> {
+                            runAiBridgeCall(result) {
+                                RustBridge.analyzeExamSectionVocabulary(call.arguments as? String ?: "")
+                            }
+                        }
+                        "saveExamAnalysisTask" -> {
+                            runBridgeCall(result) {
+                                RustBridge.saveExamAnalysisTask(call.arguments as? String ?: "")
+                            }
+                        }
+                        "getExamAnalysisTasks" -> {
+                            runBridgeCall(result) { RustBridge.getExamAnalysisTasks() }
+                        }
+                        "markExamAnalysisTasksRead" -> {
+                            runBridgeCall(result) { RustBridge.markExamAnalysisTasksRead() }
                         }
                         "saveExamAttempt" -> {
                             runBridgeCall(result) {
@@ -457,6 +474,27 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+    }
+
+    private fun runAiBridgeCall(result: MethodChannel.Result, block: () -> String) {
+        aiBridgeExecutor.execute {
+            try {
+                val payload = block()
+                mainHandler.post {
+                    result.success(payload)
+                }
+            } catch (error: Throwable) {
+                mainHandler.post {
+                    result.error("RUST_BRIDGE_ERROR", error.message ?: "Unknown bridge error", null)
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        bridgeExecutor.shutdownNow()
+        aiBridgeExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun runBridgeVoid(result: MethodChannel.Result, block: () -> Unit) {

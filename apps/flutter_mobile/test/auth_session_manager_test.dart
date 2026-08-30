@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_mobile/features/mobile_root_shell.dart';
 import 'package:flutter_mobile/supabase/auth_session_manager.dart';
 import 'package:flutter_mobile/sdk/local_data_owner_client.dart';
@@ -361,36 +363,60 @@ void main() {
     expect(backfillCount, 1);
   });
 
-  test(
-    'active non-empty account incrementally merges shared cloud learning',
-    () async {
-      final mergedUserIds = <String>[];
-      final manager = AuthSessionManager(
-        auth: _FakeAuthGateway(
-          restoredSession: _validSession(),
-          cloudDataAccessAvailable: true,
+  test('active non-empty account incrementally merges shared cloud learning', () async {
+    final mergedUserIds = <String>[];
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(restoredSession: _validSession(), cloudDataAccessAvailable: true),
+      localDataOwner: _FakeLocalDataOwnerGateway(
+        result: const LocalDataOwnerResult(
+          ownerUserId: 'user-1',
+          resetPerformed: false,
+          restoredSnapshot: true,
+          hasLocalLearningData: true,
         ),
-        localDataOwner: _FakeLocalDataOwnerGateway(
-          result: const LocalDataOwnerResult(
-            ownerUserId: 'user-1',
-            resetPerformed: false,
-            restoredSnapshot: true,
-            hasLocalLearningData: true,
-          ),
+      ),
+      mergeCloudLearning: (userId) async { mergedUserIds.add(userId); },
+      isConfigured: () => true,
+    );
+
+    final state = await manager.resolveStartupState();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(mergedUserIds, ['user-1']);
+  });
+
+  test('active session does not wait for cloud backfill to finish', () async {
+    final backfillStarted = Completer<void>();
+    final backfillFinished = Completer<void>();
+    final manager = AuthSessionManager(
+      auth: _FakeAuthGateway(
+        restoredSession: _validSession(),
+        cloudDataAccessAvailable: true,
+      ),
+      localDataOwner: _FakeLocalDataOwnerGateway(
+        result: const LocalDataOwnerResult(
+          ownerUserId: 'user-1',
+          resetPerformed: false,
+          restoredSnapshot: false,
+          hasLocalLearningData: true,
         ),
-        mergeCloudLearning: (userId) async {
-          mergedUserIds.add(userId);
-        },
-        isConfigured: () => true,
-      );
+      ),
+      backfillLocalLearning: () async {
+        backfillStarted.complete();
+        await backfillFinished.future;
+      },
+      isConfigured: () => true,
+    );
 
-      final state = await manager.resolveStartupState();
-      await Future<void>.delayed(Duration.zero);
+    final state = await manager.resolveStartupState().timeout(
+      const Duration(milliseconds: 100),
+    );
 
-      expect(state.phase, AuthAccountPhase.signedInActive);
-      expect(mergedUserIds, ['user-1']);
-    },
-  );
+    expect(state.phase, AuthAccountPhase.signedInActive);
+    expect(backfillStarted.isCompleted, isTrue);
+    backfillFinished.complete();
+  });
   test(
     'startup auth resolution does not force close an already requested Study route',
     () {

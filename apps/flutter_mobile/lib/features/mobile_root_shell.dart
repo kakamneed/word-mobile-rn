@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,12 +6,15 @@ import 'package:flutter/material.dart';
 import '../sdk/sdk.dart';
 import '../state/app_state.dart';
 import '../supabase/auth_session_manager.dart';
+import '../widgets/active_page_stack.dart';
 import 'app_update_gate.dart';
 import 'account_drawer.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
 import 'croc_bti_screen.dart';
+import 'exam_analysis_task_notifications.dart';
 import 'leaderboard_screen.dart';
+import 'learning_content_mode_selector.dart';
 import 'onboarding_flow.dart';
 import 'plan_screen.dart';
 import 'profile_settings_screen.dart';
@@ -82,6 +86,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
   bool _aiGenerateOnOpen = false;
   bool _aiShowPassageFirst = false;
   bool _loginPromptShown = false;
+  LearningContentMode _learningContent = LearningContentMode.wordStudy;
   LocalProfileSettings _profileSettings = const LocalProfileSettings();
   String? _loadedProfileUserId;
   late ShellPageDataCache _dataCache;
@@ -97,6 +102,10 @@ class _MobileRootShellState extends State<MobileRootShell> {
     super.initState();
     _dataCache = ShellPageDataCache(sdk: widget.appState.sdk);
     widget.appState.addListener(_handleAppStateChanged);
+    ExamAnalysisTaskNotifications.unreadCount.addListener(
+      _handleExamAnalysisNotifications,
+    );
+    unawaited(_refreshExamAnalysisNotifications());
     _loadProfileSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowLoginPrompt();
@@ -117,7 +126,24 @@ class _MobileRootShellState extends State<MobileRootShell> {
   @override
   void dispose() {
     widget.appState.removeListener(_handleAppStateChanged);
+    ExamAnalysisTaskNotifications.unreadCount.removeListener(
+      _handleExamAnalysisNotifications,
+    );
     super.dispose();
+  }
+
+  void _handleExamAnalysisNotifications() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshExamAnalysisNotifications() async {
+    try {
+      await ExamAnalysisTaskNotifications.refresh(
+        widget.appState.sdk.examPractice,
+      );
+    } catch (_) {
+      // Notification state is optional; other shell routes remain available.
+    }
   }
 
   void _handleAppStateChanged() {
@@ -460,6 +486,11 @@ class _MobileRootShellState extends State<MobileRootShell> {
         onOpenReports: () => _switchToMain(3),
         onOpenAi: _openAi,
         onOpenAccount: _openAccountDrawer,
+        learningContent: _learningContent,
+        onLearningContentChanged: (value) {
+          if (_learningContent == value) return;
+          setState(() => _learningContent = value);
+        },
       ),
       PlanScreen(
         key: ValueKey('plan-$_planReloadSeed'),
@@ -487,10 +518,12 @@ class _MobileRootShellState extends State<MobileRootShell> {
         key: ValueKey('wrong-$_wrongReloadSeed'),
         sdk: widget.appState.sdk,
         onStartStudy: (mode) => _openStudy(mode, null),
+        content: _learningContent,
       ),
       ReportsScreen(
         key: ValueKey('reports-$_reportsReloadSeed'),
         sdk: widget.appState.sdk,
+        content: _learningContent,
       ),
       AiScreen(
         key: ValueKey('ai-$_aiReloadSeed'),
@@ -498,6 +531,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
         isSignedIn: widget.appState.isSignedIn,
         generateOnOpen: _aiGenerateOnOpen,
         showPassageFirst: _aiShowPassageFirst,
+        isActive: !_showingStudy && _mainIndex == 4,
         onWrongWordsImported: _handleWrongWordsImported,
         onAiPassageGenerated: _handleAiPassageGenerated,
       ),
@@ -543,7 +577,7 @@ class _MobileRootShellState extends State<MobileRootShell> {
       ),
       body: Stack(
         children: [
-          IndexedStack(index: _bodyIndex, children: pages),
+          ActivePageStack(index: _bodyIndex, children: pages),
           if (!_showingStudy)
             Positioned(
               top: MediaQuery.paddingOf(context).top + 8,
@@ -565,30 +599,44 @@ class _MobileRootShellState extends State<MobileRootShell> {
               onDestinationSelected: (index) {
                 _switchToMain(index);
               },
-              destinations: const [
-                NavigationDestination(
+              destinations: [
+                const NavigationDestination(
                   icon: Icon(Icons.today_outlined),
                   selectedIcon: Icon(Icons.today),
                   label: '今日',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.tune_outlined),
                   selectedIcon: Icon(Icons.tune),
                   label: '计划',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.menu_book_outlined),
                   selectedIcon: Icon(Icons.menu_book),
                   label: '错词',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.query_stats_outlined),
                   selectedIcon: Icon(Icons.query_stats),
                   label: '报告',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.auto_awesome_outlined),
-                  selectedIcon: Icon(Icons.auto_awesome),
+                  icon: Badge(
+                    isLabelVisible:
+                        ExamAnalysisTaskNotifications.unreadCount.value > 0,
+                    label: Text(
+                      '${ExamAnalysisTaskNotifications.unreadCount.value}',
+                    ),
+                    child: const Icon(Icons.auto_awesome_outlined),
+                  ),
+                  selectedIcon: Badge(
+                    isLabelVisible:
+                        ExamAnalysisTaskNotifications.unreadCount.value > 0,
+                    label: Text(
+                      '${ExamAnalysisTaskNotifications.unreadCount.value}',
+                    ),
+                    child: const Icon(Icons.auto_awesome),
+                  ),
                   label: 'AI',
                 ),
               ],

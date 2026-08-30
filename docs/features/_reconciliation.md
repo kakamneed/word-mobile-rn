@@ -1,7 +1,7 @@
 # Feature Ledger Reconciliation
 
 > Status: `baseline_reconciled`
-> Updated: `2026-07-19`
+> Updated: `2026-08-06`
 
 ## Purpose
 
@@ -13,10 +13,16 @@ Track which pre-existing worktree changes have been reconciled into feature ledg
 
 Ledger: `docs/features/learning.md`
 
+- `apps/flutter_mobile/lib/features/mobile_root_shell.dart`
 - `apps/flutter_mobile/lib/features/study_screen.dart`
 - `apps/flutter_mobile/lib/sdk/study_client.dart`
+- `apps/flutter_mobile/lib/sdk/sync_client.dart`
+- `apps/flutter_mobile/lib/supabase/word_disputed_meaning_service.dart`
+- `apps/flutter_mobile/lib/widgets/active_page_stack.dart`
+- `apps/flutter_mobile/test/active_page_stack_test.dart`
 - `apps/flutter_mobile/test/study_client_test.dart`
 - `apps/flutter_mobile/test/study_question_display_test.dart`
+- `apps/flutter_mobile/test/sync_client_test.dart`
 - `crates/app-core/src/facade.rs`
 - `crates/app-core/src/facade/study_facade.rs`
 - `crates/app-core/src/services/reports_service.rs`
@@ -38,6 +44,45 @@ Ledger: `docs/features/learning.md`
 - `crates/study-core/src/question_builder.rs`
 - `crates/study-core/src/session_definition.rs`
 - `crates/study-core/src/state_transition.rs`
+
+### Plan Page
+
+Ledger: `docs/features/plan-page.md`
+
+- `apps/flutter_mobile/lib/sdk/plan_client.dart`
+- `apps/flutter_mobile/lib/features/plan_screen.dart`
+- `apps/flutter_mobile/lib/features/today_shell_screen.dart`
+- `crates/app-core/src/facade/today_facade.rs`
+- `crates/domain-models/src/projections.rs`
+- `crates/platform-mobile/src/bridge.rs`
+
+### Croc BTI
+
+Ledger: `docs/features/croc-bti.md`
+
+- `apps/flutter_mobile/lib/features/croc_bti_model.dart`
+- `apps/flutter_mobile/lib/features/croc_bti_screen.dart`
+- `apps/flutter_mobile/lib/features/onboarding_flow.dart`
+- `apps/flutter_mobile/test/croc_bti_model_test.dart`
+
+### Supabase / Cloud Sync
+
+Ledger: `docs/features/supabase.md`
+
+- `apps/flutter_mobile/android/app/src/main/AndroidManifest.xml`
+- `apps/flutter_mobile/android/gradle.properties`
+- `apps/flutter_mobile/lib/sdk/sync_client.dart`
+- `apps/flutter_mobile/lib/supabase/auth_session_manager.dart`
+- `apps/flutter_mobile/lib/supabase/word_disputed_meaning_service.dart`
+- `apps/flutter_mobile/test/auth_session_manager_test.dart`
+- `apps/flutter_mobile/test/sync_client_test.dart`
+- `scripts/flutter-build-release-supabase-cloud.cmd`
+- `scripts/flutter-build-release-word-admin-local.cmd`
+- `supabase/migrations/202608150001_mobile_accepted_event_projection.sql`
+- `supabase/migrations/202608210001_shared_study_events.sql`
+- `supabase/migrations/202608210002_backfill_legacy_web_study_events.sql`
+- `supabase/migrations/202608220001_complete_plan_sync.sql`
+- `supabase/migrations/202608240001_shared_study_event_version_convergence.sql`
 
 ### Wrong Word Graph
 
@@ -105,6 +150,7 @@ Ledger: `docs/features/exam-practice-vocab-intelligence.md`
 - `apps/flutter_mobile/lib/features/today_shell_screen.dart`
 - `apps/flutter_mobile/lib/features/mobile_root_shell.dart`
 - `apps/flutter_mobile/lib/features/ai_screen.dart`
+- `apps/flutter_mobile/test/exam_analysis_report_screen_test.dart`
 - `apps/flutter_mobile/test/exam_practice_client_test.dart`
 - `apps/flutter_mobile/test/exam_practice_screen_test.dart`
 - `apps/flutter_mobile/test/exam_paper_import_dialog_test.dart`
@@ -116,8 +162,14 @@ Ledger: `docs/features/exam-practice-vocab-intelligence.md`
 - `scripts/build-exam-corpus-dictionary.mjs`
 - `scripts/build-exam-corpus-dictionary.test.mjs`
 - `scripts/check-exam-corpus-dictionary.mjs`
+- `scripts/kaoyan-english-1-vocab-frequency.mjs`
+- `scripts/kaoyan-english-1-vocab-frequency.test.mjs`
+- `scripts/build-kaoyan-high-frequency-synonym-groups.mjs`
+- `scripts/build-kaoyan-high-frequency-synonym-groups.test.mjs`
 - `scripts/android-exam-dictionary-packaging.test.mjs`
 - `docs/exam-corpus-dictionary-report.json`
+- `docs/kaoyan-english-1-vocab-frequency-2010-plus.json`
+- `docs/kaoyan-high-frequency-synonym-groups.json`
 
 These entries include the current implementation stream. Files that also serve Today, AI workbench, graph, or import are intentionally documented in those capability ledgers as well; this index maps ownership, not exclusive authorship.
 
@@ -133,6 +185,7 @@ Ledger: `docs/features/word-library.md`
 - `scripts/repair-seed-vocab-choice-conflicts.mjs`
 - `scripts/repair-seed-vocab-choice-conflicts-strict.mjs`
 - `scripts/enrich-seed-vocab-real-exam-examples.mjs`
+- `scripts/enrich-seed-vocab-real-exam-examples.test.mjs`
 - `scripts/check-seed-vocab-real-exam-examples.mjs`
 - `scripts/repair-seed-vocab-real-exam-meanings.mjs`
 - `docs/seed-vocab-choice-conflicts-report.json`
@@ -155,6 +208,7 @@ Ledger: `docs/features/word-library.md`
 - `.codex-small.patch` and `.codex-today.patch`: temporary patch artifacts, not product contracts.
 - `flutter_today_screen.png`: local screenshot evidence without a stable feature contract.
 - `releases/*.apk`: release artifacts, tracked only by release/deployment workflows.
+- `docs/kaoyan-english-1-2008-cloze-marked-vocabulary-analysis.md`: user-specific exam review artifact derived from screenshots and existing corpus metadata; it does not change a product capability or shared contract.
 - `AGENTS.md`, `docs/features/_template.md`, and this file: ledger workflow infrastructure rather than user-facing features.
 - `apps/flutter_mobile/build/**`: generated build output, including the verified release APK, is excluded from capability ledgers.
 

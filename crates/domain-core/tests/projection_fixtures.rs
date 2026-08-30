@@ -27,8 +27,11 @@ struct ReportPayload {
 }
 
 fn fixture(path: &str) -> Value {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").join(path);
-    serde_json::from_str(&std::fs::read_to_string(path).expect("read fixture")).expect("parse fixture")
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(path);
+    serde_json::from_str(&std::fs::read_to_string(path).expect("read fixture"))
+        .expect("parse fixture")
 }
 
 #[test]
@@ -52,10 +55,9 @@ fn projection_fixture_preserves_real_wrong_word_identity_and_priority() {
 
 #[test]
 fn projection_fixture_uses_explicit_local_day_and_filters_zero_answers() {
-    let request: Envelope<ReportPayload> = serde_json::from_value(fixture(
-        "fixtures/domain/v1/requests/report-local-day.json",
-    ))
-    .unwrap();
+    let request: Envelope<ReportPayload> =
+        serde_json::from_value(fixture("fixtures/domain/v1/requests/report-local-day.json"))
+            .unwrap();
     let expected = fixture("fixtures/domain/v1/expected/report-local-day.json");
 
     assert_eq!(
@@ -68,4 +70,3 @@ fn projection_fixture_uses_explicit_local_day_and_filters_zero_answers() {
         expected["report"]
     );
 }
-

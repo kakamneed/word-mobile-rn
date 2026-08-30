@@ -4,27 +4,29 @@ use jni::JNIEnv;
 
 use crate::bridge::{
     accept_disputed_meaning, analyze_exam_paper_import, analyze_exam_question_vocabulary,
-    analyze_wrong_word_import, apply_saved_plan_to_today, build_reports_overview,
-    build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
-    build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
-    create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill, generate_ai_passage,
-    get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_passage_style_preference,
-    get_ai_provider_config, get_bootstrap_state, get_bridge_status, get_croc_bti_profile,
-    get_exam_annotation_state, get_exam_attempt, get_exam_catalog, get_exam_paper,
-    get_exam_practice_report, get_exam_vocabulary_priority, get_local_leaderboard,
-    get_reports_overview, get_resume_session_hint, get_reward_image_upload_entitlement,
-    get_settings, get_sync_status, get_today_ai_passage_context, get_today_home_state,
-    get_today_reward_state, get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail,
-    get_wrong_word_graph, get_wrong_words, initialize_mobile_runtime, inspect_exam_word,
-    list_reward_images, mark_onboarding_completed, mark_study_entry_mastered,
+    analyze_exam_section_vocabulary, analyze_wrong_word_import, apply_saved_plan_to_today,
+    build_reports_overview, build_today_ai_passage_context, build_today_home_state,
+    build_wrong_word_detail, build_wrong_words, cancel_study_session, commit_wrong_word_import,
+    complete_study_session, create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill,
+    generate_ai_passage, get_active_plan, get_ai_passage, get_ai_passage_history,
+    get_ai_passage_style_preference, get_ai_provider_config, get_bootstrap_state,
+    get_bridge_status, get_croc_bti_profile, get_exam_analysis_tasks, get_exam_annotation_state,
+    get_exam_attempt, get_exam_catalog, get_exam_paper, get_exam_practice_report,
+    get_exam_vocabulary_priority, get_local_leaderboard, get_reports_overview,
+    get_resume_session_hint, get_reward_image_upload_entitlement, get_settings, get_sync_status,
+    get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
+    get_word_hint_suggestions, get_wordbooks, get_wrong_word_detail, get_wrong_word_graph,
+    get_wrong_words, initialize_mobile_runtime, inspect_exam_word, list_reward_images,
+    mark_exam_analysis_tasks_read, mark_onboarding_completed, mark_study_entry_mastered,
     moderate_reward_image, reconcile_local_data_owner, record_cloud_restore_attempt,
     record_sync_result, refresh_local_leaderboard_summary, refresh_reward_image_upload_entitlement,
     restore_cloud_ai_passage_snapshot, restore_cloud_data_snapshot, save_ai_passage,
     save_ai_passage_style_preference, save_ai_provider_config, save_croc_bti_profile,
-    save_exam_annotation, save_exam_attempt, save_plan, save_user_exam_paper, save_word_hint,
-    save_wrong_word_graph_position, seed_local_leaderboard_demo,
-    select_leaderboard_reward_image_tag, start_study_session, submit_study_answer,
-    switch_to_guest_local_data, toggle_wordbook, tokenize_exam_text, vote_reward_image,
+    save_exam_analysis_task, save_exam_annotation, save_exam_attempt, save_plan,
+    save_user_exam_paper, save_word_hint, save_wrong_word_graph_position,
+    seed_local_leaderboard_demo, select_leaderboard_reward_image_tag, start_study_session,
+    submit_study_answer, switch_to_guest_local_data, toggle_wordbook, tokenize_exam_text,
+    vote_reward_image,
 };
 
 fn to_java_string(env: &mut JNIEnv, value: &str) -> jstring {
@@ -172,6 +174,52 @@ pub extern "system" fn Java_com_wordmobile_RustBridge_nativeAnalyzeExamQuestionV
     request_json: JString,
 ) -> jstring {
     match string_arg(&mut env, request_json).and_then(analyze_exam_question_vocabulary) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeAnalyzeExamSectionVocabulary(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(analyze_exam_section_vocabulary) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeSaveExamAnalysisTask(
+    mut env: JNIEnv,
+    _class: JClass,
+    request_json: JString,
+) -> jstring {
+    match string_arg(&mut env, request_json).and_then(save_exam_analysis_task) {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeGetExamAnalysisTasks(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match get_exam_analysis_tasks() {
+        Ok(payload) => to_java_string(&mut env, &payload),
+        Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wordmobile_RustBridge_nativeMarkExamAnalysisTasksRead(
+    mut env: JNIEnv,
+    _class: JClass,
+) -> jstring {
+    match mark_exam_analysis_tasks_read() {
         Ok(payload) => to_java_string(&mut env, &payload),
         Err(error) => to_java_string(&mut env, &format!("ERROR:{error}")),
     }

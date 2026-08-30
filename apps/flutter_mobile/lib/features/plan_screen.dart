@@ -4,6 +4,18 @@ import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
 import 'shell_page_data_cache.dart';
 
+const int planWrongWordTargetMax = 200;
+
+int clampPlanTargetValue(int value, int min, int max) =>
+    value < min ? min : (value > max ? max : value);
+
+int parseWrongWordPlanTargetForTest(String text, int fallback) =>
+    clampPlanTargetValue(
+      int.tryParse(text.trim()) ?? fallback,
+      0,
+      planWrongWordTargetMax,
+    );
+
 class PlanScreen extends StatefulWidget {
   const PlanScreen({
     super.key,
@@ -40,6 +52,7 @@ class _PlanScreenState extends State<PlanScreen> {
   late final TextEditingController _reviewWordsController;
   late final TextEditingController _mixedController;
   late final TextEditingController _wrongWordsController;
+  late final TextEditingController _highFrequencyController;
   late final TextEditingController _rootAffixController;
   late final TextEditingController _growthIntervalController;
   late final TextEditingController _growthIncrementController;
@@ -54,6 +67,7 @@ class _PlanScreenState extends State<PlanScreen> {
     'review',
     'mixedTest',
     'wrongWordReinforcement',
+    'highFrequency',
     'rootAffix',
   ];
 
@@ -65,6 +79,7 @@ class _PlanScreenState extends State<PlanScreen> {
     _reviewWordsController = TextEditingController();
     _mixedController = TextEditingController();
     _wrongWordsController = TextEditingController();
+    _highFrequencyController = TextEditingController();
     _rootAffixController = TextEditingController();
     _growthIntervalController = TextEditingController();
     _growthIncrementController = TextEditingController();
@@ -86,6 +101,7 @@ class _PlanScreenState extends State<PlanScreen> {
     _reviewWordsController.dispose();
     _mixedController.dispose();
     _wrongWordsController.dispose();
+    _highFrequencyController.dispose();
     _rootAffixController.dispose();
     _growthIntervalController.dispose();
     _growthIncrementController.dispose();
@@ -104,6 +120,7 @@ class _PlanScreenState extends State<PlanScreen> {
     _reviewWordsController,
     _mixedController,
     _wrongWordsController,
+    _highFrequencyController,
     _rootAffixController,
     _growthIntervalController,
     _growthIncrementController,
@@ -119,6 +136,9 @@ class _PlanScreenState extends State<PlanScreen> {
     if (_reviewWordsController.text != '${plan.reviewWordsPerDay}') return true;
     if (_mixedController.text != '${plan.mixedTestPerDay}') return true;
     if (_wrongWordsController.text != '${plan.wrongWordTestPerDay}') {
+      return true;
+    }
+    if (_highFrequencyController.text != '${plan.highFrequencyPerDay}') {
       return true;
     }
     if (_rootAffixController.text != '${plan.rootAffixPerDay ?? 0}') {
@@ -212,6 +232,7 @@ class _PlanScreenState extends State<PlanScreen> {
     _reviewWordsController.text = '${plan.reviewWordsPerDay}';
     _mixedController.text = '${plan.mixedTestPerDay}';
     _wrongWordsController.text = '${plan.wrongWordTestPerDay}';
+    _highFrequencyController.text = '${plan.highFrequencyPerDay}';
     _rootAffixController.text = '${plan.rootAffixPerDay ?? 0}';
     _growthRuleEnabled = plan.growthRuleEnabled;
     _growthRuleMode = plan.growthRuleMode;
@@ -266,7 +287,7 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   int _clamp(int value, int min, int max) =>
-      value < min ? min : (value > max ? max : value);
+      clampPlanTargetValue(value, min, max);
 
   int? get _selectedWordbookId {
     return _pendingWordbookId ?? _savedWordbookId;
@@ -330,7 +351,13 @@ class _PlanScreenState extends State<PlanScreen> {
         _wrongWordsController,
         plan.wrongWordTestPerDay,
         0,
-        30,
+        planWrongWordTargetMax,
+      ),
+      'highFrequencyPerDay': _parseController(
+        _highFrequencyController,
+        plan.highFrequencyPerDay,
+        0,
+        100,
       ),
       'rootAffixPerDay': _parseController(
         _rootAffixController,
@@ -595,7 +622,15 @@ class _PlanScreenState extends State<PlanScreen> {
                           helper: '按题推进',
                           controller: _wrongWordsController,
                           step: 5,
-                          max: 30,
+                          max: planWrongWordTargetMax,
+                        ),
+                        const SizedBox(height: 12),
+                        _StepperField(
+                          label: '高频词',
+                          helper: '从考研英一真题频次池中随机抽题',
+                          controller: _highFrequencyController,
+                          step: 5,
+                          max: 100,
                         ),
                         const SizedBox(height: 12),
                         _StepperField(
@@ -740,6 +775,7 @@ String _growthModeLabel(String mode) {
     'review' => '复习',
     'mixedTest' => '混合',
     'wrongWordReinforcement' => '错词',
+    'highFrequency' => '高频词',
     'rootAffix' => '词根词缀',
     _ => mode,
   };

@@ -49,8 +49,11 @@ function inflectedForms(word) {
   return [...forms].sort((a, b) => b.length - a.length);
 }
 
-function patternFor(word) {
-  const forms = inflectedForms(word);
+function patternFor(word, content) {
+  const frequencyForms = Object.keys(content?.realExamFrequency?.surfaceForms ?? {})
+    .map(normalizeWord)
+    .filter(Boolean);
+  const forms = [...new Set([...inflectedForms(word), ...frequencyForms])];
   if (forms.length === 0) return null;
   return new RegExp(`(?<![A-Za-z])(?:${forms.map(escapeRegExp).join('|')})(?![A-Za-z])`, 'iu');
 }
@@ -73,8 +76,9 @@ for (const fileName of requiredBooks) {
   const allowedExams = allowedExamsByBook.get(fileName) ?? new Set();
   for (const item of entries) {
     const word = displayWord(item);
-    const pattern = patternFor(word);
-    const examples = item?.content?.word?.content?.realExamSentence?.sentences ?? [];
+    const content = item?.content?.word?.content ?? {};
+    const pattern = patternFor(word, content);
+    const examples = content.realExamSentence?.sentences ?? [];
     if (!Array.isArray(examples) || examples.length === 0) continue;
     stats.entriesWithRealExamExamples += 1;
     stats.examples += examples.length;

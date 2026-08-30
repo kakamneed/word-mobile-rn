@@ -10,6 +10,7 @@ class PlanSummary {
   final int reviewWordsPerDay;
   final int mixedTestPerDay;
   final int wrongWordTestPerDay;
+  final int highFrequencyPerDay;
   final int? rootAffixPerDay;
   final int growthIntervalDays;
   final int growthIncrement;
@@ -26,6 +27,7 @@ class PlanSummary {
     required this.reviewWordsPerDay,
     required this.mixedTestPerDay,
     required this.wrongWordTestPerDay,
+    this.highFrequencyPerDay = 0,
     this.rootAffixPerDay,
     required this.growthIntervalDays,
     required this.growthIncrement,
@@ -52,6 +54,7 @@ class PlanSummary {
       'review',
       'mixedTest',
       'wrongWordReinforcement',
+      'highFrequency',
       'rootAffix',
     ]) {
       modes[key] ??= Map<String, dynamic>.from(sharedRule);
@@ -64,6 +67,7 @@ class PlanSummary {
       reviewWordsPerDay: json['reviewWordsPerDay'] as int,
       mixedTestPerDay: json['mixedTestPerDay'] as int,
       wrongWordTestPerDay: json['wrongWordTestPerDay'] as int,
+      highFrequencyPerDay: json['highFrequencyPerDay'] as int? ?? 10,
       rootAffixPerDay: json['rootAffixPerDay'] as int?,
       growthIntervalDays:
           (sharedRule['intervalDays'] as num?)?.toInt() ??

@@ -120,6 +120,8 @@ pub struct ExerciseWordMarkState {
     pub current_article: bool,
     pub prior_article: bool,
     pub meaning: String,
+    pub current_mark_level: String,
+    pub prior_mark_level: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

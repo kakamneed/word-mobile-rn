@@ -553,11 +553,14 @@ Map<String, int> crocBtiPlanInputForDailyMinutes(
     }
   }
 
+  final highFrequency = ((counts['review'] ?? 0) / 2).round();
+  counts['review'] = (counts['review'] ?? 0) - highFrequency;
   return {
     'newWordsPerDay': counts['newWords'] ?? 0,
     'reviewWordsPerDay': counts['review'] ?? 0,
     'mixedTestPerDay': counts['mixedTest'] ?? 0,
     'wrongWordTestPerDay': counts['wrongWordReview'] ?? 0,
+    'highFrequencyPerDay': highFrequency,
     'rootAffixPerDay': counts['contextExamples'] ?? 0,
   };
 }
@@ -651,19 +654,22 @@ Map<String, int> calculateCrocBtiWeights(List<String> traits) {
 
 Map<String, int> weightsToPlanInput(Map<String, int> weights) {
   const dailyUnits = 40;
+  final combinedReview = ((dailyUnits * weights['review']! * 2) / 100)
+      .round()
+      .clamp(10, 100);
+  final highFrequency = (combinedReview / 3).round().clamp(2, 20);
   return {
     'newWordsPerDay': _roundDownToMultipleOfFour(
       ((dailyUnits * weights['newWords']! * 4) / 100).round().clamp(4, 180),
     ),
-    'reviewWordsPerDay': ((dailyUnits * weights['review']! * 2) / 100)
-        .round()
-        .clamp(10, 100),
+    'reviewWordsPerDay': combinedReview - highFrequency,
     'mixedTestPerDay': ((dailyUnits * weights['mixedTest']!) / 100)
         .round()
         .clamp(4, 30),
     'wrongWordTestPerDay': ((dailyUnits * weights['wrongWordReview']!) / 100)
         .round()
         .clamp(2, 25),
+    'highFrequencyPerDay': highFrequency,
     'rootAffixPerDay': ((dailyUnits * weights['contextExamples']!) / 200)
         .round()
         .clamp(1, 10),

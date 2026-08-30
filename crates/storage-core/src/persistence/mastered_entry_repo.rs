@@ -41,6 +41,13 @@ pub fn mastered_entry_ids(conn: &Connection) -> Result<BTreeSet<i64>, StorageErr
     Ok(out)
 }
 
+pub fn mastered_entry_count(conn: &Connection) -> Result<u32, StorageError> {
+    conn.query_row("SELECT COUNT(*) FROM mastered_entries", [], |row| {
+        row.get::<_, u32>(0)
+    })
+    .map_err(|e| StorageError::Database(format!("Failed to count mastered entries: {e}")))
+}
+
 pub fn is_mastered_source_id(
     conn: &Connection,
     entry_source_id: &str,
@@ -90,7 +97,9 @@ fn resolve_entry_id(conn: &Connection, entry_source_id: &str) -> Result<Option<i
 
 #[cfg(test)]
 mod tests {
-    use super::{is_mastered_source_id, mark_mastered_by_source_id, mastered_entry_ids};
+    use super::{
+        is_mastered_source_id, mark_mastered_by_source_id, mastered_entry_count, mastered_entry_ids,
+    };
 
     #[test]
     fn mark_mastered_is_idempotent_and_queryable_by_source_id() {
@@ -116,5 +125,6 @@ mod tests {
         let _ = mark_mastered_by_source_id(&conn, "source-key-10", "mastered").expect("mark again");
         assert!(is_mastered_source_id(&conn, "source-key-10").expect("query source"));
         assert_eq!(mastered_entry_ids(&conn).expect("ids").len(), 1);
+        assert_eq!(mastered_entry_count(&conn).expect("count"), 1);
     }
 }

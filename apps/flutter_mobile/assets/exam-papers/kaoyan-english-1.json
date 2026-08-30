@@ -448,7 +448,7 @@
               "id": "kaoyan-english-1-1998-q001-s377",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The third sentence of Paragraph 1 implies that",
               "choices": [
                 {
                   "label": "A",
@@ -478,7 +478,7 @@
               "id": "kaoyan-english-1-1998-q002-s377",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "In Paragraph 5, \"the powerless\" probably refers to",
               "choices": [
                 {
                   "label": "A",
@@ -508,7 +508,7 @@
               "id": "kaoyan-english-1-1998-q003-s377",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What is the myth concerning giant dams?",
               "choices": [
                 {
                   "label": "A",
@@ -581,7 +581,7 @@
               "id": "kaoyan-english-1-1998-q001-s378",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the author, the American economic situation is",
               "choices": [
                 {
                   "label": "A",
@@ -611,7 +611,7 @@
               "id": "kaoyan-english-1-1998-q002-s378",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The official statistics on productivity growth",
               "choices": [
                 {
                   "label": "A",
@@ -641,7 +641,7 @@
               "id": "kaoyan-english-1-1998-q003-s378",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author raises the question \"what about pain without gain?\" because",
               "choices": [
                 {
                   "label": "A",
@@ -714,7 +714,7 @@
               "id": "kaoyan-english-1-1998-q001-s379",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The word \"schism\" (Line 3, Paragraph 1) in the context probably means",
               "choices": [
                 {
                   "label": "A",
@@ -744,7 +744,7 @@
               "id": "kaoyan-english-1-1998-q002-s379",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Paragraphs 2 and 3 are written to",
               "choices": [
                 {
                   "label": "A",
@@ -774,7 +774,7 @@
               "id": "kaoyan-english-1-1998-q003-s379",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following is true according to the passage?",
               "choices": [
                 {
                   "label": "A",
@@ -877,7 +877,7 @@
               "id": "kaoyan-english-1-1998-q002-s380",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The census distinguished itself from previous studies on population movement in that",
               "choices": [
                 {
                   "label": "A",
@@ -980,7 +980,7 @@
               "id": "kaoyan-english-1-1998-q001-s381",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author believes that",
               "choices": [
                 {
                   "label": "A",
@@ -1010,7 +1010,7 @@
               "id": "kaoyan-english-1-1998-q002-s381",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "That Africa and South America were once joined can be deduced from the fact that",
               "choices": [
                 {
                   "label": "A",
@@ -1040,7 +1040,7 @@
               "id": "kaoyan-english-1-1998-q003-s381",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The hot spot theory may prove useful in explaining",
               "choices": [
                 {
                   "label": "A",
@@ -1546,7 +1546,7 @@
               "id": "kaoyan-english-1-1999-q001-s370",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What were things like in 1980s when accidents happened?",
               "choices": [
                 {
                   "label": "A",
@@ -1576,7 +1576,7 @@
               "id": "kaoyan-english-1-1999-q002-s370",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Manufacturers as mentioned in the passage tend to ____",
               "choices": [
                 {
                   "label": "A",
@@ -1606,7 +1606,7 @@
               "id": "kaoyan-english-1-1999-q003-s370",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The case of Schutt helmet demonstrated that ____",
               "choices": [
                 {
                   "label": "A",
@@ -2108,7 +2108,7 @@
               "id": "kaoyan-english-1-1999-q002-s374",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The author asserts that scientists _____",
               "choices": [
                 {
                   "label": "A",
@@ -2138,7 +2138,7 @@
               "id": "kaoyan-english-1-1999-q003-s374",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It seems that some young scientists _____",
               "choices": [
                 {
                   "label": "A",
@@ -4042,7 +4042,7 @@
               "id": "kaoyan-english-1-2001-q001-s356",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The growth of specialisation in the 19th century might be more clearly seen in sciences such as\n _______.",
               "choices": [
                 {
                   "label": "A",
@@ -4175,7 +4175,7 @@
               "id": "kaoyan-english-1-2001-q001-s357",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Digitaldivideissomething_______.",
               "choices": [
                 {
                   "label": "A",
@@ -4205,7 +4205,7 @@
               "id": "kaoyan-english-1-2001-q002-s357",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "GovernmentsattachimportancetotheInternetbecauseit_______.",
               "choices": [
                 {
                   "label": "A",
@@ -4235,7 +4235,7 @@
               "id": "kaoyan-english-1-2001-q003-s357",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "ThewritermentionedthecaseoftheUnitedStatestojustifythepolicyof_______.",
               "choices": [
                 {
                   "label": "A",
@@ -4265,7 +4265,7 @@
               "id": "kaoyan-english-1-2001-q004-s357",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It seemsthatnowacountry’seconomydepandsmuchon______.",
               "choices": [
                 {
                   "label": "A",
@@ -4308,7 +4308,7 @@
               "id": "kaoyan-english-1-2001-q001-s358",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Whatisthepassagemainlyabout?",
               "choices": [
                 {
                   "label": "A",
@@ -4338,7 +4338,7 @@
               "id": "kaoyan-english-1-2001-q002-s358",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Theresultsofthejournalismcredibilityprojectturnedouttobe______.",
               "choices": [
                 {
                   "label": "A",
@@ -4368,7 +4368,7 @@
               "id": "kaoyan-english-1-2001-q003-s358",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Thebasicproblemofjournalistsaspointedoutbythewriterliesintheir______.",
               "choices": [
                 {
                   "label": "A",
@@ -4398,7 +4398,7 @@
               "id": "kaoyan-english-1-2001-q004-s358",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Despiteitsefforts, thenewspaperindustrystillcannotsatisfythereadersowingtoits_______.",
               "choices": [
                 {
                   "label": "A",
@@ -4441,7 +4441,7 @@
               "id": "kaoyan-english-1-2001-q001-s359",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Whatisthetypicaltrendofbusinessestoday?",
               "choices": [
                 {
                   "label": "A",
@@ -4471,7 +4471,7 @@
               "id": "kaoyan-english-1-2001-q002-s359",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Accordingtotheauthor,oneofthedrivingforcesbehindM&Awaveis______.",
               "choices": [
                 {
                   "label": "A",
@@ -4501,7 +4501,7 @@
               "id": "kaoyan-english-1-2001-q003-s359",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Fromparagraph4wecaninferthat______ .",
               "choices": [
                 {
                   "label": "A",
@@ -4531,7 +4531,7 @@
               "id": "kaoyan-english-1-2001-q004-s359",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Towardthenewbusinesswave, thewriter'sattitudecanhesaidtobe_______.",
               "choices": [
                 {
                   "label": "A",
@@ -4574,7 +4574,7 @@
               "id": "kaoyan-english-1-2001-q001-s361",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Whichofthefollowingistrueaccordingtoparagraph1?",
               "choices": [
                 {
                   "label": "A",
@@ -4604,7 +4604,7 @@
               "id": "kaoyan-english-1-2001-q002-s361",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Thewriter’sexperimentshowsthatdownshifting .",
               "choices": [
                 {
                   "label": "A",
@@ -4634,7 +4634,7 @@
               "id": "kaoyan-english-1-2001-q003-s361",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "“Jugglingone’slife”probablymeanslivingalifecharacterizedby .",
               "choices": [
                 {
                   "label": "A",
@@ -4664,7 +4664,7 @@
               "id": "kaoyan-english-1-2001-q004-s361",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Accordingtothepassage,downshiftingemergedintheU.S.asaresultof .",
               "choices": [
                 {
                   "label": "A",
@@ -5440,7 +5440,7 @@
               "id": "kaoyan-english-1-2002-q001-s350",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Tomakeyourhumorwork,youshould .",
               "choices": [
                 {
                   "label": "A",
@@ -5470,7 +5470,7 @@
               "id": "kaoyan-english-1-2002-q002-s350",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Thejokeaboutdoctorsimpliesthat,intheeyesofnurses,theyare .",
               "choices": [
                 {
                   "label": "A",
@@ -5500,7 +5500,7 @@
               "id": "kaoyan-english-1-2002-q003-s350",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Itcanbeinferredfrom thetextthatpublicservices .",
               "choices": [
                 {
                   "label": "A",
@@ -5530,7 +5530,7 @@
               "id": "kaoyan-english-1-2002-q004-s350",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Toachievethedesiredresult,humorousstoriesshouldbedelivered .",
               "choices": [
                 {
                   "label": "A",
@@ -5603,7 +5603,7 @@
               "id": "kaoyan-english-1-2002-q001-s351",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Humaningenuitywasinitiallydemonstratedin .",
               "choices": [
                 {
                   "label": "A",
@@ -5633,7 +5633,7 @@
               "id": "kaoyan-english-1-2002-q002-s351",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Theword “gizmos”(line1,paragraph2)mostprobablymeans .",
               "choices": [
                 {
                   "label": "A",
@@ -5663,7 +5663,7 @@
               "id": "kaoyan-english-1-2002-q003-s351",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Accordingtothetext,whatisbeyondman'sabilitynowistodesign arobotthatcan .",
               "choices": [
                 {
                   "label": "A",
@@ -5693,7 +5693,7 @@
               "id": "kaoyan-english-1-2002-q004-s351",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Besidesreducinghumanlabor,robotscanalso .",
               "choices": [
                 {
                   "label": "A",
@@ -5929,7 +5929,7 @@
               "id": "kaoyan-english-1-2002-q001-s353",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Fromthefirstthreeparagraphs,welearnthat .",
               "choices": [
                 {
                   "label": "A",
@@ -5959,7 +5959,7 @@
               "id": "kaoyan-english-1-2002-q002-s353",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Whichofthefollowingstatementsitstrueaccordingtothetext?",
               "choices": [
                 {
                   "label": "A",
@@ -5989,7 +5989,7 @@
               "id": "kaoyan-english-1-2002-q003-s353",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "AccordingtotheNAS’sreport,oneoftheproblemsinend-of-lifecareis .",
               "choices": [
                 {
                   "label": "A",
@@ -6019,7 +6019,7 @@
               "id": "kaoyan-english-1-2002-q004-s353",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Whichofthefollowingbestdefinestheword“aggressive”(line3,paragraph7)?",
               "choices": [
                 {
                   "label": "A",
@@ -6825,7 +6825,7 @@
               "id": "kaoyan-english-1-2003-q001-s344",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The emergence of the Net has ___",
               "choices": [
                 {
                   "label": "A",
@@ -6855,7 +6855,7 @@
               "id": "kaoyan-english-1-2003-q002-s344",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Donovan's story is mentioned in the text to_ _.",
               "choices": [
                 {
                   "label": "A",
@@ -6885,7 +6885,7 @@
               "id": "kaoyan-english-1-2003-q003-s344",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The phrase \"making the biggest splash\" (line !,paragraph 3) most probably means_ _.",
               "choices": [
                 {
                   "label": "A",
@@ -6915,7 +6915,7 @@
               "id": "kaoyan-english-1-2003-q004-s344",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be learned from paragraph 4 that_ __",
               "choices": [
                 {
                   "label": "A",
@@ -6988,7 +6988,7 @@
               "id": "kaoyan-english-1-2003-q001-s345",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author begins his article with Edmund Burke's words to_ __",
               "choices": [
                 {
                   "label": "A",
@@ -7018,7 +7018,7 @@
               "id": "kaoyan-english-1-2003-q002-s345",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Misled people tend to think that using an animal in research is_ __",
               "choices": [
                 {
                   "label": "A",
@@ -7048,7 +7048,7 @@
               "id": "kaoyan-english-1-2003-q003-s345",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The example of the grandmotherly woman is used to show the public's_ __",
               "choices": [
                 {
                   "label": "A",
@@ -7078,7 +7078,7 @@
               "id": "kaoyan-english-1-2003-q004-s345",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author believes that, m face of the challenge from animal rights advocates, scientists\n \n should- --",
               "choices": [
                 {
                   "label": "A",
@@ -7151,7 +7151,7 @@
               "id": "kaoyan-english-1-2003-q001-s346",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to those who support mergers, railway monopoly is unlikely because_ __,_",
               "choices": [
                 {
                   "label": "A",
@@ -7211,7 +7211,7 @@
               "id": "kaoyan-english-1-2003-q003-s346",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It can be inferred from paragraph 3 that_ __,_",
               "choices": [
                 {
                   "label": "A",
@@ -7241,7 +7241,7 @@
               "id": "kaoyan-english-1-2003-q004-s346",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The word \"arbiters\"(line 6,paragraph 4)most probably refers to those_ __,_",
               "choices": [
                 {
                   "label": "A",
@@ -7314,7 +7314,7 @@
               "id": "kaoyan-english-1-2003-q001-s347",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What is implied in the first sentence?",
               "choices": [
                 {
                   "label": "A",
@@ -7344,7 +7344,7 @@
               "id": "kaoyan-english-1-2003-q002-s347",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The author uses the example of cancer patients to show that .",
               "choices": [
                 {
                   "label": "A",
@@ -7374,7 +7374,7 @@
               "id": "kaoyan-english-1-2003-q003-s347",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author's attitude toward Richard Lamm's remark is one of .",
               "choices": [
                 {
                   "label": "A",
@@ -7404,7 +7404,7 @@
               "id": "kaoyan-english-1-2003-q004-s347",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "In contras to the US, Japan and Sweden are funding their medical care",
               "choices": [
                 {
                   "label": "A",
@@ -8210,7 +8210,7 @@
               "id": "kaoyan-english-1-2004-q001-s338",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "How did Redmon find his job?",
               "choices": [
                 {
                   "label": "A",
@@ -8240,7 +8240,7 @@
               "id": "kaoyan-english-1-2004-q002-s338",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following can be a disadvantage of search agents?",
               "choices": [
                 {
                   "label": "A",
@@ -8300,7 +8300,7 @@
               "id": "kaoyan-english-1-2004-q004-s338",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Why does CareerSite's agent offer each job hunter only three job options?",
               "choices": [
                 {
                   "label": "A",
@@ -8330,7 +8330,7 @@
               "id": "kaoyan-english-1-2004-q005-s338",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "25. Which of the following is true according to the text?",
               "choices": [
                 {
                   "label": "A",
@@ -8373,7 +8373,7 @@
               "id": "kaoyan-english-1-2004-q001-s339",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What does the author intend to illustrate with AAAA cars and Zodiac cars?",
               "choices": [
                 {
                   "label": "A",
@@ -8433,7 +8433,7 @@
               "id": "kaoyan-english-1-2004-q003-s339",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The 4th paragraph suggests that_ ___",
               "choices": [
                 {
                   "label": "A",
@@ -8463,7 +8463,7 @@
               "id": "kaoyan-english-1-2004-q004-s339",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What does the author mean by \"most people are literally having a ZZZ\" (Lines 2, Paragraph 5)?",
               "choices": [
                 {
                   "label": "A",
@@ -8536,7 +8536,7 @@
               "id": "kaoyan-english-1-2004-q001-s340",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "By \"Ellen Spero isn't biting her nails just yet\" (Line 1, Paragraph 1 ), the author means .",
               "choices": [
                 {
                   "label": "A",
@@ -8566,7 +8566,7 @@
               "id": "kaoyan-english-1-2004-q002-s340",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "How do the public feel about the current economic situation?",
               "choices": [
                 {
                   "label": "A",
@@ -8596,7 +8596,7 @@
               "id": "kaoyan-english-1-2004-q003-s340",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "When mentioning \"the $4 million to $10 million range\"(Lines 3, Paragraph 3), the author is talking\n \n about \n ---",
               "choices": [
                 {
                   "label": "A",
@@ -8626,7 +8626,7 @@
               "id": "kaoyan-english-1-2004-q004-s340",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Why can many people see \"silver linings\" to the economic slowdown?",
               "choices": [
                 {
                   "label": "A",
@@ -8699,7 +8699,7 @@
               "id": "kaoyan-english-1-2004-q001-s341",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What do American parents expect their children to acquire in school?",
               "choices": [
                 {
                   "label": "A",
@@ -8729,7 +8729,7 @@
               "id": "kaoyan-english-1-2004-q002-s341",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "We can learn from the text that Americans have a history of __",
               "choices": [
                 {
                   "label": "A",
@@ -8759,7 +8759,7 @@
               "id": "kaoyan-english-1-2004-q003-s341",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The views of Raviteh and Emerson on schooling are",
               "choices": [
                 {
                   "label": "A",
@@ -8789,7 +8789,7 @@
               "id": "kaoyan-english-1-2004-q004-s341",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Emerson, according to the text, is probably",
               "choices": [
                 {
                   "label": "A",
@@ -9873,7 +9873,7 @@
               "id": "kaoyan-english-1-2005-q002-s104",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The statement \"it is all too monkey\" (Last line, Paragraph 1) implies that",
               "choices": [
                 {
                   "label": "A",
@@ -9903,7 +9903,7 @@
               "id": "kaoyan-english-1-2005-q003-s104",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Female capuchin monkeys were chosen for the research most probably because\n they are",
               "choices": [
                 {
                   "label": "A",
@@ -9933,7 +9933,7 @@
               "id": "kaoyan-english-1-2005-q004-s104",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Dr. Brosnan and Dr. de Waal have eventually found in their study that the monkeys",
               "choices": [
                 {
                   "label": "A",
@@ -10006,7 +10006,7 @@
               "id": "kaoyan-english-1-2005-q001-s105",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "An argument made by supporters of smoking was that",
               "choices": [
                 {
                   "label": "A",
@@ -10036,7 +10036,7 @@
               "id": "kaoyan-english-1-2005-q002-s105",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Bruce Alberts, science can serve as",
               "choices": [
                 {
                   "label": "A",
@@ -10066,7 +10066,7 @@
               "id": "kaoyan-english-1-2005-q003-s105",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What does the author mean by \"paralysis by analysis\" (Last line, Paragraph 4) ?",
               "choices": [
                 {
                   "label": "A",
@@ -10096,7 +10096,7 @@
               "id": "kaoyan-english-1-2005-q004-s105",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to the author, what should the Administration do about global warming?",
               "choices": [
                 {
                   "label": "A",
@@ -10169,7 +10169,7 @@
               "id": "kaoyan-english-1-2005-q001-s106",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Researchers have come to believe that dreams",
               "choices": [
                 {
                   "label": "A",
@@ -10199,7 +10199,7 @@
               "id": "kaoyan-english-1-2005-q002-s106",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "By referring to the limbic system, the author intends to show",
               "choices": [
                 {
                   "label": "A",
@@ -10229,7 +10229,7 @@
               "id": "kaoyan-english-1-2005-q003-s106",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The negative feelings generated during the day tend to",
               "choices": [
                 {
                   "label": "A",
@@ -10332,7 +10332,7 @@
               "id": "kaoyan-english-1-2005-q001-s107",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Mc Whorter, the decline of formal English",
               "choices": [
                 {
                   "label": "A",
@@ -10422,7 +10422,7 @@
               "id": "kaoyan-english-1-2005-q004-s107",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The word \"talking\" (Line 6, Paragraph 3) denotes",
               "choices": [
                 {
                   "label": "A",
@@ -11476,7 +11476,7 @@
               "id": "kaoyan-english-1-2006-q001-s98",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The word \"homogenizing\" (Line 2, Paragraph 1) most probably means",
               "choices": [
                 {
                   "label": "A",
@@ -11506,7 +11506,7 @@
               "id": "kaoyan-english-1-2006-q002-s98",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to the author, the department stores of the 19th century",
               "choices": [
                 {
                   "label": "A",
@@ -11536,7 +11536,7 @@
               "id": "kaoyan-english-1-2006-q003-s98",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The text suggests that immigrants now in the U.S.",
               "choices": [
                 {
                   "label": "A",
@@ -11566,7 +11566,7 @@
               "id": "kaoyan-english-1-2006-q004-s98",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Why are Arnold Schwarzenegger and Garth Brooks mentioned in Paragraph 5?",
               "choices": [
                 {
                   "label": "A",
@@ -11639,7 +11639,7 @@
               "id": "kaoyan-english-1-2006-q001-s99",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "From the first two paragraphs, we learn that",
               "choices": [
                 {
                   "label": "A",
@@ -11669,7 +11669,7 @@
               "id": "kaoyan-english-1-2006-q002-s99",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be inferred from Paragraph 3 that",
               "choices": [
                 {
                   "label": "A",
@@ -11699,7 +11699,7 @@
               "id": "kaoyan-english-1-2006-q003-s99",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "By saying \"Stratford cries poor traditionally\" (Line 2, Paragraph 4), the author\n implies that",
               "choices": [
                 {
                   "label": "A",
@@ -11729,7 +11729,7 @@
               "id": "kaoyan-english-1-2006-q004-s99",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to the townsfolk, the RSC deserves no subsidy because",
               "choices": [
                 {
                   "label": "A",
@@ -11802,7 +11802,7 @@
               "id": "kaoyan-english-1-2006-q001-s100",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The extinction of large prehistoric animals is noted to suggest that",
               "choices": [
                 {
                   "label": "A",
@@ -11862,7 +11862,7 @@
               "id": "kaoyan-english-1-2006-q003-s100",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "By saying \"these figures are conservative\" (Line 1, Paragraph 3), Dr. Worm\n means that",
               "choices": [
                 {
                   "label": "A",
@@ -11965,7 +11965,7 @@
               "id": "kaoyan-english-1-2006-q001-s101",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "By citing the examples of poets Wordsworth and Baudelaire, the author intends\n to show that",
               "choices": [
                 {
                   "label": "A",
@@ -11995,7 +11995,7 @@
               "id": "kaoyan-english-1-2006-q002-s101",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The word \"bummer\" (Line 5, Paragraph 5) most probably means something",
               "choices": [
                 {
                   "label": "A",
@@ -12025,7 +12025,7 @@
               "id": "kaoyan-english-1-2006-q003-s101",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "In the author's opinion, advertising",
               "choices": [
                 {
                   "label": "A",
@@ -13109,7 +13109,7 @@
               "id": "kaoyan-english-1-2007-q001-s92",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Thebirthdayphenomenonfoundamongsoccerplayersismentionedto",
               "choices": [
                 {
                   "label": "A",
@@ -13139,7 +13139,7 @@
               "id": "kaoyan-english-1-2007-q002-s92",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Theword“mania”(Line4,Paragraph2)mostprobablymeans",
               "choices": [
                 {
                   "label": "A",
@@ -13169,7 +13169,7 @@
               "id": "kaoyan-english-1-2007-q003-s92",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "AccordingtoEricsson,goodmemory",
               "choices": [
                 {
                   "label": "A",
@@ -13199,7 +13199,7 @@
               "id": "kaoyan-english-1-2007-q004-s92",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Ericssonandhiscolleaguesbelievethat",
               "choices": [
                 {
                   "label": "A",
@@ -13272,7 +13272,7 @@
               "id": "kaoyan-english-1-2007-q001-s93",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Whichofthefollowingmayberequiredinanintelligencetest?",
               "choices": [
                 {
                   "label": "A",
@@ -13302,7 +13302,7 @@
               "id": "kaoyan-english-1-2007-q002-s93",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "WhatcanbeinferredaboutintelligencetestingfromParagraph3?",
               "choices": [
                 {
                   "label": "A",
@@ -13362,7 +13362,7 @@
               "id": "kaoyan-english-1-2007-q004-s93",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Wecanconcludefrom thelastparagraphthat",
               "choices": [
                 {
                   "label": "A",
@@ -13435,7 +13435,7 @@
               "id": "kaoyan-english-1-2007-q001-s94",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Today’sdouble-incomefamiliesareatgreaterfinancialriskinthat",
               "choices": [
                 {
                   "label": "A",
@@ -13465,7 +13465,7 @@
               "id": "kaoyan-english-1-2007-q002-s94",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "AsaresultofPresidentBush’sreform,retiredpeoplemayhave",
               "choices": [
                 {
                   "label": "A",
@@ -13495,7 +13495,7 @@
               "id": "kaoyan-english-1-2007-q003-s94",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Accordingtotheauthor,health-savingsplanswill",
               "choices": [
                 {
                   "label": "A",
@@ -13598,7 +13598,7 @@
               "id": "kaoyan-english-1-2007-q001-s95",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Thestatement“Itneverrainsbutitpours”isusedtointroduce",
               "choices": [
                 {
                   "label": "A",
@@ -13628,7 +13628,7 @@
               "id": "kaoyan-english-1-2007-q002-s95",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "AccordingtoParagraph2,someorganizationschecktheirsystemstofindout",
               "choices": [
                 {
                   "label": "A",
@@ -13658,7 +13658,7 @@
               "id": "kaoyan-english-1-2007-q003-s95",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "InbringinguptheconceptofGASP theauthorismakingthepointthat",
               "choices": [
                 {
                   "label": "A",
@@ -14742,7 +14742,7 @@
               "id": "kaoyan-english-1-2008-q001-s86",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Which of the following is true according to the first two paragraphs?",
               "choices": [
                 {
                   "label": "A",
@@ -14772,7 +14772,7 @@
               "id": "kaoyan-english-1-2008-q002-s86",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Dr. Yehuda's research suggests that women",
               "choices": [
                 {
                   "label": "A",
@@ -14802,7 +14802,7 @@
               "id": "kaoyan-english-1-2008-q003-s86",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to Paragraph 4, the stress women confront tends to be",
               "choices": [
                 {
                   "label": "A",
@@ -14832,7 +14832,7 @@
               "id": "kaoyan-english-1-2008-q004-s86",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The sentence \"I lived from paycheck to paycheck.\" (Line 6, Para.5) shows that",
               "choices": [
                 {
                   "label": "A",
@@ -14905,7 +14905,7 @@
               "id": "kaoyan-english-1-2008-q001-s87",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "In the first paragraph, the author discusses",
               "choices": [
                 {
                   "label": "A",
@@ -14935,7 +14935,7 @@
               "id": "kaoyan-english-1-2008-q002-s87",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following is true of the OECD report?",
               "choices": [
                 {
                   "label": "A",
@@ -14965,7 +14965,7 @@
               "id": "kaoyan-english-1-2008-q003-s87",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to the text, online publication is significant in that",
               "choices": [
                 {
                   "label": "A",
@@ -14995,7 +14995,7 @@
               "id": "kaoyan-english-1-2008-q004-s87",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "With the open-access publishing model, the author of a paper is required to",
               "choices": [
                 {
                   "label": "A",
@@ -15025,7 +15025,7 @@
               "id": "kaoyan-english-1-2008-q005-s87",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following best summarizes the main idea of the text?",
               "choices": [
                 {
                   "label": "A",
@@ -15068,7 +15068,7 @@
               "id": "kaoyan-english-1-2008-q001-s88",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Wilt Chamberlain is cited as an example to",
               "choices": [
                 {
                   "label": "A",
@@ -15098,7 +15098,7 @@
               "id": "kaoyan-english-1-2008-q002-s88",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following plays a key role in body growth according to the text?",
               "choices": [
                 {
                   "label": "A",
@@ -15128,7 +15128,7 @@
               "id": "kaoyan-english-1-2008-q003-s88",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "On which of the following statements would the author most probably agree?",
               "choices": [
                 {
                   "label": "A",
@@ -15158,7 +15158,7 @@
               "id": "kaoyan-english-1-2008-q004-s88",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "We learn from the last paragraph that in the near future",
               "choices": [
                 {
                   "label": "A",
@@ -15231,7 +15231,7 @@
               "id": "kaoyan-english-1-2008-q001-s89",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "George Washington's dental surgery is mentioned to",
               "choices": [
                 {
                   "label": "A",
@@ -15261,7 +15261,7 @@
               "id": "kaoyan-english-1-2008-q002-s89",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "We may infer from the second paragraph that",
               "choices": [
                 {
                   "label": "A",
@@ -15291,7 +15291,7 @@
               "id": "kaoyan-english-1-2008-q003-s89",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What do we learn about Thomas Jefferson?",
               "choices": [
                 {
                   "label": "A",
@@ -16375,7 +16375,7 @@
               "id": "kaoyan-english-1-2009-q001-s80",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "In Wordsworth’s view, “ habits ” is characterized by being _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16405,7 +16405,7 @@
               "id": "kaoyan-english-1-2009-q002-s80",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Brain researchers have discovered that the formation of new habits can be ____.",
               "choices": [
                 {
                   "label": "A",
@@ -16435,7 +16435,7 @@
               "id": "kaoyan-english-1-2009-q003-s80",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The word “ ruts ”（Line1，Paragraph4）is closest in meaning to ___ .",
               "choices": [
                 {
                   "label": "A",
@@ -16465,7 +16465,7 @@
               "id": "kaoyan-english-1-2009-q004-s80",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Dawna Markova would most probably agree that ____.",
               "choices": [
                 {
                   "label": "A",
@@ -16495,7 +16495,7 @@
               "id": "kaoyan-english-1-2009-q005-s80",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Ryan’s comments suggest that the practice of standardized testing _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16538,7 +16538,7 @@
               "id": "kaoyan-english-1-2009-q001-s81",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "In Paragraphs 1 and 2，the text shows PTK’s ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -16568,7 +16568,7 @@
               "id": "kaoyan-english-1-2009-q002-s81",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "PTK is used to ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16598,7 +16598,7 @@
               "id": "kaoyan-english-1-2009-q003-s81",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Skeptical observers believe that ancestry testing fails to _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16628,7 +16628,7 @@
               "id": "kaoyan-english-1-2009-q004-s81",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "In the last paragraph, a problem commercial genetic testing faces is ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16658,7 +16658,7 @@
               "id": "kaoyan-english-1-2009-q005-s81",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "An appropriate title for the text is most likely to be _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16701,7 +16701,7 @@
               "id": "kaoyan-english-1-2009-q001-s82",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author holds in Paragraph 1 that the importance of education in poor countries ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16731,7 +16731,7 @@
               "id": "kaoyan-english-1-2009-q002-s82",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It is stated in Paragraph 1 that the construction of a new educational system ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16761,7 +16761,7 @@
               "id": "kaoyan-english-1-2009-q003-s82",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "A major difference between the Japanese and U.S. workforces is that",
               "choices": [
                 {
                   "label": "A",
@@ -16791,7 +16791,7 @@
               "id": "kaoyan-english-1-2009-q004-s82",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author quotes the example of our ancestors to show that education emerged ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16821,7 +16821,7 @@
               "id": "kaoyan-english-1-2009-q005-s82",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "According to the last paragraph, development of education ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16864,7 +16864,7 @@
               "id": "kaoyan-english-1-2009-q001-s83",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author holds that in the seventeenth-century New England____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16894,7 +16894,7 @@
               "id": "kaoyan-english-1-2009-q002-s83",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It is suggested in Paragraph 2 that New Englanders _______ .",
               "choices": [
                 {
                   "label": "A",
@@ -16924,7 +16924,7 @@
               "id": "kaoyan-english-1-2009-q003-s83",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The early ministers and political leaders in Massachusetts Bay _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -16954,7 +16954,7 @@
               "id": "kaoyan-english-1-2009-q004-s83",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The story of John Dane shows that less well-educated New Englanders were often ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -16984,7 +16984,7 @@
               "id": "kaoyan-english-1-2009-q005-s83",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The text suggests that early settlers in New England _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18014,7 +18014,7 @@
               "id": "kaoyan-english-1-2010-q001-s74",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "It is indicated in Paragraph 1 and 2 that_____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18044,7 +18044,7 @@
               "id": "kaoyan-english-1-2010-q002-s74",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Newspaper reviews in England before World War Ⅱ were characterized by _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18074,7 +18074,7 @@
               "id": "kaoyan-english-1-2010-q003-s74",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following would Shaw and Newman most probably agree on ？",
               "choices": [
                 {
                   "label": "A",
@@ -18104,7 +18104,7 @@
               "id": "kaoyan-english-1-2010-q004-s74",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What can be learned about Cardus according to the last two paragraphs ？",
               "choices": [
                 {
                   "label": "A",
@@ -18134,7 +18134,7 @@
               "id": "kaoyan-english-1-2010-q005-s74",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What would be the best title for the text ？",
               "choices": [
                 {
                   "label": "A",
@@ -18160,6 +18160,13 @@
                 "path": "papers/74.json"
               }
             }
+          ],
+          "paragraphTranslations": [
+            "在过去四分之一世纪里，英文报纸发生了许多变化，其中影响最深远的或许是文艺报道在覆盖范围和严肃性上不可阻挡的衰退。",
+            "对四十岁以下的普通读者来说，很难，甚至根本无法想象这样一个年代：大多数大城市的报纸上都能读到高质量的文艺评论。然而，20 世纪许多最重要的评论文集在很大程度上正是由报刊评论汇编而成。如今再读这些书，人们不免惊讶：这些充满学识的内容曾被认为适合刊登在面向大众发行的日报上。",
+            "对于 20 世纪之交至第二次世界大战前夕英国报纸上那些不局限于单一领域的评论，我们就更加陌生了。当时新闻纸极其便宜，文笔优雅的文艺评论被视为报刊的点缀。在那个遥远的年代，人们理所当然地认为，大报评论家会对自己报道的事件作详尽而充分的论述。评论是他们严肃对待的事业；即使像萧伯纳和欧内斯特·纽曼那样不刻意卖弄学问的评论家，也足以让人相信他们精通所谈论的内容。这些人把新闻工作视为一种使命，并以作品能刊登在日报上为荣。纽曼写道：“有足够才智或文学天赋、能在新闻界站稳脚跟的作家少之又少，因此我很想把‘新闻业’定义为：那些无人阅读的作家用来贬称那些有人阅读的作家的词。”",
+            "遗憾的是，这些评论家如今几乎已被遗忘。内维尔·卡杜斯从 1917 年起为《曼彻斯特卫报》撰稿，直到 1975 年去世前不久；现在人们只知道他是一位板球随笔作家。然而在世时，他也是英国最杰出的古典音乐评论家之一，其文风广受赞赏，以至于他的《自传》（1947）成为畅销书。他于 1967 年获封爵士，是首位获此荣誉的音乐评论家。可是，他现在只有一本书仍在印行，数量庞大的音乐评论作品除专业研究者外几乎无人知晓。",
+            "卡杜斯的评论还有可能重新受到关注吗？前景似乎十分渺茫。早在他去世前，新闻写作的趣味就已经改变；后现代读者对他所擅长的那种铺陈华丽、带有维多利亚和爱德华时代色彩的文风并不感兴趣。此外，由业余学者从事音乐评论的传统也一直在迅速衰落。"
           ]
         },
         {
@@ -18177,7 +18184,7 @@
               "id": "kaoyan-english-1-2010-q001-s75",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Business-method patents have recently aroused concern because of ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -18207,7 +18214,7 @@
               "id": "kaoyan-english-1-2010-q002-s75",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following is true of the Bilski case ？",
               "choices": [
                 {
                   "label": "A",
@@ -18237,7 +18244,7 @@
               "id": "kaoyan-english-1-2010-q003-s75",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The word “ about-face”（Line 1，Para.3）most probably means ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -18267,7 +18274,7 @@
               "id": "kaoyan-english-1-2010-q004-s75",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "We learn from the last two paragraphs that business-method patents _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18297,7 +18304,7 @@
               "id": "kaoyan-english-1-2010-q005-s75",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the subject of the text ？",
               "choices": [
                 {
                   "label": "A",
@@ -18323,6 +18330,13 @@
                 "path": "papers/75.json"
               }
             }
+          ],
+          "paragraphTranslations": [
+            "过去十年间，数以千计的所谓商业方法获得了专利。亚马逊网站的“一键式”在线支付系统获得了一项专利；美林公司的一种资产配置策略也受到法律保护；还有一位发明者甚至为搬起箱子的技巧申请了专利。",
+            "如今，美国最高专利法院似乎已完全准备收紧商业方法专利。自从这类专利十年前首次获得授权以来，它们一直备受争议。美国联邦巡回上诉法院宣布，将借助一个具体案件对商业方法专利进行全面审查，此举令知识产权律师界议论纷纷。密苏里大学法学院的丹尼斯·克劳奇说，这起被称为“比尔斯基案”的案件“事关重大”，它“有可能取消整个类别的专利”。",
+            "限制商业方法专利申请将是一次戏剧性的立场逆转，因为正是联邦巡回上诉法院在 1998 年所谓的“道富银行案”中批准了一项集合共同基金资产的方法专利，从而引入了此类专利。那项判决引发了商业方法专利申请的激增。最初，新兴互联网公司试图取得特定在线交易方式的独占权；后来，实力更强的成熟公司也争相把此类专利纳入储备，哪怕只是为了防止竞争对手抢先一步。2005 年，IBM 在一份法庭文件中指出，尽管它质疑授予这类专利的法律依据，公司仍已获得 300 多项商业方法专利。同样，一些华尔街投资公司一面在诉讼中反对这种做法，一面又用金融产品专利来武装自己。",
+            "比尔斯基案涉及一项关于能源市场风险对冲方法的专利申请。联邦巡回上诉法院发布了一项不同寻常的命令：此案将由法院全体 12 名法官审理，而不是通常的三人合议庭；法院希望评估的问题之一，就是是否应当“重新考虑”其在“道富银行案”中的判决。",
+            "在联邦最高法院近期接连作出缩小专利权人保护范围的判决之后，联邦巡回上诉法院采取了这一行动。例如，去年四月，大法官们就曾暗示，太多显而易见的“发明”仍获得了专利保护。专利律师、乔治·华盛顿大学法学院教授哈罗德·韦格纳说，联邦巡回上诉法院的法官正在“回应最高法院的反专利趋势”。"
           ]
         },
         {
@@ -18340,7 +18354,7 @@
               "id": "kaoyan-english-1-2010-q001-s76",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "By citing the book The Tipping Point, the author intends to _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18370,7 +18384,7 @@
               "id": "kaoyan-english-1-2010-q002-s76",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The author suggests that the “ two-step-flow theory ” _______ .",
               "choices": [
                 {
                   "label": "A",
@@ -18400,7 +18414,7 @@
               "id": "kaoyan-english-1-2010-q003-s76",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What the researchers have observed recently shows that _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18430,7 +18444,7 @@
               "id": "kaoyan-english-1-2010-q004-s76",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The underlined phrase “ these people ” in Paragraph 4 refers to the ones who _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18460,7 +18474,7 @@
               "id": "kaoyan-english-1-2010-q005-s76",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What is the essential element in the dynamics of social influence ？",
               "choices": [
                 {
                   "label": "A",
@@ -18486,6 +18500,13 @@
                 "path": "papers/76.json"
               }
             }
+          ],
+          "paragraphTranslations": [
+            "马尔科姆·格拉德威尔在《引爆点》一书中主张，“社会流行潮”在很大程度上由极少数特殊人物的行为推动。这些人通常被称为意见领袖，他们往往见多识广、善于说服别人，或拥有广泛的人脉。这一观点直觉上很有吸引力，却不能解释观念究竟如何传播。",
+            "意见领袖之所以被认为重要，源于一种听起来合理却基本未经检验的理论，即“传播的两级流动”：信息先从媒体流向意见领袖，再由他们传给其他所有人。营销人员欣然接受这一理论，因为它意味着只要找到并影响意见领袖，这些少数人就会替他们完成大部分工作。该理论似乎还能解释某些装扮、品牌或街区为何会突然意外走红。在许多此类案例中，粗略追查原因便会发现，早在其他人注意之前，已有少数群体在穿戴、推广或开发相关事物。这种轶事证据恰好契合“只有某些特殊人物才能推动潮流”的观点。",
+            "然而，一些研究人员在近期研究中发现，意见领袖对社会流行潮的影响远小于人们通常的设想。事实上，社会流行潮似乎根本不需要他们。",
+            "研究人员的论点源于对社会影响力的一个简单观察：除了奥普拉·温弗瑞等少数名人之外，即使群体中最有影响力的人，实际交往的人数也没有那么多；而这类名人的巨大影响主要来自媒体，并非人际传播。然而按照两级传播理论，推动社会流行潮的恰恰应当是那些并非名人的意见领袖，他们通过直接影响朋友和同事来发挥作用。可是，要形成社会流行潮，每个受到影响的人还必须继续影响自己的熟人，这些熟人又要影响各自的熟人，如此延续；这些后续人物各自能吸引多少人的注意，与最初那位意见领袖关系不大。例如，如果社交网络中与最初意见领袖相隔仅两层的人就抵制这种影响，变化的连锁反应便不会传播多远，也不会波及很多人。",
+            "基于这一关于人际影响力的基本事实，研究人员通过数千次群体计算机模拟来研究社会影响的动态，并调整人与人之间影响能力和受影响倾向等多项变量。他们发现，形成所谓“全局级联”，也就是影响在网络中广泛扩散，首要条件并不是少数意见领袖的存在，而是要有达到临界数量、容易受到影响的人群。"
           ]
         },
         {
@@ -18503,7 +18524,7 @@
               "id": "kaoyan-english-1-2010-q001-s77",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Bankers complained that they were forced to _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18533,7 +18554,7 @@
               "id": "kaoyan-english-1-2010-q002-s77",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to the author, the rule changes of the FASB may result in _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18563,7 +18584,7 @@
               "id": "kaoyan-english-1-2010-q003-s77",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to the Paragraph 4, McCreevy objects to the IASB’s attempt to _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18593,7 +18614,7 @@
               "id": "kaoyan-english-1-2010-q004-s77",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author thinks the banks were “on the wrong planet”in that they _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -18623,7 +18644,7 @@
               "id": "kaoyan-english-1-2010-q005-s77",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author’s attitude towards standard-setters is one of ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -18649,6 +18670,14 @@
                 "path": "papers/77.json"
               }
             }
+          ],
+          "paragraphTranslations": [
+            "银行家们公开为自身困境责怪自己，私下里却把矛头指向了另一些人：会计准则制定者。银行抱怨，这些准则迫使它们报告巨额亏损，实在不公平。按照这些准则，银行必须以第三方愿意支付的价格来评估某些资产，而不能采用管理层和监管者希望这些资产卖出的价格。",
+            "遗憾的是，银行的游说如今似乎正在奏效。具体情况可能难以查清，但对于资本市场正常运转至关重要的准则制定机构独立性正在受到损害。而且，除非银行以能够吸引买家的价格计入有毒资产，否则银行体系将难以复苏。",
+            "在与国会经历了一场激烈交锋后，美国财务会计准则委员会匆忙通过了规则变更。这些变化让银行在评估缺乏流动性的资产时可以更自由地使用模型，也让它们在利润表中确认长期资产损失时拥有更大的灵活性。委员会主席鲍勃·赫茨强烈反对那些“质疑我们动机”的人。然而银行股价随之上涨，而这些变化也扩大了某游说团体委婉所称的“管理层判断的运用”。",
+            "欧洲各国部长立即要求国际会计准则理事会采取同样做法。该理事会表示，不愿在缺乏整体规划的情况下行动；但当它在今年晚些时候完成准则重构时，屈服于压力的可能性很大。欧盟委员查理·麦克里维警告理事会，它并非生活在“政治真空”中，而是生活在“现实世界”里，并称欧洲仍可能制定不同的准则。",
+            "真正脱离现实的是银行，它们的账目曾严重高估资产价值。如今银行辩称，市场价格夸大了损失，因为这些价格主要反映市场暂时缺乏流动性，而不是坏账最终可能达到的规模。真相要过许多年才能知晓。但银行股票的交易价格低于账面价值，这表明投资者持怀疑态度。市场陷入停滞，也部分源于银行的僵局：它们害怕确认亏损而不愿出售资产，同时又不愿购买那些所谓的便宜资产。",
+            "要让整个体系重新运转，就必须确认并处理损失。除非银行把资产标价降到能够吸引买家的水平，否则美国收购有毒资产的新计划不会奏效。成功的市场需要独立、甚至敢于抗争的准则制定者。财务会计准则委员会和国际会计准则理事会过去正是如此；例如，即使面对特殊利益集团的敌意，它们仍整顿了股票期权和养老金方面的规则。但如果现在向批评者让步，它们就是在招致要求更多妥协的压力。"
           ]
         }
       ]
@@ -19647,7 +19676,7 @@
               "id": "kaoyan-english-1-2011-q001-s68",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "We learn from Paragraph 1 that Gilbert's appointment has______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19677,7 +19706,7 @@
               "id": "kaoyan-english-1-2011-q002-s68",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Tommasini regards Gilbert as an artist who is______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19707,7 +19736,7 @@
               "id": "kaoyan-english-1-2011-q003-s68",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author believes that the devoted concert goers______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19737,7 +19766,7 @@
               "id": "kaoyan-english-1-2011-q004-s68",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to the text，which of the following is true of recordings？",
               "choices": [
                 {
                   "label": "A",
@@ -19767,7 +19796,7 @@
               "id": "kaoyan-english-1-2011-q005-s68",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Regarding Gilbert’s role in revitalizing the Philharmonic，the author feels______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19810,7 +19839,7 @@
               "id": "kaoyan-english-1-2011-q001-s69",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "When McGee announced his departure, his manner can best be described as being______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19840,7 +19869,7 @@
               "id": "kaoyan-english-1-2011-q002-s69",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraph 2，senior executives’ quitting may be spurred by______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19870,7 +19899,7 @@
               "id": "kaoyan-english-1-2011-q003-s69",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The word“poached”（Line3，Paragraph 4）most probably means______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19900,7 +19929,7 @@
               "id": "kaoyan-english-1-2011-q004-s69",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be inferred from the last paragraph that______ .",
               "choices": [
                 {
                   "label": "A",
@@ -19930,7 +19959,7 @@
               "id": "kaoyan-english-1-2011-q005-s69",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is the best title for the text？",
               "choices": [
                 {
                   "label": "A",
@@ -19973,7 +20002,7 @@
               "id": "kaoyan-english-1-2011-q001-s70",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Consumers may create “earned” media when they are______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20003,7 +20032,7 @@
               "id": "kaoyan-english-1-2011-q002-s70",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraph 2，sold media feature______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20033,7 +20062,7 @@
               "id": "kaoyan-english-1-2011-q003-s70",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author indicates in Paragraph 3 that earned media______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20063,7 +20092,7 @@
               "id": "kaoyan-english-1-2011-q004-s70",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Toyota Motor's experience is cited as an example of______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20093,7 +20122,7 @@
               "id": "kaoyan-english-1-2011-q005-s70",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is the text mainly about？",
               "choices": [
                 {
                   "label": "A",
@@ -20136,7 +20165,7 @@
               "id": "kaoyan-english-1-2011-q001-s71",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Jennifer Senior suggests in her article that raising a child can bring______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20166,7 +20195,7 @@
               "id": "kaoyan-english-1-2011-q002-s71",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "We learn from Paragraph 2 that______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20196,7 +20225,7 @@
               "id": "kaoyan-english-1-2011-q003-s71",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It is suggested in Paragraph 3 that childless folks______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20226,7 +20255,7 @@
               "id": "kaoyan-english-1-2011-q004-s71",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Paragraph 4，the message conveyed by celebrity magazines is______ .",
               "choices": [
                 {
                   "label": "A",
@@ -20256,7 +20285,7 @@
               "id": "kaoyan-english-1-2011-q005-s71",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following can be inferred from the last paragraph？",
               "choices": [
                 {
                   "label": "A",
@@ -21280,7 +21309,7 @@
               "id": "kaoyan-english-1-2012-q001-s62",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first paragraph，peer pressure often emerges as______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21310,7 +21339,7 @@
               "id": "kaoyan-english-1-2012-q002-s62",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Rosenberg holds that public-health advocates should______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21340,7 +21369,7 @@
               "id": "kaoyan-english-1-2012-q003-s62",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "In the author’s view，Rosenberg’s book fails to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21370,7 +21399,7 @@
               "id": "kaoyan-english-1-2012-q004-s62",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Paragraph 5 shows that our imitation of behaviors______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21400,7 +21429,7 @@
               "id": "kaoyan-english-1-2012-q005-s62",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author suggests in the last paragraph that the effect of peer pressure is______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21443,7 +21472,7 @@
               "id": "kaoyan-english-1-2012-q001-s63",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The phrase “reneging on”（Line3，Para.1）is closest in meaning to_______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21473,7 +21502,7 @@
               "id": "kaoyan-english-1-2012-q002-s63",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "By entering into the 2002 agreement, Entergy intended to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21503,7 +21532,7 @@
               "id": "kaoyan-english-1-2012-q003-s63",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to Paragraph 4，Entergy seems to have problems with its______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21533,7 +21562,7 @@
               "id": "kaoyan-english-1-2012-q004-s63",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "In the author’s view, the Vermont case will test ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21563,7 +21592,7 @@
               "id": "kaoyan-english-1-2012-q005-s63",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "It can be inferred from the last paragraph that ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21606,7 +21635,7 @@
               "id": "kaoyan-english-1-2012-q001-s64",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first paragraph，the process of discovery is characterized by its______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21636,7 +21665,7 @@
               "id": "kaoyan-english-1-2012-q002-s64",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be inferred from Paragraph 2 that credibility process requires ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21666,7 +21695,7 @@
               "id": "kaoyan-english-1-2012-q003-s64",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Paragraph 3 shows that a discovery claim becomes credible after it ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21696,7 +21725,7 @@
               "id": "kaoyan-english-1-2012-q004-s64",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Albert Szent-Gyorgyi would most likely agree that______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21726,7 +21755,7 @@
               "id": "kaoyan-english-1-2012-q005-s64",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title of the text？",
               "choices": [
                 {
                   "label": "A",
@@ -21769,7 +21798,7 @@
               "id": "kaoyan-english-1-2012-q001-s65",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "It can be learned from the first paragraph that______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21799,7 +21828,7 @@
               "id": "kaoyan-english-1-2012-q002-s65",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following is true of Paragraph 2？",
               "choices": [
                 {
                   "label": "A",
@@ -21829,7 +21858,7 @@
               "id": "kaoyan-english-1-2012-q003-s65",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It can be learned from Paragraph 4 that the income in the state sector is______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21859,7 +21888,7 @@
               "id": "kaoyan-english-1-2012-q004-s65",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The example of the unions in Wisconsin shows that unions______ .",
               "choices": [
                 {
                   "label": "A",
@@ -21889,7 +21918,7 @@
               "id": "kaoyan-english-1-2012-q005-s65",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "John Donahue’s attitude towards the public-sector system is one of______ .",
               "choices": [
                 {
                   "label": "A",
@@ -22913,7 +22942,7 @@
               "id": "kaoyan-english-1-2013-q001-s56",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Priestly criticizes her assistant for her______ .",
               "choices": [
                 {
                   "label": "A",
@@ -22943,7 +22972,7 @@
               "id": "kaoyan-english-1-2013-q002-s56",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Cline，mass-market labels urge consumers to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -22973,7 +23002,7 @@
               "id": "kaoyan-english-1-2013-q003-s56",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The word “indictment”（Line3，Para.2）is closest in meaning to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23003,7 +23032,7 @@
               "id": "kaoyan-english-1-2013-q004-s56",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Which of the following can be inferred from the last paragraph？",
               "choices": [
                 {
                   "label": "A",
@@ -23033,7 +23062,7 @@
               "id": "kaoyan-english-1-2013-q005-s56",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What is the subject of the text？",
               "choices": [
                 {
                   "label": "A",
@@ -23076,7 +23105,7 @@
               "id": "kaoyan-english-1-2013-q001-s57",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "It is suggested in Paragraph 1 that“behavioural”ads help advertisers to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23106,7 +23135,7 @@
               "id": "kaoyan-english-1-2013-q002-s57",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "“The industry”(Line 6, Para3) refers to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23136,7 +23165,7 @@
               "id": "kaoyan-english-1-2013-q003-s57",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Bob Liodice holds that setting DNT as a default______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23166,7 +23195,7 @@
               "id": "kaoyan-english-1-2013-q004-s57",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Which of the following is true according to Paragraph 6？",
               "choices": [
                 {
                   "label": "A",
@@ -23196,7 +23225,7 @@
               "id": "kaoyan-english-1-2013-q005-s57",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author’s attitude towards what Brendon Lynch said in his blog is one of ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23239,7 +23268,7 @@
               "id": "kaoyan-english-1-2013-q001-s58",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Our vision of the future used to be inspired by______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23269,7 +23298,7 @@
               "id": "kaoyan-english-1-2013-q002-s58",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The IUCN’s “Red List” suggests that human being are______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23299,7 +23328,7 @@
               "id": "kaoyan-english-1-2013-q003-s58",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following is true according to Paragraph 5？",
               "choices": [
                 {
                   "label": "A",
@@ -23329,7 +23358,7 @@
               "id": "kaoyan-english-1-2013-q004-s58",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "To ensure the future of mankind，it is crucial to ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23359,7 +23388,7 @@
               "id": "kaoyan-english-1-2013-q005-s58",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text？",
               "choices": [
                 {
                   "label": "A",
@@ -23402,7 +23431,7 @@
               "id": "kaoyan-english-1-2013-q001-s59",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Three provisions of Arizona’s plan were overturned because they______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23432,7 +23461,7 @@
               "id": "kaoyan-english-1-2013-q002-s59",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "On which of the following did the Justices agree, according to Paragraph 4？",
               "choices": [
                 {
                   "label": "A",
@@ -23462,7 +23491,7 @@
               "id": "kaoyan-english-1-2013-q003-s59",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It can be inferred from Paragraph 5 that the Alien and Sedition Acts______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23492,7 +23521,7 @@
               "id": "kaoyan-english-1-2013-q004-s59",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The White House claims that its power of enforcement______ .",
               "choices": [
                 {
                   "label": "A",
@@ -23522,7 +23551,7 @@
               "id": "kaoyan-english-1-2013-q005-s59",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What can be learned from the last paragraph？",
               "choices": [
                 {
                   "label": "A",
@@ -24546,7 +24575,7 @@
               "id": "kaoyan-english-1-2014-q001-s50",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "George Osborne’ scheme was intended to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24576,7 +24605,7 @@
               "id": "kaoyan-english-1-2014-q002-s50",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The phrase “ to sign on”（Line3，Para.2）most probably means ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24606,7 +24635,7 @@
               "id": "kaoyan-english-1-2014-q003-s50",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What prompted the chancellor to develop his scheme？",
               "choices": [
                 {
                   "label": "A",
@@ -24636,7 +24665,7 @@
               "id": "kaoyan-english-1-2014-q004-s50",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Paragraph 3, being unemployed makes one feel ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24666,7 +24695,7 @@
               "id": "kaoyan-english-1-2014-q005-s50",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "To which of the following would the author most probably agree？",
               "choices": [
                 {
                   "label": "A",
@@ -24709,7 +24738,7 @@
               "id": "kaoyan-english-1-2014-q001-s51",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "A lot of students take up law as their profession due to",
               "choices": [
                 {
                   "label": "A",
@@ -24739,7 +24768,7 @@
               "id": "kaoyan-english-1-2014-q002-s51",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following adds to the costs of legal education in most American states？",
               "choices": [
                 {
                   "label": "A",
@@ -24769,7 +24798,7 @@
               "id": "kaoyan-english-1-2014-q003-s51",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Hindrance to the reform of the legal system originates from ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24799,7 +24828,7 @@
               "id": "kaoyan-english-1-2014-q004-s51",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The guild-like ownership structure is considered “restrictive” partly because it______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24829,7 +24858,7 @@
               "id": "kaoyan-english-1-2014-q005-s51",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "In this text, the author mainly discusses______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24872,7 +24901,7 @@
               "id": "kaoyan-english-1-2014-q001-s52",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The Fundamental Physics Prize is seen as______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24902,7 +24931,7 @@
               "id": "kaoyan-english-1-2014-q002-s52",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The critics think that the new awards will most benefit______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24932,7 +24961,7 @@
               "id": "kaoyan-english-1-2014-q003-s52",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The discovery of the Higgs boson is a typical case which involves______ .",
               "choices": [
                 {
                   "label": "A",
@@ -24962,7 +24991,7 @@
               "id": "kaoyan-english-1-2014-q004-s52",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Paragraph 4，which of the following is true of the Nobels？",
               "choices": [
                 {
                   "label": "A",
@@ -24992,7 +25021,7 @@
               "id": "kaoyan-english-1-2014-q005-s52",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author believes that the new awards are______ .",
               "choices": [
                 {
                   "label": "A",
@@ -25035,7 +25064,7 @@
               "id": "kaoyan-english-1-2014-q001-s53",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Paragraph 1, what is the author’s attitude toward the AAAS’s report？",
               "choices": [
                 {
                   "label": "A",
@@ -25065,7 +25094,7 @@
               "id": "kaoyan-english-1-2014-q002-s53",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Influential figures in the Congress required that the AAAS report on how to______ .",
               "choices": [
                 {
                   "label": "A",
@@ -25095,7 +25124,7 @@
               "id": "kaoyan-english-1-2014-q003-s53",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to Paragraph 3，the report suggests______ .",
               "choices": [
                 {
                   "label": "A",
@@ -25125,7 +25154,7 @@
               "id": "kaoyan-english-1-2014-q004-s53",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author implies in Paragraph 5 that professors are______ .",
               "choices": [
                 {
                   "label": "A",
@@ -25155,7 +25184,7 @@
               "id": "kaoyan-english-1-2014-q005-s53",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text？",
               "choices": [
                 {
                   "label": "A",
@@ -26179,7 +26208,7 @@
               "id": "kaoyan-english-1-2015-q001-s44",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first two Paragraphs, King Juan Carlos of Spain_____",
               "choices": [
                 {
                   "label": "A",
@@ -26209,7 +26238,7 @@
               "id": "kaoyan-english-1-2015-q002-s44",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Monarchs are kept as heads of state in Europe mostly_____",
               "choices": [
                 {
                   "label": "A",
@@ -26239,7 +26268,7 @@
               "id": "kaoyan-english-1-2015-q003-s44",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following is shown to be odd, according to Paragraph 4?",
               "choices": [
                 {
                   "label": "A",
@@ -26269,7 +26298,7 @@
               "id": "kaoyan-english-1-2015-q004-s44",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The British royals “have most to fear” because Charles _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26299,7 +26328,7 @@
               "id": "kaoyan-english-1-2015-q005-s44",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is the best title of the text?",
               "choices": [
                 {
                   "label": "A",
@@ -26342,7 +26371,7 @@
               "id": "kaoyan-english-1-2015-q001-s45",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The Supreme Court will work out whether, during an arrest, it is legitimate to_____",
               "choices": [
                 {
                   "label": "A",
@@ -26372,7 +26401,7 @@
               "id": "kaoyan-english-1-2015-q002-s45",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The author’s attitude toward California’s argument is one of_____",
               "choices": [
                 {
                   "label": "A",
@@ -26402,7 +26431,7 @@
               "id": "kaoyan-english-1-2015-q003-s45",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author believes that exploring one’s phone content is comparable to_____",
               "choices": [
                 {
                   "label": "A",
@@ -26432,7 +26461,7 @@
               "id": "kaoyan-english-1-2015-q004-s45",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "In Paragraph 5 and 6, the author shows his concern that _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -26462,7 +26491,7 @@
               "id": "kaoyan-english-1-2015-q005-s45",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Orin Kerr’s comparison is quoted to indicate that _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26505,7 +26534,7 @@
               "id": "kaoyan-english-1-2015-q001-s46",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "It can be learned from Paragraph I that ____.",
               "choices": [
                 {
                   "label": "A",
@@ -26535,7 +26564,7 @@
               "id": "kaoyan-english-1-2015-q002-s46",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The phrase “ flagged up ”(Para.2) is the closest in meaning to _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26565,7 +26594,7 @@
               "id": "kaoyan-english-1-2015-q003-s46",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Giovanni Parmigiani believes that the establishment of the SBoRE may _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26595,7 +26624,7 @@
               "id": "kaoyan-english-1-2015-q004-s46",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "David Vaux holds that what Science is doing now _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26625,7 +26654,7 @@
               "id": "kaoyan-english-1-2015-q005-s46",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is the best title of the text ?",
               "choices": [
                 {
                   "label": "A",
@@ -26668,7 +26697,7 @@
               "id": "kaoyan-english-1-2015-q001-s47",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first two paragraphs, Elisabeth was upset by _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26698,7 +26727,7 @@
               "id": "kaoyan-english-1-2015-q002-s47",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be inferred from Paragraph 3 that _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26728,7 +26757,7 @@
               "id": "kaoyan-english-1-2015-q003-s47",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author believes that Rebekah Brooks’s defence _____.",
               "choices": [
                 {
                   "label": "A",
@@ -26758,7 +26787,7 @@
               "id": "kaoyan-english-1-2015-q004-s47",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author holds that the current collective doctrine shows ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -26788,7 +26817,7 @@
               "id": "kaoyan-english-1-2015-q005-s47",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is suggested in the last paragraph?",
               "choices": [
                 {
                   "label": "A",
@@ -27812,7 +27841,7 @@
               "id": "kaoyan-english-1-2016-q001-s38",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first paragraph, what would happen in France ?",
               "choices": [
                 {
                   "label": "A",
@@ -27842,7 +27871,7 @@
               "id": "kaoyan-english-1-2016-q002-s38",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The phrase “ impinging on ” (Line2, Para.2) is closest in meaning to _____.",
               "choices": [
                 {
                   "label": "A",
@@ -27872,7 +27901,7 @@
               "id": "kaoyan-english-1-2016-q003-s38",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following is true of the fashion industry ?",
               "choices": [
                 {
                   "label": "A",
@@ -27902,7 +27931,7 @@
               "id": "kaoyan-english-1-2016-q004-s38",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "AdesignerismostlikelytoberejectedbyCFWfor",
               "choices": [
                 {
                   "label": "A",
@@ -27932,7 +27961,7 @@
               "id": "kaoyan-english-1-2016-q005-s38",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following may be the best title of the text?",
               "choices": [
                 {
                   "label": "A",
@@ -27975,7 +28004,7 @@
               "id": "kaoyan-english-1-2016-q001-s39",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Britain’s public sentiment about the countryside _______.",
               "choices": [
                 {
                   "label": "A",
@@ -28005,7 +28034,7 @@
               "id": "kaoyan-english-1-2016-q002-s39",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraph 2, the achievements of the National Trust are now being ______.",
               "choices": [
                 {
                   "label": "A",
@@ -28035,7 +28064,7 @@
               "id": "kaoyan-english-1-2016-q003-s39",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following can be inferred from Paragraph 3?",
               "choices": [
                 {
                   "label": "A",
@@ -28065,7 +28094,7 @@
               "id": "kaoyan-english-1-2016-q004-s39",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author holds that George Osborne’s preference ________.",
               "choices": [
                 {
                   "label": "A",
@@ -28095,7 +28124,7 @@
               "id": "kaoyan-english-1-2016-q005-s39",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "In the last paragraph, the author shows his appreciation of ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -28138,7 +28167,7 @@
               "id": "kaoyan-english-1-2016-q001-s40",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author views Milton Friedman’s statement about CSR with _______.",
               "choices": [
                 {
                   "label": "A",
@@ -28168,7 +28197,7 @@
               "id": "kaoyan-english-1-2016-q002-s40",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraph 2, CSR helps a company _______ .",
               "choices": [
                 {
                   "label": "A",
@@ -28198,7 +28227,7 @@
               "id": "kaoyan-english-1-2016-q003-s40",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The expression “more lenient ” (line 2,para.4) is closest in meaning to ______.",
               "choices": [
                 {
                   "label": "A",
@@ -28228,7 +28257,7 @@
               "id": "kaoyan-english-1-2016-q004-s40",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "When prosecutors evaluate a case, a company's CSR record ______.",
               "choices": [
                 {
                   "label": "A",
@@ -28258,7 +28287,7 @@
               "id": "kaoyan-english-1-2016-q005-s40",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is true of CSR, according to the last paragraph ?",
               "choices": [
                 {
                   "label": "A",
@@ -28301,7 +28330,7 @@
               "id": "kaoyan-english-1-2016-q001-s41",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The New York Times is considering ending its print edition partly due to ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -28331,7 +28360,7 @@
               "id": "kaoyan-english-1-2016-q002-s41",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Peretti suggests that, in face of the present situation, the Times should ______.",
               "choices": [
                 {
                   "label": "A",
@@ -28361,7 +28390,7 @@
               "id": "kaoyan-english-1-2016-q003-s41",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It can inferred form Paragraphs 5 and 6 that a “ legacy product “_____.",
               "choices": [
                 {
                   "label": "A",
@@ -28391,7 +28420,7 @@
               "id": "kaoyan-english-1-2016-q004-s41",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Peretti believes that, in a changing world , _______.",
               "choices": [
                 {
                   "label": "A",
@@ -28421,7 +28450,7 @@
               "id": "kaoyan-english-1-2016-q005-s41",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title of the text ?",
               "choices": [
                 {
                   "label": "A",
@@ -29445,7 +29474,7 @@
               "id": "kaoyan-english-1-2017-q001-s32",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The crash of EgyptAir Flight 804 is mentioned to ______.",
               "choices": [
                 {
                   "label": "A",
@@ -29475,7 +29504,7 @@
               "id": "kaoyan-english-1-2017-q002-s32",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "which of the following contributes to long waits at major airports ?",
               "choices": [
                 {
                   "label": "A",
@@ -29505,7 +29534,7 @@
               "id": "kaoyan-english-1-2017-q003-s32",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The word “ expedited ” (Liner 4, Para. 5) is closest in meaning to _____.",
               "choices": [
                 {
                   "label": "A",
@@ -29565,7 +29594,7 @@
               "id": "kaoyan-english-1-2017-q005-s32",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "which of the following would be the best title for the text ?",
               "choices": [
                 {
                   "label": "A",
@@ -29608,7 +29637,7 @@
               "id": "kaoyan-english-1-2017-q001-s33",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Queen Liliuokalani’s remark in Paragraph 1 indicates _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -29638,7 +29667,7 @@
               "id": "kaoyan-english-1-2017-q002-s33",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Mauna Kea is deemed as an ideal astronomical site due to ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -29668,7 +29697,7 @@
               "id": "kaoyan-english-1-2017-q003-s33",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The construction of the TMT is opposed by some locals partly because _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -29698,7 +29727,7 @@
               "id": "kaoyan-english-1-2017-q004-s33",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be inferred from Paragraph 5 that progress in today’s astronomy ______",
               "choices": [
                 {
                   "label": "A",
@@ -29728,7 +29757,7 @@
               "id": "kaoyan-english-1-2017-q005-s33",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author’s attitude toward choosing Mauna Kea as the TMT site is one of _____.",
               "choices": [
                 {
                   "label": "A",
@@ -29771,7 +29800,7 @@
               "id": "kaoyan-english-1-2017-q001-s34",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Robert F. Kennedy is cited because he ______.",
               "choices": [
                 {
                   "label": "A",
@@ -29801,7 +29830,7 @@
               "id": "kaoyan-english-1-2017-q002-s34",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be inferred from Paragraph 2 that ______.",
               "choices": [
                 {
                   "label": "A",
@@ -29831,7 +29860,7 @@
               "id": "kaoyan-english-1-2017-q003-s34",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following is true about the recent annual study ?",
               "choices": [
                 {
                   "label": "A",
@@ -29861,7 +29890,7 @@
               "id": "kaoyan-english-1-2017-q004-s34",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "In the last two paragraph, the author suggests that ____ .",
               "choices": [
                 {
                   "label": "A",
@@ -29891,7 +29920,7 @@
               "id": "kaoyan-english-1-2017-q005-s34",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following is the best for the text ?",
               "choices": [
                 {
                   "label": "A",
@@ -29934,7 +29963,7 @@
               "id": "kaoyan-english-1-2017-q001-s35",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The underlined sentence (Para.1) most probably shows that the court _____.",
               "choices": [
                 {
                   "label": "A",
@@ -29964,7 +29993,7 @@
               "id": "kaoyan-english-1-2017-q002-s35",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraph 4, an official act is deemed corruptive only if it involves ______",
               "choices": [
                 {
                   "label": "A",
@@ -29994,7 +30023,7 @@
               "id": "kaoyan-english-1-2017-q003-s35",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The court’s ruling is based on the assumption that public officials are ________",
               "choices": [
                 {
                   "label": "A",
@@ -30024,7 +30053,7 @@
               "id": "kaoyan-english-1-2017-q004-s35",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Well-enforced laws in government transparency are needed to _____.",
               "choices": [
                 {
                   "label": "A",
@@ -30054,7 +30083,7 @@
               "id": "kaoyan-english-1-2017-q005-s35",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author’s attitude toward the court’s ruling is ______.",
               "choices": [
                 {
                   "label": "A",
@@ -31078,7 +31107,7 @@
               "id": "kaoyan-english-1-2018-q001-s26",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Who will be most threatened by automation ?",
               "choices": [
                 {
                   "label": "A",
@@ -31108,7 +31137,7 @@
               "id": "kaoyan-english-1-2018-q002-s26",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following best represent the author’s view ?",
               "choices": [
                 {
                   "label": "A",
@@ -31138,7 +31167,7 @@
               "id": "kaoyan-english-1-2018-q003-s26",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Education in the age of automation should put more emphasis on ______.",
               "choices": [
                 {
                   "label": "A",
@@ -31168,7 +31197,7 @@
               "id": "kaoyan-english-1-2018-q004-s26",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author suggests that tax policies be aimed at ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -31198,7 +31227,7 @@
               "id": "kaoyan-english-1-2018-q005-s26",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "In this text, the author presents a problem with ______.",
               "choices": [
                 {
                   "label": "A",
@@ -31241,7 +31270,7 @@
               "id": "kaoyan-english-1-2018-q001-s27",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the Paragraphs 1 and 2, many young Americans cast doubts on _______.",
               "choices": [
                 {
                   "label": "A",
@@ -31271,7 +31300,7 @@
               "id": "kaoyan-english-1-2018-q002-s27",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The phrase “ beef up ” (Line 2, Para2) is closest in meaning to ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -31301,7 +31330,7 @@
               "id": "kaoyan-english-1-2018-q003-s27",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to the knight foundation survey, young people ______.",
               "choices": [
                 {
                   "label": "A",
@@ -31331,7 +31360,7 @@
               "id": "kaoyan-english-1-2018-q004-s27",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The Barna survey found that a main cause for the fake news problem is _______.",
               "choices": [
                 {
                   "label": "A",
@@ -31361,7 +31390,7 @@
               "id": "kaoyan-english-1-2018-q005-s27",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text?",
               "choices": [
                 {
                   "label": "A",
@@ -31404,7 +31433,7 @@
               "id": "kaoyan-english-1-2018-q001-s28",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What is true of the agreement between the NHS and DeepMind ?",
               "choices": [
                 {
                   "label": "A",
@@ -31434,7 +31463,7 @@
               "id": "kaoyan-english-1-2018-q002-s28",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The NHS trust responded to Denham's verdict with _______.",
               "choices": [
                 {
                   "label": "A",
@@ -31464,7 +31493,7 @@
               "id": "kaoyan-english-1-2018-q003-s28",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author argues in Paragraph 2 that _____.",
               "choices": [
                 {
                   "label": "A",
@@ -31494,7 +31523,7 @@
               "id": "kaoyan-english-1-2018-q004-s28",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to the last paragraph, the real worry arising from this deal is ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -31524,7 +31553,7 @@
               "id": "kaoyan-english-1-2018-q005-s28",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author's attitude toward the application of AI to healthcare is ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -31567,7 +31596,7 @@
               "id": "kaoyan-english-1-2018-q001-s29",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The financial problem with the USPS is caused partly by _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -31597,7 +31626,7 @@
               "id": "kaoyan-english-1-2018-q002-s29",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraph 2, the USPS fails to modernize itself due to _______.",
               "choices": [
                 {
                   "label": "A",
@@ -31627,7 +31656,7 @@
               "id": "kaoyan-english-1-2018-q003-s29",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The long-standing complaint by the USPS and its unions can be addressed by ____.",
               "choices": [
                 {
                   "label": "A",
@@ -31657,7 +31686,7 @@
               "id": "kaoyan-english-1-2018-q004-s29",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "In the last paragraph, the author seems to view legislators with ______.",
               "choices": [
                 {
                   "label": "A",
@@ -31687,7 +31716,7 @@
               "id": "kaoyan-english-1-2018-q005-s29",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text ?",
               "choices": [
                 {
                   "label": "A",
@@ -32711,7 +32740,7 @@
               "id": "kaoyan-english-1-2019-q001-s20",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Paragraph 1, one motive in imposing the new rule is to _________.",
               "choices": [
                 {
                   "label": "A",
@@ -32741,7 +32770,7 @@
               "id": "kaoyan-english-1-2019-q002-s20",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Alfred Marshall is quoted to indicate_________.",
               "choices": [
                 {
                   "label": "A",
@@ -32771,7 +32800,7 @@
               "id": "kaoyan-english-1-2019-q003-s20",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It is argued that the influence of transient investment on public companies can be__________.",
               "choices": [
                 {
                   "label": "A",
@@ -32801,7 +32830,7 @@
               "id": "kaoyan-english-1-2019-q004-s20",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The US and France examples are used to illustrate____________.",
               "choices": [
                 {
                   "label": "A",
@@ -32831,7 +32860,7 @@
               "id": "kaoyan-english-1-2019-q005-s20",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text?",
               "choices": [
                 {
                   "label": "A",
@@ -32874,7 +32903,7 @@
               "id": "kaoyan-english-1-2019-q001-s21",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What is commonly regarded as the cause of grade inflation?",
               "choices": [
                 {
                   "label": "A",
@@ -32904,7 +32933,7 @@
               "id": "kaoyan-english-1-2019-q002-s21",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "What was the original purpose of grade forgiveness?",
               "choices": [
                 {
                   "label": "A",
@@ -32934,7 +32963,7 @@
               "id": "kaoyan-english-1-2019-q003-s21",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to Paragraph 5, grade forgiveness enable colleges to_________.",
               "choices": [
                 {
                   "label": "A",
@@ -32964,7 +32993,7 @@
               "id": "kaoyan-english-1-2019-q004-s21",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What does the phrase “to be aligned”(Line 5, Para6) most probably mean?",
               "choices": [
                 {
                   "label": "A",
@@ -32994,7 +33023,7 @@
               "id": "kaoyan-english-1-2019-q005-s21",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "The author examines the practice of grade forgiveness by________.",
               "choices": [
                 {
                   "label": "A",
@@ -33037,7 +33066,7 @@
               "id": "kaoyan-english-1-2019-q001-s22",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Mary Shelley’s novel Frankenstein is mentioned because it________.",
               "choices": [
                 {
                   "label": "A",
@@ -33067,7 +33096,7 @@
               "id": "kaoyan-english-1-2019-q002-s22",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "In David Eagleman’s opinion, our current knowledge of consciousness _______.",
               "choices": [
                 {
                   "label": "A",
@@ -33097,7 +33126,7 @@
               "id": "kaoyan-english-1-2019-q003-s22",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The solution to the ethical issues brought by autonomous vehicles _______.",
               "choices": [
                 {
                   "label": "A",
@@ -33127,7 +33156,7 @@
               "id": "kaoyan-english-1-2019-q004-s22",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author’s attitude toward Google’s pledge is one of ________.",
               "choices": [
                 {
                   "label": "A",
@@ -33157,7 +33186,7 @@
               "id": "kaoyan-english-1-2019-q005-s22",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text ?",
               "choices": [
                 {
                   "label": "A",
@@ -33200,7 +33229,7 @@
               "id": "kaoyan-english-1-2019-q001-s23",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The Supreme Court decision Thursday will ________.",
               "choices": [
                 {
                   "label": "A",
@@ -33230,7 +33259,7 @@
               "id": "kaoyan-english-1-2019-q002-s23",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be learned from paragraphs 2 and 3 that the overruled decisions ________.",
               "choices": [
                 {
                   "label": "A",
@@ -33260,7 +33289,7 @@
               "id": "kaoyan-english-1-2019-q003-s23",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to Justice Anthony Kennedy, the physical presence rule has ______.",
               "choices": [
                 {
                   "label": "A",
@@ -33290,7 +33319,7 @@
               "id": "kaoyan-english-1-2019-q004-s23",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Who are most likely to welcome the Supreme Court ruling ？",
               "choices": [
                 {
                   "label": "A",
@@ -33320,7 +33349,7 @@
               "id": "kaoyan-english-1-2019-q005-s23",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "In dealing with the Supreme Court decision Thursday, the author ______.",
               "choices": [
                 {
                   "label": "A",
@@ -34344,7 +34373,7 @@
               "id": "kaoyan-english-1-2020-q001-s14",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "21. Cooper and her colleagues argue that a “town of culture” award could________ C",
               "choices": [
                 {
                   "label": "A",
@@ -34374,7 +34403,7 @@
               "id": "kaoyan-english-1-2020-q002-s14",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "22. According to Paragraph 2, the proposal might be regarded by some as________ B",
               "choices": [
                 {
                   "label": "A",
@@ -34404,7 +34433,7 @@
               "id": "kaoyan-english-1-2020-q003-s14",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "23. The author suggests that a title holder is successful only if it_______ D",
               "choices": [
                 {
                   "label": "A",
@@ -34434,7 +34463,7 @@
               "id": "kaoyan-english-1-2020-q004-s14",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "24. Glasgow is mentioned in Paragraph 3 to present______ B",
               "choices": [
                 {
                   "label": "A",
@@ -34464,7 +34493,7 @@
               "id": "kaoyan-english-1-2020-q005-s14",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "25. What is the author’s attitude towards the proposal? C",
               "choices": [
                 {
                   "label": "A",
@@ -34507,7 +34536,7 @@
               "id": "kaoyan-english-1-2020-q001-s15",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Scientific publishing is seen as “a license to print money” partly because_______ D",
               "choices": [
                 {
                   "label": "A",
@@ -34537,7 +34566,7 @@
               "id": "kaoyan-english-1-2020-q002-s15",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "According to Paragraphs 2 and 3, scientific publishers Elsevier has_______ A、",
               "choices": [
                 {
                   "label": "A",
@@ -34567,7 +34596,7 @@
               "id": "kaoyan-english-1-2020-q003-s15",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "How does the author feel about the success of Sci-Hub? C",
               "choices": [
                 {
                   "label": "A",
@@ -34597,7 +34626,7 @@
               "id": "kaoyan-english-1-2020-q004-s15",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be learned from Paragraphs 5 and 6 that open access terms_______ A",
               "choices": [
                 {
                   "label": "A",
@@ -34627,7 +34656,7 @@
               "id": "kaoyan-english-1-2020-q005-s15",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following characterizes the scientific publishing model? D",
               "choices": [
                 {
                   "label": "A",
@@ -34670,7 +34699,7 @@
               "id": "kaoyan-english-1-2020-q001-s16",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author believes that the bills sponsored by Lewis and Haddad will______ A",
               "choices": [
                 {
                   "label": "A",
@@ -34700,7 +34729,7 @@
               "id": "kaoyan-english-1-2020-q002-s16",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Which of the following is true of the California measure? C",
               "choices": [
                 {
                   "label": "A",
@@ -34730,7 +34759,7 @@
               "id": "kaoyan-english-1-2020-q003-s16",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author mentions the study by Catalyst to illustrate_____ D",
               "choices": [
                 {
                   "label": "A",
@@ -34760,7 +34789,7 @@
               "id": "kaoyan-english-1-2020-q004-s16",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Norway’s adoption of a nationwide corporate gender quota has led to______ C",
               "choices": [
                 {
                   "label": "A",
@@ -34790,7 +34819,7 @@
               "id": "kaoyan-english-1-2020-q005-s16",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following can be inferred from the text? B",
               "choices": [
                 {
                   "label": "A",
@@ -34833,7 +34862,7 @@
               "id": "kaoyan-english-1-2020-q001-s17",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The French Senate has passed a bill to ________ C",
               "choices": [
                 {
                   "label": "A",
@@ -34863,7 +34892,7 @@
               "id": "kaoyan-english-1-2020-q002-s17",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be learned from Paragraph 2 that the digital services tax_______ A",
               "choices": [
                 {
                   "label": "A",
@@ -34893,7 +34922,7 @@
               "id": "kaoyan-english-1-2020-q003-s17",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The countries adopting the unilateral measures share the opinion that_____ B",
               "choices": [
                 {
                   "label": "A",
@@ -34923,7 +34952,7 @@
               "id": "kaoyan-english-1-2020-q004-s17",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be learned from Paragraph 5 that the OECD’s current work______ C",
               "choices": [
                 {
                   "label": "A",
@@ -34953,7 +34982,7 @@
               "id": "kaoyan-english-1-2020-q005-s17",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following might be the best title for this text? B",
               "choices": [
                 {
                   "label": "A",
@@ -35754,7 +35783,7 @@
               "id": "kaoyan-english-1-2021-q001-s8",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author holds that this year's increase in rail passenger fares _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -35784,7 +35813,7 @@
               "id": "kaoyan-english-1-2021-q002-s8",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The stockbroker in Paragraph 2 is used to stand for_____ .",
               "choices": [
                 {
                   "label": "A",
@@ -35814,7 +35843,7 @@
               "id": "kaoyan-english-1-2021-q003-s8",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It is indicated in Paragraph 3 that train operators _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -35844,7 +35873,7 @@
               "id": "kaoyan-english-1-2021-q004-s8",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "If unable to calm down passengers, the railways may have to face _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -35874,7 +35903,7 @@
               "id": "kaoyan-english-1-2021-q005-s8",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following would be the best title for the text?",
               "choices": [
                 {
                   "label": "A",
@@ -35917,7 +35946,7 @@
               "id": "kaoyan-english-1-2021-q001-s9",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first two paragraphs, CCT programs aim to _____.",
               "choices": [
                 {
                   "label": "A",
@@ -35947,7 +35976,7 @@
               "id": "kaoyan-english-1-2021-q002-s9",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The study based on an area in Mexico is cited to show that ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -35977,7 +36006,7 @@
               "id": "kaoyan-english-1-2021-q003-s9",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "In his study about Indonesia, Ferraro intends to find out ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -36007,7 +36036,7 @@
               "id": "kaoyan-english-1-2021-q004-s9",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Ferraro, the CCT program in Indonesia is most valuable in that _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -36037,7 +36066,7 @@
               "id": "kaoyan-english-1-2021-q005-s9",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What is the text centered on?",
               "choices": [
                 {
                   "label": "A",
@@ -36080,7 +36109,7 @@
               "id": "kaoyan-english-1-2021-q001-s10",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Paragraph 1, the author's posts on Twitter _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -36110,7 +36139,7 @@
               "id": "kaoyan-english-1-2021-q002-s10",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "What does the author say about the Victorian portraits he has collected?",
               "choices": [
                 {
                   "label": "A",
@@ -36140,7 +36169,7 @@
               "id": "kaoyan-english-1-2021-q003-s10",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What might have kept the Victorians from smiling for pictures in the 1890s?",
               "choices": [
                 {
                   "label": "A",
@@ -36170,7 +36199,7 @@
               "id": "kaoyan-english-1-2021-q004-s10",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Mark Twain is quoted to show that the disapproval of smiles in pictures was _____",
               "choices": [
                 {
                   "label": "A",
@@ -36200,7 +36229,7 @@
               "id": "kaoyan-english-1-2021-q005-s10",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following questions does the text answer?",
               "choices": [
                 {
                   "label": "A",
@@ -36243,7 +36272,7 @@
               "id": "kaoyan-english-1-2021-q001-s11",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "There has long been concern that broadband providers would _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -36273,7 +36302,7 @@
               "id": "kaoyan-english-1-2021-q002-s11",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Faced with the demand for net neutrality rules, the FCC ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -36303,7 +36332,7 @@
               "id": "kaoyan-english-1-2021-q003-s11",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What can be learned about AT&T from Paragraph 3?",
               "choices": [
                 {
                   "label": "A",
@@ -36333,7 +36362,7 @@
               "id": "kaoyan-english-1-2021-q004-s11",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "Judge Patricia Millet argues that the appeals court's decision _____ .",
               "choices": [
                 {
                   "label": "A",
@@ -36363,7 +36392,7 @@
               "id": "kaoyan-english-1-2021-q005-s11",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What does the author argue in the last paragraph?",
               "choices": [
                 {
                   "label": "A",
@@ -37387,7 +37416,7 @@
               "id": "kaoyan-english-1-2022-q001-s2",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Paragraph 1, museums are faced with difficulties in ______.",
               "choices": [
                 {
                   "label": "A",
@@ -37417,7 +37446,7 @@
               "id": "kaoyan-english-1-2022-q002-s2",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Van Oosten believes that certain plastic objects are ______.",
               "choices": [
                 {
                   "label": "A",
@@ -37447,7 +37476,7 @@
               "id": "kaoyan-english-1-2022-q003-s2",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Museums stopped exhibiting some of Gilardi's artworks to _______.",
               "choices": [
                 {
                   "label": "A",
@@ -37477,7 +37506,7 @@
               "id": "kaoyan-english-1-2022-q004-s2",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "The author thinks that preservation of plastics is _______.",
               "choices": [
                 {
                   "label": "A",
@@ -37507,7 +37536,7 @@
               "id": "kaoyan-english-1-2022-q005-s2",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "In Ferreira’s opinion, preservation of plastic artifacts _______.",
               "choices": [
                 {
                   "label": "A",
@@ -37550,7 +37579,7 @@
               "id": "kaoyan-english-1-2022-q001-s3",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author suggests that Generation Z should _______.",
               "choices": [
                 {
                   "label": "A",
@@ -37580,7 +37609,7 @@
               "id": "kaoyan-english-1-2022-q002-s3",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The percentage of UK graduates in non-graduate roles reflects _______.",
               "choices": [
                 {
                   "label": "A",
@@ -37610,7 +37639,7 @@
               "id": "kaoyan-english-1-2022-q003-s3",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The author considers it a good sign that _______.",
               "choices": [
                 {
                   "label": "A",
@@ -37640,7 +37669,7 @@
               "id": "kaoyan-english-1-2022-q004-s3",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It is advised in Paragraph 5 that those with one degree should ________.",
               "choices": [
                 {
                   "label": "A",
@@ -37670,7 +37699,7 @@
               "id": "kaoyan-english-1-2022-q005-s3",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What can be concluded about Generation Z from the last two paragraphs?",
               "choices": [
                 {
                   "label": "A",
@@ -37713,7 +37742,7 @@
               "id": "kaoyan-english-1-2022-q001-s4",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to paragraph 1, art-science collaborations have _________.",
               "choices": [
                 {
                   "label": "A",
@@ -37743,7 +37772,7 @@
               "id": "kaoyan-english-1-2022-q002-s4",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The reworked version of The Four Seasons is mentioned to show that _________.",
               "choices": [
                 {
                   "label": "A",
@@ -37773,7 +37802,7 @@
               "id": "kaoyan-english-1-2022-q003-s4",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Some artists seem to worry that in the art-science partnership __________.",
               "choices": [
                 {
                   "label": "A",
@@ -37803,7 +37832,7 @@
               "id": "kaoyan-english-1-2022-q004-s4",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What does the author say about CAVS?",
               "choices": [
                 {
                   "label": "A",
@@ -37833,7 +37862,7 @@
               "id": "kaoyan-english-1-2022-q005-s4",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "In the last paragraph, the author holds that art-science collaborations __________.",
               "choices": [
                 {
                   "label": "A",
@@ -37876,7 +37905,7 @@
               "id": "kaoyan-english-1-2022-q001-s5",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The personal grievance provisions of the ERA are intended to _________.",
               "choices": [
                 {
                   "label": "A",
@@ -37906,7 +37935,7 @@
               "id": "kaoyan-english-1-2022-q002-s5",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be learned from paragraph 3 that the provisions may _________.",
               "choices": [
                 {
                   "label": "A",
@@ -37936,7 +37965,7 @@
               "id": "kaoyan-english-1-2022-q003-s5",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Which of the following measures would the Productivity Commission support ?",
               "choices": [
                 {
                   "label": "A",
@@ -37966,7 +37995,7 @@
               "id": "kaoyan-english-1-2022-q004-s5",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What might be an effect of ERA ’ s unjustified dismissal procedures ?",
               "choices": [
                 {
                   "label": "A",
@@ -37996,7 +38025,7 @@
               "id": "kaoyan-english-1-2022-q005-s5",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "It can be inferred that the “ high - income threshold ” in Australia _________.",
               "choices": [
                 {
                   "label": "A",
@@ -39020,7 +39049,7 @@
               "id": "kaoyan-english-1-2023-q001-s326",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "In Paragraph 1, the weather in Texas is mentioned to ________ .",
               "choices": [
                 {
                   "label": "A",
@@ -39050,7 +39079,7 @@
               "id": "kaoyan-english-1-2023-q002-s326",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "What does Quinn think of Hardy?",
               "choices": [
                 {
                   "label": "A",
@@ -39080,7 +39109,7 @@
               "id": "kaoyan-english-1-2023-q003-s326",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The study mentioned in paragraph 5 shows that ______.",
               "choices": [
                 {
                   "label": "A",
@@ -39110,7 +39139,7 @@
               "id": "kaoyan-english-1-2023-q004-s326",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Branch, state-level science standards in the US ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -39140,7 +39169,7 @@
               "id": "kaoyan-english-1-2023-q005-s326",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "It is implied in the last paragraph that climate change teaching in some schools ______.",
               "choices": [
                 {
                   "label": "A",
@@ -39183,7 +39212,7 @@
               "id": "kaoyan-english-1-2023-q001-s327",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "Which of the following is true of New England?",
               "choices": [
                 {
                   "label": "A",
@@ -39213,7 +39242,7 @@
               "id": "kaoyan-english-1-2023-q002-s327",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The bill mentioned in Paragraph 2 was intended to ______.",
               "choices": [
                 {
                   "label": "A",
@@ -39243,7 +39272,7 @@
               "id": "kaoyan-english-1-2023-q003-s327",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Compared with Castle, Taylor is more likely to support ______.",
               "choices": [
                 {
                   "label": "A",
@@ -39273,7 +39302,7 @@
               "id": "kaoyan-english-1-2023-q004-s327",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What does Horn emphasize in Paragraph 5?",
               "choices": [
                 {
                   "label": "A",
@@ -39303,7 +39332,7 @@
               "id": "kaoyan-english-1-2023-q005-s327",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Horn holds that imposing registration requirements is ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -39346,7 +39375,7 @@
               "id": "kaoyan-english-1-2023-q001-s328",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author mentions two books in Paragraph 1 to present _______ .",
               "choices": [
                 {
                   "label": "A",
@@ -39376,7 +39405,7 @@
               "id": "kaoyan-english-1-2023-q002-s328",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Why did Waterstones shops retire PRH books to their relevant sections?",
               "choices": [
                 {
                   "label": "A",
@@ -39406,7 +39435,7 @@
               "id": "kaoyan-english-1-2023-q003-s328",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What message does the spokesperson for Waterstones seem to convey?",
               "choices": [
                 {
                   "label": "A",
@@ -39436,7 +39465,7 @@
               "id": "kaoyan-english-1-2023-q004-s328",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What can be one consequence of the current dispute?",
               "choices": [
                 {
                   "label": "A",
@@ -39466,7 +39495,7 @@
               "id": "kaoyan-english-1-2023-q005-s328",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "Which of the following statements best represents Lownie's view?",
               "choices": [
                 {
                   "label": "A",
@@ -39509,7 +39538,7 @@
               "id": "kaoyan-english-1-2023-q001-s329",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Paragraph 1, the careers of scientists can be determined by ______.",
               "choices": [
                 {
                   "label": "A",
@@ -39539,7 +39568,7 @@
               "id": "kaoyan-english-1-2023-q002-s329",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The support service consultancies tend to ______ .",
               "choices": [
                 {
                   "label": "A",
@@ -39569,7 +39598,7 @@
               "id": "kaoyan-english-1-2023-q003-s329",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The Function of the “milk cow” journals is to ______.",
               "choices": [
                 {
                   "label": "A",
@@ -39599,7 +39628,7 @@
               "id": "kaoyan-english-1-2023-q004-s329",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What can be learned about Scopus From the last two paragraphs?",
               "choices": [
                 {
                   "label": "A",
@@ -39629,7 +39658,7 @@
               "id": "kaoyan-english-1-2023-q005-s329",
               "number": 5,
               "kind": "objective",
-              "stem": "Question 5",
+              "stem": "What should an author do to deal with citation manipulators?",
               "choices": [
                 {
                   "label": "A",
@@ -40956,7 +40985,7 @@
               "id": "kaoyan-english-1-2024-q003-s386",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "What played the major role in lowering the price of nails after the late 1700s?",
               "choices": [
                 {
                   "label": "A",
@@ -40986,7 +41015,7 @@
               "id": "kaoyan-english-1-2024-q004-s386",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be learmed from Paragraph 5 that nails",
               "choices": [
                 {
                   "label": "A",
@@ -41059,7 +41088,7 @@
               "id": "kaoyan-english-1-2024-q001-s387",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to the first two paragraphs, alloparenting refers to the practice of",
               "choices": [
                 {
                   "label": "A",
@@ -41119,7 +41148,7 @@
               "id": "kaoyan-english-1-2024-q003-s387",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "According to Paragraph 4, the \"intensive mothering narrative\".",
               "choices": [
                 {
                   "label": "A",
@@ -41149,7 +41178,7 @@
               "id": "kaoyan-english-1-2024-q004-s387",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What can be inferred about the nurseries in the UK?",
               "choices": [
                 {
                   "label": "A",
@@ -41222,7 +41251,7 @@
               "id": "kaoyan-english-1-2024-q001-s388",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "What can be learned about Rutkowski from the first two paragraphs?",
               "choices": [
                 {
                   "label": "A",
@@ -41252,7 +41281,7 @@
               "id": "kaoyan-english-1-2024-q002-s388",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The problem with open-source AI art generators is that they.",
               "choices": [
                 {
                   "label": "A",
@@ -41282,7 +41311,7 @@
               "id": "kaoyan-english-1-2024-q003-s388",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "After searching online, Rutkowski found",
               "choices": [
                 {
                   "label": "A",
@@ -41312,7 +41341,7 @@
               "id": "kaoyan-english-1-2024-q004-s388",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Ortiz,AI companies are advised to.",
               "choices": [
                 {
                   "label": "A",
@@ -41385,7 +41414,7 @@
               "id": "kaoyan-english-1-2024-q001-s389",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The Chesapeake Bay is described in Paragraph 1 as",
               "choices": [
                 {
                   "label": "A",
@@ -41415,7 +41444,7 @@
               "id": "kaoyan-english-1-2024-q002-s389",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The U.S.Supreme Court's ruling in the ldaho case",
               "choices": [
                 {
                   "label": "A",
@@ -41445,7 +41474,7 @@
               "id": "kaoyan-english-1-2024-q003-s389",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "How does the author feel about the future of the Chesapeake Bay?",
               "choices": [
                 {
                   "label": "A",
@@ -41475,7 +41504,7 @@
               "id": "kaoyan-english-1-2024-q004-s389",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "What can be inferred about the EPA's involvement in the Chesapeake Bay\n \n Program?",
               "choices": [
                 {
                   "label": "A",
@@ -42549,7 +42578,7 @@
               "id": "kaoyan-english-1-2025-q001-s398",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The “rehearsal room” approach requires pupils to .",
               "choices": [
                 {
                   "label": "A",
@@ -42579,7 +42608,7 @@
               "id": "kaoyan-english-1-2025-q002-s398",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The study divided the pupils into two groups to find whether .",
               "choices": [
                 {
                   "label": "A",
@@ -42609,7 +42638,7 @@
               "id": "kaoyan-english-1-2025-q003-s398",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "Control pupils’ reliance on “desert island cliches” shows their .",
               "choices": [
                 {
                   "label": "A",
@@ -42712,7 +42741,7 @@
               "id": "kaoyan-english-1-2025-q001-s399",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "The author expressed great surprise at some scientists’ .",
               "choices": [
                 {
                   "label": "A",
@@ -42742,7 +42771,7 @@
               "id": "kaoyan-english-1-2025-q002-s399",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "The author believes that carbon emissions from research .",
               "choices": [
                 {
                   "label": "A",
@@ -42772,7 +42801,7 @@
               "id": "kaoyan-english-1-2025-q003-s399",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "The example of Green in Paragraph 5 is used to illustrate .",
               "choices": [
                 {
                   "label": "A",
@@ -42802,7 +42831,7 @@
               "id": "kaoyan-english-1-2025-q004-s399",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "It can be learned from the last two paragraphs that LUMI",
               "choices": [
                 {
                   "label": "A",
@@ -42875,7 +42904,7 @@
               "id": "kaoyan-english-1-2025-q001-s400",
               "number": 1,
               "kind": "objective",
-              "stem": "Question 1",
+              "stem": "According to Paragraph 1, legitimate streaming services",
               "choices": [
                 {
                   "label": "A",
@@ -42905,7 +42934,7 @@
               "id": "kaoyan-english-1-2025-q002-s400",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "It can be learned that streamers like Netflix .",
               "choices": [
                 {
                   "label": "A",
@@ -42935,7 +42964,7 @@
               "id": "kaoyan-english-1-2025-q003-s400",
               "number": 3,
               "kind": "objective",
-              "stem": "Question 3",
+              "stem": "It can be inferred from Paragraph 4 that the MPA",
               "choices": [
                 {
                   "label": "A",
@@ -42965,7 +42994,7 @@
               "id": "kaoyan-english-1-2025-q004-s400",
               "number": 4,
               "kind": "objective",
-              "stem": "Question 4",
+              "stem": "According to Hawley, digital piracy .",
               "choices": [
                 {
                   "label": "A",
@@ -43068,7 +43097,7 @@
               "id": "kaoyan-english-1-2025-q002-s401",
               "number": 2,
               "kind": "objective",
-              "stem": "Question 2",
+              "stem": "Compared with digital objects, tangible artifacts",
               "choices": [
                 {
                   "label": "A",

@@ -139,19 +139,44 @@ pub fn mark_exercise_vocab_word_in_article(
     article_id: i64,
     normalized_form: &str,
     user_mark: &str,
+    mark_level: &str,
     meaning_note: Option<&str>,
 ) -> Result<usize, StorageError> {
     conn.execute(
         "UPDATE exercise_vocab_occurrences
          SET user_mark = ?1,
+             mark_level = ?2,
              lookup_status = CASE WHEN lookup_status = 'unseen' THEN 'looked_up' ELSE lookup_status END,
-             meaning_note = COALESCE(?2, meaning_note),
+             meaning_note = COALESCE(?3, meaning_note),
              updated_at = datetime('now')
-         WHERE article_id = ?3 AND LOWER(normalized_form) = LOWER(?4)",
-        params![user_mark, meaning_note, article_id, normalized_form],
+         WHERE article_id = ?4 AND LOWER(normalized_form) = LOWER(?5)",
+        params![user_mark, mark_level, meaning_note, article_id, normalized_form],
     )
     .map_err(|error| {
         StorageError::Database(format!("Failed to mark exercise word in article: {error}"))
+    })
+}
+
+pub fn mark_exercise_vocab_entry_in_article(
+    conn: &Connection,
+    article_id: i64,
+    entry_id: i64,
+    user_mark: &str,
+    mark_level: &str,
+    meaning_note: Option<&str>,
+) -> Result<usize, StorageError> {
+    conn.execute(
+        "UPDATE exercise_vocab_occurrences
+         SET user_mark = ?1,
+             mark_level = ?2,
+             lookup_status = CASE WHEN lookup_status = 'unseen' THEN 'looked_up' ELSE lookup_status END,
+             meaning_note = COALESCE(?3, meaning_note),
+             updated_at = datetime('now')
+         WHERE article_id = ?4 AND entry_id = ?5",
+        params![user_mark, mark_level, meaning_note, article_id, entry_id],
+    )
+    .map_err(|error| {
+        StorageError::Database(format!("Failed to mark exercise entry in article: {error}"))
     })
 }
 
@@ -255,7 +280,7 @@ pub fn refresh_same_article_relations(
     let mut stmt = conn
         .prepare(
             "SELECT id FROM exercise_vocab_occurrences
-             WHERE article_id = ?1 AND user_mark IN ('unknown', 'wrong')
+             WHERE article_id = ?1 AND user_mark IN ('ignored', 'unknown', 'wrong')
              ORDER BY id ASC",
         )
         .map_err(|error| {
@@ -378,10 +403,11 @@ pub fn load_exercise_word_mark_state(
     }
     let mut statement = conn
         .prepare(
-            "SELECT o.normalized_form, a.article_id, o.meaning_note
+            "SELECT o.normalized_form, a.article_id, o.meaning_note, o.user_mark,
+                    o.mark_level
              FROM exercise_vocab_occurrences o
              JOIN exercise_articles a ON a.id = o.article_id
-             WHERE o.user_mark IN ('unknown', 'wrong')
+             WHERE o.user_mark IN ('ignored', 'unknown', 'wrong')
              ORDER BY o.updated_at DESC",
         )
         .map_err(|error| {
@@ -393,6 +419,8 @@ pub fn load_exercise_word_mark_state(
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
             ))
         })
         .map_err(|error| {
@@ -400,7 +428,7 @@ pub fn load_exercise_word_mark_state(
         })?;
     let mut states = BTreeMap::<String, ExerciseWordMarkState>::new();
     for row in rows {
-        let (normalized, article_id, meaning) = row.map_err(|error| {
+        let (normalized, article_id, meaning, user_mark, stored_level) = row.map_err(|error| {
             StorageError::Database(format!("Failed to read exercise mark state: {error}"))
         })?;
         if !wanted.contains(&normalized) {
@@ -413,17 +441,47 @@ pub fn load_exercise_word_mark_state(
                 current_article: false,
                 prior_article: false,
                 meaning: String::new(),
+                current_mark_level: String::new(),
+                prior_mark_level: String::new(),
             });
+        let mark_level = public_mark_level(&user_mark, &stored_level);
         if article_id == current_article_id {
             state.current_article = true;
+            if mark_weight(&mark_level) > mark_weight(&state.current_mark_level) {
+                state.current_mark_level = mark_level.clone();
+            }
         } else {
             state.prior_article = true;
+            if mark_weight(&mark_level) > mark_weight(&state.prior_mark_level) {
+                state.prior_mark_level = mark_level.clone();
+            }
         }
         if state.meaning.is_empty() && !meaning.trim().is_empty() {
             state.meaning = meaning;
         }
     }
     Ok(states.into_values().collect())
+}
+
+fn public_mark_level(user_mark: &str, stored_level: &str) -> String {
+    if matches!(stored_level, "fuzzy" | "familiar" | "unknown") {
+        return stored_level.to_string();
+    }
+    match user_mark {
+        "ignored" => "fuzzy",
+        "unknown" | "wrong" => "unknown",
+        _ => "none",
+    }
+    .to_string()
+}
+
+fn mark_weight(mark: &str) -> u8 {
+    match mark {
+        "unknown" => 3,
+        "familiar" => 2,
+        "fuzzy" => 1,
+        _ => 0,
+    }
 }
 
 pub fn upsert_exercise_attempt(
@@ -574,9 +632,10 @@ mod tests {
     use super::{
         get_exercise_attempt, list_exercise_annotations, list_exercise_vocab_occurrences,
         list_exercise_vocab_relations, load_exercise_word_mark_state,
-        mark_exercise_vocab_occurrence, mark_exercise_vocab_word_in_article,
-        refresh_same_article_relations, upsert_exercise_annotation, upsert_exercise_article,
-        upsert_exercise_attempt, upsert_exercise_vocab_occurrence, upsert_exercise_vocab_relation,
+        mark_exercise_vocab_entry_in_article, mark_exercise_vocab_occurrence,
+        mark_exercise_vocab_word_in_article, refresh_same_article_relations,
+        upsert_exercise_annotation, upsert_exercise_article, upsert_exercise_attempt,
+        upsert_exercise_vocab_occurrence, upsert_exercise_vocab_relation,
     };
     use crate::models::{
         ExerciseAnnotationDraft, ExerciseArticleDraft, ExerciseAttemptDraft,
@@ -734,14 +793,87 @@ mod tests {
             .expect("occurrence");
         }
 
-        mark_exercise_vocab_word_in_article(&conn, article_id, "habit", "unknown", Some("meaning"))
-            .expect("mark all");
+        mark_exercise_vocab_word_in_article(
+            &conn,
+            article_id,
+            "habit",
+            "unknown",
+            "unknown",
+            Some("meaning"),
+        )
+        .expect("mark all");
 
         let occurrences = list_exercise_vocab_occurrences(&conn, article_id).unwrap();
         assert!(occurrences.iter().all(|item| item.user_mark == "unknown"));
         assert!(occurrences
             .iter()
             .all(|item| item.meaning_note == "meaning"));
+    }
+
+    #[test]
+    fn article_entry_mark_updates_inflected_forms_as_one_word() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        crate::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'exam-family-test', 'ready');
+             INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma)
+             VALUES (42, 1, 'patent', 'patent', 'patent');",
+        )
+        .expect("seed patent entry");
+        let article_id = upsert_exercise_article(
+            &conn,
+            &ExerciseArticleDraft {
+                article_id: "paper:reading".to_string(),
+                source_type: "builtin".to_string(),
+                title: "Reading".to_string(),
+                body: "A patent protects patents.".to_string(),
+                language: "en".to_string(),
+                metadata_json: "{}".to_string(),
+            },
+        )
+        .expect("article");
+        for (start, end, form) in [(2, 8, "patent"), (18, 25, "patents")] {
+            upsert_exercise_vocab_occurrence(
+                &conn,
+                &ExerciseVocabOccurrenceDraft {
+                    article_id,
+                    entry_id: Some(42),
+                    word_form: form.to_string(),
+                    normalized_form: form.to_string(),
+                    sentence_text: "A patent protects patents.".to_string(),
+                    paragraph_index: 0,
+                    sentence_index: 0,
+                    start_offset: start,
+                    end_offset: end,
+                    lookup_status: "matched".to_string(),
+                    user_mark: "none".to_string(),
+                    meaning_note: String::new(),
+                },
+            )
+            .expect("occurrence");
+        }
+
+        mark_exercise_vocab_entry_in_article(
+            &conn,
+            article_id,
+            42,
+            "unknown",
+            "familiar",
+            Some("专利"),
+        )
+        .expect("mark family");
+
+        let occurrences = list_exercise_vocab_occurrences(&conn, article_id).unwrap();
+        assert!(occurrences.iter().all(|item| item.user_mark == "unknown"));
+        let mark_level: String = conn
+            .query_row(
+                "SELECT mark_level FROM exercise_vocab_occurrences WHERE entry_id = 42 LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .expect("mark level");
+        assert_eq!(mark_level, "familiar");
     }
 
     #[test]

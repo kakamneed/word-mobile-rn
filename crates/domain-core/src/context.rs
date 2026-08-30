@@ -9,4 +9,3 @@ pub struct DomainContext {
     pub session_id: String,
     pub ordering_seed: String,
 }
-

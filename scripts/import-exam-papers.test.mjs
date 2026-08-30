@@ -4,12 +4,99 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { importExamPapers } from './import-exam-papers.mjs';
+import {
+  extractQuestionStemFromExplanation,
+  importExamPapers,
+  mergePlaceholderQuestionStems,
+} from './import-exam-papers.mjs';
 
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
+
+test('bundled 2010 reading translations remain complete and paragraph aligned', () => {
+  const asset = JSON.parse(
+    fs.readFileSync(
+      path.join('apps', 'flutter_mobile', 'assets', 'exam-papers', 'kaoyan-english-1.json'),
+      'utf8',
+    ),
+  );
+  const paper = asset.papers.find((candidate) => candidate.year === 2010);
+  const expectedParagraphs = new Map([
+    ['kaoyan-english-1-2010-text1-74', 5],
+    ['kaoyan-english-1-2010-text2-75', 5],
+    ['kaoyan-english-1-2010-text3-76', 5],
+    ['kaoyan-english-1-2010-text4-77', 6],
+  ]);
+
+  for (const [sectionId, expectedCount] of expectedParagraphs) {
+    const section = paper.sections.find((candidate) => candidate.id === sectionId);
+    const paragraphs = String(section.passage).split(/\n+/u).filter((value) => value.trim());
+    assert.equal(paragraphs.length, expectedCount, sectionId);
+    assert.equal(section.paragraphTranslations.length, expectedCount, sectionId);
+    assert.ok(section.paragraphTranslations.every((value) => value.trim()), sectionId);
+  }
+});
+
+test('bundled 2008 English I Text 2 keeps the two recovered official stems', () => {
+  const asset = JSON.parse(
+    fs.readFileSync(
+      path.join('apps', 'flutter_mobile', 'assets', 'exam-papers', 'kaoyan-english-1.json'),
+      'utf8',
+    ),
+  );
+  const paper = asset.papers.find((candidate) => candidate.year === 2008);
+  const section = paper.sections.find((candidate) => candidate.type === 'text2');
+
+  assert.equal(section.questions[0].stem, 'In the first paragraph, the author discusses');
+  assert.equal(
+    section.questions[4].stem,
+    'Which of the following best summarizes the main idea of the text?',
+  );
+});
+
+test('recovers a missing reading stem from the explanation overview', () => {
+  const explanation = [
+    '<p><strong>【题目及选项概览】</strong></p>',
+    '<p><strong>It is indicated in Paragraphs 1 and 2 that_____ .<br></strong></p>',
+    '<p><strong>文章第1、2段表明_______。</strong></p>',
+    '<p>A. arts criticism has disappeared</p>',
+  ].join('');
+
+  assert.equal(
+    extractQuestionStemFromExplanation(explanation),
+    'It is indicated in Paragraphs 1 and 2 that_____ .',
+  );
+});
+
+test('merges a structured stem into an answer-rich placeholder question', () => {
+  const choices = [
+    { label: 'A', text: 'First option' },
+    { label: 'B', text: 'Second option' },
+  ];
+  const answerRich = {
+    id: 'kaoyan-english-1-1998',
+    sections: [{ questions: [{ stem: 'Question 1', choices, answer: 'B' }] }],
+  };
+  const stemSource = {
+    id: 'kaoyan-english-1-1998',
+    sections: [{ questions: [{
+      stem: 'Which statement is true?',
+      choices: [
+        { label: 'A', text: 'First option.' },
+        { label: 'B', text: '“Second option”' },
+      ],
+    }] }],
+  };
+
+  assert.deepEqual(
+    mergePlaceholderQuestionStems([answerRich, stemSource]),
+    { updatedQuestions: 1 },
+  );
+  assert.equal(answerRich.sections[0].questions[0].stem, 'Which statement is true?');
+  assert.equal(answerRich.sections[0].questions[0].answer, 'B');
+});
 
 test('normalizes kaoyan JSON, CET4 parsed JSON, and CET6 TXT into one schema', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'exam-import-'));

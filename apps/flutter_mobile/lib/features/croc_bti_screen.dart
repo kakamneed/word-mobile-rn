@@ -710,6 +710,7 @@ class _PlanInputCard extends StatelessWidget {
               ('reviewWordsPerDay', '复习', 0),
               ('mixedTestPerDay', '混测', 0),
               ('wrongWordTestPerDay', '错词', 0),
+              ('highFrequencyPerDay', '高频词', 0),
               ('rootAffixPerDay', '词根', 0),
             ])
               _PlanCountSlider(

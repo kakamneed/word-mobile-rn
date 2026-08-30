@@ -2,12 +2,12 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 use crate::bridge::{
-    analyze_exam_paper_import, analyze_exam_question_vocabulary, analyze_wrong_word_import,
-    apply_saved_plan_to_today, build_reports_overview, build_today_ai_passage_context,
-    build_today_home_state, build_wrong_word_detail, build_wrong_words, cancel_study_session,
-    commit_wrong_word_import, complete_study_session, create_reward_image_upload,
-    draw_today_reward, enqueue_cloud_backfill, generate_ai_passage, get_active_plan,
-    get_ai_passage, get_ai_passage_history, get_ai_passage_style_preference,
+    analyze_exam_paper_import, analyze_exam_question_vocabulary, analyze_exam_section_vocabulary,
+    analyze_wrong_word_import, apply_saved_plan_to_today, build_reports_overview,
+    build_today_ai_passage_context, build_today_home_state, build_wrong_word_detail,
+    build_wrong_words, cancel_study_session, commit_wrong_word_import, complete_study_session,
+    create_reward_image_upload, draw_today_reward, enqueue_cloud_backfill, generate_ai_passage,
+    get_active_plan, get_ai_passage, get_ai_passage_history, get_ai_passage_style_preference,
     get_ai_provider_config, get_bootstrap_state, get_bridge_status, get_exam_annotation_state,
     get_local_leaderboard, get_reports_overview, get_reward_image_upload_entitlement, get_settings,
     get_sync_status, get_today_ai_passage_context, get_today_home_state, get_today_reward_state,
@@ -61,6 +61,32 @@ pub extern "C" fn word_mobile_ios_analyze_exam_question_vocabulary(
     let result =
         decode_arg("request_json", request_json).and_then(analyze_exam_question_vocabulary);
     encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_analyze_exam_section_vocabulary(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(analyze_exam_section_vocabulary);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_save_exam_analysis_task(
+    request_json: *const c_char,
+) -> *mut c_char {
+    let result = decode_arg("request_json", request_json).and_then(save_exam_analysis_task);
+    encode_string_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_get_exam_analysis_tasks() -> *mut c_char {
+    encode_string_result(get_exam_analysis_tasks())
+}
+
+#[no_mangle]
+pub extern "C" fn word_mobile_ios_mark_exam_analysis_tasks_read() -> *mut c_char {
+    encode_string_result(mark_exam_analysis_tasks_read())
 }
 
 fn into_owned_c_string(value: String) -> *mut c_char {

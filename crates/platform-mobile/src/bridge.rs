@@ -23,9 +23,8 @@ use word_app_core::{
     cancel_study_session as core_cancel_study_session,
     clear_all_active_sessions as core_clear_all_active_sessions,
     complete_study_session as core_complete_study_session,
-    mark_study_entry_mastered as core_mark_study_entry_mastered,
+    mark_study_entry_mastered_with_replacements as core_mark_study_entry_mastered_with_replacements,
     start_study_session as core_start_study_session,
-    submit_study_answer as core_submit_study_answer,
 };
 use word_storage_core::{
     models::{
@@ -48,6 +47,14 @@ static WORD_HINT_RECOMMENDATION_LIBRARY: Lazy<BTreeMap<String, Vec<serde_json::V
     Lazy::new(load_word_hint_recommendation_library);
 static ROOT_AFFIX_CARD_CACHE: Lazy<Mutex<BTreeMap<String, Vec<RootAffixCard>>>> =
     Lazy::new(|| Mutex::new(BTreeMap::new()));
+static EXAM_CORPUS_DICTIONARY_CACHE: Lazy<Mutex<BTreeMap<String, CachedExamCorpusDictionary>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
+static EXAM_DERIVATIONAL_FAMILY_CACHE: Lazy<
+    Mutex<BTreeMap<String, BTreeMap<String, serde_json::Value>>>,
+> = Lazy::new(|| Mutex::new(BTreeMap::new()));
+static STUDY_HIGH_FREQUENCY_SYNONYM_CACHE: Lazy<
+    Mutex<BTreeMap<(String, i64), Vec<serde_json::Value>>>,
+> = Lazy::new(|| Mutex::new(BTreeMap::new()));
 const WORD_HINT_RECOMMENDATIONS_JSON: &str =
     include_str!("../resources/word_hint_recommendations.json");
 
@@ -122,6 +129,21 @@ fn exam_asset_dir(runtime: &MobileRuntime) -> PathBuf {
         .find(|path| path.join("manifest.json").is_file())
         .cloned()
         .unwrap_or_else(|| candidates[0].clone())
+}
+
+fn exam_dictionary_asset_path(bundle_dir: &Path) -> Option<PathBuf> {
+    let candidates = [
+        bundle_dir
+            .join("exam-dictionary")
+            .join("exam-corpus-dictionary.json"),
+        bundle_dir
+            .join("flutter_assets/assets/exam-dictionary")
+            .join("exam-corpus-dictionary.json"),
+        bundle_dir
+            .join("Frameworks/App.framework/flutter_assets/assets/exam-dictionary")
+            .join("exam-corpus-dictionary.json"),
+    ];
+    candidates.into_iter().find(|path| path.is_file())
 }
 
 // ============================================================================
@@ -369,11 +391,100 @@ pub fn get_exam_vocabulary_priority() -> Result<String, String> {
         let mut papers = exam_practice_domain::load_all_exam_papers(&asset_dir)?;
         papers.extend(load_user_exam_papers(conn)?);
         let frequencies = exam_practice_domain::rank_exam_vocabulary(&papers, 200);
+        let source_catalog = papers
+            .iter()
+            .flat_map(|paper| {
+                paper.sections.iter().map(move |section| {
+                    (
+                        (paper.id.clone(), section.id.clone()),
+                        (paper.title.clone(), section.title.clone()),
+                    )
+                })
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        let mut source_statement = conn
+            .prepare(
+                "SELECT o.normalized_form, a.article_id, a.title, a.metadata_json,
+                        SUM(CASE WHEN o.mark_level = 'fuzzy' OR
+                            (o.mark_level = 'none' AND o.user_mark = 'ignored') THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN o.mark_level = 'familiar' THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN o.mark_level = 'unknown' OR
+                            (o.mark_level = 'none' AND o.user_mark = 'unknown') THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN o.user_mark = 'wrong' THEN 1 ELSE 0 END)
+                 FROM exercise_vocab_occurrences o
+                 JOIN exercise_articles a ON a.id = o.article_id
+                 WHERE o.user_mark IN ('ignored', 'unknown', 'wrong')
+                    OR o.mark_level IN ('fuzzy', 'familiar', 'unknown')
+                 GROUP BY o.normalized_form, a.article_id, a.title, a.metadata_json
+                 ORDER BY MAX(o.updated_at) DESC",
+            )
+            .map_err(|error| format!("Failed to prepare vocabulary source query: {error}"))?;
+        let source_rows = source_statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, i64>(6)?,
+                    row.get::<_, i64>(7)?,
+                ))
+            })
+            .map_err(|error| format!("Failed to load vocabulary sources: {error}"))?;
+        let mut source_evidence = BTreeMap::<String, Vec<serde_json::Value>>::new();
+        for row in source_rows {
+            let (word, article_id, article_title, metadata_json, fuzzy, familiar, unknown, wrong) =
+                row.map_err(|error| format!("Failed to read vocabulary source: {error}"))?;
+            let metadata: serde_json::Value =
+                serde_json::from_str(&metadata_json).unwrap_or_else(|_| serde_json::json!({}));
+            let fallback_ids = article_id.split_once(':');
+            let paper_id = metadata
+                .get("paperId")
+                .and_then(|value| value.as_str())
+                .or_else(|| fallback_ids.map(|(paper, _)| paper))
+                .unwrap_or("");
+            let section_id = metadata
+                .get("sectionId")
+                .and_then(|value| value.as_str())
+                .or_else(|| fallback_ids.map(|(_, section)| section))
+                .unwrap_or("");
+            let catalog_titles =
+                source_catalog.get(&(paper_id.to_string(), section_id.to_string()));
+            let paper_title = catalog_titles
+                .map(|(title, _)| title.as_str())
+                .filter(|title| !title.is_empty())
+                .unwrap_or(&article_title);
+            let section_title = catalog_titles
+                .map(|(_, title)| title.as_str())
+                .filter(|title| !title.is_empty())
+                .unwrap_or(section_id);
+            source_evidence
+                .entry(word)
+                .or_default()
+                .push(serde_json::json!({
+                    "paperId": paper_id,
+                    "paperTitle": paper_title,
+                    "sectionId": section_id,
+                    "sectionTitle": section_title,
+                    "fuzzyMarkCount": fuzzy,
+                    "familiarMarkCount": familiar,
+                    "unknownMarkCount": unknown,
+                    "wrongAssociationCount": wrong
+                }));
+        }
+        drop(source_statement);
 
         let mut statement = conn
             .prepare(
                 "SELECT normalized_form,
-                        SUM(CASE WHEN user_mark = 'unknown' THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN mark_level = 'fuzzy' OR
+                            (mark_level = 'none' AND user_mark = 'ignored') THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN mark_level = 'familiar' THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN mark_level = 'unknown' OR
+                            (mark_level = 'none' AND user_mark = 'unknown') THEN 1 ELSE 0 END),
                         SUM(CASE WHEN user_mark = 'wrong' THEN 1 ELSE 0 END),
                         SUM(CASE WHEN user_mark = 'mastered' THEN 1 ELSE 0 END),
                         MAX(updated_at)
@@ -388,15 +499,20 @@ pub fn get_exam_vocabulary_priority() -> Result<String, String> {
                     row.get::<_, i64>(1)?,
                     row.get::<_, i64>(2)?,
                     row.get::<_, i64>(3)?,
-                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, Option<String>>(6)?,
                 ))
             })
             .map_err(|error| format!("Failed to load vocabulary evidence: {error}"))?;
         let mut evidence = BTreeMap::new();
         for row in rows {
-            let (word, unknown, wrong, mastered, last_marked_at) =
+            let (word, fuzzy, familiar, unknown, wrong, mastered, last_marked_at) =
                 row.map_err(|error| format!("Failed to read vocabulary evidence: {error}"))?;
-            evidence.insert(word, (unknown, wrong, mastered, last_marked_at));
+            evidence.insert(
+                word,
+                (fuzzy, familiar, unknown, wrong, mastered, last_marked_at),
+            );
         }
 
         let mut seen_words = BTreeSet::new();
@@ -404,15 +520,17 @@ pub fn get_exam_vocabulary_priority() -> Result<String, String> {
             .into_iter()
             .map(|frequency| {
                 seen_words.insert(frequency.word.clone());
-                let (unknown, wrong, mastered, last_marked_at) = evidence
+                let (fuzzy, familiar, unknown, wrong, mastered, last_marked_at) = evidence
                     .get(&frequency.word)
                     .cloned()
-                    .unwrap_or((0, 0, 0, None));
+                    .unwrap_or((0, 0, 0, 0, 0, None));
                 let score = frequency.paper_count as f64 * 4.0
                     + frequency.article_count as f64 * 1.5
                     + frequency.occurrence_count as f64 * 0.2
-                    + unknown as f64 * 3.0
-                    + wrong as f64 * 5.0
+                    + fuzzy as f64 * 8.0
+                    + familiar as f64 * 14.0
+                    + unknown as f64 * 24.0
+                    + wrong as f64 * 32.0
                     - mastered as f64 * 2.0;
                 serde_json::json!({
                     "word": frequency.word,
@@ -420,13 +538,18 @@ pub fn get_exam_vocabulary_priority() -> Result<String, String> {
                     "paperCount": frequency.paper_count,
                     "articleCount": frequency.article_count,
                     "occurrenceCount": frequency.occurrence_count,
+                    "fuzzyMarkCount": fuzzy,
+                    "familiarMarkCount": familiar,
                     "unknownMarkCount": unknown,
                     "wrongAssociationCount": wrong,
                     "masteredMarkCount": mastered,
                     "lastMarkedAt": last_marked_at,
+                    "sources": source_evidence.get(&frequency.word).cloned().unwrap_or_default(),
                     "factors": [
                         {"type": "crossPaperFrequency", "value": frequency.paper_count},
                         {"type": "articleCoverage", "value": frequency.article_count},
+                        {"type": "fuzzyMarks", "value": fuzzy},
+                        {"type": "familiarMarks", "value": familiar},
                         {"type": "unknownMarks", "value": unknown},
                         {"type": "wrongAnswerAssociation", "value": wrong},
                         {"type": "masteryOffset", "value": mastered}
@@ -434,22 +557,31 @@ pub fn get_exam_vocabulary_priority() -> Result<String, String> {
                 })
             })
             .collect::<Vec<_>>();
-        for (word, (unknown, wrong, mastered, last_marked_at)) in &evidence {
-            if seen_words.contains(word) || unknown + wrong == 0 {
+        for (word, (fuzzy, familiar, unknown, wrong, mastered, last_marked_at)) in &evidence {
+            if seen_words.contains(word) || fuzzy + familiar + unknown + wrong == 0 {
                 continue;
             }
-            let score = *unknown as f64 * 3.0 + *wrong as f64 * 5.0 - *mastered as f64 * 2.0;
+            let score = *fuzzy as f64 * 8.0
+                + *familiar as f64 * 14.0
+                + *unknown as f64 * 24.0
+                + *wrong as f64 * 32.0
+                - *mastered as f64 * 2.0;
             items.push(serde_json::json!({
                 "word": word,
                 "priorityScore": score,
                 "paperCount": 0,
                 "articleCount": 0,
-                "occurrenceCount": unknown + wrong + mastered,
+                "occurrenceCount": fuzzy + familiar + unknown + wrong + mastered,
+                "fuzzyMarkCount": fuzzy,
+                "familiarMarkCount": familiar,
                 "unknownMarkCount": unknown,
                 "wrongAssociationCount": wrong,
                 "masteredMarkCount": mastered,
                 "lastMarkedAt": last_marked_at,
+                "sources": source_evidence.get(word).cloned().unwrap_or_default(),
                 "factors": [
+                    {"type": "fuzzyMarks", "value": fuzzy},
+                    {"type": "familiarMarks", "value": familiar},
                     {"type": "unknownMarks", "value": unknown},
                     {"type": "wrongAnswerAssociation", "value": wrong},
                     {"type": "masteryOffset", "value": mastered}
@@ -605,6 +737,423 @@ fn exam_objective_section_kind(section_type: &str, title: &str) -> Option<&'stat
     None
 }
 
+struct PreparedExamCausalAnalysis {
+    evidence_key: String,
+    evidence: Vec<serde_json::Value>,
+    article_id: String,
+    paper_id: String,
+    question_id: String,
+    attempt_id: String,
+    prompt: String,
+}
+
+enum ExamCausalPreparation {
+    Complete(String),
+    Ready(PreparedExamCausalAnalysis),
+}
+
+const EXAM_CAUSAL_SYSTEM_PROMPT: &str = "Analyze every marked vocabulary item for this wrong answer, and include a candidate only when its contextual meaning plausibly caused confusion between the selected distractor and the correct choice. Use paragraphTranslations to determine the word's meaning in this passage before comparing the selected distractor with the reference answer. Return strict JSON only: {eligible:true,candidates:[{word,confidence,reasoning,evidence,limitations}],limitations:[string]}. Candidate words must come from markedVocabulary. Return at most two candidates. Keep every reasoning, evidence, and limitation string under 80 Simplified Chinese characters, and keep the whole response under 350 tokens. Every reasoning, evidence, and limitations string must use Simplified Chinese only; do not provide English explanations. Every string value must be valid JSON: do not use unescaped ASCII double-quote characters inside a string; use Chinese quotation marks instead.";
+
+const EXAM_SECTION_CAUSAL_SYSTEM_PROMPT: &str = "Analyze every wrongQuestion independently using the shared passage, paragraphTranslations, and markedVocabulary. A candidate may be returned only when that marked word's contextual meaning plausibly caused confusion between that question's selected distractor and correct answer. Return strict JSON only: {eligible:true,questions:[{questionId,candidates:[{word,confidence,reasoning,evidence,limitations}]}],limitations:[string]}. Return one questions item for every supplied wrongQuestion, even when its candidates array is empty. Candidate words must come from markedVocabulary. Return at most two candidates per question. Keep every reasoning, evidence, and limitation string under 80 Simplified Chinese characters, and keep the whole response under 700 tokens. Every reasoning, evidence, and limitations string must use Simplified Chinese only; do not provide English explanations. Every string value must be valid JSON: do not use unescaped ASCII double-quote characters inside a string; use Chinese quotation marks instead.";
+
+const EXAM_CLOZE_REVIEW_SYSTEM_PROMPT: &str = "Analyze the cloze using the supplied passage, markedVocabulary, questions, choices, and answers. The application owns all factual report fields; do not reproduce question numbers, stems, answer labels, option text or meanings, vocabulary meanings, marks, occurrence counts, ranks, or mark scope. Return strict JSON only: {eligible:true,questions:[{questionId,contextSentence,annotatedContext,optionAnalysis:[{label,analysis}],analysis,knowledgeGap,candidates:[{word,confidence,reasoning,evidence,limitations}]}],correctMarkedQuestions:[{questionId,distinction}],vocabularyPriority:[{word,priorityReason}],limitations:[string]}. Return one questions item per wrongQuestion. Explain how the marked words, context, selected distractor, and correct option interact. Candidate words and vocabularyPriority words must come from markedVocabulary. In annotatedContext gloss current-scope marks only and never gloss prior-scope pure-purple marks. Use concise Simplified Chinese and valid JSON.";
+
+const EXAM_READING_REVIEW_SYSTEM_PROMPT: &str = "Analyze the reading questions using the supplied passage, markedVocabulary, choices, selected answers, and correct answers. The application owns all factual report fields; do not reproduce question numbers, stems, answer labels, option text or meanings, vocabulary meanings, marks, occurrence counts, ranks, or mark scope. Return strict JSON only: {eligible:true,questions:[{questionId,evidenceLocation,contextSentence,annotatedContext,optionAnalysis:[{label,analysis}],analysis,knowledgeGap,candidates:[{word,confidence,reasoning,evidence,limitations}]}],correctMarkedQuestions:[{questionId,distinction}],vocabularyPriority:[{word,priorityReason}],limitations:[string]}. Return one questions item per wrongQuestion. Work question-first and explain how the marked words, passage evidence, selected distractor, and correct option interact. Candidate words and vocabularyPriority words must come from markedVocabulary. In annotatedContext gloss current-scope marks only and never gloss prior-scope pure-purple marks. Use concise Simplified Chinese and valid JSON.";
+
+fn build_exam_causal_prompt(
+    section: &exam_practice_domain::ExamSection,
+    question: &exam_practice_domain::ExamQuestion,
+    selected_answer: Option<&str>,
+    evidence: &[serde_json::Value],
+) -> serde_json::Value {
+    serde_json::json!({
+        "passage": section.passage,
+        "paragraphTranslations": section.paragraph_translations,
+        "stem": question.stem,
+        "choices": question.choices,
+        "correctAnswer": question.answer,
+        "selectedAnswer": selected_answer,
+        "markedVocabulary": evidence
+    })
+}
+
+fn build_exam_section_causal_prompt(
+    section: &exam_practice_domain::ExamSection,
+    wrong_questions: &[(exam_practice_domain::ExamQuestion, String)],
+    evidence: &[serde_json::Value],
+) -> serde_json::Value {
+    serde_json::json!({
+        "passage": section.passage,
+        "paragraphTranslations": section.paragraph_translations,
+        "markedVocabulary": evidence,
+        "wrongQuestions": wrong_questions.iter().map(|(question, selected_answer)| serde_json::json!({
+            "questionId": question.id,
+            "number": question.number,
+            "stem": question.stem,
+            "choices": question.choices,
+            "correctAnswer": question.answer,
+            "selectedAnswer": selected_answer,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+fn build_exam_cloze_review_prompt(
+    section: &exam_practice_domain::ExamSection,
+    attempts: &[(exam_practice_domain::ExamQuestion, String, bool)],
+    evidence: &[serde_json::Value],
+) -> serde_json::Value {
+    let question_json = |question: &exam_practice_domain::ExamQuestion, selected_answer: &str| {
+        serde_json::json!({
+            "questionId": question.id,
+            "number": question.number,
+            "stem": question.stem,
+            "choices": question.choices,
+            "correctAnswer": question.answer,
+            "selectedAnswer": selected_answer,
+        })
+    };
+    serde_json::json!({
+        "reviewFormat": "cloze-review-v1",
+        "passage": section.passage,
+        "paragraphTranslations": section.paragraph_translations,
+        "markedVocabulary": evidence,
+        "wrongQuestions": attempts.iter()
+            .filter(|(_, _, is_correct)| !is_correct)
+            .map(|(question, selected_answer, _)| question_json(question, selected_answer))
+            .collect::<Vec<_>>(),
+        "correctQuestions": attempts.iter()
+            .filter(|(question, _, is_correct)| {
+                *is_correct && question_choices_contain_marked_evidence(question, evidence)
+            })
+            .map(|(question, selected_answer, _)| question_json(question, selected_answer))
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn build_exam_reading_review_prompt(
+    section: &exam_practice_domain::ExamSection,
+    attempts: &[(exam_practice_domain::ExamQuestion, String, bool)],
+    evidence: &[serde_json::Value],
+) -> serde_json::Value {
+    let question_json = |question: &exam_practice_domain::ExamQuestion, selected_answer: &str| {
+        serde_json::json!({
+            "questionId": question.id,
+            "number": question.number,
+            "stem": question.stem,
+            "choices": question.choices,
+            "correctAnswer": question.answer,
+            "selectedAnswer": selected_answer,
+        })
+    };
+    serde_json::json!({
+        "reviewFormat": "reading-review-v1",
+        "passage": section.passage,
+        "paragraphTranslations": section.paragraph_translations,
+        "markedVocabulary": evidence,
+        "wrongQuestions": attempts.iter()
+            .filter(|(_, _, is_correct)| !is_correct)
+            .map(|(question, selected_answer, _)| question_json(question, selected_answer))
+            .collect::<Vec<_>>(),
+        "correctQuestions": attempts.iter()
+            .filter(|(question, _, is_correct)| {
+                *is_correct && question_choices_contain_marked_evidence(question, evidence)
+            })
+            .map(|(question, selected_answer, _)| question_json(question, selected_answer))
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn question_choices_contain_marked_evidence(
+    question: &exam_practice_domain::ExamQuestion,
+    evidence: &[serde_json::Value],
+) -> bool {
+    let choices = question
+        .choices
+        .iter()
+        .map(|choice| choice.text.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    evidence.iter().any(|item| {
+        let word = item
+            .get("word")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
+        !word.is_empty() && choices.iter().any(|choice| choice.contains(&word))
+    })
+}
+
+struct PreparedExamSectionQuestion {
+    question_id: String,
+    question_number: i64,
+    stem: String,
+    choices: Vec<serde_json::Value>,
+    correct_answer: String,
+    attempt_id: String,
+    selected_answer: String,
+}
+
+struct PreparedExamSectionCausalAnalysis {
+    article_id: String,
+    paper_id: String,
+    evidence: Vec<serde_json::Value>,
+    questions: Vec<PreparedExamSectionQuestion>,
+    correct_question_numbers: std::collections::HashMap<String, i64>,
+    is_cloze: bool,
+    is_reading: bool,
+    prompt: String,
+}
+
+enum ExamSectionCausalPreparation {
+    Complete(String),
+    Ready(PreparedExamSectionCausalAnalysis),
+}
+
+pub fn analyze_exam_section_vocabulary(request_json: String) -> Result<String, String> {
+    let request: serde_json::Value =
+        serde_json::from_str(&request_json).map_err(|error| format!("Invalid request: {error}"))?;
+    let exam = required_string_field(&request, "exam")?;
+    let paper_id = required_string_field(&request, "paperId")?;
+    let section_id = required_string_field(&request, "sectionId")?;
+    let attempts = request
+        .get("attempts")
+        .and_then(serde_json::Value::as_array)
+        .filter(|items| !items.is_empty())
+        .ok_or_else(|| "Missing attempts".to_string())?;
+    let pure_purple_words = request
+        .get("purePurpleWords")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .map(|word| word.trim().to_ascii_lowercase())
+        .filter(|word| !word.is_empty())
+        .collect::<std::collections::HashSet<_>>();
+    let preparation = with_runtime(|runtime, conn| {
+        let paper = if let Some(paper) = load_user_exam_paper(conn, &exam, &paper_id)? {
+            paper
+        } else {
+            let asset_dir = exam_asset_dir(runtime);
+            exam_practice_domain::load_exam_paper(&asset_dir, &exam, &paper_id)?
+                .ok_or_else(|| format!("Exam paper not found: {paper_id}"))?
+        };
+        let section = paper
+            .sections
+            .iter()
+            .find(|section| section.id == section_id)
+            .ok_or_else(|| format!("Exam section not found: {section_id}"))?;
+        let is_cloze =
+            exam_objective_section_kind(&section.section_type, &section.title) == Some("cloze");
+        let is_reading =
+            exam_objective_section_kind(&section.section_type, &section.title) == Some("reading");
+        let mut wrong_questions = Vec::new();
+        let mut completed_questions = Vec::new();
+        let mut prepared_questions = Vec::new();
+        let mut missing_evidence = Vec::new();
+        for item in attempts {
+            let question_id = required_string_field(item, "questionId")?;
+            let attempt_id = required_string_field(item, "attemptId")?;
+            let question = section
+                .questions
+                .iter()
+                .find(|question| question.id == question_id)
+                .ok_or_else(|| format!("Exam question not found: {question_id}"))?;
+            let attempt =
+                word_storage_core::persistence::exercise_vocab_repo::get_exercise_attempt(
+                    conn,
+                    &attempt_id,
+                )
+                .map_err(|error| format!("Failed to load exam attempt: {error}"))?;
+            let Some(attempt) = attempt else {
+                missing_evidence.push(format!("Question {question_id} has no recorded attempt"));
+                continue;
+            };
+            if !question.capabilities.causal_analyzable || attempt.is_correct.is_none() {
+                missing_evidence.push(format!(
+                    "Question {question_id} is not an analyzable answer"
+                ));
+                continue;
+            }
+            let selected_answer = attempt.selected_answer.unwrap_or_default();
+            let is_correct = attempt.is_correct == Some(true);
+            if !is_correct {
+                wrong_questions.push((question.clone(), selected_answer.clone()));
+                prepared_questions.push(PreparedExamSectionQuestion {
+                    question_id,
+                    question_number: question.number,
+                    stem: question.stem.clone(),
+                    choices: question
+                        .choices
+                        .iter()
+                        .map(|choice| {
+                            serde_json::json!({
+                                "label": choice.label,
+                                "text": choice.text,
+                            })
+                        })
+                        .collect(),
+                    correct_answer: question.answer.clone().unwrap_or_default(),
+                    attempt_id,
+                    selected_answer: selected_answer.clone(),
+                });
+            } else if !is_cloze && !is_reading {
+                missing_evidence.push(format!(
+                    "Question {question_id} is not a wrong analyzable answer"
+                ));
+                continue;
+            }
+            completed_questions.push((question.clone(), selected_answer, is_correct));
+        }
+        if wrong_questions.is_empty() {
+            return Ok(ExamSectionCausalPreparation::Complete(
+                serde_json::json!({
+                    "eligible": false,
+                    "missingEvidence": missing_evidence,
+                    "questions": []
+                })
+                .to_string(),
+            ));
+        }
+        let article_id = format!("{paper_id}:{section_id}");
+        let mut evidence = load_exam_causal_evidence(conn, &article_id)?;
+        augment_pure_purple_exam_evidence(conn, &article_id, &pure_purple_words, &mut evidence)?;
+        enrich_exam_derivational_family_evidence(
+            &runtime.paths().bundled_resource_path(""),
+            &mut evidence,
+        )?;
+        if evidence.is_empty() {
+            return Ok(ExamSectionCausalPreparation::Complete(
+                serde_json::json!({
+                    "eligible": false,
+                    "missingEvidence": ["No marked vocabulary is available for this article"],
+                    "questions": []
+                })
+                .to_string(),
+            ));
+        }
+        let prompt = if is_cloze {
+            build_exam_cloze_review_prompt(section, &completed_questions, &evidence)
+        } else if is_reading {
+            build_exam_reading_review_prompt(section, &completed_questions, &evidence)
+        } else {
+            build_exam_section_causal_prompt(section, &wrong_questions, &evidence)
+        };
+        let correct_question_numbers = completed_questions
+            .iter()
+            .filter(|(question, _, is_correct)| {
+                *is_correct && question_choices_contain_marked_evidence(question, &evidence)
+            })
+            .map(|(question, _, _)| (question.id.clone(), question.number))
+            .collect();
+        Ok(ExamSectionCausalPreparation::Ready(
+            PreparedExamSectionCausalAnalysis {
+                article_id,
+                paper_id,
+                evidence,
+                questions: prepared_questions,
+                correct_question_numbers,
+                is_cloze,
+                is_reading,
+                prompt: prompt.to_string(),
+            },
+        ))
+    })?;
+    let prepared = match preparation {
+        ExamSectionCausalPreparation::Complete(result) => return Ok(result),
+        ExamSectionCausalPreparation::Ready(prepared) => prepared,
+    };
+
+    // One provider request owns the shared article context for every wrong question.
+    let system_prompt = if prepared.is_cloze {
+        EXAM_CLOZE_REVIEW_SYSTEM_PROMPT
+    } else if prepared.is_reading {
+        EXAM_READING_REVIEW_SYSTEM_PROMPT
+    } else {
+        EXAM_SECTION_CAUSAL_SYSTEM_PROMPT
+    };
+    let mut result = normalize_exam_section_causal_provider_result(
+        ai_agent().run_exam_summary_json(system_prompt, &prepared.prompt),
+    );
+    retain_marked_exam_section_candidates(&mut result, &prepared.evidence, &prepared.questions);
+    if prepared.is_cloze || prepared.is_reading {
+        attach_local_structured_review_facts(&mut result, &prepared.questions);
+        remove_familiar_inline_glosses(&mut result, &prepared.evidence);
+        retain_cloze_correct_question_reviews(&mut result, &prepared.correct_question_numbers);
+        result["reviewFormat"] = serde_json::Value::String(
+            if prepared.is_cloze {
+                "cloze-review-v1"
+            } else {
+                "reading-review-v1"
+            }
+            .to_string(),
+        );
+        attach_cloze_vocabulary_priority(&mut result, &prepared.evidence);
+    }
+    let status = if result["providerStatus"] == "completed" {
+        "completed"
+    } else {
+        "provider_failure"
+    };
+    with_runtime_conn(|conn| {
+        let candidates = result
+            .get("questions")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|question| {
+                question
+                    .get("candidates")
+                    .and_then(serde_json::Value::as_array)
+            })
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>();
+        let promoted_words = persist_exam_causal_words(
+            conn,
+            &prepared.article_id,
+            &serde_json::json!({"candidates": candidates}),
+        )?;
+        result["promotedWords"] = serde_json::json!(promoted_words);
+        for question in &prepared.questions {
+            let question_result = result
+                .get("questions")
+                .and_then(serde_json::Value::as_array)
+                .and_then(|items| {
+                    items
+                        .iter()
+                        .find(|item| item["questionId"] == question.question_id)
+                })
+                .cloned()
+                .unwrap_or_else(
+                    || serde_json::json!({"questionId": question.question_id, "candidates": []}),
+                );
+            let evidence_key = format!(
+                "{}:{}:{}:{}:section-batch-v1",
+                prepared.paper_id,
+                question.question_id,
+                question.attempt_id,
+                question.selected_answer
+            );
+            persist_exam_analysis(
+                conn,
+                &evidence_key,
+                &prepared.paper_id,
+                &question.question_id,
+                &question.attempt_id,
+                status,
+                serde_json::json!({
+                    "eligible": result["eligible"],
+                    "providerStatus": result["providerStatus"],
+                    "candidates": question_result["candidates"],
+                    "limitations": result["limitations"],
+                    "promotedWords": result["promotedWords"],
+                }),
+            )?;
+        }
+        Ok(result.to_string())
+    })
+}
+
 pub fn analyze_exam_question_vocabulary(request_json: String) -> Result<String, String> {
     let request: serde_json::Value =
         serde_json::from_str(&request_json).map_err(|error| format!("Invalid request: {error}"))?;
@@ -613,7 +1162,7 @@ pub fn analyze_exam_question_vocabulary(request_json: String) -> Result<String, 
     let section_id = required_string_field(&request, "sectionId")?;
     let question_id = required_string_field(&request, "questionId")?;
     let attempt_id = required_string_field(&request, "attemptId")?;
-    with_runtime(|runtime, conn| {
+    let preparation = with_runtime(|runtime, conn| {
         let paper = if let Some(paper) = load_user_exam_paper(conn, &exam, &paper_id)? {
             paper
         } else {
@@ -652,30 +1201,30 @@ pub fn analyze_exam_question_vocabulary(request_json: String) -> Result<String, 
                 &attempt_id,
                 "ineligible",
                 serde_json::json!({"eligible": false, "missingEvidence": [reason]}),
-            );
+            )
+            .map(ExamCausalPreparation::Complete);
         }
         let article_id = format!("{paper_id}:{section_id}");
-        let mut statement = conn
-            .prepare(
-                "SELECT o.normalized_form, o.user_mark, o.sentence_text
-                 FROM exercise_vocab_occurrences o
-                 JOIN exercise_articles a ON a.id = o.article_id
-                 WHERE a.article_id = ?1 AND o.user_mark IN ('unknown', 'wrong')
-                 ORDER BY o.start_offset",
+        let mut evidence = load_exam_causal_evidence(conn, &article_id)?;
+        enrich_exam_derivational_family_evidence(
+            &runtime.paths().bundled_resource_path(""),
+            &mut evidence,
+        )?;
+        if evidence.is_empty() {
+            return persist_exam_analysis(
+                conn,
+                &format!("{paper_id}:{question_id}:{attempt_id}:no-marked-vocabulary"),
+                &paper_id,
+                &question_id,
+                &attempt_id,
+                "ineligible",
+                serde_json::json!({
+                    "eligible": false,
+                    "missingEvidence": ["本篇文章尚未标记需要分析的词汇"]
+                }),
             )
-            .map_err(|error| format!("Failed to prepare question evidence query: {error}"))?;
-        let rows = statement
-            .query_map([&article_id], |row| {
-                Ok(serde_json::json!({
-                    "word": row.get::<_, String>(0)?,
-                    "mark": row.get::<_, String>(1)?,
-                    "sentence": row.get::<_, String>(2)?
-                }))
-            })
-            .map_err(|error| format!("Failed to load question vocabulary evidence: {error}"))?;
-        let evidence = rows
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| format!("Failed to read question vocabulary evidence: {error}"))?;
+            .map(ExamCausalPreparation::Complete);
+        }
         let attempt = attempt.expect("wrong attempt checked");
         let evidence_key = format!(
             "{paper_id}:{question_id}:{attempt_id}:{}:{}",
@@ -695,35 +1244,721 @@ pub fn analyze_exam_question_vocabulary(request_json: String) -> Result<String, 
             .optional()
             .map_err(|error| format!("Failed to load cached exam analysis: {error}"))?
         {
-            return Ok(cached);
+            let mut cached_result = serde_json::from_str::<serde_json::Value>(&cached)
+                .map_err(|error| format!("Cached exam analysis is invalid: {error}"))?;
+            retain_marked_exam_causal_candidates(&mut cached_result, &evidence);
+            let promoted_words = persist_exam_causal_words(conn, &article_id, &cached_result)?;
+            cached_result["promotedWords"] = serde_json::json!(promoted_words);
+            return Ok(ExamCausalPreparation::Complete(cached_result.to_string()));
         }
-        let prompt = serde_json::json!({
-            "passage": section.passage,
-            "stem": question.stem,
-            "choices": question.choices,
-            "correctAnswer": question.answer,
-            "selectedAnswer": attempt.selected_answer,
-            "markedVocabulary": evidence
-        });
-        let system = "Analyze only whether marked unknown words plausibly caused this wrong reading answer. Return JSON only: {eligible:true,candidates:[{word,confidence,reasoning,evidence,limitations}],limitations:[string]}. Do not claim causation without connecting the word meaning to the selected distractor or correct choice.";
-        let result = normalize_exam_causal_provider_result(
-            ai_agent().run_text_json(system, &prompt.to_string()),
+        let prompt = build_exam_causal_prompt(
+            section,
+            question,
+            attempt.selected_answer.as_deref(),
+            &evidence,
         );
-        let status = if result["providerStatus"] == "completed" {
-            "completed"
-        } else {
-            "provider_failure"
-        };
+        Ok(ExamCausalPreparation::Ready(PreparedExamCausalAnalysis {
+            evidence_key,
+            evidence,
+            article_id,
+            paper_id: paper_id.clone(),
+            question_id: question_id.clone(),
+            attempt_id: attempt_id.clone(),
+            prompt: prompt.to_string(),
+        }))
+    })?;
+    let prepared = match preparation {
+        ExamCausalPreparation::Complete(result) => return Ok(result),
+        ExamCausalPreparation::Ready(prepared) => prepared,
+    };
+
+    // Provider I/O must never hold the runtime guard or a SQLite connection.
+    let mut result = normalize_exam_causal_provider_result(
+        ai_agent().run_exam_summary_json(EXAM_CAUSAL_SYSTEM_PROMPT, &prepared.prompt),
+    );
+    retain_marked_exam_causal_candidates(&mut result, &prepared.evidence);
+    let status = if result["providerStatus"] == "completed" {
+        "completed"
+    } else {
+        "provider_failure"
+    };
+    with_runtime_conn(|conn| {
+        let promoted_words = persist_exam_causal_words(conn, &prepared.article_id, &result)?;
+        let mut result = result;
+        result["promotedWords"] = serde_json::json!(promoted_words);
         persist_exam_analysis(
             conn,
-            &evidence_key,
-            &paper_id,
-            &question_id,
-            &attempt_id,
+            &prepared.evidence_key,
+            &prepared.paper_id,
+            &prepared.question_id,
+            &prepared.attempt_id,
             status,
             result,
         )
     })
+}
+
+fn load_exam_causal_evidence(
+    conn: &rusqlite::Connection,
+    article_source_id: &str,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut statement = conn
+        .prepare(
+            "SELECT o.normalized_form, o.mark_level, o.sentence_text,
+                    COALESCE(NULLIF(o.meaning_note, ''), ''),
+                    COALESCE(e.exam_frequency, 0), e.exam_rank
+             FROM exercise_vocab_occurrences o
+             JOIN exercise_articles a ON a.id = o.article_id
+             LEFT JOIN entries e ON e.id = o.entry_id
+             WHERE a.article_id = ?1
+               AND (o.mark_level IN ('fuzzy', 'familiar', 'unknown')
+                    OR o.user_mark IN ('unknown', 'wrong'))
+             ORDER BY o.start_offset",
+        )
+        .map_err(|error| format!("Failed to prepare question evidence query: {error}"))?;
+    let rows = statement
+        .query_map([article_source_id], |row| {
+            let mark_level = row.get::<_, String>(1)?;
+            Ok(serde_json::json!({
+                "word": row.get::<_, String>(0)?,
+                "mark": mark_level,
+                "markScope": "current",
+                "sentence": row.get::<_, String>(2)?,
+                "meaning": row.get::<_, String>(3)?,
+                "examFrequency": row.get::<_, i64>(4)?,
+                "examRank": row.get::<_, Option<i64>>(5)?
+            }))
+        })
+        .map_err(|error| format!("Failed to load question vocabulary evidence: {error}"))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read question vocabulary evidence: {error}"))
+}
+
+fn augment_pure_purple_exam_evidence(
+    conn: &rusqlite::Connection,
+    article_source_id: &str,
+    pure_purple_words: &std::collections::HashSet<String>,
+    evidence: &mut Vec<serde_json::Value>,
+) -> Result<(), String> {
+    for word in pure_purple_words {
+        if let Some(item) = evidence.iter_mut().find(|item| {
+            item.get("word")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.eq_ignore_ascii_case(word))
+        }) {
+            item["markScope"] = serde_json::Value::String("prior".to_string());
+            continue;
+        }
+        let prior = conn
+            .query_row(
+                "SELECT o.normalized_form, o.mark_level,
+                        COALESCE(NULLIF(o.meaning_note, ''), ''),
+                        COALESCE(e.exam_frequency, 0), e.exam_rank
+                 FROM exercise_vocab_occurrences o
+                 JOIN exercise_articles a ON a.id = o.article_id
+                 LEFT JOIN entries e ON e.id = o.entry_id
+                 WHERE a.article_id <> ?1
+                   AND LOWER(o.normalized_form) = ?2
+                   AND (o.mark_level IN ('fuzzy', 'familiar', 'unknown')
+                        OR o.user_mark IN ('unknown', 'wrong'))
+                 ORDER BY o.updated_at DESC
+                 LIMIT 1",
+                rusqlite::params![article_source_id, word],
+                |row| {
+                    Ok(serde_json::json!({
+                        "word": row.get::<_, String>(0)?,
+                        "mark": row.get::<_, String>(1)?,
+                        "markScope": "prior",
+                        "sentence": "",
+                        "meaning": row.get::<_, String>(2)?,
+                        "examFrequency": row.get::<_, i64>(3)?,
+                        "examRank": row.get::<_, Option<i64>>(4)?
+                    }))
+                },
+            )
+            .optional()
+            .map_err(|error| format!("Failed to load prior exam vocabulary evidence: {error}"))?;
+        if let Some(prior) = prior {
+            evidence.push(prior);
+        }
+    }
+    Ok(())
+}
+
+fn parse_exam_derivational_family_index(
+    source: &str,
+) -> Result<BTreeMap<String, serde_json::Value>, String> {
+    let entries: serde_json::Value = serde_json::from_str(source)
+        .map_err(|error| format!("Failed to parse Kaoyan derivational families: {error}"))?;
+    let mut index = BTreeMap::new();
+    if let Some(families) = entries.as_object() {
+        for (member, family) in families {
+            insert_exam_derivational_family(
+                &mut index,
+                member,
+                family,
+                family
+                    .get("strictOccurrences")
+                    .and_then(serde_json::Value::as_i64),
+            );
+        }
+        return Ok(index);
+    }
+    for entry in entries.as_array().into_iter().flatten() {
+        let Some(family) =
+            entry.pointer("/content/word/content/realExamFrequency/derivationalFamily")
+        else {
+            continue;
+        };
+        let Some(members) = family.get("members").and_then(serde_json::Value::as_object) else {
+            continue;
+        };
+        for (member, strict_count) in members {
+            insert_exam_derivational_family(&mut index, member, family, strict_count.as_i64());
+        }
+    }
+    Ok(index)
+}
+
+fn insert_exam_derivational_family(
+    index: &mut BTreeMap<String, serde_json::Value>,
+    member: &str,
+    family: &serde_json::Value,
+    strict_count: Option<i64>,
+) {
+    let normalized = member.trim().to_ascii_lowercase();
+    let root = family
+        .get("root")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    let occurrences = family
+        .get("occurrences")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let Some(members) = family.get("members").and_then(serde_json::Value::as_object) else {
+        return;
+    };
+    if normalized.is_empty() || root.is_empty() || occurrences <= 0 {
+        return;
+    }
+    index.insert(
+        normalized,
+        serde_json::json!({
+            "examFrequency": strict_count.unwrap_or(0),
+            "examFamilyRoot": root,
+            "examFamilyFrequency": occurrences,
+            "examFamilyMembers": members,
+        }),
+    );
+}
+
+fn load_exam_derivational_family_index(
+    bundle_dir: &Path,
+) -> Result<BTreeMap<String, serde_json::Value>, String> {
+    let candidates = [
+        bundle_dir
+            .join("exam-dictionary")
+            .join("kaoyan-derivational-frequencies.json"),
+        bundle_dir
+            .join("flutter_assets")
+            .join("assets")
+            .join("exam-dictionary")
+            .join("kaoyan-derivational-frequencies.json"),
+        bundle_dir
+            .join("Frameworks")
+            .join("App.framework")
+            .join("flutter_assets")
+            .join("assets")
+            .join("exam-dictionary")
+            .join("kaoyan-derivational-frequencies.json"),
+        bundle_dir
+            .join("seed-vocab")
+            .join("book")
+            .join("KaoYan_3.json"),
+    ];
+    let Some(path) = candidates.into_iter().find(|candidate| candidate.is_file()) else {
+        return Ok(BTreeMap::new());
+    };
+    let cache_key = path.to_string_lossy().to_string();
+    if let Some(cached) = EXAM_DERIVATIONAL_FAMILY_CACHE
+        .lock()
+        .map_err(|_| "Exam derivational family cache lock poisoned".to_string())?
+        .get(&cache_key)
+        .cloned()
+    {
+        return Ok(cached);
+    }
+    let source = fs::read_to_string(&path).map_err(|error| {
+        format!(
+            "Failed to read Kaoyan derivational families from {}: {error}",
+            path.display()
+        )
+    })?;
+    let index = parse_exam_derivational_family_index(&source)?;
+    EXAM_DERIVATIONAL_FAMILY_CACHE
+        .lock()
+        .map_err(|_| "Exam derivational family cache lock poisoned".to_string())?
+        .insert(cache_key, index.clone());
+    Ok(index)
+}
+
+fn enrich_exam_derivational_family_evidence(
+    bundle_dir: &Path,
+    evidence: &mut [serde_json::Value],
+) -> Result<(), String> {
+    let index = load_exam_derivational_family_index(bundle_dir)?;
+    for item in evidence {
+        let word = item
+            .get("word")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
+        let Some(family) = index.get(&word) else {
+            continue;
+        };
+        for key in [
+            "examFrequency",
+            "examFamilyRoot",
+            "examFamilyFrequency",
+            "examFamilyMembers",
+        ] {
+            item[key] = family.get(key).cloned().unwrap_or(serde_json::Value::Null);
+        }
+    }
+    Ok(())
+}
+
+fn attach_cloze_vocabulary_priority(
+    result: &mut serde_json::Value,
+    evidence: &[serde_json::Value],
+) {
+    let reasons = result
+        .get("vocabularyPriority")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            let word = item.get("word")?.as_str()?.trim().to_ascii_lowercase();
+            let reason = item
+                .get("priorityReason")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            Some((word, reason))
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut by_word = std::collections::HashMap::<String, serde_json::Value>::new();
+    for item in evidence {
+        let word = item
+            .get("word")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
+        if word.is_empty() {
+            continue;
+        }
+        let frequency = item
+            .get("examFrequency")
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(0);
+        let display_frequency = item
+            .get("examFamilyFrequency")
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(frequency);
+        let replace = by_word
+            .get(&word)
+            .and_then(|current| current.get("displayExamFrequency"))
+            .and_then(serde_json::Value::as_i64)
+            .is_none_or(|current| display_frequency > current);
+        if replace {
+            by_word.insert(
+                word.clone(),
+                serde_json::json!({
+                    "word": word,
+                    "meaning": item.get("meaning").cloned().unwrap_or_default(),
+                    "mark": item.get("mark").cloned().unwrap_or_default(),
+                    "markScope": item.get("markScope").cloned().unwrap_or_default(),
+                    "examFrequency": frequency,
+                    "displayExamFrequency": display_frequency,
+                    "examFamilyRoot": item.get("examFamilyRoot").cloned().unwrap_or_default(),
+                    "examFamilyFrequency": item.get("examFamilyFrequency").cloned().unwrap_or_default(),
+                    "examFamilyMembers": item.get("examFamilyMembers").cloned().unwrap_or_default(),
+                    "examRank": item.get("examRank").cloned().unwrap_or_default(),
+                    "priorityReason": reasons.get(&word).cloned().unwrap_or_default(),
+                }),
+            );
+        }
+    }
+    let mut items = by_word.into_values().collect::<Vec<_>>();
+    items.sort_by(|left, right| {
+        right["displayExamFrequency"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&left["displayExamFrequency"].as_i64().unwrap_or(0))
+            .then_with(|| {
+                left["examRank"]
+                    .as_i64()
+                    .unwrap_or(i64::MAX)
+                    .cmp(&right["examRank"].as_i64().unwrap_or(i64::MAX))
+            })
+            .then_with(|| left["word"].as_str().cmp(&right["word"].as_str()))
+    });
+    for (index, item) in items.iter_mut().enumerate() {
+        item["priority"] = serde_json::json!(index + 1);
+    }
+    result["vocabularyPriority"] = serde_json::Value::Array(items);
+}
+
+fn attach_local_structured_review_facts(
+    result: &mut serde_json::Value,
+    questions: &[PreparedExamSectionQuestion],
+) {
+    let provider_questions = result
+        .get("questions")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let local_questions = questions
+        .iter()
+        .map(|question| {
+            let provider = provider_questions.iter().find(|item| {
+                item.get("questionId").and_then(serde_json::Value::as_str)
+                    == Some(question.question_id.as_str())
+            });
+            let provider_options = provider
+                .and_then(|item| item.get("optionAnalysis"))
+                .and_then(serde_json::Value::as_array);
+            let option_analysis = question
+                .choices
+                .iter()
+                .filter_map(|choice| {
+                    let label = choice.get("label")?.as_str().unwrap_or("");
+                    let text = choice.get("text")?.as_str().unwrap_or("");
+                    let analysis = provider_options
+                        .and_then(|items| {
+                            items.iter().find(|item| {
+                                item.get("label").and_then(serde_json::Value::as_str) == Some(label)
+                            })
+                        })
+                        .and_then(|item| item.get("analysis"))
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    Some(serde_json::json!({
+                        "label": label,
+                        "meaning": text,
+                        "analysis": analysis,
+                    }))
+                })
+                .collect::<Vec<_>>();
+            let ai_string = |key: &str| {
+                provider
+                    .and_then(|item| item.get(key))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("")
+            };
+            serde_json::json!({
+                "questionId": question.question_id,
+                "questionNumber": question.question_number,
+                "stem": question.stem,
+                "selectedAnswer": question.selected_answer,
+                "correctAnswer": question.correct_answer,
+                "evidenceLocation": ai_string("evidenceLocation"),
+                "contextSentence": ai_string("contextSentence"),
+                "annotatedContext": ai_string("annotatedContext"),
+                "optionAnalysis": option_analysis,
+                "analysis": ai_string("analysis"),
+                "knowledgeGap": ai_string("knowledgeGap"),
+                "candidates": provider
+                    .and_then(|item| item.get("candidates"))
+                    .and_then(serde_json::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default(),
+            })
+        })
+        .collect::<Vec<_>>();
+    result["questions"] = serde_json::Value::Array(local_questions);
+}
+
+fn remove_familiar_inline_glosses(result: &mut serde_json::Value, evidence: &[serde_json::Value]) {
+    let pure_purple_words = evidence
+        .iter()
+        .filter(|item| item.get("markScope").and_then(serde_json::Value::as_str) == Some("prior"))
+        .filter_map(|item| item.get("word").and_then(serde_json::Value::as_str))
+        .map(|word| word.trim().to_ascii_lowercase())
+        .filter(|word| !word.is_empty())
+        .collect::<std::collections::HashSet<_>>();
+    for question in result
+        .get_mut("questions")
+        .and_then(serde_json::Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        let Some(text) = question
+            .get("annotatedContext")
+            .and_then(serde_json::Value::as_str)
+        else {
+            continue;
+        };
+        let mut sanitized = text.to_string();
+        for word in &pure_purple_words {
+            let mut cursor = 0;
+            while cursor < sanitized.len() {
+                let lowered = sanitized.to_ascii_lowercase();
+                let Some(relative_start) = lowered[cursor..].find(word) else {
+                    break;
+                };
+                let start = cursor + relative_start;
+                let after_word = start + word.len();
+                let suffix = &sanitized[after_word..];
+                let closing = if suffix.starts_with('（') {
+                    suffix.find('）').map(|index| index + '）'.len_utf8())
+                } else if suffix.starts_with('(') {
+                    suffix.find(')').map(|index| index + 1)
+                } else {
+                    None
+                };
+                let Some(gloss_len) = closing else {
+                    cursor = after_word;
+                    continue;
+                };
+                sanitized.replace_range(after_word..after_word + gloss_len, "");
+                cursor = after_word;
+            }
+        }
+        question["annotatedContext"] = serde_json::Value::String(sanitized);
+    }
+}
+
+fn retain_cloze_correct_question_reviews(
+    result: &mut serde_json::Value,
+    correct_question_numbers: &std::collections::HashMap<String, i64>,
+) {
+    let Some(items) = result
+        .get_mut("correctMarkedQuestions")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        result["correctMarkedQuestions"] = serde_json::json!([]);
+        return;
+    };
+    items.retain_mut(|item| {
+        let Some(question_id) = item.get("questionId").and_then(serde_json::Value::as_str) else {
+            return false;
+        };
+        let Some(number) = correct_question_numbers.get(question_id) else {
+            return false;
+        };
+        item["questionNumber"] = serde_json::json!(number);
+        item.get("distinction")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty())
+    });
+}
+
+fn retain_marked_exam_causal_candidates(
+    result: &mut serde_json::Value,
+    evidence: &[serde_json::Value],
+) {
+    let allowed: std::collections::HashSet<String> = evidence
+        .iter()
+        .filter_map(|item| item.get("word").and_then(serde_json::Value::as_str))
+        .map(|word| word.trim().to_ascii_lowercase())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let Some(candidates) = result
+        .get_mut("candidates")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        result["candidates"] = serde_json::json!([]);
+        return;
+    };
+    candidates.retain_mut(|candidate| {
+        let word = candidate
+            .get("word")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
+        if !allowed.contains(&word) {
+            return false;
+        }
+        let reasoning = candidate
+            .get("reasoning")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if !reasoning
+            .chars()
+            .any(|value| ('\u{4e00}'..='\u{9fff}').contains(&value))
+        {
+            candidate["reasoning"] = serde_json::Value::String(format!(
+                "标记词“{word}”可能影响了对题干、正确选项与所选干扰项之间语义关系的判断。"
+            ));
+        }
+        true
+    });
+}
+
+fn persist_exam_causal_words(
+    conn: &rusqlite::Connection,
+    article_source_id: &str,
+    result: &serde_json::Value,
+) -> Result<Vec<String>, String> {
+    let mut promoted = Vec::new();
+    for candidate in result
+        .get("candidates")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let word = candidate
+            .get("word")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
+        if word.is_empty() || promoted.contains(&word) {
+            continue;
+        }
+        let changed = conn
+            .execute(
+                "UPDATE exercise_vocab_occurrences
+                 SET user_mark = 'wrong', updated_at = datetime('now')
+                 WHERE article_id = (
+                     SELECT id FROM exercise_articles WHERE article_id = ?1
+                 ) AND LOWER(normalized_form) = LOWER(?2)",
+                rusqlite::params![article_source_id, word],
+            )
+            .map_err(|error| format!("Failed to persist causal vocabulary: {error}"))?;
+        if changed > 0 {
+            promoted.push(word);
+        }
+    }
+    Ok(promoted)
+}
+
+const EXAM_ANALYSIS_TASKS_KEY: &str = "exam_analysis_tasks_json";
+
+pub fn save_exam_analysis_task(request_json: String) -> Result<String, String> {
+    let task: serde_json::Value = serde_json::from_str(&request_json)
+        .map_err(|error| format!("Invalid exam analysis task: {error}"))?;
+    with_runtime_conn(|conn| {
+        let saved = upsert_exam_analysis_task_with_connection(conn, task)?;
+        serde_json::to_string(&saved).map_err(|error| format!("JSON serialization failed: {error}"))
+    })
+}
+
+pub fn get_exam_analysis_tasks() -> Result<String, String> {
+    with_runtime_conn(|conn| {
+        let inbox = list_exam_analysis_tasks_with_connection(conn)?;
+        serde_json::to_string(&inbox).map_err(|error| format!("JSON serialization failed: {error}"))
+    })
+}
+
+pub fn mark_exam_analysis_tasks_read() -> Result<String, String> {
+    with_runtime_conn(|conn| {
+        mark_exam_analysis_tasks_read_with_connection(conn)?;
+        let inbox = list_exam_analysis_tasks_with_connection(conn)?;
+        serde_json::to_string(&inbox).map_err(|error| format!("JSON serialization failed: {error}"))
+    })
+}
+
+fn upsert_exam_analysis_task_with_connection(
+    conn: &word_storage_core::Connection,
+    mut task: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let task_id = required_string_field(&task, "taskId")?;
+    let status = required_string_field(&task, "status")?;
+    if !matches!(status.as_str(), "running" | "completed" | "failed") {
+        return Err(format!("Unsupported exam analysis task status: {status}"));
+    }
+    let stored = get_json_setting(conn, EXAM_ANALYSIS_TASKS_KEY, &serde_json::json!([]))?;
+    let mut tasks = stored.as_array().cloned().unwrap_or_default();
+    let previous = tasks
+        .iter()
+        .find(|item| item["taskId"].as_str() == Some(task_id.as_str()))
+        .cloned();
+    tasks.retain(|item| item["taskId"].as_str() != Some(task_id.as_str()));
+    if let Some(scope_key) = exam_analysis_task_scope_key(&task) {
+        tasks.retain(|item| exam_analysis_task_scope_key(item).as_deref() != Some(&scope_key));
+    }
+    let became_completed = status == "completed"
+        && previous.as_ref().and_then(|item| item["status"].as_str()) != Some("completed");
+    task["unread"] = serde_json::Value::Bool(if status == "completed" {
+        became_completed
+            || previous
+                .as_ref()
+                .and_then(|item| item["unread"].as_bool())
+                .unwrap_or(false)
+    } else {
+        false
+    });
+    tasks.push(task.clone());
+    tasks.sort_by(|left, right| {
+        right["createdAt"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(left["createdAt"].as_str().unwrap_or(""))
+    });
+    tasks.truncate(50);
+    set_json_setting(
+        conn,
+        EXAM_ANALYSIS_TASKS_KEY,
+        &serde_json::Value::Array(tasks),
+    )?;
+    Ok(task)
+}
+
+fn list_exam_analysis_tasks_with_connection(
+    conn: &word_storage_core::Connection,
+) -> Result<serde_json::Value, String> {
+    let stored = get_json_setting(conn, EXAM_ANALYSIS_TASKS_KEY, &serde_json::json!([]))?;
+    let mut seen_scopes = std::collections::HashSet::new();
+    let items = stored
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|item| exam_analysis_task_scope_key(item).is_none_or(|key| seen_scopes.insert(key)))
+        .collect::<Vec<_>>();
+    let unread_count = items
+        .iter()
+        .filter(|item| item["status"] == "completed" && item["unread"] == true)
+        .count();
+    Ok(serde_json::json!({
+        "items": items,
+        "unreadCount": unread_count
+    }))
+}
+
+fn exam_analysis_task_scope_key(task: &serde_json::Value) -> Option<String> {
+    let exam = task.get("exam")?.as_str()?.trim();
+    let paper_id = task.get("paperId")?.as_str()?.trim();
+    let section_id = task.get("sectionId")?.as_str()?.trim();
+    if exam.is_empty() || paper_id.is_empty() || section_id.is_empty() {
+        return None;
+    }
+    Some(format!("{exam}:{paper_id}:{section_id}"))
+}
+
+fn mark_exam_analysis_tasks_read_with_connection(
+    conn: &word_storage_core::Connection,
+) -> Result<(), String> {
+    let stored = get_json_setting(conn, EXAM_ANALYSIS_TASKS_KEY, &serde_json::json!([]))?;
+    let mut items = stored.as_array().cloned().unwrap_or_default();
+    for item in &mut items {
+        if item["status"] == "completed" {
+            item["unread"] = serde_json::Value::Bool(false);
+        }
+    }
+    set_json_setting(
+        conn,
+        EXAM_ANALYSIS_TASKS_KEY,
+        &serde_json::Value::Array(items),
+    )
 }
 
 fn normalize_exam_causal_provider_result(
@@ -732,7 +1967,12 @@ fn normalize_exam_causal_provider_result(
     match provider_result {
         Ok(content) => {
             let cleaned = extract_json_payload(&strip_code_fences(&content));
-            match serde_json::from_str::<serde_json::Value>(&cleaned) {
+            let parsed = serde_json::from_str::<serde_json::Value>(&cleaned).or_else(|_| {
+                serde_json::from_str::<serde_json::Value>(&repair_unescaped_json_string_quotes(
+                    &cleaned,
+                ))
+            });
+            match parsed {
                 Ok(mut value) => {
                     value["eligible"] = serde_json::Value::Bool(true);
                     value["providerStatus"] = serde_json::Value::String("completed".to_string());
@@ -752,6 +1992,109 @@ fn normalize_exam_causal_provider_result(
             "candidates": [],
             "limitations": [format!("AI provider unavailable: {error}")]
         }),
+    }
+}
+
+fn repair_unescaped_json_string_quotes(content: &str) -> String {
+    let characters = content.chars().collect::<Vec<_>>();
+    let mut repaired = String::with_capacity(content.len());
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (index, character) in characters.iter().copied().enumerate() {
+        if escaped {
+            repaired.push(character);
+            escaped = false;
+            continue;
+        }
+        if in_string && character == '\\' {
+            repaired.push(character);
+            escaped = true;
+            continue;
+        }
+        if character != '"' {
+            repaired.push(character);
+            continue;
+        }
+        if !in_string {
+            in_string = true;
+            repaired.push(character);
+            continue;
+        }
+
+        let next_non_whitespace = characters[index + 1..]
+            .iter()
+            .copied()
+            .find(|next| !next.is_whitespace());
+        let closes_json_string = matches!(
+            next_non_whitespace,
+            Some(':') | Some(',') | Some('}') | Some(']') | None
+        );
+        if closes_json_string {
+            in_string = false;
+            repaired.push(character);
+        } else {
+            repaired.push('\\');
+            repaired.push(character);
+        }
+    }
+
+    repaired
+}
+
+fn normalize_exam_section_causal_provider_result(
+    provider_result: Result<String, String>,
+) -> serde_json::Value {
+    let mut result = normalize_exam_causal_provider_result(provider_result);
+    if result
+        .get("questions")
+        .and_then(serde_json::Value::as_array)
+        .is_none()
+    {
+        result["questions"] = serde_json::json!([]);
+    }
+    result["candidates"] = serde_json::Value::Null;
+    result
+}
+
+fn retain_marked_exam_section_candidates(
+    result: &mut serde_json::Value,
+    evidence: &[serde_json::Value],
+    questions: &[PreparedExamSectionQuestion],
+) {
+    let expected: std::collections::HashSet<&str> = questions
+        .iter()
+        .map(|question| question.question_id.as_str())
+        .collect();
+    let Some(items) = result
+        .get_mut("questions")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        result["questions"] = serde_json::json!([]);
+        return;
+    };
+    items.retain_mut(|item| {
+        item.get("questionId")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|question_id| expected.contains(question_id))
+    });
+    for question in questions {
+        let item = items
+            .iter_mut()
+            .find(|item| item["questionId"] == question.question_id);
+        if let Some(item) = item {
+            item["questionNumber"] = serde_json::json!(question.question_number);
+            item["stem"] = serde_json::json!(question.stem);
+            item["selectedAnswer"] = serde_json::json!(question.selected_answer);
+            item["correctAnswer"] = serde_json::json!(question.correct_answer);
+            retain_marked_exam_causal_candidates(item, evidence);
+        } else {
+            items.push(serde_json::json!({
+                "questionId": question.question_id,
+                "questionNumber": question.question_number,
+                "candidates": []
+            }));
+        }
     }
 }
 
@@ -882,9 +2225,28 @@ pub fn tokenize_exam_text(request_json: String) -> Result<String, String> {
         .and_then(|value| value.as_str())
         .unwrap_or("");
     serde_json::to_string(&serde_json::json!({
+        "offsetEncoding": "utf16",
         "tokens": exam_practice_domain::tokenize_english(text)
     }))
     .map_err(|error| format!("JSON serialization failed: {error}"))
+}
+
+fn public_exam_mark_level(mark: &str) -> &'static str {
+    match mark {
+        "fuzzy" | "uncertain" | "ignored" => "fuzzy",
+        "familiar" => "familiar",
+        "unknown" | "wrong" => "unknown",
+        _ => "none",
+    }
+}
+
+fn stored_exam_mark_level(user_mark: &str, mark_level: &str) -> &'static str {
+    match mark_level {
+        "fuzzy" => "fuzzy",
+        "familiar" => "familiar",
+        "unknown" => "unknown",
+        _ => public_exam_mark_level(user_mark),
+    }
 }
 
 pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
@@ -892,7 +2254,7 @@ pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
         serde_json::from_str(&request_json).map_err(|error| format!("Invalid request: {error}"))?;
     let article_source_id = required_string_field(&request, "articleId")?;
     let word = required_string_field(&request, "word")?;
-    let normalized = word.to_ascii_lowercase();
+    let surface_normalized = word.to_ascii_lowercase();
     let start_offset = request
         .get("startOffset")
         .and_then(|value| value.as_i64())
@@ -902,18 +2264,18 @@ pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
         .and_then(|value| value.as_i64())
         .ok_or_else(|| "Missing endOffset".to_string())?;
     let requested_user_mark = request.get("userMark").and_then(|value| value.as_str());
-    with_runtime_conn(|conn| {
-        ensure_exam_dictionary_entries(conn)?;
-        let entry_id = find_entry_id_by_word(conn, &normalized)?;
-        let alias_meanings = load_entry_alias_meaning_strings(conn, &normalized)?;
-        let meanings = if alias_meanings.is_empty() {
-            match entry_id {
-                Some(id) => load_entry_meaning_strings(conn, id)?,
-                None => Vec::new(),
+    with_runtime(|runtime, conn| {
+        let bundle_dir = runtime.paths().bundled_resource_path("");
+        ensure_exam_dictionary_entries(conn, Some(&bundle_dir))?;
+        let (entry_id, normalized) = resolve_exam_word_family(conn, &surface_normalized)?;
+        let (_, mut meanings) = resolve_exam_dictionary_term(conn, &normalized, Some(&bundle_dir))?;
+        if meanings.is_empty() {
+            if let Some(meaning) =
+                build_exam_phrase_fallback_meaning(conn, &normalized, Some(&bundle_dir))?
+            {
+                meanings.push(serde_json::Value::String(meaning));
             }
-        } else {
-            alias_meanings
-        };
+        }
         let article_id =
             word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_article(
                 conn,
@@ -944,19 +2306,30 @@ pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
             .map_err(|error| error.to_string())?;
         let existing_mark = conn
             .query_row(
-                "SELECT user_mark
+                "SELECT user_mark, mark_level
                  FROM exercise_vocab_occurrences
                  WHERE article_id = ?1 AND start_offset = ?2 AND end_offset = ?3
                    AND LOWER(word_form) = LOWER(?4)
                  LIMIT 1",
                 rusqlite::params![article_id, start_offset, end_offset, word],
-                |row| row.get::<_, String>(0),
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
             )
             .optional()
             .map_err(|error| format!("Failed to load existing exercise word mark: {error}"))?;
-        let user_mark = requested_user_mark
-            .or(existing_mark.as_deref())
-            .unwrap_or("none");
+        let public_user_mark = requested_user_mark
+            .map(public_exam_mark_level)
+            .unwrap_or_else(|| {
+                existing_mark
+                    .as_ref()
+                    .map(|(user_mark, mark_level)| stored_exam_mark_level(user_mark, mark_level))
+                    .unwrap_or("none")
+            });
+        let persisted_user_mark = if public_user_mark == "none" {
+            "none"
+        } else {
+            "unknown"
+        };
+        let persisted_mark_level = public_user_mark;
         let occurrence_id =
             word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_vocab_occurrence(
                 conn,
@@ -986,7 +2359,7 @@ pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
                         "unmatched"
                     }
                     .to_string(),
-                    user_mark: user_mark.to_string(),
+                    user_mark: persisted_user_mark.to_string(),
                     meaning_note: meanings
                         .first()
                         .and_then(|value| value.as_str())
@@ -996,14 +2369,27 @@ pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
             )
             .map_err(|error| error.to_string())?;
         if requested_user_mark.is_some() {
-            word_storage_core::persistence::exercise_vocab_repo::mark_exercise_vocab_word_in_article(
-                conn,
-                article_id,
-                &normalized,
-                user_mark,
-                meanings.first().and_then(|value| value.as_str()),
-            )
-            .map_err(|error| error.to_string())?;
+            if let Some(entry_id) = entry_id {
+                word_storage_core::persistence::exercise_vocab_repo::mark_exercise_vocab_entry_in_article(
+                    conn,
+                    article_id,
+                    entry_id,
+                    persisted_user_mark,
+                    persisted_mark_level,
+                    meanings.first().and_then(|value| value.as_str()),
+                )
+                .map_err(|error| error.to_string())?;
+            } else {
+                word_storage_core::persistence::exercise_vocab_repo::mark_exercise_vocab_word_in_article(
+                    conn,
+                    article_id,
+                    &normalized,
+                    persisted_user_mark,
+                    persisted_mark_level,
+                    meanings.first().and_then(|value| value.as_str()),
+                )
+                .map_err(|error| error.to_string())?;
+            }
         }
         word_storage_core::persistence::exercise_vocab_repo::refresh_same_article_relations(
             conn, article_id,
@@ -1015,8 +2401,8 @@ pub fn inspect_exam_word(request_json: String) -> Result<String, String> {
             "word": word,
             "normalized": normalized,
             "meanings": meanings,
-            "userMark": user_mark,
-            "isUnknown": user_mark == "unknown"
+            "userMark": public_user_mark,
+            "isUnknown": matches!(public_user_mark, "fuzzy" | "familiar" | "unknown")
         }))
         .map_err(|error| format!("JSON serialization failed: {error}"))
     })
@@ -1026,7 +2412,7 @@ pub fn get_exam_annotation_state(request_json: String) -> Result<String, String>
     let request: serde_json::Value =
         serde_json::from_str(&request_json).map_err(|error| format!("Invalid request: {error}"))?;
     let article_source_id = required_string_field(&request, "articleId")?;
-    let words = request
+    let surface_words = request
         .get("words")
         .and_then(|value| value.as_array())
         .cloned()
@@ -1034,8 +2420,16 @@ pub fn get_exam_annotation_state(request_json: String) -> Result<String, String>
         .into_iter()
         .filter_map(|value| value.as_str().map(|word| word.to_ascii_lowercase()))
         .collect::<Vec<_>>();
-    with_runtime_conn(|conn| {
-        ensure_exam_dictionary_entries(conn)?;
+    with_runtime(|runtime, conn| {
+        let bundle_dir = runtime.paths().bundled_resource_path("");
+        ensure_exam_dictionary_entries(conn, Some(&bundle_dir))?;
+        let mut words = Vec::with_capacity(surface_words.len());
+        for word in surface_words {
+            let (_, normalized) = resolve_exam_word_family(conn, &word)?;
+            if !words.contains(&normalized) {
+                words.push(normalized);
+            }
+        }
         let marks =
             word_storage_core::persistence::exercise_vocab_repo::load_exercise_word_mark_state(
                 conn,
@@ -1047,11 +2441,16 @@ pub fn get_exam_annotation_state(request_json: String) -> Result<String, String>
             .iter()
             .filter(|item| item.current_article)
             .map(|item| {
-                let meaning =
-                    resolve_exam_mark_meaning(conn, &item.normalized_form, &item.meaning)?;
+                let meaning = resolve_exam_mark_meaning(
+                    conn,
+                    &item.normalized_form,
+                    &item.meaning,
+                    Some(&bundle_dir),
+                )?;
                 Ok(serde_json::json!({
                     "normalized": item.normalized_form,
-                    "meaning": meaning
+                    "meaning": meaning,
+                    "mark": item.current_mark_level
                 }))
             })
             .collect::<Result<Vec<_>, String>>()?;
@@ -1059,11 +2458,16 @@ pub fn get_exam_annotation_state(request_json: String) -> Result<String, String>
             .iter()
             .filter(|item| item.prior_article)
             .map(|item| {
-                let meaning =
-                    resolve_exam_mark_meaning(conn, &item.normalized_form, &item.meaning)?;
+                let meaning = resolve_exam_mark_meaning(
+                    conn,
+                    &item.normalized_form,
+                    &item.meaning,
+                    Some(&bundle_dir),
+                )?;
                 Ok(serde_json::json!({
                     "normalized": item.normalized_form,
-                    "meaning": meaning
+                    "meaning": meaning,
+                    "mark": item.prior_mark_level
                 }))
             })
             .collect::<Result<Vec<_>, String>>()?;
@@ -1074,9 +2478,23 @@ pub fn get_exam_annotation_state(request_json: String) -> Result<String, String>
                 .map_err(|error| error.to_string())?,
             None => Vec::new(),
         };
+        let mut causal_statement = conn
+            .prepare(
+                "SELECT DISTINCT LOWER(o.normalized_form)
+                 FROM exercise_vocab_occurrences o
+                 JOIN exercise_articles a ON a.id = o.article_id
+                 WHERE a.article_id = ?1 AND o.user_mark = 'wrong'",
+            )
+            .map_err(|error| format!("Failed to prepare causal-word query: {error}"))?;
+        let causal_words = causal_statement
+            .query_map([&article_source_id], |row| row.get::<_, String>(0))
+            .map_err(|error| format!("Failed to load causal words: {error}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("Failed to read causal words: {error}"))?;
         serde_json::to_string(&serde_json::json!({
             "currentMarks": current_marks,
             "priorMarks": prior_marks,
+            "causalWords": causal_words,
             "annotations": annotations
         }))
         .map_err(|error| format!("JSON serialization failed: {error}"))
@@ -1087,28 +2505,77 @@ fn resolve_exam_mark_meaning(
     conn: &word_storage_core::Connection,
     normalized: &str,
     stored_meaning: &str,
+    bundle_dir: Option<&Path>,
 ) -> Result<String, String> {
     if !stored_meaning.trim().is_empty() {
         return Ok(stored_meaning.trim().to_string());
     }
-    let alias_meanings = load_entry_alias_meaning_strings(conn, normalized)?;
-    if let Some(meaning) = alias_meanings
-        .iter()
-        .filter_map(serde_json::Value::as_str)
-        .find(|meaning| !meaning.trim().is_empty())
-    {
-        return Ok(meaning.trim().to_string());
-    }
-    let Some(entry_id) = find_entry_id_by_word(conn, normalized)? else {
-        return Ok(String::new());
-    };
-    Ok(load_entry_meaning_strings(conn, entry_id)?
+    let (_, meanings) = resolve_exam_dictionary_term(conn, normalized, bundle_dir)?;
+    Ok(meanings
         .iter()
         .filter_map(serde_json::Value::as_str)
         .find(|meaning| !meaning.trim().is_empty())
         .map(str::trim)
         .unwrap_or("")
         .to_string())
+}
+
+fn resolve_exam_dictionary_term(
+    conn: &word_storage_core::Connection,
+    normalized: &str,
+    bundle_dir: Option<&Path>,
+) -> Result<(Option<i64>, Vec<serde_json::Value>), String> {
+    let mut entry_id = find_entry_id_by_word(conn, normalized)?;
+    let alias_meanings = load_entry_alias_meaning_strings(conn, normalized)?;
+    let meanings = if alias_meanings.is_empty() {
+        match entry_id {
+            Some(id) => load_entry_meaning_strings(conn, id)?,
+            None => Vec::new(),
+        }
+    } else {
+        alias_meanings
+    };
+    if !meanings.is_empty() {
+        return Ok((entry_id, meanings));
+    }
+    let Some((commit, entry)) = bundle_dir
+        .map(|dir| lookup_exam_corpus_dictionary_entry(dir, normalized))
+        .transpose()?
+        .flatten()
+    else {
+        return Ok((entry_id, meanings));
+    };
+    let imported_id = upsert_exam_corpus_dictionary_entry(conn, &commit, &entry)?;
+    entry_id = Some(imported_id);
+    Ok((
+        entry_id,
+        vec![serde_json::Value::String(entry.meaning.trim().to_string())],
+    ))
+}
+
+fn build_exam_phrase_fallback_meaning(
+    conn: &word_storage_core::Connection,
+    phrase: &str,
+    bundle_dir: Option<&Path>,
+) -> Result<Option<String>, String> {
+    let tokens = exam_practice_domain::tokenize_english(phrase);
+    if tokens.len() < 2 || tokens.len() > 8 {
+        return Ok(None);
+    }
+    let mut parts = Vec::with_capacity(tokens.len());
+    for token in tokens {
+        let (_, meanings) = resolve_exam_dictionary_term(conn, &token.normalized, bundle_dir)?;
+        let Some(meaning) = meanings
+            .iter()
+            .filter_map(|value| value.as_str())
+            .find(|value| !value.trim().is_empty())
+            .map(str::trim)
+        else {
+            return Ok(None);
+        };
+        parts.push(format!("{}（{}）", token.text, meaning));
+    }
+    Ok(Some(format!("未收录固定词组；逐词：{}", parts.join(" / "))))
 }
 
 pub fn save_exam_annotation(request_json: String) -> Result<String, String> {
@@ -1588,6 +3055,7 @@ pub fn get_today_ai_passage_context() -> Result<String, String> {
                     && snapshot.review_words_completed >= snapshot.review_words_target
                     && snapshot.mixed_test_completed >= snapshot.mixed_test_target
                     && snapshot.wrong_word_test_completed >= snapshot.wrong_word_test_target
+                    && snapshot.high_frequency_completed >= snapshot.high_frequency_target
                     && snapshot.root_affix_completed.unwrap_or(0)
                         >= snapshot.root_affix_target.unwrap_or(0)
             })
@@ -1712,6 +3180,10 @@ fn plan_summary_from_value(value: &serde_json::Value) -> PlanSummary {
             .get("wrongWordTestPerDay")
             .and_then(|v| v.as_i64())
             .unwrap_or(0),
+        high_frequency_per_day: value
+            .get("highFrequencyPerDay")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0),
         root_affix_per_day: value.get("rootAffixPerDay").and_then(|v| v.as_i64()),
         growth_interval_days: value
             .get("growthIntervalDays")
@@ -1773,6 +3245,7 @@ fn load_today_completion_seed(
     let mut review_words_completed = 0u32;
     let mut mixed_test_completed = 0u32;
     let mut wrong_word_test_completed = 0u32;
+    let mut high_frequency_completed = 0u32;
     let mut root_affix_completed = 0u32;
 
     let rows = stmt
@@ -1806,6 +3279,9 @@ fn load_today_completion_seed(
             "wrongWordReinforcement" => {
                 wrong_word_test_completed = wrong_word_test_completed.saturating_add(1)
             }
+            "highFrequency" => {
+                high_frequency_completed = high_frequency_completed.saturating_add(1)
+            }
             "rootAffix" => root_affix_completed = root_affix_completed.saturating_add(1),
             _ => {}
         }
@@ -1817,6 +3293,8 @@ fn load_today_completion_seed(
     mixed_test_completed = mixed_test_completed.saturating_add(active.seed.mixed_test_completed);
     wrong_word_test_completed =
         wrong_word_test_completed.saturating_add(active.seed.wrong_word_test_completed);
+    high_frequency_completed =
+        high_frequency_completed.saturating_add(active.seed.high_frequency_completed);
     root_affix_completed =
         root_affix_completed.saturating_add(active.seed.root_affix_completed.unwrap_or(0));
 
@@ -1825,6 +3303,7 @@ fn load_today_completion_seed(
         review_words_completed,
         mixed_test_completed,
         wrong_word_test_completed,
+        high_frequency_completed,
         root_affix_completed: Some(root_affix_completed),
     })
 }
@@ -1859,6 +3338,7 @@ fn load_active_session_completion_seed(
         review_words_completed: 0,
         mixed_test_completed: 0,
         wrong_word_test_completed: 0,
+        high_frequency_completed: 0,
         root_affix_completed: Some(0),
     };
     let mut session_ids = BTreeSet::new();
@@ -1871,6 +3351,7 @@ fn load_active_session_completion_seed(
             "active_study_session_wrongWordReinforcement",
             "wrongWordReinforcement",
         ),
+        ("active_study_session_highFrequency", "highFrequency"),
         ("active_study_session_rootAffix", "rootAffix"),
     ];
 
@@ -1903,13 +3384,14 @@ fn load_active_session_completion_seed(
         {
             session_ids.insert(session_id.to_string());
         }
-        let answered = snapshot_answered_question_count(&snapshot)
-            .or_else(|| {
-                snapshot
-                    .get("currentIndex")
-                    .and_then(|value| value.as_u64())
-                    .map(|value| value as u32)
-            })
+        // The cursor is what the active study screen actually resumes from.
+        // A failed partial save can leave stale result rows behind while the
+        // cursor remains at the first unanswered question.
+        let answered = snapshot
+            .get("currentIndex")
+            .and_then(|value| value.as_u64())
+            .map(|value| value as u32)
+            .or_else(|| snapshot_answered_question_count(&snapshot))
             .unwrap_or(0);
 
         match mode {
@@ -1917,6 +3399,7 @@ fn load_active_session_completion_seed(
             "review" => seed.review_words_completed = answered,
             "mixedTest" => seed.mixed_test_completed = answered,
             "wrongWordReinforcement" => seed.wrong_word_test_completed = answered,
+            "highFrequency" => seed.high_frequency_completed = answered,
             "rootAffix" => seed.root_affix_completed = Some(answered),
             _ => {}
         }
@@ -1977,6 +3460,7 @@ fn load_resume_session_hint(
         SessionMode::Review,
         SessionMode::MixedTest,
         SessionMode::WrongWordReinforcement,
+        SessionMode::HighFrequency,
         SessionMode::RootAffix,
     ];
 
@@ -2936,7 +4420,8 @@ fn build_wrong_word_graph_node(
 fn load_wrong_word_entries(conn: &rusqlite::Connection) -> Result<Vec<serde_json::Value>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT
+            "WITH stats AS (
+             SELECT
                 e.id,
                 e.source_entry_key,
                 e.word,
@@ -2945,16 +4430,31 @@ fn load_wrong_word_entries(conn: &rusqlite::Connection) -> Result<Vec<serde_json
                 e.part_of_speech,
                 SUM(CASE WHEN sr.outcome IN ('incorrect', 'skipped', '\"incorrect\"', '\"skipped\"') THEN 1 ELSE 0 END) as error_count,
                 MAX(CASE WHEN sr.outcome IN ('incorrect', 'skipped', '\"incorrect\"', '\"skipped\"') THEN sr.answered_at ELSE NULL END) as last_wrong_at,
+                SUM(CASE WHEN sr.outcome IN ('correct', 'fuzzyCorrect', '\"correct\"', '\"fuzzyCorrect\"') THEN 1 ELSE 0 END) as correct_count,
+                MAX(CASE WHEN sr.outcome IN ('correct', 'fuzzyCorrect', '\"correct\"', '\"fuzzyCorrect\"') THEN sr.answered_at ELSE NULL END) as last_correct_at,
                 SUM(CASE WHEN sr.question_type IN ('glossToRootInput', 'rootToGlossInput', '\"glossToRootInput\"', '\"rootToGlossInput\"') THEN 1 ELSE 0 END) as root_affix_attempts
              FROM study_results sr
              JOIN entries e ON e.id = sr.entry_id
-             WHERE sr.outcome IN ('incorrect', 'skipped', '\"incorrect\"', '\"skipped\"')
+             WHERE sr.outcome IN ('incorrect', 'skipped', '\"incorrect\"', '\"skipped\"',
+                                  'correct', 'fuzzyCorrect', '\"correct\"', '\"fuzzyCorrect\"')
                AND NOT EXISTS (
                  SELECT 1 FROM mastered_entries me
                  WHERE me.entry_id = e.id OR me.source_entry_id = e.source_entry_key
                )
              GROUP BY e.id, e.source_entry_key, e.word, e.phonetic_us, e.phonetic_uk, e.part_of_speech
-             ORDER BY last_wrong_at DESC",
+             HAVING error_count > 0
+            )
+            SELECT
+                stats.*,
+                (
+                    SELECT COUNT(*)
+                    FROM study_results sr2
+                    WHERE sr2.entry_id = stats.id
+                      AND sr2.outcome IN ('correct', 'fuzzyCorrect', '\"correct\"', '\"fuzzyCorrect\"')
+                      AND sr2.answered_at > COALESCE(stats.last_wrong_at, '')
+                ) as correct_since_last_wrong
+            FROM stats
+            ORDER BY last_wrong_at DESC",
         )
         .map_err(|e| format!("Failed to prepare wrong-word list query: {e}"))?;
 
@@ -2962,7 +4462,7 @@ fn load_wrong_word_entries(conn: &rusqlite::Connection) -> Result<Vec<serde_json
         .query_map([], |row| {
             let entry_id: i64 = row.get(0)?;
             let part_of_speech = row.get::<_, Option<String>>(5)?.unwrap_or_default();
-            let root_affix_attempts = row.get::<_, i64>(8)?;
+            let root_affix_attempts = row.get::<_, i64>(10)?;
             let entry_kind =
                 if root_affix_attempts > 0 || is_root_affix_part_of_speech(&part_of_speech) {
                     "rootAffix"
@@ -2980,6 +4480,9 @@ fn load_wrong_word_entries(conn: &rusqlite::Connection) -> Result<Vec<serde_json
                     "partOfSpeech": part_of_speech,
                     "errorCount": row.get::<_, i64>(6)?,
                     "lastWrongAt": row.get::<_, Option<String>>(7)?,
+                    "correctCount": row.get::<_, i64>(8)?,
+                    "lastCorrectAt": row.get::<_, Option<String>>(9)?,
+                    "correctSinceLastWrong": row.get::<_, i64>(11)?,
                     "entryKind": entry_kind,
                     "isActive": true
                 }),
@@ -3042,6 +4545,9 @@ fn load_imported_wrong_word_entries(
                 },
                 "errorCount": occurrence_count.max(1),
                 "lastWrongAt": row.get::<_, String>(5)?,
+                "correctCount": 0,
+                "lastCorrectAt": serde_json::Value::Null,
+                "correctSinceLastWrong": 0,
                 "entryKind": "word",
                 "isActive": true,
                 "isImported": true,
@@ -3256,6 +4762,7 @@ fn attach_word_hint_fields(
     value: &mut serde_json::Value,
 ) -> Result<(), String> {
     let hint = persistence::word_hint_repo::get_hint(conn, entry_id).map_err(|e| e.to_string())?;
+    value["entryId"] = serde_json::json!(entry_id);
     value["userHint"] = hint
         .as_ref()
         .map(|hint| serde_json::Value::String(hint.hint_text.clone()))
@@ -3269,6 +4776,10 @@ fn attach_word_hint_fields(
         .map(|hint| serde_json::Value::String(hint.updated_at.clone()))
         .unwrap_or(serde_json::Value::Null);
     value["hasHint"] = serde_json::json!(hint.is_some());
+    value["errorCount"] = serde_json::json!(persistence::word_hint_repo::counted_error_count(
+        conn, entry_id
+    )
+    .map_err(|error| error.to_string())?);
     value["hintSuggestions"] = hint_suggestions_for_entry_v2(conn, entry_id)?;
     Ok(())
 }
@@ -3282,20 +4793,27 @@ fn enrich_study_response_hints(
         .filter(|value| value.is_object())
     {
         enrich_study_question_hints(conn, question)?;
+        enrich_study_question_exam_mark(conn, question)?;
+        enrich_study_question_derivational_family(conn, question)?;
     }
+    enrich_answered_questions_exam_marks(conn, payload, payload_is_high_frequency_mode(payload))?;
     Ok(())
 }
 
 fn enrich_submit_response_hints(
     conn: &rusqlite::Connection,
     payload: &mut serde_json::Value,
+    include_synonyms: bool,
 ) -> Result<(), String> {
     if let Some(question) = payload
         .get_mut("currentQuestion")
         .filter(|value| value.is_object())
     {
         enrich_study_question_hints(conn, question)?;
+        enrich_study_question_exam_mark(conn, question)?;
+        enrich_study_question_derivational_family(conn, question)?;
     }
+    enrich_answered_questions_exam_marks(conn, payload, include_synonyms)?;
     let result = payload
         .get("result")
         .cloned()
@@ -3316,9 +4834,557 @@ fn enrich_study_question_hints(
         question["userHint"] = serde_json::Value::Null;
         question["hasHint"] = serde_json::json!(false);
         question["hintSuggestions"] = serde_json::json!([]);
+        question["errorCount"] = serde_json::json!(0);
         return Ok(());
     };
     attach_word_hint_fields(conn, entry_id, question)
+}
+
+fn enrich_answered_questions_exam_marks(
+    conn: &rusqlite::Connection,
+    payload: &mut serde_json::Value,
+    include_synonyms: bool,
+) -> Result<(), String> {
+    let Some(answered) = payload
+        .get_mut("answeredQuestions")
+        .and_then(|value| value.as_array_mut())
+    else {
+        return Ok(());
+    };
+    for item in answered {
+        if let Some(question) = item.get_mut("question").filter(|value| value.is_object()) {
+            enrich_study_question_error_count(conn, question)?;
+            enrich_study_question_exam_mark(conn, question)?;
+            enrich_study_question_derivational_family(conn, question)?;
+            if include_synonyms {
+                enrich_study_question_synonym_groups(conn, question)?;
+            } else {
+                question["synonymGroups"] = serde_json::json!([]);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn payload_is_high_frequency_mode(payload: &serde_json::Value) -> bool {
+    payload
+        .get("session")
+        .and_then(|session| session.get("mode"))
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|mode| mode == "highFrequency")
+}
+
+fn enrich_study_question_error_count(
+    conn: &rusqlite::Connection,
+    question: &mut serde_json::Value,
+) -> Result<(), String> {
+    let error_count = question_entry_id(conn, question)
+        .map(|entry_id| persistence::word_hint_repo::counted_error_count(conn, entry_id))
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .unwrap_or(0);
+    question["errorCount"] = serde_json::json!(error_count);
+    Ok(())
+}
+
+fn enrich_study_question_exam_mark(
+    conn: &rusqlite::Connection,
+    question: &mut serde_json::Value,
+) -> Result<(), String> {
+    let Some(entry_id) = question_entry_id(conn, question) else {
+        question["examMarked"] = serde_json::json!(false);
+        question["examMarkLevel"] = serde_json::Value::Null;
+        return Ok(());
+    };
+    let mark_level = load_exam_mark_level_for_entry(conn, entry_id)?;
+    question["examMarked"] = serde_json::json!(mark_level.is_some());
+    question["examMarkLevel"] = mark_level
+        .map(serde_json::Value::String)
+        .unwrap_or(serde_json::Value::Null);
+    Ok(())
+}
+
+fn enrich_study_question_derivational_family(
+    conn: &rusqlite::Connection,
+    question: &mut serde_json::Value,
+) -> Result<(), String> {
+    let Some(entry_id) = question_entry_id(conn, question) else {
+        question["derivationalFamily"] = serde_json::json!([]);
+        return Ok(());
+    };
+    let question_word = question
+        .get("word")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    let mut statement = conn
+        .prepare(
+            "SELECT alias, meaning_cn
+             FROM entry_aliases
+             WHERE entry_id = ?1
+               AND source_kind = 'related_word'
+               AND TRIM(alias) <> ''
+               AND TRIM(meaning_cn) <> ''
+             GROUP BY LOWER(TRIM(alias)), TRIM(meaning_cn)
+             ORDER BY LOWER(TRIM(alias)) ASC, TRIM(meaning_cn) ASC",
+        )
+        .map_err(|error| format!("Failed to prepare study derivational family query: {error}"))?;
+    let rows = statement
+        .query_map([entry_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| format!("Failed to query study derivational family: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read study derivational family: {error}"))?;
+    let question_branch = study_derivational_branch(&question_word);
+    let mut grouped =
+        std::collections::BTreeMap::<String, (String, std::collections::BTreeSet<String>)>::new();
+    for (alias, meaning) in rows {
+        let alias = alias.trim();
+        let meaning = meaning.trim();
+        if alias.is_empty() || meaning.is_empty() {
+            continue;
+        }
+        let alias_key = alias.to_ascii_lowercase();
+        if !question_branch.is_empty() && study_derivational_branch(&alias_key) != question_branch {
+            continue;
+        }
+        let item = grouped
+            .entry(alias_key)
+            .or_insert_with(|| (alias.to_string(), std::collections::BTreeSet::new()));
+        item.1.insert(meaning.to_string());
+    }
+    let family = grouped
+        .into_values()
+        .take(16)
+        .map(|(word, meanings)| {
+            serde_json::json!({
+                "word": word,
+                "meaning": meanings.into_iter().collect::<Vec<_>>().join("；"),
+            })
+        })
+        .collect();
+    question["derivationalFamily"] = serde_json::Value::Array(family);
+    Ok(())
+}
+
+fn enrich_study_question_synonym_groups(
+    conn: &rusqlite::Connection,
+    question: &mut serde_json::Value,
+) -> Result<(), String> {
+    let Some(entry_id) = question_entry_id(conn, question) else {
+        question["synonymGroups"] = serde_json::json!([]);
+        return Ok(());
+    };
+    let cache_key = study_synonym_cache_key(conn, entry_id)?;
+    if let Some(groups) = STUDY_HIGH_FREQUENCY_SYNONYM_CACHE
+        .lock()
+        .map_err(|_| "Failed to lock high-frequency synonym cache".to_string())?
+        .get(&cache_key)
+        .cloned()
+    {
+        question["synonymGroups"] = serde_json::Value::Array(groups);
+        return Ok(());
+    }
+    let explicit_groups = load_explicit_study_synonym_groups(conn, entry_id)?;
+    let mut source_statement = conn
+        .prepare(
+            "SELECT pos, meaning_cn
+             FROM entry_meanings
+             WHERE entry_id = ?1
+               AND TRIM(meaning_cn) <> ''
+             ORDER BY sort_order ASC, id ASC",
+        )
+        .map_err(|error| format!("Failed to prepare high-frequency synonym source: {error}"))?;
+    let source_meanings = source_statement
+        .query_map([entry_id], |row| {
+            Ok((
+                row.get::<_, Option<String>>(0)?.unwrap_or_default(),
+                row.get::<_, String>(1)?,
+            ))
+        })
+        .map_err(|error| format!("Failed to query high-frequency synonym source: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read high-frequency synonym source: {error}"))?;
+    let mut source_glosses = Vec::<StudySynonymGloss>::new();
+    for (pos, meaning) in source_meanings {
+        for gloss in study_synonym_meaning_keys(&meaning) {
+            if let Some(existing) = source_glosses.iter_mut().find(|item| item.meaning == gloss) {
+                existing
+                    .pos_categories
+                    .extend(study_synonym_pos_categories(&pos));
+            } else {
+                source_glosses.push(StudySynonymGloss {
+                    meaning: gloss,
+                    pos_categories: study_synonym_pos_categories(&pos),
+                });
+            }
+        }
+    }
+    if source_glosses.is_empty() {
+        STUDY_HIGH_FREQUENCY_SYNONYM_CACHE
+            .lock()
+            .map_err(|_| "Failed to lock high-frequency synonym cache".to_string())?
+            .insert(cache_key, explicit_groups.clone());
+        question["synonymGroups"] = serde_json::Value::Array(explicit_groups);
+        return Ok(());
+    }
+    let synonym_condition = (0..source_glosses.len())
+        .map(|index| {
+            format!(
+                "INSTR(
+                    '；' || REPLACE(REPLACE(REPLACE(REPLACE(TRIM(em.meaning_cn), ';', '；'), '，', '；'), ',', '；'), '、', '；') || '；',
+                    '；' || ?{} || '；'
+                ) > 0",
+                index + 2
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" OR ");
+
+    let mut statement = conn
+        .prepare(&format!(
+            "SELECT e.id, e.word, em.pos, em.meaning_cn, e.exam_rank
+             FROM entries e
+             INNER JOIN wordbook_entries we ON we.entry_id = e.id
+             INNER JOIN wordbooks wb ON wb.id = we.wordbook_id
+             INNER JOIN entry_meanings em ON em.entry_id = e.id
+             WHERE wb.code = 'kaoyan'
+               AND e.exam_frequency > 0
+               AND e.exam_rank IS NOT NULL
+               AND e.id <> ?1
+               AND TRIM(em.meaning_cn) <> ''
+               AND ({synonym_condition})
+             GROUP BY e.id, e.word, em.pos, em.meaning_cn, e.exam_rank
+             ORDER BY e.exam_rank ASC, LOWER(e.word) ASC, e.id ASC",
+        ))
+        .map_err(|error| format!("Failed to prepare high-frequency synonym query: {error}"))?;
+    let mut query_params = Vec::<&dyn rusqlite::ToSql>::with_capacity(source_glosses.len() + 1);
+    query_params.push(&entry_id);
+    query_params.extend(
+        source_glosses
+            .iter()
+            .map(|gloss| &gloss.meaning as &dyn rusqlite::ToSql),
+    );
+    let rows = statement
+        .query_map(query_params.as_slice(), |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+            ))
+        })
+        .map_err(|error| format!("Failed to query high-frequency synonyms: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read high-frequency synonyms: {error}"))?;
+    let mut groups = vec![BTreeMap::<i64, (String, i64)>::new(); source_glosses.len()];
+    for (candidate_id, word, pos, meaning, rank) in rows {
+        let candidate_pos = study_synonym_pos_categories(&pos);
+        let candidate_glosses = study_synonym_meaning_keys(&meaning);
+        let Some(group_index) = source_glosses.iter().position(|source| {
+            candidate_glosses.contains(&source.meaning)
+                && study_synonym_pos_matches(&source.pos_categories, &candidate_pos)
+        }) else {
+            continue;
+        };
+        groups[group_index]
+            .entry(candidate_id)
+            .or_insert_with(|| (word.trim().to_string(), rank));
+    }
+    let fallback_groups = source_glosses
+        .iter()
+        .zip(groups)
+        .filter_map(|(source, words)| {
+            let mut words = words
+                .into_iter()
+                .map(|(entry_id, (word, rank))| (entry_id, word, rank))
+                .collect::<Vec<_>>();
+            words.sort_by(|left, right| {
+                left.2
+                    .cmp(&right.2)
+                    .then_with(|| {
+                        left.1
+                            .to_ascii_lowercase()
+                            .cmp(&right.1.to_ascii_lowercase())
+                    })
+                    .then_with(|| left.0.cmp(&right.0))
+            });
+            let words = words
+                .into_iter()
+                .take(8)
+                .map(|(_, word, _)| word)
+                .collect::<Vec<_>>();
+            (!words.is_empty()).then(|| {
+                serde_json::json!({
+                    "meaning": source.meaning,
+                    "words": words,
+                })
+            })
+        })
+        .take(8)
+        .collect::<Vec<_>>();
+    let synonym_groups = merge_study_synonym_groups(explicit_groups, fallback_groups);
+    STUDY_HIGH_FREQUENCY_SYNONYM_CACHE
+        .lock()
+        .map_err(|_| "Failed to lock high-frequency synonym cache".to_string())?
+        .insert(cache_key, synonym_groups.clone());
+    question["synonymGroups"] = serde_json::Value::Array(synonym_groups);
+    Ok(())
+}
+
+fn merge_study_synonym_groups(
+    mut explicit_groups: Vec<serde_json::Value>,
+    fallback_groups: Vec<serde_json::Value>,
+) -> Vec<serde_json::Value> {
+    for fallback in fallback_groups {
+        let Some(meaning) = fallback.get("meaning").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let fallback_words = fallback
+            .get("words")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if fallback_words.is_empty() {
+            continue;
+        }
+        if let Some(explicit) = explicit_groups
+            .iter_mut()
+            .find(|group| group.get("meaning").and_then(serde_json::Value::as_str) == Some(meaning))
+        {
+            let mut merged_words = explicit
+                .get("words")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            for word in fallback_words {
+                if !merged_words
+                    .iter()
+                    .any(|existing| existing.eq_ignore_ascii_case(&word))
+                {
+                    merged_words.push(word);
+                }
+            }
+            explicit["words"] =
+                serde_json::json!(merged_words.into_iter().take(8).collect::<Vec<_>>());
+        } else {
+            explicit_groups.push(serde_json::json!({
+                "meaning": meaning,
+                "words": fallback_words.into_iter().take(8).collect::<Vec<_>>(),
+            }));
+        }
+    }
+    explicit_groups.into_iter().take(8).collect()
+}
+
+fn load_explicit_study_synonym_groups(
+    conn: &rusqlite::Connection,
+    entry_id: i64,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut statement = conn
+        .prepare(
+            "SELECT TRIM(ea.meaning_cn), e.id, e.word, e.exam_rank, em.meaning_cn
+             FROM entry_aliases ea
+             INNER JOIN entries e
+                ON e.word = ea.alias COLLATE NOCASE OR e.lemma = ea.alias COLLATE NOCASE
+             INNER JOIN wordbook_entries we ON we.entry_id = e.id
+             INNER JOIN wordbooks wb ON wb.id = we.wordbook_id
+             INNER JOIN entry_meanings em ON em.entry_id = e.id
+             WHERE ea.entry_id = ?1
+               AND ea.source_kind = 'synonym'
+               AND TRIM(ea.meaning_cn) <> ''
+               AND TRIM(em.meaning_cn) <> ''
+               AND wb.code = 'kaoyan'
+               AND e.id <> ?1
+               AND e.exam_frequency > 0
+               AND e.exam_rank IS NOT NULL
+             GROUP BY TRIM(ea.meaning_cn), e.id, e.word, e.exam_rank, TRIM(em.meaning_cn), ea.id
+             ORDER BY ea.id ASC, e.exam_rank ASC, LOWER(e.word) ASC, e.id ASC",
+        )
+        .map_err(|error| format!("Failed to prepare explicit high-frequency synonyms: {error}"))?;
+    let rows = statement
+        .query_map([entry_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })
+        .map_err(|error| format!("Failed to query explicit high-frequency synonyms: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read explicit high-frequency synonyms: {error}"))?;
+    let mut groups = Vec::<(String, BTreeMap<i64, (String, i64)>)>::new();
+    for (source_meaning, candidate_id, word, rank, candidate_meaning) in rows {
+        let candidate_senses = study_synonym_meaning_keys(&candidate_meaning);
+        for source_sense in study_synonym_meaning_keys(&source_meaning) {
+            if !candidate_senses.contains(&source_sense) {
+                continue;
+            }
+            let group = groups
+                .iter_mut()
+                .find(|(existing, _)| existing == &source_sense);
+            if let Some((_, words)) = group {
+                words
+                    .entry(candidate_id)
+                    .or_insert_with(|| (word.trim().to_string(), rank));
+            } else {
+                let mut words = BTreeMap::new();
+                words.insert(candidate_id, (word.trim().to_string(), rank));
+                groups.push((source_sense, words));
+            }
+        }
+    }
+    Ok(groups
+        .into_iter()
+        .filter_map(|(meaning, words)| {
+            let mut words = words
+                .into_iter()
+                .map(|(id, (word, rank))| (id, word, rank))
+                .collect::<Vec<_>>();
+            words.sort_by(|left, right| {
+                left.2
+                    .cmp(&right.2)
+                    .then_with(|| {
+                        left.1
+                            .to_ascii_lowercase()
+                            .cmp(&right.1.to_ascii_lowercase())
+                    })
+                    .then_with(|| left.0.cmp(&right.0))
+            });
+            let words = words
+                .into_iter()
+                .take(8)
+                .map(|(_, word, _)| word)
+                .collect::<Vec<_>>();
+            (!words.is_empty()).then(|| serde_json::json!({"meaning": meaning, "words": words}))
+        })
+        .take(8)
+        .collect())
+}
+
+#[derive(Clone)]
+struct StudySynonymGloss {
+    meaning: String,
+    pos_categories: BTreeSet<String>,
+}
+
+fn study_synonym_cache_key(
+    conn: &rusqlite::Connection,
+    entry_id: i64,
+) -> Result<(String, i64), String> {
+    let source_commit = conn
+        .query_row(
+            "SELECT sv.source_commit
+             FROM entries e
+             INNER JOIN source_versions sv ON sv.id = e.source_version_id
+             WHERE e.id = ?1",
+            [entry_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .optional()
+        .map_err(|error| format!("Failed to load high-frequency synonym cache key: {error}"))?
+        .flatten()
+        .unwrap_or_else(|| format!("entry-{entry_id}"));
+    Ok((source_commit, entry_id))
+}
+
+fn study_synonym_pos_categories(pos: &str) -> BTreeSet<String> {
+    pos.to_ascii_lowercase()
+        .split(|character: char| !character.is_ascii_alphabetic())
+        .filter_map(|token| match token {
+            "adj" | "adjective" => Some("adj"),
+            "adv" | "adverb" => Some("adv"),
+            "pron" | "pronoun" => Some("pron"),
+            "prep" | "preposition" => Some("prep"),
+            "conj" | "conjunction" => Some("conj"),
+            "interj" | "interjection" => Some("interj"),
+            "v" | "vi" | "vt" | "verb" => Some("v"),
+            "n" | "noun" => Some("n"),
+            _ => None,
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+fn study_synonym_pos_matches(source: &BTreeSet<String>, candidate: &BTreeSet<String>) -> bool {
+    source.is_empty() || candidate.is_empty() || !source.is_disjoint(candidate)
+}
+
+fn study_synonym_meaning_keys(meaning: &str) -> Vec<String> {
+    meaning
+        .split(&['；', ';', '，', ',', '、'][..])
+        .map(str::trim)
+        .filter(|part| {
+            let length = part.chars().count();
+            length >= 2 && length <= 24 && part.chars().any(is_cjk_character)
+        })
+        .map(str::to_string)
+        .collect::<Vec<_>>()
+}
+
+fn is_cjk_character(character: char) -> bool {
+    matches!(character, '\u{4e00}'..='\u{9fff}')
+}
+
+fn study_derivational_branch(word: &str) -> &str {
+    let word = word.trim();
+    if word.starts_with("realiz") || word.starts_with("realis") {
+        "realize"
+    } else if matches!(
+        word,
+        "real" | "reality" | "really" | "realism" | "realist" | "realness"
+    ) {
+        "real"
+    } else {
+        ""
+    }
+}
+
+fn load_exam_mark_level_for_entry(
+    conn: &rusqlite::Connection,
+    entry_id: i64,
+) -> Result<Option<String>, String> {
+    let row = conn
+        .query_row(
+            "SELECT CASE
+                    WHEN o.user_mark = 'wrong' THEN 'wrong'
+                    WHEN o.mark_level = 'unknown'
+                        OR (o.mark_level = 'none' AND o.user_mark = 'unknown') THEN 'unknown'
+                    WHEN o.mark_level = 'familiar' THEN 'familiar'
+                    WHEN o.mark_level = 'fuzzy'
+                        OR (o.mark_level = 'none' AND o.user_mark = 'ignored') THEN 'fuzzy'
+                    ELSE ''
+                END AS level
+             FROM exercise_vocab_occurrences o
+             WHERE o.entry_id = ?1
+             ORDER BY CASE
+                    WHEN o.user_mark = 'wrong' THEN 100
+                    WHEN o.mark_level = 'unknown'
+                        OR (o.mark_level = 'none' AND o.user_mark = 'unknown') THEN 80
+                    WHEN o.mark_level = 'familiar' THEN 55
+                    WHEN o.mark_level = 'fuzzy'
+                        OR (o.mark_level = 'none' AND o.user_mark = 'ignored') THEN 35
+                    ELSE 0
+                END DESC,
+                o.updated_at DESC
+             LIMIT 1",
+            [entry_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to load exam mark level: {e}"))?;
+    Ok(row.filter(|level| !level.trim().is_empty()))
 }
 
 fn build_hint_prompt_payload(
@@ -4679,6 +6745,58 @@ fn enqueue_wrong_word_entries_snapshot(conn: &word_storage_core::Connection) {
     }
 }
 
+fn enqueue_shared_study_event(
+    conn: &word_storage_core::Connection,
+    question_id: &str,
+    answered_at: &str,
+) {
+    match build_submitted_study_event_payload(conn, question_id, answered_at) {
+        Ok(Some(payload)) => enqueue_sync_snapshot(
+            conn,
+            "study_events",
+            &payload,
+            "study_events:all_local_results",
+        ),
+        Ok(None) => {}
+        Err(error) => {
+            let payload = serde_json::json!({
+                "type": "study_events_backfill",
+                "error": error,
+            });
+            let _ = persistence::sync_repo::record_dead_letter(
+                conn,
+                "study_events",
+                &payload.to_string(),
+                "study_events:all_local_results",
+                "snapshot_failed",
+                payload
+                    .get("error")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or(""),
+            );
+        }
+    }
+}
+
+fn enqueue_study_sync_snapshots_after_submit(
+    conn: &word_storage_core::Connection,
+    submitted_result: Option<(&str, &str)>,
+    is_complete: bool,
+) {
+    if let Some((question_id, answered_at)) = submitted_result {
+        enqueue_shared_study_event(conn, question_id, answered_at);
+    }
+    if !is_complete {
+        return;
+    }
+    enqueue_recent_study_word_points(conn);
+    enqueue_wrong_word_entries_snapshot(conn);
+}
+
+fn should_enqueue_study_sync_snapshots_after_dispute_accept() -> bool {
+    false
+}
+
 fn build_wrong_word_entries_payload(
     conn: &word_storage_core::Connection,
 ) -> Result<Option<serde_json::Value>, String> {
@@ -4783,8 +6901,9 @@ fn enqueue_ai_passages_snapshot(conn: &word_storage_core::Connection) -> Result<
     Ok(enqueued)
 }
 
-fn build_all_study_events_payload(
+fn build_study_events_payload(
     conn: &word_storage_core::Connection,
+    result_id: Option<i64>,
 ) -> Result<Option<serde_json::Value>, String> {
     let mut stmt = conn
         .prepare(
@@ -4805,11 +6924,12 @@ fn build_all_study_events_payload(
            AND r.question_id NOT LIKE 'cloud_event:%'
            AND s.session_id NOT LIKE 'cloud_restore:%'
            AND s.session_id NOT LIKE 'cloud_event:%'
+           AND (?1 IS NULL OR r.id = ?1)
          ORDER BY r.id ASC",
         )
         .map_err(|e| format!("Failed to prepare shared study event query: {e}"))?;
     let rows = stmt
-        .query_map([], |row| {
+        .query_map([result_id], |row| {
             Ok((
                 row.get::<_, i64>(0)?,
                 row.get::<_, String>(1)?,
@@ -4866,6 +6986,7 @@ fn build_all_study_events_payload(
             "enToCnChoice"
                 | "exampleToCnChoice"
                 | "exampleToCnChoiceNoTranslation"
+                | "exampleComprehensionChoice"
                 | "cnToEnChoice"
                 | "enToCnInput"
                 | "wordSkeletonInput"
@@ -4914,6 +7035,31 @@ fn build_all_study_events_payload(
         "schemaVersion": 1,
         "events": events
     })))
+}
+
+fn build_all_study_events_payload(
+    conn: &word_storage_core::Connection,
+) -> Result<Option<serde_json::Value>, String> {
+    build_study_events_payload(conn, None)
+}
+
+fn build_submitted_study_event_payload(
+    conn: &word_storage_core::Connection,
+    question_id: &str,
+    answered_at: &str,
+) -> Result<Option<serde_json::Value>, String> {
+    let result_id = conn
+        .query_row(
+            "SELECT id FROM study_results WHERE question_id = ?1 AND answered_at = ?2 ORDER BY id DESC LIMIT 1",
+            rusqlite::params![question_id, answered_at],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to locate submitted study event: {e}"))?;
+    match result_id {
+        Some(result_id) => build_study_events_payload(conn, Some(result_id)),
+        None => Ok(None),
+    }
 }
 
 fn build_recent_study_word_points_payload(
@@ -5619,6 +7765,96 @@ fn commit_wrong_word_import_with_connection(
     }))
 }
 
+fn exam_word_family_candidates(word: &str) -> Vec<String> {
+    let normalized = word.trim().to_ascii_lowercase();
+    let mut candidates = Vec::new();
+    let irregular = match normalized.as_str() {
+        "children" => Some("child"),
+        "people" => Some("person"),
+        "men" => Some("man"),
+        "women" => Some("woman"),
+        "mice" => Some("mouse"),
+        "feet" => Some("foot"),
+        "teeth" => Some("tooth"),
+        "geese" => Some("goose"),
+        "went" | "gone" => Some("go"),
+        "saw" | "seen" => Some("see"),
+        "made" => Some("make"),
+        "took" | "taken" => Some("take"),
+        "gave" | "given" => Some("give"),
+        "found" => Some("find"),
+        "thought" => Some("think"),
+        "bought" => Some("buy"),
+        "brought" => Some("bring"),
+        "wrote" | "written" => Some("write"),
+        _ => None,
+    };
+    if let Some(irregular) = irregular {
+        candidates.push(irregular.to_string());
+    }
+    if normalized.ends_with("ies") && normalized.len() > 3 {
+        candidates.push(format!("{}y", &normalized[..normalized.len() - 3]));
+    }
+    if normalized.ends_with("ing") && normalized.len() > 4 {
+        let stem = &normalized[..normalized.len() - 3];
+        candidates.push(format!("{stem}e"));
+        candidates.push(stem.to_string());
+        if stem.len() > 2 {
+            let bytes = stem.as_bytes();
+            if bytes[stem.len() - 1] == bytes[stem.len() - 2] {
+                candidates.push(stem[..stem.len() - 1].to_string());
+            }
+        }
+    }
+    if normalized.ends_with("ed") && normalized.len() > 3 {
+        let stem = &normalized[..normalized.len() - 2];
+        candidates.push(format!("{stem}e"));
+        candidates.push(stem.to_string());
+        if stem.len() > 2 {
+            let bytes = stem.as_bytes();
+            if bytes[stem.len() - 1] == bytes[stem.len() - 2] {
+                candidates.push(stem[..stem.len() - 1].to_string());
+            }
+        }
+    }
+    if normalized.ends_with("es") && normalized.len() > 3 {
+        candidates.push(normalized[..normalized.len() - 2].to_string());
+    }
+    const S_EXCEPTIONS: &[&str] = &["news", "series", "species", "means", "analysis"];
+    if normalized.ends_with('s')
+        && normalized.len() > 2
+        && !normalized.ends_with("ss")
+        && !S_EXCEPTIONS.contains(&normalized.as_str())
+    {
+        candidates.push(normalized[..normalized.len() - 1].to_string());
+    }
+    candidates.push(normalized);
+    candidates.dedup();
+    candidates
+}
+
+fn resolve_exam_word_family(
+    conn: &rusqlite::Connection,
+    word: &str,
+) -> Result<(Option<i64>, String), String> {
+    let surface = word.trim().to_ascii_lowercase();
+    for candidate in exam_word_family_candidates(&surface) {
+        let Some(entry_id) = find_entry_id_by_word(conn, &candidate)? else {
+            continue;
+        };
+        let canonical = conn
+            .query_row(
+                "SELECT CASE WHEN TRIM(lemma) <> '' THEN LOWER(lemma) ELSE LOWER(word) END
+                 FROM entries WHERE id = ?1",
+                [entry_id],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(|error| format!("Failed to load canonical exam word: {error}"))?;
+        return Ok((Some(entry_id), canonical));
+    }
+    Ok((None, surface))
+}
+
 fn find_entry_id_by_word(conn: &rusqlite::Connection, word: &str) -> Result<Option<i64>, String> {
     let normalized = word.trim().to_ascii_lowercase();
     let mut candidates = vec![normalized.clone()];
@@ -5939,6 +8175,9 @@ const DEFAULT_ANTHROPIC_FALLBACK_AI_KEY: &str =
     "sk-c770a7ed5290da660e490ab9536b21e7af8ab9303bee61d417e3c0952170877f";
 const DEFAULT_BACKUP_AI_URL: &str = "http://107.182.173.201:8080/v1/responses";
 const DEFAULT_BACKUP_AI_MODEL: &str = "gpt-5.4";
+const DEFAULT_AGNES_AI_URL: &str = "https://apihub.agnes-ai.com/v1";
+const DEFAULT_AGNES_AI_MODEL: &str = "agnes-2.5-pro-alpha";
+const DEFAULT_AGNES_AI_KEY: &str = "sk-VG8ZfaeFwPqqlHGguwxQuRxky4frZaGxEvTEJfY2xBMi9p9h";
 const DEFAULT_BACKUP_AI_KEY: &str =
     "sk-d0fea41ec127dc71bbeb14da6a2507cc0bd7d92c740c512db67242d64358567d";
 const AI_PASSAGE_BODY_WORD_LIMIT: usize = 10;
@@ -5965,6 +8204,8 @@ struct StoredAiProviderConfig {
     #[serde(default)]
     anthropic_fallback: Option<StoredAiProviderProfile>,
     backup: StoredAiProviderProfile,
+    #[serde(default)]
+    agnes_fallback: Option<StoredAiProviderProfile>,
 }
 
 #[derive(serde::Serialize)]
@@ -5983,6 +8224,7 @@ struct AiProviderConfigSummary {
     primary: AiProviderProfileSummary,
     anthropic_fallback: Option<AiProviderProfileSummary>,
     backup: AiProviderProfileSummary,
+    agnes_fallback: Option<AiProviderProfileSummary>,
 }
 
 fn build_ai_user_prompt(
@@ -6071,6 +8313,12 @@ fn default_ai_provider_config() -> StoredAiProviderConfig {
             model: DEFAULT_BACKUP_AI_MODEL.to_string(),
             auth_token: DEFAULT_BACKUP_AI_KEY.to_string(),
         },
+        agnes_fallback: Some(StoredAiProviderProfile {
+            provider: "openaiResponses".to_string(),
+            base_url: DEFAULT_AGNES_AI_URL.to_string(),
+            model: DEFAULT_AGNES_AI_MODEL.to_string(),
+            auth_token: DEFAULT_AGNES_AI_KEY.to_string(),
+        }),
     }
 }
 
@@ -6101,6 +8349,7 @@ fn summarize_ai_provider_config(config: &StoredAiProviderConfig) -> AiProviderCo
         primary: to_summary(&config.primary),
         anthropic_fallback: config.anthropic_fallback.as_ref().map(to_summary),
         backup: to_summary(&config.backup),
+        agnes_fallback: config.agnes_fallback.as_ref().map(to_summary),
     }
 }
 
@@ -6121,6 +8370,10 @@ fn resolve_ai_provider_config() -> StoredAiProviderConfig {
     if config.anthropic_fallback.is_none() {
         config.anthropic_fallback = default_config.anthropic_fallback.clone();
     }
+    if config.agnes_fallback.is_none() {
+        config.agnes_fallback = default_config.agnes_fallback.clone();
+    }
+    upgrade_legacy_agnes_fallback(config.agnes_fallback.as_mut());
     if let Some(base_url) = read_non_empty_env("ANTHROPIC_BASE_URL") {
         config.primary.base_url = base_url.trim_end_matches('/').to_string();
     }
@@ -6158,7 +8411,40 @@ fn resolve_ai_provider_config() -> StoredAiProviderConfig {
     if let Some(token) = read_non_empty_env("OPENAI_AUTH_TOKEN") {
         config.backup.auth_token = token;
     }
+    if let Some(base_url) = read_non_empty_env("AGNES_BASE_URL") {
+        if let Some(profile) = config.agnes_fallback.as_mut() {
+            profile.base_url = base_url.trim_end_matches('/').to_string();
+        }
+    }
+    if let Some(model) = read_non_empty_env("AGNES_MODEL") {
+        if let Some(profile) = config.agnes_fallback.as_mut() {
+            profile.model = model;
+        }
+    }
+    if let Some(token) = read_non_empty_env("AGNES_API_KEY") {
+        if let Some(profile) = config.agnes_fallback.as_mut() {
+            profile.auth_token = token;
+        }
+    }
     config
+}
+
+fn upgrade_legacy_agnes_fallback(profile: Option<&mut StoredAiProviderProfile>) {
+    let Some(profile) = profile else {
+        return;
+    };
+    let uses_official_endpoint = profile
+        .base_url
+        .trim_end_matches('/')
+        .eq_ignore_ascii_case(DEFAULT_AGNES_AI_URL);
+    let is_legacy_flash = matches!(
+        profile.model.trim().to_ascii_lowercase().as_str(),
+        "agnes-2.0-flash" | "agnes-2.5-flash"
+    );
+    if uses_official_endpoint && is_legacy_flash {
+        profile.provider = "openaiResponses".to_string();
+        profile.model = DEFAULT_AGNES_AI_MODEL.to_string();
+    }
 }
 
 fn ai_agent() -> AiAgent {
@@ -6182,6 +8468,12 @@ fn ai_agent() -> AiAgent {
             model: config.backup.model,
             auth_token: config.backup.auth_token,
         },
+        agnes_fallback: config.agnes_fallback.map(|profile| AiProviderProfile {
+            provider: profile.provider,
+            base_url: profile.base_url,
+            model: profile.model,
+            auth_token: profile.auth_token,
+        }),
     })
 }
 
@@ -6455,6 +8747,7 @@ fn build_mode_series(
         "review",
         "mixedTest",
         "wrongWordReinforcement",
+        "highFrequency",
         "rootAffix",
     ] {
         let series = by_mode_date
@@ -6526,6 +8819,24 @@ where
     f(runtime, &conn)
 }
 
+fn open_study_session_action_database(
+    runtime: &MobileRuntime,
+) -> Result<word_storage_core::Connection, String> {
+    let db_path = runtime.paths().database_path();
+    if !db_path.exists() {
+        return Err("Database not initialized".to_string());
+    }
+    if should_apply_schema_on_study_session_action() {
+        return persistence::initialize_database(&db_path)
+            .map_err(|e| format!("Failed to initialize database: {}", e));
+    }
+    persistence::open_database(&db_path).map_err(|e| format!("Failed to open database: {}", e))
+}
+
+fn should_apply_schema_on_study_session_action() -> bool {
+    false
+}
+
 fn seed_vocabulary_has_entries(conn: &word_storage_core::Connection) -> Result<bool, String> {
     let existing_entries = conn
         .query_row("SELECT COUNT(*) FROM entries", [], |row| {
@@ -6551,7 +8862,8 @@ fn ensure_seed_vocabulary_imported(
     conn: &word_storage_core::Connection,
     bundle_dir: &Path,
 ) -> Result<(), String> {
-    const SEED_MAINTENANCE_KEY: &str = "seed_vocabulary_maintenance_v5_safe_question_preps";
+    const LEGACY_SEED_MAINTENANCE_KEY: &str = "seed_vocabulary_maintenance_v6_exam_frequency";
+    const SEED_MAINTENANCE_KEY: &str = "seed_vocabulary_maintenance_v8_explicit_synonyms";
     let book_dir = bundle_dir.join("seed-vocab").join("book");
     if seed_vocabulary_has_entries(conn)? {
         let maintenance_done =
@@ -6561,7 +8873,13 @@ fn ensure_seed_vocabulary_imported(
         if maintenance_done {
             return Ok(());
         }
+        if book_dir.exists() {
+            refresh_seed_exam_frequency(conn, &book_dir.join("KaoYan_3.json"))?;
+        }
         repair_seed_vocabulary_dedup(conn)?;
+        if book_dir.exists() {
+            refresh_seed_real_exam_examples(conn, &book_dir)?;
+        }
         apply_seed_example_overrides(conn, bundle_dir)?;
         rebuild_seed_question_preps(conn)?;
         if book_dir.exists() {
@@ -6569,6 +8887,11 @@ fn ensure_seed_vocabulary_imported(
             import_seed_aliases(conn, &book_dir)?;
         }
         set_json_setting(conn, SEED_MAINTENANCE_KEY, &serde_json::Value::Bool(true))?;
+        set_json_setting(
+            conn,
+            LEGACY_SEED_MAINTENANCE_KEY,
+            &serde_json::Value::Bool(true),
+        )?;
         return Ok(());
     }
 
@@ -6589,6 +8912,13 @@ fn ensure_seed_vocabulary_imported(
             .and_then(|_| refresh_seed_precomputed_question_preps(conn, &book_dir))
             .and_then(|_| {
                 set_json_setting(conn, SEED_MAINTENANCE_KEY, &serde_json::Value::Bool(true))
+            })
+            .and_then(|_| {
+                set_json_setting(
+                    conn,
+                    LEGACY_SEED_MAINTENANCE_KEY,
+                    &serde_json::Value::Bool(true),
+                )
             }),
         Err(error) => {
             let _ = conn.execute_batch("ROLLBACK");
@@ -6597,7 +8927,273 @@ fn ensure_seed_vocabulary_imported(
     }
 }
 
-fn ensure_exam_dictionary_entries(conn: &word_storage_core::Connection) -> Result<(), String> {
+fn refresh_seed_exam_frequency(
+    conn: &word_storage_core::Connection,
+    path: &Path,
+) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("Failed to read exam-frequency vocabulary: {error}"))?;
+    let words: Vec<serde_json::Value> = serde_json::from_str(&content)
+        .map_err(|error| format!("Failed to parse exam-frequency vocabulary: {error}"))?;
+    for item in words {
+        let Some(word) = item
+            .get("headWord")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        let word_content = item.pointer("/content/word/content");
+        let exam_frequency = word_content
+            .and_then(|value| value.pointer("/realExamFrequency/occurrences"))
+            .and_then(|value| value.as_i64())
+            .unwrap_or(0)
+            .max(0);
+        let exam_rank = word_content
+            .and_then(|value| value.pointer("/realExamFrequency/rank"))
+            .and_then(|value| value.as_i64())
+            .filter(|value| *value > 0);
+        let part_of_speech = word_content
+            .and_then(|value| value.get("trans"))
+            .and_then(|value| value.as_array())
+            .map(|translations| {
+                let mut seen = std::collections::HashSet::new();
+                translations
+                    .iter()
+                    .filter_map(|translation| {
+                        translation.get("pos").and_then(|value| value.as_str())
+                    })
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .filter(|value| seen.insert((*value).to_string()))
+                    .collect::<Vec<_>>()
+                    .join(" / ")
+            })
+            .unwrap_or_default();
+        conn.execute(
+            "UPDATE entries
+             SET exam_frequency = ?1,
+                 exam_rank = ?2,
+                 part_of_speech = CASE WHEN ?3 <> '' THEN ?3 ELSE part_of_speech END
+             WHERE id IN (
+                 SELECT e.id
+                 FROM entries e
+                 INNER JOIN wordbook_entries we ON we.entry_id = e.id
+                 INNER JOIN wordbooks wb ON wb.id = we.wordbook_id
+                 WHERE wb.code = 'kaoyan' AND lower(e.word) = lower(?4)
+             )",
+            rusqlite::params![exam_frequency, exam_rank, part_of_speech, word],
+        )
+        .map_err(|error| format!("Failed to refresh exam frequency for {word}: {error}"))?;
+    }
+    Ok(())
+}
+
+fn refresh_seed_real_exam_examples(
+    conn: &word_storage_core::Connection,
+    book_dir: &Path,
+) -> Result<(), String> {
+    const BOOKS: [(&str, &str); 4] = [
+        ("cet4", "CET4_3.json"),
+        ("cet6", "CET6_3.json"),
+        ("kaoyan", "KaoYan_3.json"),
+        ("medical", "MEDICAL_RESP.json"),
+    ];
+    for (book_code, file_name) in BOOKS {
+        let path = book_dir.join(file_name);
+        if !path.exists() {
+            continue;
+        }
+        let raw = fs::read_to_string(&path).map_err(|error| {
+            format!("Failed to read real-exam examples from {file_name}: {error}")
+        })?;
+        let items: Vec<serde_json::Value> = serde_json::from_str(&raw).map_err(|error| {
+            format!("Failed to parse real-exam examples from {file_name}: {error}")
+        })?;
+        let mut statement = conn
+            .prepare(
+                "SELECT e.id
+                 FROM entries e
+                 INNER JOIN wordbook_entries we ON we.entry_id = e.id
+                 INNER JOIN wordbooks wb ON wb.id = we.wordbook_id
+                 WHERE wb.code = ?1 AND lower(e.word) = lower(?2)",
+            )
+            .map_err(|error| format!("Failed to prepare real-exam entry lookup: {error}"))?;
+        for item in items {
+            let Some(word) = item
+                .get("headWord")
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|word| !word.is_empty())
+            else {
+                continue;
+            };
+            let word_content = item.pointer("/content/word/content");
+            let entry_ids = statement
+                .query_map(rusqlite::params![book_code, word], |row| {
+                    row.get::<_, i64>(0)
+                })
+                .map_err(|error| format!("Failed to query real-exam entry {word}: {error}"))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| format!("Failed to read real-exam entry {word}: {error}"))?;
+            for entry_id in entry_ids {
+                conn.execute(
+                    "DELETE FROM entry_examples
+                     WHERE entry_id = ?1 AND sentence_cn LIKE ?2",
+                    rusqlite::params![entry_id, "\u{771f}\u{9898}\u{6765}\u{6e90}\u{ff1a}%"],
+                )
+                .map_err(|error| {
+                    format!("Failed to clear real-exam examples for {word}: {error}")
+                })?;
+                append_seed_entry_real_exam_examples(conn, entry_id, word_content)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExamCorpusDictionaryAsset {
+    source: ExamCorpusDictionarySource,
+    entries: Vec<ExamCorpusDictionaryEntry>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ExamCorpusDictionarySource {
+    commit: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExamCorpusDictionaryEntry {
+    term: String,
+    lemma: String,
+    part_of_speech: String,
+    meaning: String,
+}
+
+struct CachedExamCorpusDictionary {
+    commit: String,
+    entries: BTreeMap<String, ExamCorpusDictionaryEntry>,
+}
+
+fn ensure_exam_dictionary_entries(
+    conn: &word_storage_core::Connection,
+    _bundle_dir: Option<&Path>,
+) -> Result<(), String> {
+    ensure_curated_exam_dictionary_entries(conn)
+}
+
+fn lookup_exam_corpus_dictionary_entry(
+    bundle_dir: &Path,
+    term: &str,
+) -> Result<Option<(String, ExamCorpusDictionaryEntry)>, String> {
+    let Some(path) = exam_dictionary_asset_path(bundle_dir) else {
+        return Ok(None);
+    };
+    let cache_key = path.to_string_lossy().to_string();
+    let mut cache = EXAM_CORPUS_DICTIONARY_CACHE
+        .lock()
+        .map_err(|_| "Failed to lock exam corpus dictionary cache".to_string())?;
+    if !cache.contains_key(&cache_key) {
+        let raw = fs::read_to_string(&path).map_err(|error| {
+            format!(
+                "Failed to read exam corpus dictionary {}: {error}",
+                path.display()
+            )
+        })?;
+        let asset: ExamCorpusDictionaryAsset = serde_json::from_str(&raw).map_err(|error| {
+            format!("Invalid exam corpus dictionary {}: {error}", path.display())
+        })?;
+        cache.insert(
+            cache_key.clone(),
+            CachedExamCorpusDictionary {
+                commit: asset.source.commit,
+                entries: asset
+                    .entries
+                    .into_iter()
+                    .map(|entry| (entry.term.trim().to_ascii_lowercase(), entry))
+                    .collect(),
+            },
+        );
+    }
+    let dictionary = cache
+        .get(&cache_key)
+        .ok_or_else(|| "Exam corpus dictionary cache disappeared".to_string())?;
+    Ok(dictionary
+        .entries
+        .get(&term.trim().to_ascii_lowercase())
+        .cloned()
+        .map(|entry| (dictionary.commit.clone(), entry)))
+}
+
+fn upsert_exam_corpus_dictionary_entry(
+    conn: &word_storage_core::Connection,
+    commit: &str,
+    entry: &ExamCorpusDictionaryEntry,
+) -> Result<i64, String> {
+    let source_commit = format!("ecdict-exam-corpus-{commit}");
+    conn.execute(
+        "INSERT OR IGNORE INTO source_versions
+         (source_name, source_commit, status, notes)
+         VALUES ('ECDICT/exam-corpus', ?1, 'ready',
+                 'ECDICT term selected from bundled exam papers')",
+        [&source_commit],
+    )
+    .map_err(|error| format!("Failed to create exam corpus dictionary source: {error}"))?;
+    let source_version_id = conn
+        .query_row(
+            "SELECT id FROM source_versions WHERE source_commit = ?1",
+            [&source_commit],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| format!("Failed to load exam corpus dictionary source: {error}"))?;
+    let source_entry_key = format!("exam_corpus:{}", entry.term.trim().to_ascii_lowercase());
+    conn.execute(
+        "INSERT OR IGNORE INTO entries
+         (source_version_id, source_entry_key, word, lemma, part_of_speech, frequency)
+         VALUES (?1, ?2, ?3, ?4, ?5, 0.9)",
+        rusqlite::params![
+            source_version_id,
+            source_entry_key,
+            entry.term.trim(),
+            entry.lemma.trim(),
+            entry.part_of_speech.trim()
+        ],
+    )
+    .map_err(|error| format!("Failed to create exam corpus entry {}: {error}", entry.term))?;
+    let entry_id = conn
+        .query_row(
+            "SELECT id FROM entries WHERE source_version_id = ?1 AND source_entry_key = ?2",
+            rusqlite::params![source_version_id, source_entry_key],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| format!("Failed to load exam corpus entry {}: {error}", entry.term))?;
+    conn.execute(
+        "INSERT INTO entry_meanings (entry_id, pos, meaning_cn, sort_order)
+         SELECT ?1, ?2, ?3, 0
+         WHERE NOT EXISTS (
+             SELECT 1 FROM entry_meanings WHERE entry_id = ?1 AND meaning_cn = ?3
+         )",
+        rusqlite::params![entry_id, entry.part_of_speech.trim(), entry.meaning.trim()],
+    )
+    .map_err(|error| {
+        format!(
+            "Failed to create exam corpus meaning for {}: {error}",
+            entry.term
+        )
+    })?;
+    Ok(entry_id)
+}
+
+fn ensure_curated_exam_dictionary_entries(
+    conn: &word_storage_core::Connection,
+) -> Result<(), String> {
     const MAINTENANCE_KEY: &str = "exam_dictionary_entries_v2";
     if get_json_setting(conn, MAINTENANCE_KEY, &serde_json::Value::Bool(false))?
         .as_bool()
@@ -6868,9 +9464,31 @@ fn import_seed_book(
             .and_then(|value| value.as_str())
             .unwrap_or("");
         let part_of_speech = word_content
-            .and_then(|value| value.pointer("/trans/0/pos"))
-            .and_then(|value| value.as_str())
-            .unwrap_or("");
+            .and_then(|value| value.get("trans"))
+            .and_then(|value| value.as_array())
+            .map(|translations| {
+                let mut seen = std::collections::HashSet::new();
+                translations
+                    .iter()
+                    .filter_map(|translation| {
+                        translation.get("pos").and_then(|value| value.as_str())
+                    })
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .filter(|value| seen.insert((*value).to_string()))
+                    .collect::<Vec<_>>()
+                    .join(" / ")
+            })
+            .unwrap_or_default();
+        let exam_frequency = word_content
+            .and_then(|value| value.pointer("/realExamFrequency/occurrences"))
+            .and_then(|value| value.as_i64())
+            .unwrap_or(0)
+            .max(0);
+        let exam_rank = word_content
+            .and_then(|value| value.pointer("/realExamFrequency/rank"))
+            .and_then(|value| value.as_i64())
+            .filter(|value| *value > 0);
         let rank = item
             .get("wordRank")
             .and_then(|value| value.as_i64())
@@ -6878,29 +9496,38 @@ fn import_seed_book(
         let frequency = 1_000_000.0 - rank.max(0) as f64;
 
         let canonical_entry_id =
-            find_seed_entry_for_word_pos(conn, wordbook_id, word, part_of_speech)?;
+            find_seed_entry_for_word_pos(conn, wordbook_id, word, &part_of_speech)?;
         let (entry_id, should_replace_details) = if let Some(entry_id) = canonical_entry_id {
             conn.execute(
                 "UPDATE entries
                  SET frequency = MAX(frequency, ?1),
                      phonetic_us = CASE WHEN COALESCE(phonetic_us, '') = '' THEN ?2 ELSE phonetic_us END,
-                     phonetic_uk = CASE WHEN COALESCE(phonetic_uk, '') = '' THEN ?3 ELSE phonetic_uk END
-                 WHERE id = ?4",
-                rusqlite::params![frequency, phonetic_us, phonetic_uk, entry_id],
+                     phonetic_uk = CASE WHEN COALESCE(phonetic_uk, '') = '' THEN ?3 ELSE phonetic_uk END,
+                     part_of_speech = CASE WHEN ?4 <> '' THEN ?4 ELSE part_of_speech END,
+                     exam_frequency = MAX(exam_frequency, ?5),
+                     exam_rank = CASE
+                         WHEN ?6 IS NULL THEN exam_rank
+                         WHEN exam_rank IS NULL THEN ?6
+                         ELSE MIN(exam_rank, ?6)
+                     END
+                 WHERE id = ?7",
+                rusqlite::params![frequency, phonetic_us, phonetic_uk, part_of_speech, exam_frequency, exam_rank, entry_id],
             )
             .map_err(|e| format!("Failed to merge seed entry {source_key}: {e}"))?;
             (entry_id, false)
         } else {
             conn.execute(
-                "INSERT INTO entries (source_version_id, source_entry_key, word, lemma, phonetic_us, phonetic_uk, part_of_speech, frequency, difficulty)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '')
+                "INSERT INTO entries (source_version_id, source_entry_key, word, lemma, phonetic_us, phonetic_uk, part_of_speech, frequency, exam_frequency, exam_rank, difficulty)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, '')
                  ON CONFLICT(source_version_id, source_entry_key) DO UPDATE SET
                     word = excluded.word,
                     lemma = excluded.lemma,
                     phonetic_us = excluded.phonetic_us,
                     phonetic_uk = excluded.phonetic_uk,
                     part_of_speech = excluded.part_of_speech,
-                    frequency = excluded.frequency",
+                    frequency = excluded.frequency,
+                    exam_frequency = excluded.exam_frequency,
+                    exam_rank = excluded.exam_rank",
                 rusqlite::params![
                     source_version_id,
                     source_key,
@@ -6910,6 +9537,8 @@ fn import_seed_book(
                     phonetic_uk,
                     part_of_speech,
                     frequency,
+                    exam_frequency,
+                    exam_rank,
                 ],
             )
             .map_err(|e| format!("Failed to upsert seed entry {source_key}: {e}"))?;
@@ -6980,6 +9609,39 @@ fn persist_seed_entry_aliases(
                 rusqlite::params![entry_id, alias, meaning],
             )
             .map_err(|error| format!("Failed to persist seed alias {alias}: {error}"))?;
+        }
+    }
+    let synonyms = word_content
+        .and_then(|value| value.pointer("/syno/synos"))
+        .and_then(|value| value.as_array());
+    for synonym_group in synonyms.into_iter().flatten() {
+        let meaning = synonym_group
+            .get("tran")
+            .and_then(|value| value.as_str())
+            .map(clean_seed_meaning_cn)
+            .unwrap_or_default();
+        if meaning.is_empty() {
+            continue;
+        }
+        let Some(words) = synonym_group.get("hwds").and_then(|value| value.as_array()) else {
+            continue;
+        };
+        for word in words {
+            let alias = word
+                .get("w")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .unwrap_or("");
+            if alias.is_empty() {
+                continue;
+            }
+            conn.execute(
+                "INSERT OR IGNORE INTO entry_aliases
+                    (entry_id, alias, meaning_cn, source_kind)
+                 VALUES (?1, ?2, ?3, 'synonym')",
+                rusqlite::params![entry_id, alias, meaning],
+            )
+            .map_err(|error| format!("Failed to persist seed synonym {alias}: {error}"))?;
         }
     }
     Ok(())
@@ -8539,6 +11201,12 @@ fn today_target_seed_from_plan_value_for_date(
         "wrongWordTestPerDay",
         today_date,
     );
+    let high_frequency = grown_plan_unit_count(
+        plan_value,
+        "highFrequency",
+        "highFrequencyPerDay",
+        today_date,
+    );
     let root_affix = grown_plan_unit_count(plan_value, "rootAffix", "rootAffixPerDay", today_date);
 
     TodayTargetSeed {
@@ -8554,6 +11222,9 @@ fn today_target_seed_from_plan_value_for_date(
         wrong_word_test_target: Some(wrong_word_test),
         wrong_word_test_base_target: Some(wrong_word_test),
         wrong_word_test_carryover_target: Some(0),
+        high_frequency_target: Some(high_frequency),
+        high_frequency_base_target: Some(high_frequency),
+        high_frequency_carryover_target: Some(0),
         root_affix_target: Some(root_affix),
         root_affix_base_target: Some(root_affix),
         root_affix_carryover_target: Some(0),
@@ -8561,69 +11232,14 @@ fn today_target_seed_from_plan_value_for_date(
 }
 
 fn align_today_targets_to_available_pools(
-    conn: &word_storage_core::Connection,
-    mut targets: TodayTargetSeed,
-    plan_value: &serde_json::Value,
+    _conn: &word_storage_core::Connection,
+    targets: TodayTargetSeed,
+    _plan_value: &serde_json::Value,
 ) -> Result<TodayTargetSeed, String> {
-    let active_wordbook_ids = selected_wordbook_ids_for_today(conn)?;
-    let review_wordbook_ids = selected_review_wordbook_ids_for_today(conn)?;
-    let today = today_date_string();
-    let new_word_questions = targets
-        .new_words_target
-        .unwrap_or_else(|| new_word_question_count_from_plan(plan_value, "newWordsPerDay", &today));
-    let new_word_units = new_word_word_count_from_questions(new_word_questions) as usize;
-    let review_target = targets.review_words_target.unwrap_or_else(|| {
-        grown_plan_unit_count(plan_value, "review", "reviewWordsPerDay", &today)
-    });
-    let mixed_target = targets.mixed_test_target.unwrap_or_else(|| {
-        grown_plan_unit_count(plan_value, "mixedTest", "mixedTestPerDay", &today)
-    });
-    let wrong_target = targets.wrong_word_test_target.unwrap_or_else(|| {
-        grown_plan_unit_count(
-            plan_value,
-            "wrongWordReinforcement",
-            "wrongWordTestPerDay",
-            &today,
-        )
-    });
-    let root_target = targets.root_affix_target.unwrap_or_else(|| {
-        grown_plan_unit_count(plan_value, "rootAffix", "rootAffixPerDay", &today)
-    });
-
-    let available_new_words = load_unlearned_ranked_entry_ids_for_wordbooks_with_global_fallback(
-        conn,
-        &active_wordbook_ids,
-        new_word_units,
-    )?
-    .len() as u32;
-    let available_review_words =
-        load_review_entry_ids_for_today(conn, &review_wordbook_ids, review_target as usize)?.len()
-            as u32;
-    let available_mixed_tests = load_ranked_entry_ids_for_wordbooks_with_global_fallback(
-        conn,
-        &active_wordbook_ids,
-        mixed_target as usize,
-    )?
-    .len() as u32;
-    let available_wrong_words =
-        load_prioritized_wrong_word_entry_ids(conn, wrong_target as usize)?.len() as u32;
-
-    let new_target = new_word_questions.min(available_new_words.saturating_mul(4));
-    let review_target = review_target.min(available_review_words);
-    let mixed_target = mixed_target.min(available_mixed_tests);
-    let wrong_target = wrong_target.min(available_wrong_words);
-
-    targets.new_words_target = Some(new_target);
-    targets.new_words_base_target = Some(new_target);
-    targets.review_words_target = Some(review_target);
-    targets.review_words_base_target = Some(review_target);
-    targets.mixed_test_target = Some(mixed_target);
-    targets.mixed_test_base_target = Some(mixed_target);
-    targets.wrong_word_test_target = Some(wrong_target);
-    targets.wrong_word_test_base_target = Some(wrong_target);
-    targets.root_affix_target = Some(root_target);
-    targets.root_affix_base_target = Some(root_target);
-
+    // Today displays the plan target. Availability shortfalls belong to the
+    // Study generation/repair path; silently shrinking Today reintroduces
+    // Plan/Today/Study denominator drift such as 28 planned review questions
+    // rendering as 25 on the Today page.
     Ok(targets)
 }
 
@@ -8980,6 +11596,7 @@ fn session_mode_key(mode: &SessionMode) -> &'static str {
         SessionMode::Review => "review",
         SessionMode::MixedTest => "mixedTest",
         SessionMode::WrongWordReinforcement => "wrongWordReinforcement",
+        SessionMode::HighFrequency => "",
         SessionMode::RootAffix => "",
     }
 }
@@ -9105,6 +11722,7 @@ fn default_plan_json() -> serde_json::Value {
         "reviewWordsPerDay": 6,
         "mixedTestPerDay": 4,
         "wrongWordTestPerDay": 3,
+        "highFrequencyPerDay": 10,
         "rootAffixPerDay": 2,
         "growthRuleEnabled": true,
         "growthIntervalDays": 7,
@@ -9117,6 +11735,7 @@ fn default_plan_json() -> serde_json::Value {
             "review": shared_growth_rule.clone(),
             "mixedTest": shared_growth_rule.clone(),
             "wrongWordReinforcement": shared_growth_rule.clone(),
+            "highFrequency": shared_growth_rule.clone(),
             "rootAffix": shared_growth_rule.clone()
         },
         "questionTypeWeightsByMode": {
@@ -9155,6 +11774,7 @@ fn default_plan_json() -> serde_json::Value {
             "review": today,
             "mixedTest": today,
             "wrongWordReinforcement": today,
+            "highFrequency": today,
             "rootAffix": today
         }
     })
@@ -9317,9 +11937,17 @@ pub fn enqueue_cloud_backfill(request_json: String) -> Result<String, String> {
     with_runtime_conn(|conn| {
         let study_events = match build_all_study_events_payload(conn)? {
             Some(payload) => {
-                let event_count = payload.get("events").and_then(|value| value.as_array())
-                    .map(|items| items.len()).unwrap_or(0);
-                enqueue_sync_snapshot(conn, "study_events", &payload, "study_events:all_local_results");
+                let event_count = payload
+                    .get("events")
+                    .and_then(|value| value.as_array())
+                    .map(|items| items.len())
+                    .unwrap_or(0);
+                enqueue_sync_snapshot(
+                    conn,
+                    "study_events",
+                    &payload,
+                    "study_events:all_local_results",
+                );
                 event_count
             }
             None => 0,
@@ -9360,9 +11988,9 @@ pub fn enqueue_cloud_backfill(request_json: String) -> Result<String, String> {
         };
         let ai_passages = enqueue_ai_passages_snapshot(conn)?;
         Ok(serde_json::json!({
-            "enqueued": study_points > 0 || wrong_words > 0 || ai_passages > 0,
-            "studyPoints": study_points,
+            "enqueued": study_events > 0 || study_points > 0 || wrong_words > 0 || ai_passages > 0,
             "studyEvents": study_events,
+            "studyPoints": study_points,
             "wrongWords": wrong_words,
             "aiPassages": ai_passages,
             "windowDays": window_days,
@@ -9496,6 +12124,7 @@ const USER_OWNED_SETTING_KEYS: &[&str] = &[
     "saved_wordbooks_json",
     "today_wordbooks_json",
     "today_review_wordbooks_json",
+    "high_frequency_pool_json",
     "today_reward_state_json",
     "ai_passage_history_json",
     "cloud_report_snapshots_json",
@@ -9951,10 +12580,16 @@ pub fn restore_cloud_data_snapshot(request_json: String) -> Result<String, Strin
 
     with_runtime(|runtime, conn| {
         ensure_seed_vocabulary_imported(conn, &runtime.paths().bundled_resource_path(""))?;
-        if request.get("mergeStudyEventsOnly").and_then(|value| value.as_bool()).unwrap_or(false) {
+        if request
+            .get("mergeStudyEventsOnly")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+        {
             let merged = merge_cloud_study_events(conn, request.get("studyEvents"))?;
-            return serde_json::to_string(&serde_json::json!({ "restored": false, "mergedStudyEvents": merged }))
-                .map_err(|e| format!("JSON serialization failed: {e}"));
+            return serde_json::to_string(
+                &serde_json::json!({ "restored": false, "mergedStudyEvents": merged }),
+            )
+            .map_err(|e| format!("JSON serialization failed: {e}"));
         }
         clear_cloud_restored_learning(conn)?;
         let restored_plan = restore_cloud_plan_config(conn, request.get("planConfig"))?;
@@ -9988,41 +12623,167 @@ pub fn restore_cloud_data_snapshot(request_json: String) -> Result<String, Strin
     })
 }
 
-fn merge_cloud_study_events(conn: &word_storage_core::Connection, value: Option<&serde_json::Value>) -> Result<usize, String> {
-    let Some(items) = value.and_then(|value| value.as_array()) else { return Ok(0); };
+fn merge_cloud_study_events(
+    conn: &word_storage_core::Connection,
+    value: Option<&serde_json::Value>,
+) -> Result<usize, String> {
+    let Some(items) = value.and_then(|value| value.as_array()) else {
+        return Ok(0);
+    };
     let mut merged = 0usize;
     for item in items {
-        if item.get("event_type").and_then(|value| value.as_str()) != Some("answer_submitted") { continue; }
-        let Some(payload) = item.get("payload_json").and_then(|value| value.as_object()) else { continue; };
-        let event_id = payload.get("eventId").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let question_id = payload.get("questionId").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let entry_id = payload.get("entryId").and_then(|value| value.as_i64()).unwrap_or(0);
-        let entry_source_id = payload.get("entrySourceId").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let mode = payload.get("mode").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let question_type = payload.get("questionType").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let outcome = payload.get("outcome").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let user_response = payload.get("userResponse").and_then(|value| value.as_str()).unwrap_or("");
-        let canonical_answer = payload.get("canonicalAnswer").and_then(|value| value.as_str()).unwrap_or("").trim();
-        let response_time_ms = payload.get("responseTimeMs").and_then(|value| value.as_i64()).unwrap_or(-1);
+        if item.get("event_type").and_then(|value| value.as_str()) != Some("answer_submitted") {
+            continue;
+        }
+        let Some(payload) = item.get("payload_json").and_then(|value| value.as_object()) else {
+            continue;
+        };
+        let event_id = payload
+            .get("eventId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let question_id = payload
+            .get("questionId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let entry_id = payload
+            .get("entryId")
+            .and_then(|value| value.as_i64())
+            .unwrap_or(0);
+        let entry_source_id = payload
+            .get("entrySourceId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let book_id = payload
+            .get("bookId")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let book_version = payload
+            .get("bookVersion")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let mode = payload
+            .get("mode")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let question_type = payload
+            .get("questionType")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let outcome = payload
+            .get("outcome")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let user_response = payload
+            .get("userResponse")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let canonical_answer = payload
+            .get("canonicalAnswer")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        let response_time_ms = payload
+            .get("responseTimeMs")
+            .and_then(|value| value.as_i64())
+            .unwrap_or(-1);
         let hint_used = payload.get("hintUsed").and_then(|value| value.as_bool());
-        let answered_at = item.get("occurred_at").and_then(|value| value.as_str()).unwrap_or("").trim();
-        if payload.get("schemaVersion").and_then(|value| value.as_i64()) != Some(1)
-            || event_id.is_empty() || question_id.is_empty() || entry_id <= 0 || entry_source_id.is_empty()
-            || payload.get("bookVersion").and_then(|value| value.as_str()) != Some("2026.1")
-            || !matches!(mode, "newWord" | "review" | "mixedTest" | "wrongWordReinforcement" | "highFrequency" | "rootAffix")
-            || !matches!(question_type, "enToCnChoice" | "exampleToCnChoice" | "exampleToCnChoiceNoTranslation" | "cnToEnChoice" | "enToCnInput" | "wordSkeletonInput" | "glossToRootInput" | "rootToGlossInput")
-            || !matches!(outcome, "correct" | "fuzzyCorrect" | "incorrect" | "skipped")
-            || canonical_answer.is_empty() || response_time_ms < 0 || hint_used.is_none() || answered_at.is_empty()
-        { continue; }
-        let entry_matches = conn.query_row("SELECT EXISTS(SELECT 1 FROM entries WHERE id = ?1 AND source_entry_key = ?2)", rusqlite::params![entry_id, entry_source_id], |row| row.get::<_, i64>(0))
-            .map(|value| value != 0).map_err(|e| format!("Failed to validate shared study entry: {e}"))?;
-        if !entry_matches { continue; }
+        let answered_at = item
+            .get("occurred_at")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        if payload
+            .get("schemaVersion")
+            .and_then(|value| value.as_i64())
+            != Some(1)
+            || event_id.is_empty()
+            || question_id.is_empty()
+            || entry_id <= 0
+            || entry_source_id.is_empty()
+            || book_id.is_empty()
+            || book_version.is_empty()
+            || !matches!(
+                mode,
+                "newWord"
+                    | "review"
+                    | "mixedTest"
+                    | "wrongWordReinforcement"
+                    | "highFrequency"
+                    | "rootAffix"
+            )
+            || !matches!(
+                question_type,
+                "enToCnChoice"
+                    | "exampleToCnChoice"
+                    | "exampleToCnChoiceNoTranslation"
+                    | "exampleComprehensionChoice"
+                    | "cnToEnChoice"
+                    | "enToCnInput"
+                    | "wordSkeletonInput"
+                    | "glossToRootInput"
+                    | "rootToGlossInput"
+            )
+            || !matches!(
+                outcome,
+                "correct" | "fuzzyCorrect" | "incorrect" | "skipped"
+            )
+            || canonical_answer.is_empty()
+            || response_time_ms < 0
+            || hint_used.is_none()
+            || answered_at.is_empty()
+        {
+            continue;
+        }
+        let entry_matches = conn
+            .query_row(
+                "SELECT EXISTS(
+                   SELECT 1
+                   FROM entries e
+                   JOIN wordbook_entries we ON we.entry_id = e.id
+                   JOIN wordbooks wb ON wb.id = we.wordbook_id
+                   WHERE e.id = ?1 AND e.source_entry_key = ?2 AND wb.code = ?3
+                 )",
+                rusqlite::params![entry_id, entry_source_id, book_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|value| value != 0)
+            .map_err(|e| format!("Failed to validate shared study entry: {e}"))?;
+        if !entry_matches {
+            continue;
+        }
         let marker_key = format!("cloud_study_event:{event_id}");
-        let transaction = conn.unchecked_transaction().map_err(|e| format!("Failed to start shared study event merge: {e}"))?;
-        let already_merged = transaction.query_row("SELECT EXISTS(SELECT 1 FROM app_settings WHERE key = ?1)", [marker_key.as_str()], |row| row.get::<_, i64>(0))
-            .map(|value| value != 0).map_err(|e| format!("Failed to check shared study event marker: {e}"))?;
-        if already_merged { transaction.rollback().map_err(|e| format!("Failed to close duplicate merge: {e}"))?; continue; }
-        let session_id = format!("cloud_event:{}", item.get("session_id").and_then(|value| value.as_str()).unwrap_or("shared"));
+        let transaction = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Failed to start shared study event merge: {e}"))?;
+        let already_merged = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM app_settings WHERE key = ?1)",
+                [marker_key.as_str()],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|value| value != 0)
+            .map_err(|e| format!("Failed to check shared study event marker: {e}"))?;
+        if already_merged {
+            transaction
+                .rollback()
+                .map_err(|e| format!("Failed to close duplicate merge: {e}"))?;
+            continue;
+        }
+        let session_id = format!(
+            "cloud_event:{}",
+            item.get("session_id")
+                .and_then(|value| value.as_str())
+                .unwrap_or("shared")
+        );
         transaction.execute("INSERT OR IGNORE INTO study_sessions (session_id, mode, total_words, wordbook_id, started_at, completed_at) VALUES (?1, ?2, 0, NULL, ?3, ?3)", rusqlite::params![session_id, mode, answered_at])
             .map_err(|e| format!("Failed to create shared study session: {e}"))?;
         transaction.execute("INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response, normalized_response, correct_answer, outcome, response_time_ms, answered_at, hint_used) VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8, ?9, ?10)", rusqlite::params![session_id, format!("cloud_event:{event_id}:{question_id}"), entry_id, question_type, user_response, canonical_answer, outcome, response_time_ms, answered_at, i64::from(hint_used.unwrap_or(false))])
@@ -10031,7 +12792,9 @@ fn merge_cloud_study_events(conn: &word_storage_core::Connection, value: Option<
             .map_err(|e| format!("Failed to update shared study session count: {e}"))?;
         transaction.execute("INSERT INTO app_settings (key, value_json, updated_at) VALUES (?1, '{\"merged\":true}', datetime('now'))", [marker_key.as_str()])
             .map_err(|e| format!("Failed to mark shared study event: {e}"))?;
-        transaction.commit().map_err(|e| format!("Failed to commit shared study event: {e}"))?;
+        transaction
+            .commit()
+            .map_err(|e| format!("Failed to commit shared study event: {e}"))?;
         merged = merged.saturating_add(1);
     }
     Ok(merged)
@@ -10480,6 +13243,11 @@ fn restore_cloud_plan_config(
         plan_obj,
         "wrongWordTestPerDay",
         plan_row.get("wrong_word_test_per_day"),
+    );
+    set_i64_json_field(
+        plan_obj,
+        "highFrequencyPerDay",
+        plan_row.get("high_frequency_per_day"),
     );
     set_i64_json_field(
         plan_obj,
@@ -10960,6 +13728,9 @@ pub fn save_ai_provider_config(request_json: String) -> Result<String, String> {
     if request.anthropic_fallback.is_none() {
         request.anthropic_fallback = default_ai_provider_config().anthropic_fallback;
     }
+    if request.agnes_fallback.is_none() {
+        request.agnes_fallback = default_ai_provider_config().agnes_fallback;
+    }
     with_runtime_conn(|conn| {
         ensure_ai_provider_config(conn)?;
         let value = serde_json::to_value(&request)
@@ -11000,6 +13771,7 @@ pub fn start_study_session(request_json: String) -> Result<String, String> {
         let mut payload = serde_json::to_value(&response)
             .map_err(|e| format!("JSON serialization failed: {e}"))?;
         enrich_study_response_hints(&conn, &mut payload)?;
+        enrich_mastered_entry_count(&conn, &mut payload)?;
         return clean_json_string(&payload);
     }
 
@@ -11015,6 +13787,7 @@ pub fn start_study_session(request_json: String) -> Result<String, String> {
     let mut payload =
         serde_json::to_value(&response).map_err(|e| format!("JSON serialization failed: {e}"))?;
     enrich_study_response_hints(&conn, &mut payload)?;
+    enrich_mastered_entry_count(&conn, &mut payload)?;
     clean_json_string(&payload)
 }
 
@@ -11077,6 +13850,7 @@ fn required_choice_distractor_kinds(
                 (true, true)
             }
             SessionMode::NewWord => (true, true),
+            SessionMode::HighFrequency => (false, false),
             SessionMode::RootAffix => (false, false),
         }
     } else {
@@ -11220,7 +13994,7 @@ fn hydrate_start_session_request(
         ensure_seed_vocabulary_imported(conn, bundle_dir)?;
     }
 
-    let target_count = study_mode_target_count(conn, &request.mode)?;
+    let (target_count, planned_target_count) = study_mode_target_counts(conn, &request.mode)?;
     if target_count == 0 {
         return Err(format!(
             "No target count configured for mode {:?}",
@@ -11251,8 +14025,8 @@ fn hydrate_start_session_request(
         return Ok(request);
     }
 
-    let candidate_limit = study_entry_candidate_limit(target_count);
-    let primary_entry_ids = match request.mode {
+    let candidate_limit = study_entry_candidate_limit(planned_target_count);
+    let mut primary_entry_ids = match request.mode {
         SessionMode::Review => {
             load_review_entry_ids_for_today(conn, &review_wordbook_ids, candidate_limit)?
         }
@@ -11264,6 +14038,9 @@ fn hydrate_start_session_request(
         SessionMode::WrongWordReinforcement => {
             load_prioritized_wrong_word_entry_ids(conn, candidate_limit)?
         }
+        SessionMode::HighFrequency => {
+            load_high_frequency_candidate_entry_ids(conn, candidate_limit)?
+        }
         SessionMode::NewWord => load_unlearned_ranked_entry_ids_for_wordbooks_with_global_fallback(
             conn,
             &active_wordbook_ids,
@@ -11271,6 +14048,9 @@ fn hydrate_start_session_request(
         )?,
         SessionMode::RootAffix => unreachable!("root/affix mode handled above"),
     };
+    let answered_today =
+        load_today_answered_entry_ids_for_mode(conn, &request.mode, &today_date_string())?;
+    primary_entry_ids.retain(|entry_id| !answered_today.contains(entry_id));
 
     let (entry_ids, entry_payloads) =
         load_valid_study_payloads_for_candidates(conn, &primary_entry_ids, target_count)?;
@@ -11309,29 +14089,40 @@ fn hydrate_start_session_request(
 }
 
 fn session_mode_uses_question_type_weights(mode: &SessionMode) -> bool {
-    !matches!(mode, SessionMode::NewWord | SessionMode::RootAffix)
+    !matches!(
+        mode,
+        SessionMode::NewWord | SessionMode::HighFrequency | SessionMode::RootAffix
+    )
 }
 
-fn study_mode_target_count(
+fn study_mode_target_counts(
     conn: &word_storage_core::Connection,
     mode: &SessionMode,
-) -> Result<usize, String> {
+) -> Result<(usize, usize), String> {
     let plan = get_json_setting(conn, "today_plan_json", &default_plan_json())?;
     let today = today_date_string();
     let targets = load_today_target_seed(conn, &today)?.unwrap_or_default();
-    let count = match mode {
-        SessionMode::NewWord => {
-            new_word_word_count_from_questions(targets.new_words_target.unwrap_or_else(|| {
+    let completions = load_today_completion_seed(conn, &today)?;
+    let (planned_questions, completed_questions) = match mode {
+        SessionMode::NewWord => (
+            targets.new_words_target.unwrap_or_else(|| {
                 new_word_question_count_from_plan(&plan, "newWordsPerDay", &today)
-            }))
-        }
-        SessionMode::Review => targets
-            .review_words_target
-            .unwrap_or_else(|| grown_plan_unit_count(&plan, "review", "reviewWordsPerDay", &today)),
-        SessionMode::MixedTest => targets.mixed_test_target.unwrap_or_else(|| {
-            grown_plan_unit_count(&plan, "mixedTest", "mixedTestPerDay", &today)
-        }),
-        SessionMode::WrongWordReinforcement => {
+            }),
+            completions.new_words_completed,
+        ),
+        SessionMode::Review => (
+            targets.review_words_target.unwrap_or_else(|| {
+                grown_plan_unit_count(&plan, "review", "reviewWordsPerDay", &today)
+            }),
+            completions.review_words_completed,
+        ),
+        SessionMode::MixedTest => (
+            targets.mixed_test_target.unwrap_or_else(|| {
+                grown_plan_unit_count(&plan, "mixedTest", "mixedTestPerDay", &today)
+            }),
+            completions.mixed_test_completed,
+        ),
+        SessionMode::WrongWordReinforcement => (
             targets.wrong_word_test_target.unwrap_or_else(|| {
                 grown_plan_unit_count(
                     &plan,
@@ -11339,13 +14130,73 @@ fn study_mode_target_count(
                     "wrongWordTestPerDay",
                     &today,
                 )
-            })
-        }
-        SessionMode::RootAffix => targets.root_affix_target.unwrap_or_else(|| {
-            grown_plan_unit_count(&plan, "rootAffix", "rootAffixPerDay", &today)
-        }),
+            }),
+            completions.wrong_word_test_completed,
+        ),
+        SessionMode::HighFrequency => (
+            targets.high_frequency_target.unwrap_or_else(|| {
+                grown_plan_unit_count(&plan, "highFrequency", "highFrequencyPerDay", &today)
+            }),
+            completions.high_frequency_completed,
+        ),
+        SessionMode::RootAffix => (
+            targets.root_affix_target.unwrap_or_else(|| {
+                grown_plan_unit_count(&plan, "rootAffix", "rootAffixPerDay", &today)
+            }),
+            completions.root_affix_completed.unwrap_or(0),
+        ),
     };
-    Ok(count as usize)
+    let remaining_questions = planned_questions.saturating_sub(completed_questions);
+    let planned_entries = if matches!(mode, SessionMode::NewWord) {
+        new_word_word_count_from_questions(planned_questions)
+    } else {
+        planned_questions
+    };
+    let remaining_entries = if matches!(mode, SessionMode::NewWord) {
+        new_word_word_count_from_questions(remaining_questions)
+    } else {
+        remaining_questions
+    };
+    Ok((remaining_entries as usize, planned_entries as usize))
+}
+
+fn load_today_answered_entry_ids_for_mode(
+    conn: &word_storage_core::Connection,
+    mode: &SessionMode,
+    today_date: &str,
+) -> Result<BTreeSet<i64>, String> {
+    let expected_mode = serde_json::to_string(mode)
+        .unwrap_or_default()
+        .trim_matches('"')
+        .to_string();
+    let mut statement = conn
+        .prepare(
+            "SELECT s.mode, r.entry_id, r.answered_at
+             FROM study_results r
+             INNER JOIN study_sessions s ON s.session_id = r.session_id
+             WHERE r.entry_id IS NOT NULL",
+        )
+        .map_err(|error| format!("Failed to prepare today's study entry filter: {error}"))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|error| format!("Failed to query today's study entry filter: {error}"))?;
+    let mut entry_ids = BTreeSet::new();
+    for row in rows {
+        let (stored_mode, entry_id, answered_at) =
+            row.map_err(|error| format!("Failed to read today's study entry filter: {error}"))?;
+        if normalize_stored_session_mode(&stored_mode) == expected_mode
+            && local_date_from_rfc3339(&answered_at).as_deref() == Some(today_date)
+        {
+            entry_ids.insert(entry_id);
+        }
+    }
+    Ok(entry_ids)
 }
 
 fn selected_wordbook_ids_for_today(
@@ -11417,6 +14268,55 @@ fn load_prioritized_wrong_word_entry_ids(
         .filter(|entry_id| *entry_id > 0)
         .collect::<Vec<_>>();
     filter_mastered_entry_ids(conn, ids)
+}
+
+fn load_high_frequency_candidate_entry_ids(
+    conn: &word_storage_core::Connection,
+    limit: usize,
+) -> Result<Vec<i64>, String> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut statement = conn
+        .prepare(
+            "SELECT DISTINCT e.id
+             FROM entries e
+             INNER JOIN wordbook_entries we ON we.entry_id = e.id
+             INNER JOIN wordbooks wb ON wb.id = we.wordbook_id
+             LEFT JOIN mastered_entries me ON me.entry_id = e.id
+             WHERE wb.code = 'kaoyan'
+               AND e.exam_frequency > 0
+               AND e.exam_rank IS NOT NULL
+               AND me.entry_id IS NULL
+             ORDER BY e.exam_rank ASC, e.id ASC
+             LIMIT ?1",
+        )
+        .map_err(|error| format!("Failed to prepare high-frequency vocabulary: {error}"))?;
+    let ranked = statement
+        .query_map([limit as i64], |row| row.get::<_, i64>(0))
+        .map_err(|error| format!("Failed to query high-frequency vocabulary: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read high-frequency vocabulary: {error}"))?;
+
+    let candidate_json = serde_json::to_string(&ranked)
+        .map_err(|error| format!("Failed to encode high-frequency candidates: {error}"))?;
+    let mut random_statement = conn
+        .prepare(
+            "SELECT CAST(value AS INTEGER)
+             FROM json_each(?1)
+             ORDER BY RANDOM()
+             LIMIT ?2",
+        )
+        .map_err(|error| format!("Failed to prepare high-frequency draw: {error}"))?;
+    let drawn = random_statement
+        .query_map(rusqlite::params![candidate_json, limit as i64], |row| {
+            row.get::<_, i64>(0)
+        })
+        .map_err(|error| format!("Failed to draw high-frequency vocabulary: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("Failed to read high-frequency draw: {error}"))?;
+    Ok(drawn)
 }
 
 #[derive(Clone)]
@@ -12359,6 +15259,7 @@ fn load_unlearned_ranked_entry_ids_for_wordbooks_on_date(
         .map(|(index, _)| format!("?{}", index + 1))
         .collect::<Vec<_>>()
         .join(", ");
+    let mark_priority = exercise_vocab_mark_priority_expression("e.id");
     let sql = format!(
         "SELECT DISTINCT we.entry_id
          FROM wordbook_entries we
@@ -12369,7 +15270,8 @@ fn load_unlearned_ranked_entry_ids_for_wordbooks_on_date(
              FROM study_results sr
              WHERE sr.entry_id = e.id
            )
-         ORDER BY ((we.rank_in_book * ?{}) % 9973) ASC,
+         ORDER BY {mark_priority} DESC,
+                  ((we.rank_in_book * ?{}) % 9973) ASC,
                   we.rank_in_book ASC,
                   e.id ASC
          LIMIT {limit}",
@@ -12411,6 +15313,24 @@ fn stable_daily_sort_key(value: &str, seed: u64) -> u64 {
     hash
 }
 
+fn exercise_vocab_mark_priority_expression(entry_id_expression: &str) -> String {
+    format!(
+        "COALESCE((
+            SELECT MAX(CASE
+                WHEN o.user_mark = 'wrong' THEN 100
+                WHEN o.mark_level = 'unknown'
+                    OR (o.mark_level = 'none' AND o.user_mark = 'unknown') THEN 80
+                WHEN o.mark_level = 'familiar' THEN 55
+                WHEN o.mark_level = 'fuzzy'
+                    OR (o.mark_level = 'none' AND o.user_mark = 'ignored') THEN 35
+                ELSE 0
+            END)
+            FROM exercise_vocab_occurrences o
+            WHERE o.entry_id = {entry_id_expression}
+        ), 0)"
+    )
+}
+
 fn load_unlearned_ranked_entry_ids(
     conn: &word_storage_core::Connection,
     limit: usize,
@@ -12419,6 +15339,7 @@ fn load_unlearned_ranked_entry_ids(
         return Ok(Vec::new());
     }
 
+    let mark_priority = exercise_vocab_mark_priority_expression("e.id");
     let sql = format!(
         "SELECT e.id
          FROM entries e
@@ -12427,7 +15348,8 @@ fn load_unlearned_ranked_entry_ids(
            FROM study_results sr
            WHERE sr.entry_id = e.id
          )
-         ORDER BY e.frequency DESC, e.id ASC
+         ORDER BY {mark_priority} DESC,
+                  e.frequency DESC, e.id ASC
          LIMIT {limit}"
     );
     let mut stmt = conn
@@ -12714,6 +15636,35 @@ fn load_entry_payloads(
     Ok(payloads)
 }
 
+fn load_first_valid_study_payload_excluding_sources(
+    conn: &word_storage_core::Connection,
+    candidate_entry_ids: &[i64],
+    excluded_source_ids: &BTreeSet<String>,
+) -> Result<Option<StartSessionEntryPayload>, String> {
+    for entry_id in candidate_entry_ids {
+        let source_id = conn
+            .query_row(
+                "SELECT source_entry_key FROM entries WHERE id = ?1",
+                [entry_id],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(|error| format!("Failed to load replacement source id: {error}"))?;
+        if excluded_source_ids.contains(&source_id) {
+            continue;
+        }
+
+        let mut question_preps = load_entry_question_preps_map(conn, &[*entry_id])?;
+        let preps = question_preps
+            .remove(entry_id)
+            .unwrap_or_else(|| (Vec::new(), Vec::new()));
+        let payload = load_entry_payload_with_question_preps(conn, *entry_id, preps)?;
+        if is_valid_bridge_study_payload(&payload) {
+            return Ok(Some(payload));
+        }
+    }
+    Ok(None)
+}
+
 #[cfg(test)]
 fn load_entry_payload(
     conn: &word_storage_core::Connection,
@@ -12984,25 +15935,43 @@ fn select_entry_payload_example(
 
     examples
         .iter()
-        .filter_map(|example| {
-            let translation = example
+        .filter(|example| {
+            example
                 .get("sentenceCn")
                 .and_then(|value| value.as_str())
-                .unwrap_or("");
-            let score = candidate_meanings
-                .iter()
-                .map(|meaning| seed_text_overlap_score(translation, meaning))
-                .max()
-                .unwrap_or(0);
-            if score > 0 {
-                Some((score, example.clone()))
-            } else {
-                None
-            }
+                .is_some_and(is_real_exam_source_label)
         })
-        .max_by_key(|(score, _)| *score)
-        .map(|(_, example)| example)
-        .or_else(|| examples.first().cloned())
+        .next()
+        .cloned()
+        .or_else(|| {
+            examples
+                .iter()
+                .filter_map(|example| {
+                    let translation = example
+                        .get("sentenceCn")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("");
+                    let score = candidate_meanings
+                        .iter()
+                        .map(|meaning| seed_text_overlap_score(translation, meaning))
+                        .max()
+                        .unwrap_or(0);
+                    if score > 0 {
+                        Some((score, example.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .max_by_key(|(score, _)| *score)
+                .map(|(_, example)| example)
+                .or_else(|| examples.first().cloned())
+        })
+}
+
+fn is_real_exam_source_label(value: &str) -> bool {
+    value
+        .trim_start()
+        .starts_with("\u{771f}\u{9898}\u{6765}\u{6e90}\u{ff1a}")
 }
 
 fn seed_text_overlap_score(left: &str, right: &str) -> usize {
@@ -13044,26 +16013,37 @@ fn normalize_seed_text_for_overlap(value: &str) -> String {
 /// Takes a JSON string containing SubmitAnswerRequest.
 /// Returns a JSON string containing SubmitAnswerResponse.
 pub fn submit_study_answer(request_json: String) -> Result<String, String> {
+    let request_value = serde_json::from_str::<serde_json::Value>(&request_json).ok();
+    let hint_used = request_value
+        .as_ref()
+        .and_then(|value| value.get("hintUsed").and_then(|field| field.as_bool()))
+        .unwrap_or(false);
+    let include_synonyms = request_value
+        .as_ref()
+        .and_then(|value| value.get("studyMode").and_then(|field| field.as_str()))
+        .is_some_and(|mode| mode == "highFrequency");
     let request: SubmitAnswerRequest =
         serde_json::from_str(&request_json).map_err(|e| format!("Invalid request: {}", e))?;
 
     let runtime_guard = get_runtime()?;
     let runtime = runtime_guard.as_ref().ok_or("Runtime not initialized")?;
 
-    let db_path = runtime.paths().database_path();
-    let conn = persistence::initialize_database(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
+    let conn = open_study_session_action_database(runtime)?;
 
-    repair_seed_meaning_noise(&conn)?;
-
-    let response = core_submit_study_answer(&conn, request)
-        .map_err(|e| format!("Failed to submit answer: {}", e))?;
-    enqueue_recent_study_word_points(&conn);
-    enqueue_wrong_word_entries_snapshot(&conn);
+    let response = word_app_core::facade::study_facade::submit_study_answer_with_hint_usage(
+        &conn, request, hint_used,
+    )
+    .map_err(|e| format!("Failed to submit answer: {}", e))?;
+    enqueue_study_sync_snapshots_after_submit(
+        &conn,
+        Some((&response.result.question_id, &response.result.answered_at)),
+        response.is_complete,
+    );
 
     let mut payload =
         serde_json::to_value(&response).map_err(|e| format!("JSON serialization failed: {e}"))?;
-    enrich_submit_response_hints(&conn, &mut payload)?;
+    enrich_submit_response_hints(&conn, &mut payload, include_synonyms)?;
+    enrich_mastered_entry_count(&conn, &mut payload)?;
     clean_json_string(&payload)
 }
 
@@ -13074,21 +16054,167 @@ pub fn mark_study_entry_mastered(request_json: String) -> Result<String, String>
     let runtime_guard = get_runtime()?;
     let runtime = runtime_guard.as_ref().ok_or("Runtime not initialized")?;
 
-    let db_path = runtime.paths().database_path();
-    let conn = persistence::initialize_database(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
+    let conn = open_study_session_action_database(runtime)?;
 
-    repair_seed_meaning_noise(&conn)?;
-
-    let response = core_mark_study_entry_mastered(&conn, request)
+    let replacements = load_mastered_replacement_payloads(
+        &conn,
+        &request,
+        Some(runtime.paths().bundled_resource_path("")),
+    )?;
+    let response = core_mark_study_entry_mastered_with_replacements(&conn, request, replacements)
         .map_err(|e| format!("Failed to mark study entry mastered: {}", e))?;
-    enqueue_recent_study_word_points(&conn);
-    enqueue_wrong_word_entries_snapshot(&conn);
+    enqueue_study_sync_snapshots_after_submit(&conn, None, response.is_complete);
 
     let mut payload =
         serde_json::to_value(&response).map_err(|e| format!("JSON serialization failed: {e}"))?;
     enrich_study_response_hints(&conn, &mut payload)?;
+    enrich_mastered_entry_count(&conn, &mut payload)?;
     clean_json_string(&payload)
+}
+
+fn enrich_mastered_entry_count(
+    conn: &word_storage_core::Connection,
+    payload: &mut serde_json::Value,
+) -> Result<(), String> {
+    let count = persistence::mastered_entry_repo::mastered_entry_count(conn)
+        .map_err(|error| format!("Failed to count mastered entries: {error}"))?;
+    let object = payload
+        .as_object_mut()
+        .ok_or_else(|| "Study response must be a JSON object".to_string())?;
+    object.insert("masteredCount".to_string(), serde_json::json!(count));
+    Ok(())
+}
+
+struct MasteredReplacementContext {
+    mode: SessionMode,
+    wordbook_id: Option<i64>,
+    entry_source_ids: BTreeSet<String>,
+    question_type_weights: Vec<QuestionTypeWeight>,
+    entry_was_answered: bool,
+}
+
+fn load_mastered_replacement_payloads(
+    conn: &word_storage_core::Connection,
+    request: &word_storage_core::models::MarkStudyEntryMasteredRequest,
+    bundle_resource_dir: Option<std::path::PathBuf>,
+) -> Result<Vec<StartSessionEntryPayload>, String> {
+    let Some(context) = load_mastered_replacement_context(conn, &request.entry_source_id)? else {
+        return Ok(Vec::new());
+    };
+    if context.entry_was_answered {
+        return Ok(Vec::new());
+    }
+
+    persistence::mastered_entry_repo::mark_mastered_by_source_id(
+        conn,
+        &request.entry_source_id,
+        &request.reason,
+    )
+    .map_err(|error| format!("Failed to prepare mastered replacement: {error}"))?;
+
+    if matches!(context.mode, SessionMode::HighFrequency) {
+        let candidate_limit =
+            study_entry_candidate_limit(context.entry_source_ids.len().saturating_add(1));
+        let candidate_ids = load_high_frequency_candidate_entry_ids(conn, candidate_limit)?;
+        return Ok(load_first_valid_study_payload_excluding_sources(
+            conn,
+            &candidate_ids,
+            &context.entry_source_ids,
+        )?
+        .into_iter()
+        .collect());
+    }
+
+    let hydrated = hydrate_start_session_request(
+        conn,
+        StartSessionRequest {
+            mode: context.mode,
+            wordbook_id: context.wordbook_id,
+            entry_source_ids: Vec::new(),
+            entry_payloads: Vec::new(),
+            distractor_payloads: Vec::new(),
+            question_type_weights: context.question_type_weights,
+        },
+        bundle_resource_dir,
+    )?;
+    Ok(hydrated
+        .entry_payloads
+        .into_iter()
+        .find(|payload| !context.entry_source_ids.contains(&payload.source_id))
+        .into_iter()
+        .collect())
+}
+
+fn load_mastered_replacement_context(
+    conn: &word_storage_core::Connection,
+    entry_source_id: &str,
+) -> Result<Option<MasteredReplacementContext>, String> {
+    let modes = [
+        SessionMode::NewWord,
+        SessionMode::Review,
+        SessionMode::MixedTest,
+        SessionMode::WrongWordReinforcement,
+        SessionMode::HighFrequency,
+        SessionMode::RootAffix,
+    ];
+    for mode in modes {
+        let Some(raw) = persistence::study_repo::load_active_session_snapshot(conn, &mode)
+            .map_err(|error| format!("Failed to load mastered replacement snapshot: {error}"))?
+        else {
+            continue;
+        };
+        let snapshot: serde_json::Value = serde_json::from_str(&raw)
+            .map_err(|error| format!("Invalid mastered replacement snapshot: {error}"))?;
+        let mut entry_source_ids = snapshot
+            .get("entrySourceIds")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_str)
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+        entry_source_ids.extend(
+            snapshot
+                .get("entryPayloads")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|payload| payload.get("sourceId"))
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string),
+        );
+        if !entry_source_ids.contains(entry_source_id) {
+            continue;
+        }
+        let entry_was_answered = snapshot
+            .get("results")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .any(|result| {
+                result
+                    .get("entrySourceId")
+                    .and_then(serde_json::Value::as_str)
+                    == Some(entry_source_id)
+            });
+        let wordbook_id = snapshot
+            .get("session")
+            .and_then(|session| session.get("wordbookId"))
+            .and_then(serde_json::Value::as_i64);
+        let question_type_weights = snapshot
+            .get("questionTypeWeights")
+            .cloned()
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
+        return Ok(Some(MasteredReplacementContext {
+            mode,
+            wordbook_id,
+            entry_source_ids,
+            question_type_weights,
+            entry_was_answered,
+        }));
+    }
+    Ok(None)
 }
 
 pub fn accept_disputed_meaning(request_json: String) -> Result<String, String> {
@@ -13098,11 +16224,7 @@ pub fn accept_disputed_meaning(request_json: String) -> Result<String, String> {
     let runtime_guard = get_runtime()?;
     let runtime = runtime_guard.as_ref().ok_or("Runtime not initialized")?;
 
-    let db_path = runtime.paths().database_path();
-    let conn = persistence::initialize_database(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
-
-    repair_seed_meaning_noise(&conn)?;
+    let conn = open_study_session_action_database(runtime)?;
 
     let response = core_accept_disputed_meaning(&conn, request)
         .map_err(|e| format!("Failed to accept disputed meaning: {}", e))?;
@@ -13124,8 +16246,10 @@ pub fn accept_disputed_meaning(request_json: String) -> Result<String, String> {
             response.entry_source_id, response.result.question_id
         ),
     );
-    enqueue_recent_study_word_points(&conn);
-    enqueue_wrong_word_entries_snapshot(&conn);
+    if should_enqueue_study_sync_snapshots_after_dispute_accept() {
+        enqueue_recent_study_word_points(&conn);
+        enqueue_wrong_word_entries_snapshot(&conn);
+    }
 
     let mut payload =
         serde_json::to_value(&response).map_err(|e| format!("JSON serialization failed: {e}"))?;
@@ -13141,9 +16265,7 @@ pub fn complete_study_session(session_id: String) -> Result<String, String> {
     let runtime_guard = get_runtime()?;
     let runtime = runtime_guard.as_ref().ok_or("Runtime not initialized")?;
 
-    let db_path = runtime.paths().database_path();
-    let conn = persistence::initialize_database(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
+    let conn = open_study_session_action_database(runtime)?;
 
     let response = core_complete_study_session(&conn, &session_id)
         .map_err(|e| format!("Failed to complete session: {}", e))?;
@@ -13158,9 +16280,7 @@ pub fn cancel_study_session(session_id: String) -> Result<(), String> {
     let runtime_guard = get_runtime()?;
     let runtime = runtime_guard.as_ref().ok_or("Runtime not initialized")?;
 
-    let db_path = runtime.paths().database_path();
-    let conn = persistence::initialize_database(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
+    let conn = open_study_session_action_database(runtime)?;
 
     core_cancel_study_session(&conn, &session_id)
         .map_err(|e| format!("Failed to cancel session: {}", e))
@@ -13171,29 +16291,34 @@ mod tests {
     use super::{
         active_wordbook_ids_from_selection, align_today_targets_to_active_sessions,
         align_today_targets_to_available_pools, align_today_targets_to_completed_sessions,
-        append_other_wrong_words_block, build_authoritative_today_home_state,
-        build_wrong_word_entries_payload, build_wrong_word_image_user_prompt,
-        clear_persisted_active_study_sessions, commit_wrong_word_import_with_connection,
-        create_reward_image_upload_with_connection, enrich_root_affix_entries_from_assets,
-        enrich_submit_response_hints, ensure_planning_state,
+        append_other_wrong_words_block, build_all_study_events_payload,
+        build_authoritative_today_home_state, build_wrong_word_entries_payload,
+        build_wrong_word_image_user_prompt, clear_persisted_active_study_sessions,
+        commit_wrong_word_import_with_connection, create_reward_image_upload_with_connection,
+        enqueue_study_sync_snapshots_after_submit, enrich_root_affix_entries_from_assets,
+        enrich_study_question_hints, enrich_submit_response_hints, ensure_planning_state,
         ensure_seed_vocabulary_available_for_today, ensure_seed_vocabulary_imported,
         get_json_setting, hydrate_start_session_request, list_reward_images_with_connection,
-        load_entry_payload, load_learned_entry_ids_for_wordbooks,
-        load_prioritized_wrong_word_entry_ids, load_review_entry_ids_for_today,
-        load_reward_image_upload_entitlement,
+        load_entry_payload, load_high_frequency_candidate_entry_ids,
+        load_learned_entry_ids_for_wordbooks, load_mastered_replacement_context,
+        load_mastered_replacement_payloads, load_prioritized_wrong_word_entry_ids,
+        load_review_entry_ids_for_today, load_reward_image_upload_entitlement,
         load_root_affix_payloads_for_active_wordbooks_on_date, load_today_completion_seed,
         load_unlearned_ranked_entry_ids_for_wordbooks_on_date,
-        load_wrong_word_detail_payload_with_bundle, load_wrong_word_entries,
-        load_wrong_word_inputs, moderate_reward_image_with_connection,
-        normalize_question_type_weights, normalize_stored_session_mode,
-        parse_wrong_word_import_ai_output, rebuild_seed_question_preps,
-        refresh_reward_image_entitlement_with_connection, repair_seed_vocabulary_dedup,
-        reset_user_owned_local_data, restore_cloud_wordbook_preferences,
-        restore_cloud_wrong_word_hints, seed_local_leaderboard_demo_with_connection,
-        select_review_candidates, selected_review_wordbook_ids_for_today,
-        selected_wordbook_ids_for_today, set_json_setting, should_replace_today_review_wordbooks,
-        single_wordbook_selection_json, snapshot_answered_question_count,
-        split_ai_passage_wrong_words, today_date_string, today_target_seed_from_plan_value,
+        load_valid_study_payloads_for_candidates, load_wrong_word_detail_payload_with_bundle,
+        load_wrong_word_entries, load_wrong_word_inputs, merge_cloud_study_events,
+        moderate_reward_image_with_connection, normalize_question_type_weights,
+        normalize_stored_session_mode, parse_wrong_word_import_ai_output,
+        rebuild_seed_question_preps, refresh_reward_image_entitlement_with_connection,
+        repair_seed_vocabulary_dedup, reset_user_owned_local_data,
+        restore_cloud_wordbook_preferences, restore_cloud_wrong_word_hints,
+        seed_local_leaderboard_demo_with_connection, select_review_candidates,
+        selected_review_wordbook_ids_for_today, selected_wordbook_ids_for_today, set_json_setting,
+        should_apply_schema_on_study_session_action,
+        should_enqueue_study_sync_snapshots_after_dispute_accept,
+        should_replace_today_review_wordbooks, single_wordbook_selection_json,
+        snapshot_answered_question_count, split_ai_passage_wrong_words, study_mode_target_counts,
+        today_date_string, today_target_seed_from_plan_value,
         today_target_seed_from_plan_value_for_date, try_resume_empty_start_request,
         vote_reward_image_with_connection, with_runtime_conn, ReviewCandidate, TodayTargetSeed,
         AI_PASSAGE_BODY_WORD_LIMIT, AI_PASSAGE_MAX_WRONG_WORDS, WRONG_WORD_IMPORT_PROMPT_TEMPLATE,
@@ -13213,15 +16338,21 @@ mod tests {
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
         conn.execute("INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'shared-event-test', 'ready')", []).expect("source");
         conn.execute("INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma) VALUES (1, 1, 'KaoYan_3_1', 'process', 'process')", []).expect("entry");
+        conn.execute("INSERT INTO wordbooks (id, code, name, source_book_id, source_version_id, total_entries) VALUES (1, 'kaoyan', 'Kaoyan', 'kaoyan', 1, 1)", []).expect("book");
+        conn.execute(
+            "INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (1, 1, 1)",
+            [],
+        )
+        .expect("book entry");
         let events = serde_json::json!([{
             "event_type": "answer_submitted",
             "session_id": "web-session",
             "occurred_at": "2026-08-21T08:00:00+00:00",
             "payload_json": {
                 "schemaVersion": 1, "eventId": "web-1", "questionId": "q-1",
-                "entryId": 1, "entrySourceId": "KaoYan_3_1", "bookVersion": "2026.1",
+                "entryId": 1, "entrySourceId": "KaoYan_3_1", "bookId": "kaoyan", "bookVersion": "2026.3",
                 "mode": "highFrequency", "questionType": "enToCnInput", "outcome": "correct",
-                "userResponse": "process", "canonicalAnswer": "process",
+                "userResponse": "过程", "canonicalAnswer": "过程；进程",
                 "responseTimeMs": 1200, "hintUsed": true
             }
         }]);
@@ -13233,9 +16364,13 @@ mod tests {
             [], |row| Ok((row.get(0)?, row.get(1)?)),
         ).expect("merged result");
         assert_eq!(result, ("correct".to_string(), 1));
-        let aggregate_candidates: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM study_results WHERE session_id NOT LIKE 'cloud_event:%'", [], |row| row.get(0),
-        ).unwrap();
+        let aggregate_candidates: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM study_results WHERE session_id NOT LIKE 'cloud_event:%'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(aggregate_candidates, 0);
     }
 
@@ -13246,18 +16381,58 @@ mod tests {
         conn.execute("INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'mobile-event-test', 'ready')", []).expect("source");
         conn.execute("INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma) VALUES (1, 1, 'KaoYan_3_1', 'process', 'process')", []).expect("entry");
         conn.execute("INSERT INTO wordbooks (id, code, name, source_book_id, source_version_id, total_entries) VALUES (1, 'kaoyan', 'Kaoyan', 'kaoyan', 1, 1)", []).expect("book");
-        conn.execute("INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (1, 1, 1)", []).expect("book entry");
+        conn.execute(
+            "INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (1, 1, 1)",
+            [],
+        )
+        .expect("book entry");
         conn.execute("INSERT INTO study_sessions (session_id, mode, total_words, wordbook_id, started_at, completed_at) VALUES ('local-old', 'highFrequency', 1, 1, '2024-01-01T00:00:00Z', '2024-01-01T00:01:00Z'), ('cloud_event:web', 'review', 1, 1, '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z')", []).expect("sessions");
-        conn.execute("INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response, correct_answer, outcome, response_time_ms, answered_at, hint_used) VALUES ('local-old', 'q-local', 1, 'enToCnInput', 'process', 'process', 'correct', 1200, '2024-01-01T00:00:30Z', 1), ('cloud_event:web', 'cloud_event:web:q', 1, 'enToCnInput', 'process', 'process', 'correct', 900, '2026-01-01T00:00:30Z', 0)", []).expect("results");
+        conn.execute("INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response, correct_answer, outcome, response_time_ms, answered_at, hint_used) VALUES ('local-old', 'q-local', 1, 'exampleComprehensionChoice', '过程', '过程；进程', 'correct', 1200, '2024-01-01T00:00:30Z', 1), ('cloud_event:web', 'cloud_event:web:q', 1, 'enToCnInput', '过程', '过程；进程', 'correct', 900, '2026-01-01T00:00:30Z', 0)", []).expect("results");
 
-        let payload = build_all_study_events_payload(&conn).expect("event payload").expect("events");
-        let events = payload.get("events").and_then(|value| value.as_array()).expect("events array");
+        let payload = build_all_study_events_payload(&conn)
+            .expect("event payload")
+            .expect("events");
+        let events = payload
+            .get("events")
+            .and_then(|value| value.as_array())
+            .expect("events array");
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].get("localResultId").and_then(|value| value.as_i64()), Some(1));
-        assert_eq!(events[0].pointer("/payloadJson/localDay").and_then(|value| value.as_str()), Some("2024-01-01"));
-        assert_eq!(events[0].pointer("/payloadJson/bookId").and_then(|value| value.as_str()), Some("kaoyan"));
-        assert_eq!(events[0].pointer("/payloadJson/entrySourceId").and_then(|value| value.as_str()), Some("KaoYan_3_1"));
-        assert_eq!(events[0].pointer("/payloadJson/legacyPointProjection").and_then(|value| value.as_bool()), Some(true));
+        assert_eq!(
+            events[0]
+                .get("localResultId")
+                .and_then(|value| value.as_i64()),
+            Some(1)
+        );
+        assert_eq!(
+            events[0]
+                .pointer("/payloadJson/localDay")
+                .and_then(|value| value.as_str()),
+            Some("2024-01-01")
+        );
+        assert_eq!(
+            events[0]
+                .pointer("/payloadJson/bookId")
+                .and_then(|value| value.as_str()),
+            Some("kaoyan")
+        );
+        assert_eq!(
+            events[0]
+                .pointer("/payloadJson/entrySourceId")
+                .and_then(|value| value.as_str()),
+            Some("KaoYan_3_1")
+        );
+        assert_eq!(
+            events[0]
+                .pointer("/payloadJson/questionType")
+                .and_then(|value| value.as_str()),
+            Some("exampleComprehensionChoice")
+        );
+        assert_eq!(
+            events[0]
+                .pointer("/payloadJson/legacyPointProjection")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
     }
 
     struct EnvGuard {
@@ -13281,6 +16456,323 @@ mod tests {
                 unsafe { env::remove_var(self.key) };
             }
         }
+    }
+
+    #[test]
+    fn study_question_enrichment_exposes_persisted_error_count() {
+        let conn = Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'error-count-test', 'ready')",
+            [],
+        )
+        .expect("source");
+        conn.execute(
+            "INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma)
+             VALUES (1, 1, 'available', 'available', 'available')",
+            [],
+        )
+        .expect("entry");
+        conn.execute(
+            "INSERT INTO study_sessions (session_id, mode, total_words, started_at)
+             VALUES ('s-errors', 'highFrequency', 1, '2026-08-20')",
+            [],
+        )
+        .expect("session");
+        for (index, outcome) in ["incorrect", "skipped"].into_iter().enumerate() {
+            conn.execute(
+                "INSERT INTO study_results (
+                    session_id, question_id, entry_id, question_type, user_response,
+                    correct_answer, outcome, response_time_ms, answered_at
+                 ) VALUES ('s-errors', ?1, 1, 'enToCnInput', 'x', 'x', ?2, 1, ?3)",
+                rusqlite::params![
+                    format!("q-{index}"),
+                    outcome,
+                    format!("2026-08-20T00:00:0{index}Z")
+                ],
+            )
+            .expect("result");
+        }
+        let mut question = serde_json::json!({
+            "entrySourceId": "available",
+            "word": "available"
+        });
+
+        enrich_study_question_hints(&conn, &mut question).expect("enrich question");
+
+        assert_eq!(question["errorCount"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn high_frequency_candidates_expand_beyond_the_daily_plan_without_a_fixed_pool() {
+        let conn = Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'hf-test', 'ready')",
+            [],
+        )
+        .expect("source");
+        conn.execute(
+            "INSERT INTO wordbooks (id, code, name, category, source_version_id) VALUES (3, 'kaoyan', 'KaoYan', 'exam', 1)",
+            [],
+        )
+        .expect("wordbook");
+        for rank in 1..=160i64 {
+            conn.execute(
+                "INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma, exam_frequency, exam_rank)
+                 VALUES (?1, 1, ?2, ?2, ?2, ?3, ?1)",
+                rusqlite::params![rank, format!("word-{rank}"), 200 - rank],
+            )
+            .expect("entry");
+            conn.execute(
+                "INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (3, ?1, ?1)",
+                [rank],
+            )
+            .expect("wordbook entry");
+        }
+
+        set_json_setting(
+            &conn,
+            "high_frequency_pool_json",
+            &serde_json::json!([1, 2, 3]),
+        )
+        .expect("legacy pool");
+
+        let drawn = load_high_frequency_candidate_entry_ids(&conn, 101).expect("dynamic draw");
+        assert_eq!(drawn.len(), 101);
+        let legacy = get_json_setting(&conn, "high_frequency_pool_json", &serde_json::json!([]))
+            .expect("legacy pool remains untouched");
+        assert_eq!(legacy, serde_json::json!([1, 2, 3]));
+
+        for entry_id in 1..=50i64 {
+            conn.execute(
+                "INSERT INTO mastered_entries (source_entry_id, entry_id, reason) VALUES (?1, ?2, 'test')",
+                rusqlite::params![format!("word-{entry_id}"), entry_id],
+            )
+            .expect("mastered");
+        }
+        let shifted = load_high_frequency_candidate_entry_ids(&conn, 101).expect("shifted draw");
+        assert_eq!(shifted.len(), 101);
+        assert!(shifted.iter().all(|entry_id| *entry_id > 50));
+    }
+
+    #[test]
+    fn unanswered_high_frequency_mastered_action_selects_out_of_session_replacement() {
+        let conn = Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'hf-replace', 'ready')",
+            [],
+        )
+        .expect("source");
+        conn.execute(
+            "INSERT INTO wordbooks (id, code, name, category, source_version_id) VALUES (3, 'kaoyan', 'KaoYan', 'exam', 1)",
+            [],
+        )
+        .expect("wordbook");
+        for rank in 1..=120i64 {
+            conn.execute(
+                "INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma, part_of_speech, exam_frequency, exam_rank)
+                 VALUES (?1, 1, ?2, ?2, ?2, 'n', ?3, ?1)",
+                rusqlite::params![rank, format!("word-{rank}"), 200 - rank],
+            )
+            .expect("entry");
+            conn.execute(
+                "INSERT INTO entry_meanings (entry_id, pos, meaning_cn, sort_order) VALUES (?1, 'n', ?2, 0)",
+                rusqlite::params![rank, format!("meaning-{rank}")],
+            )
+            .expect("meaning");
+            conn.execute(
+                "INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (3, ?1, ?1)",
+                [rank],
+            )
+            .expect("wordbook entry");
+        }
+        set_json_setting(
+            &conn,
+            "today_plan_json",
+            &serde_json::json!({"highFrequencyPerDay": 100}),
+        )
+        .expect("plan");
+        set_json_setting(
+            &conn,
+            "high_frequency_pool_json",
+            &serde_json::json!((1..=100).collect::<Vec<_>>()),
+        )
+        .expect("legacy fixed pool");
+        let entry_source_ids = (1..=100)
+            .map(|rank| format!("word-{rank}"))
+            .collect::<Vec<_>>();
+        set_json_setting(
+            &conn,
+            "active_study_session_highFrequency",
+            &serde_json::json!({
+                "session": {
+                    "sessionId": "hf-replacement-session",
+                    "mode": "highFrequency",
+                    "totalWords": 100,
+                    "wordbookId": 3,
+                    "startedAt": chrono::Utc::now().to_rfc3339()
+                },
+                "entrySourceIds": entry_source_ids,
+                "entryPayloads": [],
+                "results": [],
+                "questionTypeWeights": []
+            }),
+        )
+        .expect("active snapshot");
+
+        let context = load_mastered_replacement_context(&conn, "word-100")
+            .expect("replacement context")
+            .expect("active high-frequency context");
+        assert!(matches!(
+            context.mode,
+            word_storage_core::models::SessionMode::HighFrequency
+        ));
+        assert_eq!(context.entry_source_ids.len(), 100);
+
+        let replacements = load_mastered_replacement_payloads(
+            &conn,
+            &word_storage_core::models::MarkStudyEntryMasteredRequest {
+                entry_source_id: "word-100".to_string(),
+                reason: "mastered".to_string(),
+            },
+            None,
+        )
+        .expect("replacement payload");
+
+        let candidates = load_high_frequency_candidate_entry_ids(&conn, 200)
+            .expect("post-mastered dynamic candidates");
+        assert_eq!(candidates.len(), 119);
+        let (_, valid_candidates) =
+            load_valid_study_payloads_for_candidates(&conn, &candidates, candidates.len())
+                .expect("valid dynamic candidates");
+        assert!(valid_candidates
+            .iter()
+            .any(|payload| !entry_source_ids.contains(&payload.source_id)));
+
+        assert_eq!(replacements.len(), 1);
+        assert!(!entry_source_ids.contains(&replacements[0].source_id));
+        assert!(
+            word_storage_core::persistence::mastered_entry_repo::is_mastered_source_id(
+                &conn, "word-100"
+            )
+            .expect("mastered state")
+        );
+
+        set_json_setting(
+            &conn,
+            "active_study_session_highFrequency",
+            &serde_json::json!({
+                "session": {
+                    "sessionId": "hf-replacement-session",
+                    "mode": "highFrequency",
+                    "totalWords": 100,
+                    "wordbookId": 3,
+                    "startedAt": chrono::Utc::now().to_rfc3339()
+                },
+                "entrySourceIds": entry_source_ids,
+                "entryPayloads": [],
+                "results": [{"entrySourceId": "word-9"}],
+                "questionTypeWeights": []
+            }),
+        )
+        .expect("answered active snapshot");
+        let answered_replacements = load_mastered_replacement_payloads(
+            &conn,
+            &word_storage_core::models::MarkStudyEntryMasteredRequest {
+                entry_source_id: "word-9".to_string(),
+                reason: "mastered".to_string(),
+            },
+            None,
+        )
+        .expect("answered replacement payload");
+        assert!(answered_replacements.is_empty());
+        assert!(
+            !word_storage_core::persistence::mastered_entry_repo::is_mastered_source_id(
+                &conn, "word-9"
+            )
+            .expect("answered prefetch mastered state")
+        );
+    }
+
+    #[test]
+    fn high_frequency_restart_uses_only_unfinished_daily_target() {
+        let conn = Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        let entry_id = seed_basic_entry(&conn, "remaining", "remaining meaning");
+        set_json_setting(
+            &conn,
+            "today_plan_json",
+            &serde_json::json!({"highFrequencyPerDay": 50}),
+        )
+        .expect("plan");
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO study_sessions (session_id, mode, total_words, started_at, completed_at)
+             VALUES ('hf-partial', '\"highFrequency\"', 50, ?1, ?1)",
+            [&now],
+        )
+        .expect("partial session");
+        for index in 0..49 {
+            conn.execute(
+                "INSERT INTO study_results (session_id, question_id, entry_id, question_type,
+                 user_response, correct_answer, outcome, response_time_ms, answered_at)
+                 VALUES ('hf-partial', ?1, ?2, '\"enToCnInput\"', 'x', 'x', '\"correct\"', 1, ?3)",
+                rusqlite::params![format!("hf-q-{index}"), entry_id, now],
+            )
+            .expect("partial result");
+        }
+
+        let (remaining, planned) = study_mode_target_counts(
+            &conn,
+            &word_storage_core::models::SessionMode::HighFrequency,
+        )
+        .expect("target counts");
+        assert_eq!(planned, 50);
+        assert_eq!(remaining, 1);
+    }
+
+    #[test]
+    fn inconsistent_active_high_frequency_snapshot_does_not_reduce_today_target() {
+        let conn = Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        set_json_setting(
+            &conn,
+            "today_plan_json",
+            &serde_json::json!({"highFrequencyPerDay": 100}),
+        )
+        .expect("plan");
+        let now = chrono::Utc::now().to_rfc3339();
+        set_json_setting(
+            &conn,
+            "active_study_session_highFrequency",
+            &serde_json::json!({
+                "session": {"sessionId": "hf-inconsistent", "startedAt": now},
+                "currentIndex": 0,
+                "results": [
+                    {"questionId": "hf-q-0"},
+                    {"questionId": "hf-q-1"},
+                    {"questionId": "hf-q-2"},
+                    {"questionId": "hf-q-3"},
+                    {"questionId": "hf-q-4"}
+                ]
+            }),
+        )
+        .expect("active snapshot");
+
+        let completion =
+            load_today_completion_seed(&conn, &today_date_string()).expect("today completion");
+        assert_eq!(completion.high_frequency_completed, 0);
+
+        let (remaining, planned) = study_mode_target_counts(
+            &conn,
+            &word_storage_core::models::SessionMode::HighFrequency,
+        )
+        .expect("target counts");
+        assert_eq!(planned, 100);
+        assert_eq!(remaining, 100);
     }
 
     #[test]
@@ -13440,6 +16932,7 @@ mod tests {
                 model: "gpt-test".to_string(),
                 auth_token: "backup-test-key".to_string(),
             },
+            agnes_fallback: None,
         });
 
         let result = agent
@@ -13482,6 +16975,7 @@ mod tests {
                 model: "gpt-test".to_string(),
                 auth_token: "backup-test-key".to_string(),
             },
+            agnes_fallback: None,
         });
 
         let result = agent
@@ -13490,6 +16984,134 @@ mod tests {
 
         assert_eq!(result, r#"{"title":"secondary","paragraphs":["ok"]}"#);
         assert_eq!(backup_hits.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn failed_existing_providers_fall_back_to_agnes_responses() {
+        let failed_url = spawn_json_server("500 Internal Server Error", r#"{"error":"down"}"#);
+        let agnes_url = spawn_json_server(
+            "200 OK",
+            r#"{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{\"title\":\"agnes\",\"paragraphs\":[\"ok\"]}"}]}]}"#,
+        );
+        let agent = AiAgent::new(AiProviderConfig {
+            primary: AiProviderProfile {
+                provider: "anthropic".to_string(),
+                base_url: failed_url.clone(),
+                model: "claude-test".to_string(),
+                auth_token: "primary-test-key".to_string(),
+            },
+            anthropic_fallback: None,
+            backup: AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: failed_url,
+                model: "gpt-test".to_string(),
+                auth_token: "backup-test-key".to_string(),
+            },
+            agnes_fallback: Some(AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: agnes_url,
+                model: "agnes-2.5-pro-alpha".to_string(),
+                auth_token: "agnes-test-key".to_string(),
+            }),
+        });
+
+        let result = agent
+            .run_text_json("system", "user")
+            .expect("Agnes fallback should succeed");
+
+        assert_eq!(result, r#"{"title":"agnes","paragraphs":["ok"]}"#);
+    }
+
+    #[test]
+    fn exam_summary_prefers_working_relays_before_balance_limited_agnes() {
+        let primary_hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let primary_url = spawn_counted_json_server(
+            "200 OK",
+            r#"{"content":[{"type":"text","text":"{\"provider\":\"primary\"}"}]}"#,
+            primary_hits.clone(),
+        );
+        let agnes_hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let agnes_url = spawn_counted_json_server(
+            "200 OK",
+            r#"{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{\"provider\":\"agnes\"}"}]}]}"#,
+            agnes_hits.clone(),
+        );
+        let agent = AiAgent::new(AiProviderConfig {
+            primary: AiProviderProfile {
+                provider: "anthropic".to_string(),
+                base_url: primary_url.clone(),
+                model: "claude-test".to_string(),
+                auth_token: "primary-test-key".to_string(),
+            },
+            anthropic_fallback: None,
+            backup: AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: primary_url,
+                model: "gpt-test".to_string(),
+                auth_token: "backup-test-key".to_string(),
+            },
+            agnes_fallback: Some(AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: agnes_url,
+                model: "agnes-2.5-pro-alpha".to_string(),
+                auth_token: "agnes-test-key".to_string(),
+            }),
+        });
+
+        let result = agent
+            .run_exam_summary_json("system", "user")
+            .expect("working relay should own exam summaries");
+
+        assert_eq!(result, r#"{"provider":"primary"}"#);
+        assert_eq!(primary_hits.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(agnes_hits.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn exam_summary_uses_agnes_only_after_all_relays_fail() {
+        let failed_url = spawn_json_server("500 Internal Server Error", r#"{"error":"down"}"#);
+        let agnes_url = spawn_json_server(
+            "200 OK",
+            r#"{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{\"provider\":\"agnes\"}"}]}]}"#,
+        );
+        let agent = AiAgent::new(AiProviderConfig {
+            primary: AiProviderProfile {
+                provider: "anthropic".to_string(),
+                base_url: failed_url.clone(),
+                model: "claude-test".to_string(),
+                auth_token: "primary-test-key".to_string(),
+            },
+            anthropic_fallback: None,
+            backup: AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: failed_url,
+                model: "gpt-test".to_string(),
+                auth_token: "backup-test-key".to_string(),
+            },
+            agnes_fallback: Some(AiProviderProfile {
+                provider: "openaiResponses".to_string(),
+                base_url: agnes_url,
+                model: "agnes-2.5-pro-alpha".to_string(),
+                auth_token: "agnes-test-key".to_string(),
+            }),
+        });
+
+        let result = agent
+            .run_exam_summary_json("system", "user")
+            .expect("Agnes should remain the final exam-summary fallback");
+
+        assert_eq!(result, r#"{"provider":"agnes"}"#);
+    }
+
+    #[test]
+    fn default_agnes_profile_uses_pro_responses_and_configured_key() {
+        let config = super::default_ai_provider_config();
+        let agnes = config.agnes_fallback.expect("Agnes fallback profile");
+
+        assert_eq!(agnes.base_url, "https://apihub.agnes-ai.com/v1");
+        assert_eq!(agnes.provider, "openaiResponses");
+        assert_eq!(agnes.model, "agnes-2.5-pro-alpha");
+        assert!(!agnes.auth_token.is_empty());
     }
 
     #[test]
@@ -13568,6 +17190,61 @@ mod tests {
 
         let ids = load_prioritized_wrong_word_entry_ids(&conn, 10).expect("load reinforcement ids");
         assert_eq!(ids, vec![1]);
+    }
+
+    #[test]
+    fn wrong_word_reinforcement_demotes_words_recovered_by_recent_correct_answers() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'test-wrong-recovery-score', 'ready')",
+            [],
+        )
+        .expect("insert source version");
+        conn.execute(
+            "INSERT INTO entries (id, source_version_id, source_entry_key, word, part_of_speech, frequency)
+             VALUES (1, 1, 'recovered', 'recovered', 'v.', 10.0),
+                    (2, 1, 'still_wrong', 'still_wrong', 'v.', 10.0)",
+            [],
+        )
+        .expect("insert entries");
+        conn.execute(
+            "INSERT INTO study_sessions (session_id, mode, total_words, started_at)
+             VALUES ('sess_recovered', '\"wrongWordReinforcement\"', 1, '2026-05-01T00:00:00Z'),
+                    ('sess_still_wrong', '\"wrongWordReinforcement\"', 1, '2026-05-01T00:00:00Z')",
+            [],
+        )
+        .expect("insert sessions");
+        conn.execute(
+            "INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response,
+             correct_answer, outcome, response_time_ms, answered_at)
+             VALUES
+             ('sess_recovered', 'r_wrong_1', 1, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:00:00Z'),
+             ('sess_recovered', 'r_wrong_2', 1, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:01:00Z'),
+             ('sess_recovered', 'r_wrong_3', 1, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:02:00Z'),
+             ('sess_recovered', 'r_wrong_4', 1, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:03:00Z'),
+             ('sess_recovered', 'r_wrong_5', 1, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:04:00Z'),
+             ('sess_recovered', 'r_correct_1', 1, '\"enToCnChoice\"', 'B', 'B', '\"correct\"', 100, '2026-05-01T01:05:00Z'),
+             ('sess_recovered', 'r_correct_2', 1, '\"enToCnChoice\"', 'B', 'B', '\"correct\"', 100, '2026-05-01T01:06:00Z'),
+             ('sess_recovered', 'r_correct_3', 1, '\"enToCnChoice\"', 'B', 'B', '\"correct\"', 100, '2026-05-01T01:07:00Z'),
+             ('sess_still_wrong', 's_wrong_1', 2, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:08:00Z'),
+             ('sess_still_wrong', 's_wrong_2', 2, '\"enToCnChoice\"', 'A', 'B', '\"incorrect\"', 100, '2026-05-01T01:09:00Z')",
+            [],
+        )
+        .expect("insert study results");
+
+        let ids = load_prioritized_wrong_word_entry_ids(&conn, 2).expect("load reinforcement ids");
+        assert_eq!(ids, vec![2, 1]);
+
+        let mut entries = load_wrong_word_entries(&conn).expect("load wrong entries");
+        let wrong_words =
+            word_app_core::services::wrong_words_service::build_wrong_words(&mut entries, "all");
+        let recovered = wrong_words
+            .iter()
+            .find(|entry| entry["word"] == "recovered")
+            .expect("recovered entry");
+        assert_eq!(recovered["correctSinceLastWrong"], 3);
     }
 
     #[test]
@@ -14021,6 +17698,58 @@ mod tests {
     }
 
     #[test]
+    fn incomplete_study_submit_enqueues_shared_event_without_heavy_legacy_snapshots() {
+        let conn = Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute("INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'submit-sync-test', 'ready')", []).expect("source");
+        conn.execute("INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma) VALUES (1, 1, 'KaoYan_3_1', 'process', 'process')", []).expect("entry");
+        conn.execute("INSERT INTO wordbooks (id, code, name, source_book_id, source_version_id, total_entries) VALUES (1, 'kaoyan', 'Kaoyan', 'kaoyan', 1, 1)", []).expect("book");
+        conn.execute(
+            "INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book) VALUES (1, 1, 1)",
+            [],
+        )
+        .expect("book entry");
+        conn.execute("INSERT INTO study_sessions (session_id, mode, total_words, wordbook_id, started_at, completed_at) VALUES ('old-session', 'review', 1, 1, '2026-08-20T00:00:00Z', '2026-08-20T00:01:00Z'), ('active-session', 'highFrequency', 2, 1, '2026-08-24T00:00:00Z', NULL)", []).expect("session");
+        conn.execute("INSERT INTO study_results (session_id, question_id, entry_id, question_type, user_response, correct_answer, outcome, response_time_ms, answered_at, hint_used) VALUES ('old-session', 'q-old', 1, 'enToCnInput', '过程', '过程；进程', 'correct', 900, '2026-08-20T00:00:30Z', 0), ('active-session', 'q-1', 1, 'enToCnInput', '过程', '过程；进程', 'correct', 1200, '2026-08-24T00:00:30Z', 0)", []).expect("result");
+
+        enqueue_study_sync_snapshots_after_submit(
+            &conn,
+            Some(("q-1", "2026-08-24T00:00:30Z")),
+            false,
+        );
+
+        let pending = word_storage_core::persistence::sync_repo::list_pending_outbox_items(&conn)
+            .expect("pending outbox");
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].domain, "study_events");
+        let payload: serde_json::Value =
+            serde_json::from_str(&pending[0].payload_json).expect("payload");
+        assert_eq!(
+            payload
+                .get("events")
+                .and_then(|value| value.as_array())
+                .map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            payload
+                .pointer("/events/0/payloadJson/mode")
+                .and_then(|value| value.as_str()),
+            Some("highFrequency")
+        );
+    }
+
+    #[test]
+    fn study_session_actions_skip_schema_application_on_the_submit_path() {
+        assert!(!should_apply_schema_on_study_session_action());
+    }
+
+    #[test]
+    fn study_dispute_accept_does_not_enqueue_heavy_sync_snapshots() {
+        assert!(!should_enqueue_study_sync_snapshots_after_dispute_accept());
+    }
+
+    #[test]
     fn hydrate_start_session_overfetches_invalid_study_payloads_to_match_target() {
         let conn = Connection::open_in_memory().expect("open in-memory database");
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
@@ -14147,6 +17876,9 @@ mod tests {
                 wrong_word_test_target: Some(0),
                 wrong_word_test_base_target: Some(0),
                 wrong_word_test_carryover_target: Some(0),
+                high_frequency_target: Some(0),
+                high_frequency_base_target: Some(0),
+                high_frequency_carryover_target: Some(0),
                 root_affix_target: Some(0),
                 root_affix_base_target: Some(0),
                 root_affix_carryover_target: Some(0),
@@ -14223,6 +17955,9 @@ mod tests {
                 wrong_word_test_target: Some(0),
                 wrong_word_test_base_target: Some(0),
                 wrong_word_test_carryover_target: Some(0),
+                high_frequency_target: Some(0),
+                high_frequency_base_target: Some(0),
+                high_frequency_carryover_target: Some(0),
                 root_affix_target: Some(0),
                 root_affix_base_target: Some(0),
                 root_affix_carryover_target: Some(0),
@@ -14234,6 +17969,53 @@ mod tests {
 
         assert_eq!(targets.mixed_test_target, Some(34));
         assert_eq!(completions.mixed_test_completed, 33);
+    }
+
+    #[test]
+    fn today_available_pool_alignment_does_not_rewrite_plan_targets() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        let plan_value = serde_json::json!({
+            "newWordsPerDay": 32,
+            "reviewWordsPerDay": 28,
+            "mixedTestPerDay": 34,
+            "wrongWordTestPerDay": 45,
+            "highFrequencyPerDay": 85,
+            "rootAffixPerDay": 4
+        });
+
+        let targets = align_today_targets_to_available_pools(
+            &conn,
+            TodayTargetSeed {
+                new_words_target: Some(32),
+                new_words_base_target: Some(32),
+                new_words_carryover_target: Some(0),
+                review_words_target: Some(28),
+                review_words_base_target: Some(28),
+                review_words_carryover_target: Some(0),
+                mixed_test_target: Some(34),
+                mixed_test_base_target: Some(34),
+                mixed_test_carryover_target: Some(0),
+                wrong_word_test_target: Some(45),
+                wrong_word_test_base_target: Some(45),
+                wrong_word_test_carryover_target: Some(0),
+                high_frequency_target: Some(85),
+                high_frequency_base_target: Some(85),
+                high_frequency_carryover_target: Some(0),
+                root_affix_target: Some(4),
+                root_affix_base_target: Some(4),
+                root_affix_carryover_target: Some(0),
+            },
+            &plan_value,
+        )
+        .expect("align available pools");
+
+        assert_eq!(targets.new_words_target, Some(32));
+        assert_eq!(targets.review_words_target, Some(28));
+        assert_eq!(targets.mixed_test_target, Some(34));
+        assert_eq!(targets.wrong_word_test_target, Some(45));
+        assert_eq!(targets.high_frequency_target, Some(85));
+        assert_eq!(targets.root_affix_target, Some(4));
     }
 
     #[test]
@@ -14844,14 +18626,102 @@ mod tests {
         assert_eq!(en, vec!["manufacture", "donate", "frighten"]);
         assert!(get_json_setting(
             &conn,
-            "seed_vocabulary_maintenance_v5_safe_question_preps",
+            "seed_vocabulary_maintenance_v6_exam_frequency",
             &serde_json::Value::Bool(false),
         )
         .expect("load maintenance marker")
         .as_bool()
         .unwrap_or(false));
+        assert!(get_json_setting(
+            &conn,
+            "seed_vocabulary_maintenance_v7_real_exam_examples",
+            &serde_json::Value::Bool(false),
+        )
+        .expect("load real-exam maintenance marker")
+        .as_bool()
+        .unwrap_or(false));
         fs::remove_dir_all(bundle_dir).expect("cleanup temp bundle dir");
     }
+    #[test]
+    fn entry_payload_prefers_real_exam_source_example() {
+        let examples = vec![
+            serde_json::json!({
+                "sentenceEn": "A generic dictionary sentence.",
+                "sentenceCn": "段；片；部分"
+            }),
+            serde_json::json!({
+                "sentenceEn": "Demand from the food service segment grew.",
+                "sentenceCn": "真题来源：KAOYAN-ENGLISH-1 / Kaoyan English I 2010"
+            }),
+        ];
+        let meanings = vec![word_storage_core::models::StartSessionMeaningPayload {
+            pos: "n".to_string(),
+            meaning_cn: "段；片；部分".to_string(),
+            meaning_en: None,
+        }];
+
+        let selected = super::select_entry_payload_example(&examples, &meanings, Some("n"))
+            .expect("selected example");
+
+        assert_eq!(
+            selected["sentenceEn"],
+            "Demand from the food service segment grew."
+        );
+    }
+
+    #[test]
+    fn real_exam_example_maintenance_updates_existing_seed_entries() {
+        let conn = Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'seed-example-refresh', 'ready');
+             INSERT INTO wordbooks (id, code, name, category, source_version_id)
+             VALUES (3, 'kaoyan', 'KaoYan', 'exam', 1);
+             INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma)
+             VALUES (7, 1, 'segment-source', 'segment', 'segment');
+             INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book)
+             VALUES (3, 7, 1);
+             INSERT INTO entry_examples (entry_id, sentence_en, sentence_cn, sort_order)
+             VALUES
+               (7, 'A generic segment example.', '普通例句', 0),
+               (7, 'An outdated exam example.', '真题来源：OLD', 1);",
+        )
+        .expect("seed existing entry");
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let book_dir = env::temp_dir().join(format!("word-real-exam-refresh-{nonce}"));
+        fs::create_dir_all(&book_dir).expect("create book dir");
+        fs::write(
+            book_dir.join("KaoYan_3.json"),
+            serde_json::json!([{
+                "headWord": "segment",
+                "content": {"word": {"content": {"realExamSentence": {"sentences": [{
+                    "sContent": "Demand from the food service segment grew.",
+                    "sCn": "真题来源：KAOYAN-ENGLISH-1 / Kaoyan English I 2010"
+                }]}}}}
+            }])
+            .to_string(),
+        )
+        .expect("write book fixture");
+
+        super::refresh_seed_real_exam_examples(&conn, &book_dir).expect("refresh examples");
+
+        let examples = super::load_entry_examples(&conn, 7).expect("load examples");
+        assert!(examples
+            .iter()
+            .any(|example| { example["sentenceEn"] == "A generic segment example." }));
+        assert!(examples.iter().any(|example| {
+            example["sentenceEn"] == "Demand from the food service segment grew."
+        }));
+        assert!(!examples
+            .iter()
+            .any(|example| { example["sentenceEn"] == "An outdated exam example." }));
+        fs::remove_dir_all(book_dir).expect("cleanup book dir");
+    }
+
     #[test]
     fn load_entry_payload_merges_user_disputed_meanings() {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
@@ -15214,6 +19084,758 @@ mod tests {
     }
 
     #[test]
+    fn exam_causal_prompt_requires_a_short_parseable_report() {
+        assert!(super::EXAM_CAUSAL_SYSTEM_PROMPT.contains("at most two candidates"));
+        assert!(super::EXAM_CAUSAL_SYSTEM_PROMPT.contains("under 350 tokens"));
+        assert!(super::EXAM_CAUSAL_SYSTEM_PROMPT.contains("under 80 Simplified Chinese characters"));
+    }
+
+    #[test]
+    fn exam_causal_response_recovers_unescaped_quotes_inside_a_string_value() {
+        let content = r#"{
+            "eligible": true,
+            "candidates": [{
+                "word": "mergers",
+                "reasoning": "The "business trend" led to the wrong choice."
+            }],
+            "limitations": []
+        }"#;
+
+        let result = super::normalize_exam_causal_provider_result(Ok(content.to_string()));
+
+        assert_eq!(result["providerStatus"], "completed");
+        assert_eq!(result["candidates"][0]["word"], "mergers");
+        assert_eq!(
+            result["candidates"][0]["reasoning"],
+            "The \"business trend\" led to the wrong choice."
+        );
+    }
+
+    #[test]
+    fn exam_causal_prompt_carries_passage_translation_reference_and_marks() {
+        let section = word_app_core::services::exam_practice_service::ExamSection {
+            id: "text-1".to_string(),
+            section_type: "reading".to_string(),
+            title: "Text 1".to_string(),
+            instructions: String::new(),
+            passage: "Mergers changed the market.".to_string(),
+            paragraph_translations: vec!["企业合并改变了市场。".to_string()],
+            questions: Vec::new(),
+        };
+        let question = word_app_core::services::exam_practice_service::ExamQuestion {
+            id: "q1".to_string(),
+            number: 1,
+            kind: "objective".to_string(),
+            stem: "What changed the market?".to_string(),
+            choices: vec![word_app_core::services::exam_practice_service::ExamChoice {
+                label: "C".to_string(),
+                text: "Mergers".to_string(),
+            }],
+            answer: Some("C".to_string()),
+            explanation: String::new(),
+            source: serde_json::json!({}),
+            answer_source: None,
+            capabilities:
+                word_app_core::services::exam_practice_service::ExamQuestionCapabilities {
+                    browsable: true,
+                    answerable: true,
+                    auto_gradable: true,
+                    causal_analyzable: true,
+                },
+        };
+        let evidence = vec![serde_json::json!({"word": "mergers", "mark": "unknown"})];
+
+        let prompt = super::build_exam_causal_prompt(&section, &question, Some("A"), &evidence);
+
+        assert_eq!(prompt["passage"], "Mergers changed the market.");
+        assert_eq!(prompt["paragraphTranslations"][0], "企业合并改变了市场。");
+        assert_eq!(prompt["correctAnswer"], "C");
+        assert_eq!(prompt["selectedAnswer"], "A");
+        assert_eq!(prompt["markedVocabulary"][0]["word"], "mergers");
+    }
+
+    #[test]
+    fn section_causal_prompt_sends_shared_article_context_once_for_all_wrong_questions() {
+        let section = word_app_core::services::exam_practice_service::ExamSection {
+            id: "text-1".to_string(),
+            section_type: "reading".to_string(),
+            title: "Text 1".to_string(),
+            instructions: String::new(),
+            passage: "Shared passage.".to_string(),
+            paragraph_translations: vec!["Shared translation.".to_string()],
+            questions: Vec::new(),
+        };
+        let questions = vec![
+            word_app_core::services::exam_practice_service::ExamQuestion {
+                id: "q1".to_string(),
+                number: 1,
+                kind: "objective".to_string(),
+                stem: "First question".to_string(),
+                choices: vec![word_app_core::services::exam_practice_service::ExamChoice {
+                    label: "B".to_string(),
+                    text: "Correct".to_string(),
+                }],
+                answer: Some("B".to_string()),
+                explanation: String::new(),
+                source: serde_json::json!({}),
+                answer_source: None,
+                capabilities:
+                    word_app_core::services::exam_practice_service::ExamQuestionCapabilities {
+                        browsable: true,
+                        answerable: true,
+                        auto_gradable: true,
+                        causal_analyzable: true,
+                    },
+            },
+            word_app_core::services::exam_practice_service::ExamQuestion {
+                id: "q2".to_string(),
+                number: 2,
+                kind: "objective".to_string(),
+                stem: "Second question".to_string(),
+                choices: vec![word_app_core::services::exam_practice_service::ExamChoice {
+                    label: "C".to_string(),
+                    text: "Correct".to_string(),
+                }],
+                answer: Some("C".to_string()),
+                explanation: String::new(),
+                source: serde_json::json!({}),
+                answer_source: None,
+                capabilities:
+                    word_app_core::services::exam_practice_service::ExamQuestionCapabilities {
+                        browsable: true,
+                        answerable: true,
+                        auto_gradable: true,
+                        causal_analyzable: true,
+                    },
+            },
+        ];
+        let selections = vec![
+            (questions[0].clone(), "A".to_string()),
+            (questions[1].clone(), "A".to_string()),
+        ];
+        let evidence = vec![serde_json::json!({"word": "shared", "mark": "unknown"})];
+
+        let prompt = super::build_exam_section_causal_prompt(&section, &selections, &evidence);
+        let encoded = prompt.to_string();
+
+        assert_eq!(prompt["passage"], "Shared passage.");
+        assert_eq!(
+            prompt["paragraphTranslations"],
+            serde_json::json!(["Shared translation."])
+        );
+        assert_eq!(prompt["wrongQuestions"].as_array().map(Vec::len), Some(2));
+        assert_eq!(prompt["wrongQuestions"][0]["questionId"], "q1");
+        assert_eq!(prompt["wrongQuestions"][1]["questionId"], "q2");
+        assert_eq!(encoded.matches("Shared passage.").count(), 1);
+        assert_eq!(encoded.matches("Shared translation.").count(), 1);
+    }
+
+    #[test]
+    fn cloze_review_prompt_contains_wrong_and_correct_attempts() {
+        let mut section = word_app_core::services::exam_practice_service::ExamSection {
+            id: "cloze".to_string(),
+            section_type: "cloze".to_string(),
+            title: "Cloze".to_string(),
+            instructions: String::new(),
+            passage: "It was (1) rare but (2) useful.".to_string(),
+            paragraph_translations: vec![],
+            questions: Vec::new(),
+        };
+        let question = |id: &str, number: i64, answer: &str| {
+            word_app_core::services::exam_practice_service::ExamQuestion {
+                id: id.to_string(),
+                number,
+                kind: "objective".to_string(),
+                stem: String::new(),
+                choices: vec![word_app_core::services::exam_practice_service::ExamChoice {
+                    label: answer.to_string(),
+                    text: if id == "q1" { "rare" } else { "useful" }.to_string(),
+                }],
+                answer: Some(answer.to_string()),
+                explanation: String::new(),
+                source: serde_json::json!({}),
+                answer_source: None,
+                capabilities:
+                    word_app_core::services::exam_practice_service::ExamQuestionCapabilities {
+                        browsable: true,
+                        answerable: true,
+                        auto_gradable: true,
+                        causal_analyzable: true,
+                    },
+            }
+        };
+        section.questions = vec![question("q1", 1, "A"), question("q2", 2, "B")];
+        let attempts = vec![
+            (section.questions[0].clone(), "B".to_string(), false),
+            (section.questions[1].clone(), "B".to_string(), true),
+        ];
+        let evidence = vec![
+            serde_json::json!({
+                "word": "rare", "mark": "unknown", "meaning": "罕见的",
+                "examFrequency": 20, "examRank": 12
+            }),
+            serde_json::json!({
+                "word": "useful", "mark": "familiar", "meaning": "有用的",
+                "examFrequency": 15, "examRank": 18
+            }),
+        ];
+
+        let prompt = super::build_exam_cloze_review_prompt(&section, &attempts, &evidence);
+
+        assert_eq!(prompt["reviewFormat"], "cloze-review-v1");
+        assert_eq!(prompt["wrongQuestions"].as_array().map(Vec::len), Some(1));
+        assert_eq!(prompt["correctQuestions"].as_array().map(Vec::len), Some(1));
+        assert_eq!(prompt["markedVocabulary"][0]["examFrequency"], 20);
+    }
+
+    #[test]
+    fn reading_review_prompt_contains_report_contract_and_marked_correct_attempts() {
+        let mut section = word_app_core::services::exam_practice_service::ExamSection {
+            id: "text-2".to_string(),
+            section_type: "text2".to_string(),
+            title: "Reading Text 2".to_string(),
+            instructions: String::new(),
+            passage: "The old process changed. A new model is emerging.".to_string(),
+            paragraph_translations: vec!["旧流程发生了变化。新模式正在出现。".to_string()],
+            questions: Vec::new(),
+        };
+        let question = |id: &str, number: i64, stem: &str, answer: &str, choice: &str| {
+            word_app_core::services::exam_practice_service::ExamQuestion {
+                id: id.to_string(),
+                number,
+                kind: "objective".to_string(),
+                stem: stem.to_string(),
+                choices: vec![word_app_core::services::exam_practice_service::ExamChoice {
+                    label: answer.to_string(),
+                    text: choice.to_string(),
+                }],
+                answer: Some(answer.to_string()),
+                explanation: String::new(),
+                source: serde_json::json!({}),
+                answer_source: None,
+                capabilities:
+                    word_app_core::services::exam_practice_service::ExamQuestionCapabilities {
+                        browsable: true,
+                        answerable: true,
+                        auto_gradable: true,
+                        causal_analyzable: true,
+                    },
+            }
+        };
+        section.questions = vec![
+            question("q1", 1, "What changed?", "B", "new model"),
+            question("q2", 2, "What is emerging?", "A", "emerging"),
+        ];
+        let attempts = vec![
+            (section.questions[0].clone(), "A".to_string(), false),
+            (section.questions[1].clone(), "A".to_string(), true),
+        ];
+        let evidence = vec![serde_json::json!({
+            "word": "emerging", "mark": "unknown", "meaning": "出现的"
+        })];
+
+        let prompt = super::build_exam_reading_review_prompt(&section, &attempts, &evidence);
+
+        assert_eq!(prompt["reviewFormat"], "reading-review-v1");
+        assert_eq!(prompt["wrongQuestions"][0]["stem"], "What changed?");
+        assert_eq!(prompt["wrongQuestions"][0]["selectedAnswer"], "A");
+        assert_eq!(prompt["wrongQuestions"][0]["correctAnswer"], "B");
+        assert_eq!(prompt["correctQuestions"][0]["questionId"], "q2");
+    }
+
+    #[test]
+    fn cloze_vocabulary_priority_uses_local_frequency_and_rank() {
+        let evidence = vec![
+            serde_json::json!({"word":"observe","mark":"unknown","meaning":"观察","examFrequency":42,"examRank":8}),
+            serde_json::json!({"word":"rare","mark":"familiar","meaning":"罕见的","examFrequency":12,"examRank":30}),
+        ];
+        let mut result = serde_json::json!({
+            "vocabularyPriority": [
+                {"word":"rare","priorityReason":"模型理由"},
+                {"word":"observe","priorityReason":"高频"}
+            ]
+        });
+
+        super::attach_cloze_vocabulary_priority(&mut result, &evidence);
+
+        assert_eq!(result["vocabularyPriority"][0]["word"], "observe");
+        assert_eq!(result["vocabularyPriority"][0]["examFrequency"], 42);
+        assert_eq!(result["vocabularyPriority"][1]["mark"], "familiar");
+    }
+
+    #[test]
+    fn cloze_vocabulary_priority_displays_derivational_family_total() {
+        let evidence = vec![serde_json::json!({
+            "word":"observer",
+            "mark":"unknown",
+            "meaning":"观察者",
+            "examFrequency":1,
+            "examRank":3000,
+            "examFamilyRoot":"observe",
+            "examFamilyFrequency":12,
+            "examFamilyMembers":{
+                "observe":6,
+                "observation":3,
+                "observer":1,
+                "observable":1,
+                "observational":1
+            }
+        })];
+        let mut result = serde_json::json!({"vocabularyPriority": []});
+
+        super::attach_cloze_vocabulary_priority(&mut result, &evidence);
+
+        let item = &result["vocabularyPriority"][0];
+        assert_eq!(item["examFrequency"], 1);
+        assert_eq!(item["displayExamFrequency"], 12);
+        assert_eq!(item["examFamilyRoot"], "observe");
+        assert_eq!(item["examFamilyMembers"]["observation"], 3);
+    }
+
+    #[test]
+    fn kaoyan_derivational_family_index_covers_supplemental_members() {
+        let source = serde_json::json!([{
+            "headWord":"observe",
+            "content":{"word":{"content":{"realExamFrequency":{
+                "occurrences":6,
+                "derivationalFamily":{
+                    "root":"observe",
+                    "occurrences":12,
+                    "members":{
+                        "observe":6,
+                        "observation":3,
+                        "observer":1,
+                        "observable":1,
+                        "observational":1
+                    }
+                }
+            }}}}
+        }])
+        .to_string();
+
+        let index = super::parse_exam_derivational_family_index(&source)
+            .expect("parse derivational family index");
+
+        assert_eq!(index.len(), 5);
+        assert_eq!(index["observer"]["examFrequency"], 1);
+        assert_eq!(index["observer"]["examFamilyFrequency"], 12);
+        assert_eq!(index["observational"]["examFamilyRoot"], "observe");
+
+        let portable = serde_json::json!({
+            "observer":{
+                "root":"observe",
+                "occurrences":12,
+                "strictOccurrences":1,
+                "members":{"observe":6,"observation":3,"observer":1,"observable":1,"observational":1}
+            }
+        })
+        .to_string();
+        let portable_index = super::parse_exam_derivational_family_index(&portable)
+            .expect("parse portable family index");
+        assert_eq!(portable_index["observer"]["examFrequency"], 1);
+        assert_eq!(portable_index["observer"]["examFamilyFrequency"], 12);
+    }
+
+    #[test]
+    fn cloze_review_removes_inline_glosses_from_pure_purple_words() {
+        let evidence = vec![serde_json::json!({
+            "word":"observe", "mark":"unknown", "markScope":"prior"
+        })];
+        let mut result = serde_json::json!({
+            "questions": [{
+                "questionId": "q1",
+                "annotatedContext": "They observe（观察） the change.",
+                "candidates": []
+            }]
+        });
+
+        super::remove_familiar_inline_glosses(&mut result, &evidence);
+
+        assert_eq!(
+            result["questions"][0]["annotatedContext"],
+            "They observe the change."
+        );
+    }
+
+    #[test]
+    fn pure_purple_words_are_loaded_from_verified_prior_article_marks() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        let prior_article =
+            word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_article(
+                &conn,
+                &word_storage_core::models::ExerciseArticleDraft {
+                    article_id: "paper-2007:cloze".to_string(),
+                    source_type: "builtin".to_string(),
+                    title: "Prior cloze".to_string(),
+                    body: "They observe the change.".to_string(),
+                    language: "en".to_string(),
+                    metadata_json: "{}".to_string(),
+                },
+            )
+            .expect("prior article");
+        word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_vocab_occurrence(
+            &conn,
+            &word_storage_core::models::ExerciseVocabOccurrenceDraft {
+                article_id: prior_article,
+                entry_id: None,
+                word_form: "observe".to_string(),
+                normalized_form: "observe".to_string(),
+                sentence_text: "They observe the change.".to_string(),
+                paragraph_index: 0,
+                sentence_index: 0,
+                start_offset: 5,
+                end_offset: 12,
+                lookup_status: "matched".to_string(),
+                user_mark: "unknown".to_string(),
+                meaning_note: "观察".to_string(),
+            },
+        )
+        .expect("prior occurrence");
+        let mut evidence = Vec::new();
+
+        super::augment_pure_purple_exam_evidence(
+            &conn,
+            "paper-2008:cloze",
+            &std::collections::HashSet::from(["observe".to_string()]),
+            &mut evidence,
+        )
+        .expect("augment evidence");
+
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0]["markScope"], "prior");
+        assert_eq!(evidence[0]["meaning"], "观察");
+    }
+
+    #[test]
+    fn exam_causal_candidates_are_limited_to_marked_words_and_use_chinese_reasoning() {
+        let evidence = vec![serde_json::json!({
+            "word": "consequential",
+            "mark": "unknown"
+        })];
+        let mut result = serde_json::json!({
+            "candidates": [
+                {
+                    "word": "consequential",
+                    "confidence": 0.8,
+                    "reasoning": "It changes the option meaning."
+                },
+                {
+                    "word": "ordinary",
+                    "confidence": 0.9,
+                    "reasoning": "Not marked by the user."
+                }
+            ]
+        });
+
+        super::retain_marked_exam_causal_candidates(&mut result, &evidence);
+
+        let candidates = result["candidates"].as_array().expect("candidates");
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0]["word"], "consequential");
+        assert!(candidates[0]["reasoning"]
+            .as_str()
+            .is_some_and(|value| value.contains("标记词")));
+    }
+
+    #[test]
+    fn causal_words_are_persisted_as_wrong_answer_priority_evidence() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        let article_id =
+            word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_article(
+                &conn,
+                &word_storage_core::models::ExerciseArticleDraft {
+                    article_id: "paper-1:reading".to_string(),
+                    source_type: "builtin".to_string(),
+                    title: "Reading".to_string(),
+                    body: "A consequential choice.".to_string(),
+                    language: "en".to_string(),
+                    metadata_json: "{}".to_string(),
+                },
+            )
+            .expect("article");
+        word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_vocab_occurrence(
+            &conn,
+            &word_storage_core::models::ExerciseVocabOccurrenceDraft {
+                article_id,
+                entry_id: None,
+                word_form: "consequential".to_string(),
+                normalized_form: "consequential".to_string(),
+                sentence_text: "A consequential choice.".to_string(),
+                paragraph_index: 0,
+                sentence_index: 0,
+                start_offset: 2,
+                end_offset: 15,
+                lookup_status: "matched".to_string(),
+                user_mark: "unknown".to_string(),
+                meaning_note: "重要的".to_string(),
+            },
+        )
+        .expect("occurrence");
+        conn.execute(
+            "UPDATE exercise_vocab_occurrences
+             SET user_mark = 'ignored', mark_level = 'familiar'
+             WHERE article_id = ?1",
+            [article_id],
+        )
+        .expect("set familiar mark");
+        let evidence = super::load_exam_causal_evidence(&conn, "paper-1:reading")
+            .expect("load causal evidence");
+        assert_eq!(evidence[0]["word"], "consequential");
+        assert_eq!(evidence[0]["mark"], "familiar");
+
+        let promoted = super::persist_exam_causal_words(
+            &conn,
+            "paper-1:reading",
+            &serde_json::json!({"candidates": [{"word": "consequential"}]}),
+        )
+        .expect("promote causal word");
+
+        assert_eq!(promoted, vec!["consequential"]);
+        let mark = conn
+            .query_row(
+                "SELECT user_mark FROM exercise_vocab_occurrences WHERE article_id = ?1",
+                [article_id],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("load mark");
+        assert_eq!(mark, "wrong");
+    }
+
+    #[test]
+    fn new_word_selection_prioritizes_ai_causal_vocabulary() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'causal-study-priority', 'ready');
+             INSERT INTO wordbooks
+                (id, code, name, source_version_id, total_entries, is_active)
+             VALUES (3, 'KaoYan', 'KaoYan', 1, 2, 1);
+             INSERT INTO entries
+                (id, source_version_id, source_entry_key, word, part_of_speech, frequency)
+             VALUES (1, 1, 'ordinary', 'ordinary', 'adj.', 100.0),
+                    (2, 1, 'causal', 'consequential', 'adj.', 1.0);
+             INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book)
+             VALUES (3, 1, 1), (3, 2, 2);",
+        )
+        .expect("seed wordbook");
+        let article_id =
+            word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_article(
+                &conn,
+                &word_storage_core::models::ExerciseArticleDraft {
+                    article_id: "paper-1:reading".to_string(),
+                    source_type: "builtin".to_string(),
+                    title: "Reading".to_string(),
+                    body: "A consequential choice.".to_string(),
+                    language: "en".to_string(),
+                    metadata_json: "{}".to_string(),
+                },
+            )
+            .expect("article");
+        word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_vocab_occurrence(
+            &conn,
+            &word_storage_core::models::ExerciseVocabOccurrenceDraft {
+                article_id,
+                entry_id: Some(2),
+                word_form: "consequential".to_string(),
+                normalized_form: "consequential".to_string(),
+                sentence_text: "A consequential choice.".to_string(),
+                paragraph_index: 0,
+                sentence_index: 0,
+                start_offset: 2,
+                end_offset: 15,
+                lookup_status: "matched".to_string(),
+                user_mark: "wrong".to_string(),
+                meaning_note: "重要的".to_string(),
+            },
+        )
+        .expect("causal occurrence");
+
+        let selected = super::load_unlearned_ranked_entry_ids_for_wordbooks_on_date(
+            &conn,
+            &[3],
+            2,
+            "2026-07-27",
+        )
+        .expect("select new words");
+
+        assert_eq!(selected.first(), Some(&2));
+    }
+
+    #[test]
+    fn new_word_selection_prioritizes_reader_mark_levels() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'reader-mark-study-priority', 'ready');
+             INSERT INTO wordbooks
+                (id, code, name, source_version_id, total_entries, is_active)
+             VALUES (3, 'KaoYan', 'KaoYan', 1, 2, 1);
+             INSERT INTO entries
+                (id, source_version_id, source_entry_key, word, part_of_speech, frequency)
+             VALUES (1, 1, 'high_frequency', 'ordinary', 'adj.', 1000.0),
+                    (2, 1, 'reader_marked', 'consequential', 'adj.', 1.0);
+             INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book)
+             VALUES (3, 1, 1), (3, 2, 2);",
+        )
+        .expect("seed wordbook");
+        let article_id =
+            word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_article(
+                &conn,
+                &word_storage_core::models::ExerciseArticleDraft {
+                    article_id: "paper-2:reading".to_string(),
+                    source_type: "builtin".to_string(),
+                    title: "Reading".to_string(),
+                    body: "A consequential choice.".to_string(),
+                    language: "en".to_string(),
+                    metadata_json: "{}".to_string(),
+                },
+            )
+            .expect("article");
+        word_storage_core::persistence::exercise_vocab_repo::upsert_exercise_vocab_occurrence(
+            &conn,
+            &word_storage_core::models::ExerciseVocabOccurrenceDraft {
+                article_id,
+                entry_id: Some(2),
+                word_form: "consequential".to_string(),
+                normalized_form: "consequential".to_string(),
+                sentence_text: "A consequential choice.".to_string(),
+                paragraph_index: 0,
+                sentence_index: 0,
+                start_offset: 2,
+                end_offset: 15,
+                lookup_status: "matched".to_string(),
+                user_mark: "ignored".to_string(),
+                meaning_note: "重要的".to_string(),
+            },
+        )
+        .expect("reader mark occurrence");
+        conn.execute(
+            "UPDATE exercise_vocab_occurrences
+             SET mark_level = 'unknown'
+             WHERE article_id = ?1",
+            [article_id],
+        )
+        .expect("set unknown mark level");
+
+        let selected = super::load_unlearned_ranked_entry_ids_for_wordbooks_on_date(
+            &conn,
+            &[3],
+            2,
+            "2026-07-28",
+        )
+        .expect("select new words");
+
+        assert_eq!(selected.first(), Some(&2));
+    }
+
+    #[test]
+    fn exam_analysis_tasks_persist_completion_and_clear_unread_state() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        let running = serde_json::json!({
+            "taskId": "task-1",
+            "paperTitle": "Kaoyan English I 2010",
+            "sectionTitle": "Reading Text 1",
+            "status": "running",
+            "createdAt": "2026-07-27T10:00:00Z",
+            "findings": []
+        });
+        super::upsert_exam_analysis_task_with_connection(&conn, running)
+            .expect("save running task");
+        let completed = serde_json::json!({
+            "taskId": "task-1",
+            "paperTitle": "Kaoyan English I 2010",
+            "sectionTitle": "Reading Text 1",
+            "status": "completed",
+            "createdAt": "2026-07-27T10:00:00Z",
+            "completedAt": "2026-07-27T10:01:00Z",
+            "findings": [{"word": "consequential"}]
+        });
+        super::upsert_exam_analysis_task_with_connection(&conn, completed).expect("complete task");
+
+        let inbox = super::list_exam_analysis_tasks_with_connection(&conn).expect("list tasks");
+        assert_eq!(inbox["unreadCount"], 1);
+        assert_eq!(inbox["items"][0]["status"], "completed");
+
+        super::mark_exam_analysis_tasks_read_with_connection(&conn).expect("mark read");
+        let read = super::list_exam_analysis_tasks_with_connection(&conn).expect("list read tasks");
+        assert_eq!(read["unreadCount"], 0);
+        assert_eq!(read["items"][0]["unread"], false);
+    }
+
+    #[test]
+    fn exam_analysis_tasks_keep_only_latest_retry_for_same_section() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        for (task_id, created_at) in [
+            ("task-old", "2026-08-17T10:00:00Z"),
+            ("task-new", "2026-08-17T10:05:00Z"),
+        ] {
+            super::upsert_exam_analysis_task_with_connection(
+                &conn,
+                serde_json::json!({
+                    "taskId": task_id,
+                    "exam": "kaoyan-english-1",
+                    "paperId": "kaoyan-english-1-2008",
+                    "sectionId": "reading-4",
+                    "status": "failed",
+                    "createdAt": created_at
+                }),
+            )
+            .expect("save retry");
+        }
+
+        let inbox = super::list_exam_analysis_tasks_with_connection(&conn).expect("list tasks");
+        assert_eq!(inbox["items"].as_array().unwrap().len(), 1);
+        assert_eq!(inbox["items"][0]["taskId"], "task-new");
+    }
+
+    #[test]
+    fn structured_review_uses_local_question_and_option_facts() {
+        let mut result = serde_json::json!({
+            "questions": [{
+                "questionId": "q1",
+                "questionNumber": 999,
+                "stem": "invented",
+                "selectedAnswer": "Z",
+                "correctAnswer": "Y",
+                "optionAnalysis": [
+                    {"label": "A", "meaning": "invented", "analysis": "干扰项分析"}
+                ],
+                "analysis": "结合文章与答案的分析",
+                "candidates": []
+            }]
+        });
+        let questions = vec![super::PreparedExamSectionQuestion {
+            question_id: "q1".to_string(),
+            question_number: 21,
+            stem: "What changed?".to_string(),
+            choices: vec![
+                serde_json::json!({"label": "A", "text": "local option A"}),
+                serde_json::json!({"label": "B", "text": "local option B"}),
+            ],
+            correct_answer: "B".to_string(),
+            attempt_id: "attempt-1".to_string(),
+            selected_answer: "A".to_string(),
+        }];
+
+        super::attach_local_structured_review_facts(&mut result, &questions);
+
+        let question = &result["questions"][0];
+        assert_eq!(question["questionNumber"], 21);
+        assert_eq!(question["stem"], "What changed?");
+        assert_eq!(question["selectedAnswer"], "A");
+        assert_eq!(question["correctAnswer"], "B");
+        assert_eq!(question["optionAnalysis"][0]["meaning"], "local option A");
+        assert_eq!(question["optionAnalysis"][0]["analysis"], "干扰项分析");
+        assert_eq!(question["optionAnalysis"][1]["meaning"], "local option B");
+    }
+
+    #[test]
     fn exam_word_lookup_resolves_common_inflected_forms() {
         let conn = rusqlite::Connection::open_in_memory().expect("open db");
         conn.execute_batch(
@@ -15225,7 +19847,8 @@ mod tests {
              );
              INSERT INTO entries (id, word, lemma, frequency)
              VALUES (1, 'habit', 'habit', 10), (2, 'researcher', 'researcher', 8),
-                    (3, 'paradox', 'paradox', 7);
+                    (3, 'paradox', 'paradox', 7), (4, 'patent', 'patent', 6),
+                    (5, 'authorize', 'authorize', 5);
              CREATE TABLE entry_aliases (
                 entry_id INTEGER NOT NULL,
                 alias TEXT NOT NULL,
@@ -15238,7 +19861,11 @@ mod tests {
             "relWord": {"rels": [{"words": [{
                 "hwd": "paradoxical",
                 "tran": "矛盾的；似非而是的"
-            }]}]}
+            }]}]},
+            "syno": {"synos": [{
+                "tran": "矛盾的；似非而是的",
+                "hwds": [{"w": "contradictory"}]
+            }]}
         });
         super::persist_seed_entry_aliases(&conn, 3, Some(&word_content))
             .expect("persist related alias");
@@ -15256,8 +19883,201 @@ mod tests {
             Some(3)
         );
         assert_eq!(
+            super::resolve_exam_word_family(&conn, "patents").unwrap(),
+            (Some(4), "patent".to_string())
+        );
+        assert_eq!(
+            super::resolve_exam_word_family(&conn, "authorized").unwrap(),
+            (Some(5), "authorize".to_string())
+        );
+        assert_eq!(
             super::load_entry_alias_meaning_strings(&conn, "paradoxical").unwrap(),
             vec![serde_json::Value::String("矛盾的；似非而是的".to_string())]
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT source_kind FROM entry_aliases WHERE entry_id = 3 AND alias = 'contradictory'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("persisted explicit synonym"),
+            "synonym"
+        );
+    }
+
+    #[test]
+    fn study_derivational_family_uses_related_word_alias_meanings() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        conn.execute_batch(
+            "CREATE TABLE entries (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL,
+                lemma TEXT NOT NULL DEFAULT '',
+                frequency INTEGER NOT NULL DEFAULT 0
+             );
+             CREATE TABLE entry_aliases (
+                entry_id INTEGER NOT NULL,
+                alias TEXT NOT NULL,
+                meaning_cn TEXT NOT NULL,
+                source_kind TEXT NOT NULL
+             );
+             INSERT INTO entries (id, word, lemma, frequency)
+             VALUES (1, 'observe', 'observe', 20);
+             INSERT INTO entry_aliases (entry_id, alias, meaning_cn, source_kind)
+             VALUES
+                (1, 'observation', '观察；观察结果', 'related_word'),
+                (1, 'observer', '观察者', 'related_word'),
+                (1, 'observer', '观察者', 'related_word'),
+                (1, 'observed', '观察', 'inflection');",
+        )
+        .expect("seed family");
+        let mut question = serde_json::json!({
+            "entrySourceId": "1",
+            "word": "observe"
+        });
+
+        super::enrich_study_question_derivational_family(&conn, &mut question)
+            .expect("enrich family");
+
+        assert_eq!(
+            question["derivationalFamily"],
+            serde_json::json!([
+                {"word": "observation", "meaning": "观察；观察结果"},
+                {"word": "observer", "meaning": "观察者"}
+            ])
+        );
+    }
+
+    #[test]
+    fn study_derivational_family_separates_real_and_realize_branches() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        conn.execute_batch(
+            "CREATE TABLE entries (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL,
+                lemma TEXT NOT NULL DEFAULT '',
+                frequency INTEGER NOT NULL DEFAULT 0
+             );
+             CREATE TABLE entry_aliases (
+                entry_id INTEGER NOT NULL,
+                alias TEXT NOT NULL,
+                meaning_cn TEXT NOT NULL,
+                source_kind TEXT NOT NULL
+             );
+             INSERT INTO entries (id, word, lemma, frequency)
+             VALUES (1, 'reality', 'reality', 20);
+             INSERT INTO entry_aliases (entry_id, alias, meaning_cn, source_kind)
+             VALUES
+                (1, 'real', '真实的', 'related_word'),
+                (1, 'real', '现实', 'related_word'),
+                (1, 'really', '真正地', 'related_word'),
+                (1, 'realize', '实现', 'related_word'),
+                (1, 'realization', '实现；领悟', 'related_word');",
+        )
+        .expect("seed family");
+        let mut question = serde_json::json!({
+            "entrySourceId": "1",
+            "word": "reality"
+        });
+
+        super::enrich_study_question_derivational_family(&conn, &mut question)
+            .expect("enrich family");
+
+        assert_eq!(
+            question["derivationalFamily"],
+            serde_json::json!([
+                {"word": "real", "meaning": "现实；真实的"},
+                {"word": "really", "meaning": "真正地"}
+            ])
+        );
+    }
+
+    #[test]
+    fn study_synonyms_group_shared_glosses_and_require_matching_part_of_speech() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'synonym-test', 'ready');
+             INSERT INTO wordbooks (id, code, name, category, source_version_id)
+             VALUES (3, 'kaoyan', 'KaoYan', 'exam', 1);
+             INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma, exam_frequency, exam_rank)
+             VALUES
+                (1, 1, 'assist', 'assist', 'assist', 10, 1),
+                (2, 1, 'aid', 'aid', 'aid', 9, 2),
+                (3, 1, 'help', 'help', 'help', 8, 3),
+                (4, 1, 'support', 'support', 'support', 0, 4),
+                (5, 1, 'assistive', 'assistive', 'assistive', 7, 5);
+             INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book)
+             VALUES (3, 1, 1), (3, 2, 2), (3, 3, 3), (3, 4, 4), (3, 5, 5);
+             INSERT INTO entry_meanings (entry_id, pos, meaning_cn, sort_order)
+             VALUES
+                (1, 'vt', '帮助；协助', 0),
+                (2, 'vt', '帮助；援助', 0),
+                (3, 'vt', '协助；帮忙', 0),
+                (4, 'vt', '帮助', 0),
+                (5, 'adj', '辅助的', 0);",
+        )
+        .expect("seed high-frequency synonyms");
+        let mut question = serde_json::json!({
+            "entrySourceId": "assist",
+            "word": "assist"
+        });
+
+        super::enrich_study_question_synonym_groups(&conn, &mut question).expect("enrich synonyms");
+
+        assert_eq!(
+            question["synonymGroups"],
+            serde_json::json!([
+                {"meaning": "帮助", "words": ["aid"]},
+                {"meaning": "协助", "words": ["help"]}
+            ])
+        );
+    }
+
+    #[test]
+    fn study_synonyms_include_explicit_seed_dictionary_relations() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'explicit-synonym-test', 'ready');
+             INSERT INTO wordbooks (id, code, name, category, source_version_id)
+             VALUES (3, 'kaoyan', 'KaoYan', 'exam', 1);
+             INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma, exam_frequency, exam_rank)
+             VALUES
+                (1, 1, 'attract', 'attract', 'attract', 10, 1),
+                (2, 1, 'engage', 'engage', 'engage', 9, 2),
+                (3, 1, 'absorb', 'absorb', 'absorb', 8, 3),
+                (4, 1, 'cause', 'cause', 'cause', 7, 4),
+                (5, 1, 'produce', 'produce', 'produce', 0, 5);
+             INSERT INTO wordbook_entries (wordbook_id, entry_id, rank_in_book)
+             VALUES (3, 1, 1), (3, 2, 2), (3, 3, 3), (3, 4, 4), (3, 5, 5);
+             INSERT INTO entry_meanings (entry_id, pos, meaning_cn, sort_order)
+             VALUES
+                (1, 'vt', '吸引；引起', 0),
+                (2, 'vt', '参与；吸引', 0),
+                (3, 'vt', '吸收；吸引', 0),
+                (4, 'vt', '引起；导致', 0),
+                (5, 'vt', '引起；生产', 0);
+             INSERT INTO entry_aliases (entry_id, alias, meaning_cn, source_kind)
+             VALUES
+                (1, 'engage', '吸引；引起', 'synonym'),
+                (1, 'absorb', '吸引；引起', 'synonym'),
+                (1, 'produce', '吸引；引起', 'synonym');",
+        )
+        .expect("seed explicit synonyms");
+        let mut question = serde_json::json!({
+            "entrySourceId": "attract",
+            "word": "attract"
+        });
+
+        super::enrich_study_question_synonym_groups(&conn, &mut question).expect("enrich synonyms");
+
+        assert_eq!(
+            question["synonymGroups"],
+            serde_json::json!([
+                {"meaning": "吸引", "words": ["engage", "absorb"]},
+                {"meaning": "引起", "words": ["cause"]}
+            ])
         );
     }
 
@@ -15266,8 +20086,8 @@ mod tests {
         let conn = rusqlite::Connection::open_in_memory().expect("open db");
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
 
-        super::ensure_exam_dictionary_entries(&conn).expect("seed phrases");
-        super::ensure_exam_dictionary_entries(&conn).expect("seed phrases again");
+        super::ensure_exam_dictionary_entries(&conn, None).expect("seed phrases");
+        super::ensure_exam_dictionary_entries(&conn, None).expect("seed phrases again");
 
         let entry_id = super::find_entry_id_by_word(&conn, "so long as")
             .expect("lookup phrase")
@@ -15286,7 +20106,7 @@ mod tests {
                 .as_str()
                 .is_some_and(|value| value.contains("在……之上"))));
         assert_eq!(
-            super::resolve_exam_mark_meaning(&conn, "upon", "").unwrap(),
+            super::resolve_exam_mark_meaning(&conn, "upon", "", None).unwrap(),
             "在……之上；在……之后"
         );
         assert_eq!(
@@ -15297,6 +20117,126 @@ mod tests {
             )
             .unwrap(),
             1
+        );
+    }
+
+    #[test]
+    fn exam_corpus_dictionary_imports_basic_words_and_inflected_phrases_once() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let bundle_dir = env::temp_dir().join(format!("exam-corpus-dictionary-{nonce}"));
+        let dictionary_dir = bundle_dir.join("exam-dictionary");
+        fs::create_dir_all(&dictionary_dir).expect("create dictionary fixture");
+        fs::write(
+            dictionary_dir.join("exam-corpus-dictionary.json"),
+            serde_json::json!({
+                "schemaVersion": 1,
+                "source": {"commit": "fixture"},
+                "entries": [
+                    {
+                        "term": "the",
+                        "lemma": "the",
+                        "partOfSpeech": "article",
+                        "meaning": "这；该"
+                    },
+                    {
+                        "term": "looked at",
+                        "lemma": "look at",
+                        "partOfSpeech": "phrase",
+                        "meaning": "查看；考虑"
+                    }
+                ]
+            })
+            .to_string(),
+        )
+        .expect("write dictionary fixture");
+
+        super::ensure_exam_dictionary_entries(&conn, Some(&bundle_dir))
+            .expect("seed curated dictionary");
+        super::resolve_exam_dictionary_term(&conn, "the", Some(&bundle_dir))
+            .expect("resolve basic corpus word");
+        super::resolve_exam_dictionary_term(&conn, "looked at", Some(&bundle_dir))
+            .expect("resolve inflected corpus phrase");
+        super::resolve_exam_dictionary_term(&conn, "looked at", Some(&bundle_dir))
+            .expect("resolve imported corpus phrase again");
+
+        let the_id = super::find_entry_id_by_word(&conn, "the")
+            .expect("lookup basic word")
+            .expect("basic word entry");
+        assert_eq!(
+            super::load_entry_meaning_strings(&conn, the_id).unwrap(),
+            vec![serde_json::Value::String("这；该".to_string())]
+        );
+        let phrase_id = super::find_entry_id_by_word(&conn, "look at")
+            .expect("lookup phrase lemma")
+            .expect("phrase entry");
+        assert_eq!(
+            super::load_entry_meaning_strings(&conn, phrase_id).unwrap(),
+            vec![serde_json::Value::String("查看；考虑".to_string())]
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM entries WHERE source_entry_key LIKE 'exam_corpus:%'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            2
+        );
+
+        fs::remove_dir_all(bundle_dir).expect("cleanup dictionary fixture");
+    }
+
+    #[test]
+    fn bundled_exam_corpus_dictionary_loads_quickly_and_imports_only_lookups() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        let bundle_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/flutter_mobile/assets");
+        let started = std::time::Instant::now();
+
+        let (_, the_meanings) =
+            super::resolve_exam_dictionary_term(&conn, "the", Some(&bundle_dir))
+                .expect("resolve bundled basic word");
+        let (_, phrase_meanings) =
+            super::resolve_exam_dictionary_term(&conn, "looked at", Some(&bundle_dir))
+                .expect("resolve bundled phrase");
+
+        let imported: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM entries WHERE source_entry_key LIKE 'exam_corpus:%'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count bundled dictionary entries");
+        assert_eq!(imported, 2);
+        assert!(the_meanings.iter().any(|value| value.as_str().is_some()));
+        assert!(phrase_meanings.iter().any(|value| value.as_str().is_some()));
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        eprintln!(
+            "bundled exam dictionary lazy load completed in {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn unlisted_phrase_falls_back_to_clearly_labeled_word_meanings() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open db");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        seed_basic_entry(&conn, "social", "社会的");
+        seed_basic_entry(&conn, "media", "媒体");
+
+        assert_eq!(
+            super::build_exam_phrase_fallback_meaning(&conn, "social media", None).unwrap(),
+            Some("未收录固定词组；逐词：social（社会的） / media（媒体）".to_string())
+        );
+        assert_eq!(
+            super::build_exam_phrase_fallback_meaning(&conn, "unknown phrase", None).unwrap(),
+            None
         );
     }
 

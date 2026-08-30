@@ -24,35 +24,46 @@ pub struct ExamWordToken {
 }
 
 pub fn tokenize_english(text: &str) -> Vec<ExamWordToken> {
-    let chars = text.char_indices().collect::<Vec<_>>();
+    let mut utf16_offset = 0;
+    let chars = text
+        .char_indices()
+        .map(|(byte_offset, character)| {
+            let current_utf16_offset = utf16_offset;
+            utf16_offset += character.len_utf16();
+            (byte_offset, current_utf16_offset, character)
+        })
+        .collect::<Vec<_>>();
     let mut tokens = Vec::new();
     let mut index = 0;
     while index < chars.len() {
-        if !chars[index].1.is_ascii_alphabetic() {
+        if !chars[index].2.is_ascii_alphabetic() {
             index += 1;
             continue;
         }
-        let start = chars[index].0;
-        let mut end = start + chars[index].1.len_utf8();
+        let start_byte = chars[index].0;
+        let start_utf16 = chars[index].1;
+        let mut end_byte = start_byte + chars[index].2.len_utf8();
+        let mut end_utf16 = start_utf16 + chars[index].2.len_utf16();
         index += 1;
         while index < chars.len() {
-            let character = chars[index].1;
+            let character = chars[index].2;
             let joins_word = character.is_ascii_alphabetic()
                 || (matches!(character, '\'' | '-' | '\u{2019}')
                     && index + 1 < chars.len()
-                    && chars[index + 1].1.is_ascii_alphabetic());
+                    && chars[index + 1].2.is_ascii_alphabetic());
             if !joins_word {
                 break;
             }
-            end = chars[index].0 + character.len_utf8();
+            end_byte = chars[index].0 + character.len_utf8();
+            end_utf16 = chars[index].1 + character.len_utf16();
             index += 1;
         }
-        let value = &text[start..end];
+        let value = &text[start_byte..end_byte];
         tokens.push(ExamWordToken {
             text: value.to_string(),
             normalized: value.to_ascii_lowercase(),
-            start_offset: start,
-            end_offset: end,
+            start_offset: start_utf16,
+            end_offset: end_utf16,
         });
     }
     tokens
@@ -266,7 +277,9 @@ pub fn rank_exam_vocabulary(papers: &[ExamPaper], limit: usize) -> Vec<ExamVocab
                 if token.normalized.len() < 3 || stop_words.contains(&token.normalized.as_str()) {
                     continue;
                 }
-                let entry = counts.entry(token.normalized).or_default();
+                let entry = counts
+                    .entry(normalize_exam_word_family(&token.normalized))
+                    .or_default();
                 entry.occurrences += 1;
                 entry.articles.insert(article_id.clone());
                 entry.papers.insert(paper.id.clone());
@@ -292,6 +305,76 @@ pub fn rank_exam_vocabulary(papers: &[ExamPaper], limit: usize) -> Vec<ExamVocab
     });
     ranked.truncate(limit);
     ranked
+}
+
+fn normalize_exam_word_family(word: &str) -> String {
+    let normalized = word.trim().to_ascii_lowercase();
+    let irregular = match normalized.as_str() {
+        "children" => Some("child"),
+        "people" => Some("person"),
+        "men" => Some("man"),
+        "women" => Some("woman"),
+        "mice" => Some("mouse"),
+        "feet" => Some("foot"),
+        "teeth" => Some("tooth"),
+        "geese" => Some("goose"),
+        "went" | "gone" => Some("go"),
+        "saw" | "seen" => Some("see"),
+        "made" => Some("make"),
+        "took" | "taken" => Some("take"),
+        "gave" | "given" => Some("give"),
+        "found" => Some("find"),
+        "thought" => Some("think"),
+        "bought" => Some("buy"),
+        "brought" => Some("bring"),
+        "wrote" | "written" => Some("write"),
+        _ => None,
+    };
+    if let Some(irregular) = irregular {
+        return irregular.to_string();
+    }
+    if normalized.ends_with("ies") && normalized.len() > 3 {
+        return format!("{}y", &normalized[..normalized.len() - 3]);
+    }
+    if normalized.ends_with("ing") && normalized.len() > 4 {
+        let stem = &normalized[..normalized.len() - 3];
+        if stem.ends_with("at") || stem.ends_with("iz") || stem.ends_with("bl") {
+            return format!("{stem}e");
+        }
+        if stem.len() > 2 && stem.as_bytes()[stem.len() - 1] == stem.as_bytes()[stem.len() - 2] {
+            return stem[..stem.len() - 1].to_string();
+        }
+        return stem.to_string();
+    }
+    if normalized.ends_with("ed") && normalized.len() > 3 {
+        let stem = &normalized[..normalized.len() - 2];
+        if stem.ends_with("at") || stem.ends_with("iz") || stem.ends_with("or") {
+            return format!("{stem}e");
+        }
+        if stem.len() > 2 && stem.as_bytes()[stem.len() - 1] == stem.as_bytes()[stem.len() - 2] {
+            return stem[..stem.len() - 1].to_string();
+        }
+        return stem.to_string();
+    }
+    if normalized.ends_with("es") && normalized.len() > 3 {
+        let stem = &normalized[..normalized.len() - 2];
+        if stem.ends_with("ss")
+            || stem.ends_with('x')
+            || stem.ends_with('z')
+            || stem.ends_with("ch")
+            || stem.ends_with("sh")
+        {
+            return stem.to_string();
+        }
+    }
+    if normalized.ends_with('s')
+        && normalized.len() > 2
+        && !normalized.ends_with("ss")
+        && !["news", "series", "species", "means", "analysis"].contains(&normalized.as_str())
+    {
+        return normalized[..normalized.len() - 1].to_string();
+    }
+    normalized
 }
 
 fn load_documents(asset_dir: &Path) -> Result<(Value, BTreeMap<String, Value>), String> {
@@ -679,6 +762,15 @@ mod tests {
     }
 
     #[test]
+    fn english_tokenizer_reports_utf16_offsets_after_unicode_text() {
+        let tokens = tokenize_english("汉😀 available");
+
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].text, "available");
+        assert_eq!((tokens[0].start_offset, tokens[0].end_offset), (4, 13));
+    }
+
+    #[test]
     fn vocabulary_ranking_distinguishes_occurrences_articles_and_papers() {
         fn paper(id: &str, passage: &str) -> super::ExamPaper {
             normalize_user_paper(json!({
@@ -716,6 +808,46 @@ mod tests {
         assert_eq!(
             ranked.first().map(|item| item.word.as_str()),
             Some("resilient")
+        );
+    }
+
+    #[test]
+    fn vocabulary_ranking_collapses_inflected_forms() {
+        fn paper(passage: &str) -> super::ExamPaper {
+            normalize_user_paper(json!({
+                "schemaVersion": 1,
+                "id": "paper-forms",
+                "exam": "custom",
+                "title": "forms",
+                "year": 2026,
+                "source": {},
+                "sections": [{
+                    "id": "reading",
+                    "type": "reading",
+                    "title": "Reading",
+                    "passage": passage,
+                    "questions": []
+                }]
+            }))
+            .expect("paper fixture")
+        }
+
+        let ranked = rank_exam_vocabulary(&[paper("patent patents authorized authorize")], 10);
+        assert_eq!(
+            ranked
+                .iter()
+                .find(|item| item.word == "patent")
+                .unwrap()
+                .occurrence_count,
+            2
+        );
+        assert_eq!(
+            ranked
+                .iter()
+                .find(|item| item.word == "authorize")
+                .unwrap()
+                .occurrence_count,
+            2
         );
     }
 }

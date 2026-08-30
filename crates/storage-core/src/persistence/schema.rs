@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 /// Current schema version. Increment when structural changes are needed.
-pub const SCHEMA_VERSION: i64 = 21;
+pub const SCHEMA_VERSION: i64 = 24;
 
 /// Applies all idempotent schema migrations to the database.
 ///
@@ -86,6 +86,8 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
             phonetic_uk TEXT DEFAULT '',
             part_of_speech TEXT DEFAULT '',
             frequency REAL NOT NULL DEFAULT 0.0,
+            exam_frequency INTEGER NOT NULL DEFAULT 0,
+            exam_rank INTEGER,
             difficulty TEXT DEFAULT '',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(source_version_id, source_entry_key),
@@ -185,6 +187,7 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
             outcome TEXT NOT NULL,
             response_time_ms INTEGER NOT NULL,
             answered_at TEXT NOT NULL,
+            hint_used INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (session_id) REFERENCES study_sessions(session_id),
             FOREIGN KEY (entry_id) REFERENCES entries(id)
         );",
@@ -230,7 +233,10 @@ pub fn apply_schema(conn: &Connection) -> Result<(), crate::StorageError> {
 
     create_mastered_entry_tables(conn)?;
     create_user_accepted_meaning_tables(conn)?;
+    ensure_study_result_hint_used_column(conn)?;
+    ensure_entry_exam_frequency_columns(conn)?;
     create_exercise_vocab_tables(conn)?;
+    ensure_exercise_vocab_mark_level_column(conn)?;
     create_exercise_attempt_tables(conn)?;
     create_user_exam_paper_tables(conn)?;
     create_exam_question_analysis_tables(conn)?;
@@ -429,6 +435,85 @@ fn run_migrations(conn: &Connection, from_version: i64) -> Result<(), crate::Sto
     if from_version < 21 {
         create_entry_alias_tables(conn)?;
     }
+    if from_version < 22 {
+        ensure_exercise_vocab_mark_level_column(conn)?;
+    }
+    if from_version < 23 {
+        ensure_entry_exam_frequency_columns(conn)?;
+    }
+    if from_version < 24 {
+        ensure_study_result_hint_used_column(conn)?;
+    }
+    Ok(())
+}
+
+fn ensure_study_result_hint_used_column(conn: &Connection) -> Result<(), crate::StorageError> {
+    let has_column = conn
+        .prepare("PRAGMA table_info(study_results)")
+        .and_then(|mut statement| {
+            let columns = statement
+                .query_map([], |row| row.get::<_, String>(1))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(columns.iter().any(|column| column == "hint_used"))
+        })
+        .map_err(|error| {
+            crate::StorageError::Schema(format!(
+                "Failed to inspect study result hint usage schema: {error}"
+            ))
+        })?;
+    if !has_column {
+        conn.execute(
+            "ALTER TABLE study_results ADD COLUMN hint_used INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|error| {
+            crate::StorageError::Schema(format!("Failed to add study result hint usage: {error}"))
+        })?;
+    }
+    Ok(())
+}
+
+fn ensure_entry_exam_frequency_columns(conn: &Connection) -> Result<(), crate::StorageError> {
+    let mut statement = conn
+        .prepare("PRAGMA table_info(entries)")
+        .map_err(|error| {
+            crate::StorageError::Schema(format!(
+                "Failed to inspect entry frequency schema: {error}"
+            ))
+        })?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| {
+            crate::StorageError::Schema(format!("Failed to query entry frequency schema: {error}"))
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            crate::StorageError::Schema(format!("Failed to read entry frequency schema: {error}"))
+        })?;
+    drop(statement);
+
+    if !columns.iter().any(|column| column == "exam_frequency") {
+        conn.execute(
+            "ALTER TABLE entries ADD COLUMN exam_frequency INTEGER NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|error| {
+            crate::StorageError::Schema(format!("Failed to add entry exam frequency: {error}"))
+        })?;
+    }
+    if !columns.iter().any(|column| column == "exam_rank") {
+        conn.execute("ALTER TABLE entries ADD COLUMN exam_rank INTEGER", [])
+            .map_err(|error| {
+                crate::StorageError::Schema(format!("Failed to add entry exam rank: {error}"))
+            })?;
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_entries_exam_rank
+         ON entries(exam_rank) WHERE exam_rank IS NOT NULL;",
+    )
+    .map_err(|error| {
+        crate::StorageError::Schema(format!("Failed to index entry exam rank: {error}"))
+    })?;
     Ok(())
 }
 
@@ -598,6 +683,7 @@ fn create_exercise_vocab_tables(conn: &Connection) -> Result<(), crate::StorageE
             end_offset INTEGER NOT NULL DEFAULT 0,
             lookup_status TEXT NOT NULL DEFAULT 'unseen',
             user_mark TEXT NOT NULL DEFAULT 'none',
+            mark_level TEXT NOT NULL DEFAULT 'none',
             meaning_note TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -606,6 +692,7 @@ fn create_exercise_vocab_tables(conn: &Connection) -> Result<(), crate::StorageE
             CHECK (end_offset >= start_offset),
             CHECK (lookup_status IN ('unseen', 'looked_up', 'matched', 'unmatched')),
             CHECK (user_mark IN ('none', 'unknown', 'wrong', 'mastered', 'ignored')),
+            CHECK (mark_level IN ('none', 'fuzzy', 'familiar', 'unknown')),
             FOREIGN KEY (article_id) REFERENCES exercise_articles(id) ON DELETE CASCADE,
             FOREIGN KEY (entry_id) REFERENCES entries(id)
         );
@@ -638,6 +725,44 @@ fn create_exercise_vocab_tables(conn: &Connection) -> Result<(), crate::StorageE
     .map_err(|e| {
         crate::StorageError::Schema(format!("Failed to create exercise vocab tables: {e}"))
     })?;
+    Ok(())
+}
+
+fn ensure_exercise_vocab_mark_level_column(conn: &Connection) -> Result<(), crate::StorageError> {
+    let mut statement = conn
+        .prepare("PRAGMA table_info(exercise_vocab_occurrences)")
+        .map_err(|error| {
+            crate::StorageError::Schema(format!(
+                "Failed to inspect exercise mark-level schema: {error}"
+            ))
+        })?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| {
+            crate::StorageError::Schema(format!(
+                "Failed to query exercise mark-level schema: {error}"
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            crate::StorageError::Schema(format!(
+                "Failed to read exercise mark-level schema: {error}"
+            ))
+        })?;
+    drop(statement);
+    if !columns.iter().any(|column| column == "mark_level") {
+        conn.execute(
+            "ALTER TABLE exercise_vocab_occurrences
+             ADD COLUMN mark_level TEXT NOT NULL DEFAULT 'none'
+             CHECK (mark_level IN ('none', 'fuzzy', 'familiar', 'unknown'))",
+            [],
+        )
+        .map_err(|error| {
+            crate::StorageError::Schema(format!(
+                "Failed to add exercise mark-level column: {error}"
+            ))
+        })?;
+    }
     Ok(())
 }
 

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 
 import '../sdk/sdk.dart';
 import '../widgets/crocodile_frame_animation.dart';
+import 'exam_analysis_task_notifications.dart';
 
 enum TodayLearningContent { words, practice }
 
@@ -11,25 +14,242 @@ enum ExamPracticeMode { doing, analysis }
 
 enum ExamReadingPane { passage, questions }
 
-enum ExamWordHighlight { none, priorArticle, currentArticle }
+const examSectionAnalysisTimeout = Duration(seconds: 360);
+
+enum ExamWordHighlight { none, priorArticle, fuzzy, familiar, unknown, mixed }
+
+const examFamiliarityLevels = ['fuzzy', 'familiar', 'unknown'];
+
+Color examCurrentHighlightColor(String level) => switch (level) {
+  'fuzzy' => const Color(0xFFFFF3BF),
+  'familiar' => const Color(0xFFFFDF70),
+  _ => const Color(0xFFFFB84D),
+};
+
+Color examPriorHighlightColor(String level) => switch (level) {
+  'fuzzy' => const Color(0xFFEDE2F7),
+  'familiar' => const Color(0xFFD9BDEA),
+  _ => const Color(0xFFBE8ADB),
+};
+
+String pickExamFamiliarityLevel(Rect paletteRect, Offset globalPosition) {
+  final relative = (globalPosition.dx - paletteRect.left).clamp(
+    0.0,
+    paletteRect.width,
+  );
+  final index = (relative / (paletteRect.width / 3)).floor().clamp(0, 2);
+  return examFamiliarityLevels[index];
+}
+
+String normalizeExamWordFamily(String value) {
+  final word = normalizeExamPhraseSelection(value);
+  if (word.contains(' ')) return word;
+  const irregular = {
+    'children': 'child',
+    'people': 'person',
+    'men': 'man',
+    'women': 'woman',
+    'mice': 'mouse',
+    'feet': 'foot',
+    'teeth': 'tooth',
+    'geese': 'goose',
+    'went': 'go',
+    'gone': 'go',
+    'saw': 'see',
+    'seen': 'see',
+    'made': 'make',
+    'took': 'take',
+    'taken': 'take',
+    'gave': 'give',
+    'given': 'give',
+    'found': 'find',
+    'thought': 'think',
+    'bought': 'buy',
+    'brought': 'bring',
+    'wrote': 'write',
+    'written': 'write',
+  };
+  if (irregular[word] case final family?) return family;
+  const sExceptions = {'news', 'series', 'species', 'means', 'analysis'};
+  if (word.endsWith('ies') && word.length > 3) {
+    return '${word.substring(0, word.length - 3)}y';
+  }
+  if (word.endsWith('ing') && word.length > 4) {
+    final stem = word.substring(0, word.length - 3);
+    if (stem.endsWith('at') || stem.endsWith('iz') || stem.endsWith('bl')) {
+      return '${stem}e';
+    }
+    if (stem.length > 2 && stem[stem.length - 1] == stem[stem.length - 2]) {
+      return stem.substring(0, stem.length - 1);
+    }
+    return stem;
+  }
+  if (word.endsWith('ed') && word.length > 3) {
+    final stem = word.substring(0, word.length - 2);
+    if (stem.endsWith('at') || stem.endsWith('iz') || stem.endsWith('or')) {
+      return '${stem}e';
+    }
+    if (stem.length > 2 && stem[stem.length - 1] == stem[stem.length - 2]) {
+      return stem.substring(0, stem.length - 1);
+    }
+    return stem;
+  }
+  if (word.endsWith('es') && word.length > 3) {
+    final withoutEs = word.substring(0, word.length - 2);
+    if (RegExp(r'(ss|x|z|ch|sh)$').hasMatch(withoutEs)) return withoutEs;
+  }
+  if (word.endsWith('s') &&
+      word.length > 2 &&
+      !word.endsWith('ss') &&
+      !sExceptions.contains(word)) {
+    return word.substring(0, word.length - 1);
+  }
+  return word;
+}
+
+/// A mark is stored by word family, while older local state and bridge
+/// responses can still carry the exact inflected form. Read both forms so a
+/// successful lookup is never lost merely because its storage key differs.
+String resolveExamMarkedMeaning(
+  Map<String, String> meanings,
+  String normalized,
+) {
+  final exact = normalizeExamPhraseSelection(normalized);
+  final family = normalizeExamWordFamily(exact);
+  final direct = meanings[family] ?? meanings[exact];
+  if (direct != null) return direct;
+  for (final entry in meanings.entries) {
+    if (examWordFamiliesMatch(entry.key, family)) return entry.value;
+  }
+  return '';
+}
+
+Map<String, String> normalizeExamMeaningKeys(Map<String, String> meanings) {
+  final normalized = <String, String>{};
+  for (final entry in meanings.entries) {
+    final key = normalizeExamWordFamily(entry.key);
+    if (entry.value.isNotEmpty || !normalized.containsKey(key)) {
+      normalized[key] = entry.value;
+    }
+  }
+  return normalized;
+}
+
+Set<String> examWordFamilyAliases(String value) {
+  final exact = normalizeExamPhraseSelection(value);
+  final family = normalizeExamWordFamily(exact);
+  // English -ing and -ed forms can omit a silent final e (arouse/arousing).
+  // Preserve a reversible lookup key even when the lightweight normalizer
+  // cannot know whether a bare stem is a dictionary word by itself.
+  return {
+    exact,
+    family,
+    if (family.endsWith('e'))
+      family.substring(0, family.length - 1)
+    else
+      '${family}e',
+  };
+}
+
+bool examWordFamiliesMatch(String left, String right) => examWordFamilyAliases(
+  left,
+).intersection(examWordFamilyAliases(right)).isNotEmpty;
+
+String? resolveExamMarkLevel(Map<String, String> marks, String normalized) {
+  final family = normalizeExamWordFamily(normalized);
+  final direct = marks[family];
+  if (direct != null) return direct;
+  for (final entry in marks.entries) {
+    if (examWordFamiliesMatch(entry.key, family)) return entry.value;
+  }
+  return null;
+}
+
+String normalizeExamPhraseSelection(String value) => value
+    .trim()
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .replaceAll('’', "'")
+    .replaceFirst(
+      RegExp(r'^[^A-Za-z\u00C0-\u024F\u0300-\u036F\uFB00-\uFB06]+'),
+      '',
+    )
+    .replaceFirst(
+      RegExp(r'[^A-Za-z\u00C0-\u024F\u0300-\u036F\uFB00-\uFB06]+$'),
+      '',
+    )
+    .toLowerCase();
+
+List<ExamWordToken> tokenizeExamTextForInteraction(String text) {
+  bool isLetter(int codeUnit) =>
+      (codeUnit >= 0x41 && codeUnit <= 0x5A) ||
+      (codeUnit >= 0x61 && codeUnit <= 0x7A) ||
+      (codeUnit >= 0x00C0 && codeUnit <= 0x024F) ||
+      (codeUnit >= 0xFB00 && codeUnit <= 0xFB06);
+  bool isCombiningMark(int codeUnit) =>
+      codeUnit >= 0x0300 && codeUnit <= 0x036F;
+  bool isJoiner(int codeUnit) =>
+      codeUnit == 0x27 || codeUnit == 0x2D || codeUnit == 0x2019;
+
+  final tokens = <ExamWordToken>[];
+  var index = 0;
+  while (index < text.length) {
+    if (!isLetter(text.codeUnitAt(index))) {
+      index += 1;
+      continue;
+    }
+    final start = index;
+    index += 1;
+    while (index < text.length) {
+      final codeUnit = text.codeUnitAt(index);
+      if (isLetter(codeUnit) || isCombiningMark(codeUnit)) {
+        index += 1;
+        continue;
+      }
+      if (isJoiner(codeUnit) &&
+          index + 1 < text.length &&
+          isLetter(text.codeUnitAt(index + 1))) {
+        index += 1;
+        continue;
+      }
+      break;
+    }
+    final value = text.substring(start, index);
+    tokens.add(
+      ExamWordToken(
+        text: value,
+        normalized: normalizeExamPhraseSelection(value),
+        startOffset: start,
+        endOffset: index,
+      ),
+    );
+  }
+  return tokens;
+}
 
 class ExamWordPresentation {
   const ExamWordPresentation({
     required this.highlight,
     required this.showMeaning,
+    this.currentMarkLevel,
+    this.priorMarkLevel,
   });
 
   final ExamWordHighlight highlight;
   final bool showMeaning;
+  final String? currentMarkLevel;
+  final String? priorMarkLevel;
 
   @override
   bool operator ==(Object other) =>
       other is ExamWordPresentation &&
       other.highlight == highlight &&
-      other.showMeaning == showMeaning;
+      other.showMeaning == showMeaning &&
+      other.currentMarkLevel == currentMarkLevel &&
+      other.priorMarkLevel == priorMarkLevel;
 
   @override
-  int get hashCode => Object.hash(highlight, showMeaning);
+  int get hashCode =>
+      Object.hash(highlight, showMeaning, currentMarkLevel, priorMarkLevel);
 }
 
 ExamWordPresentation resolveExamWordPresentation({
@@ -37,18 +257,41 @@ ExamWordPresentation resolveExamWordPresentation({
   required ExamPracticeMode mode,
   required Set<String> currentArticleMarks,
   required Set<String> priorArticleMarks,
+  Map<String, String> currentMarkKinds = const {},
+  Map<String, String> priorMarkKinds = const {},
 }) {
-  final current = currentArticleMarks.contains(normalized);
+  final family = normalizeExamWordFamily(normalized);
+  final current = currentArticleMarks.any(
+    (marked) => examWordFamiliesMatch(marked, family),
+  );
+  final prior = priorArticleMarks.any(
+    (marked) => examWordFamiliesMatch(marked, family),
+  );
+  final currentLevel =
+      resolveExamMarkLevel(currentMarkKinds, family) ?? 'unknown';
+  final priorLevel = resolveExamMarkLevel(priorMarkKinds, family) ?? 'unknown';
+  if (current && prior) {
+    return ExamWordPresentation(
+      highlight: ExamWordHighlight.mixed,
+      currentMarkLevel: currentLevel,
+      priorMarkLevel: priorLevel,
+      showMeaning: mode == ExamPracticeMode.analysis,
+    );
+  }
   if (current) {
     return ExamWordPresentation(
-      highlight: ExamWordHighlight.currentArticle,
+      highlight: switch (currentLevel) {
+        'fuzzy' => ExamWordHighlight.fuzzy,
+        'familiar' => ExamWordHighlight.familiar,
+        _ => ExamWordHighlight.unknown,
+      },
+      currentMarkLevel: currentLevel,
       showMeaning: mode == ExamPracticeMode.analysis,
     );
   }
   return ExamWordPresentation(
-    highlight: priorArticleMarks.contains(normalized)
-        ? ExamWordHighlight.priorArticle
-        : ExamWordHighlight.none,
+    highlight: prior ? ExamWordHighlight.priorArticle : ExamWordHighlight.none,
+    priorMarkLevel: prior ? priorLevel : null,
     showMeaning: false,
   );
 }
@@ -56,7 +299,33 @@ ExamWordPresentation resolveExamWordPresentation({
 String nextExamWordMark(String normalized, Set<String> currentArticleMarks) =>
     currentArticleMarks.contains(normalized) ? 'none' : 'unknown';
 
-String pickExamContextMeaning(List<String> meanings) {
+String pickExamContextMeaning(
+  List<String> meanings, {
+  String normalized = '',
+  String context = '',
+  String translation = '',
+}) {
+  final family = normalizeExamWordFamily(normalized);
+  final lowerContext = context.toLowerCase();
+  if (family == 'circuit' &&
+      RegExp(r'\b(court|federal|appeals?)\b').hasMatch(lowerContext)) {
+    return '巡回上诉法院';
+  }
+  if (family == 'conduct' &&
+      RegExp(r'\bconduct(?:ed|ing)?\b').hasMatch(lowerContext) &&
+      RegExp(
+        r'\b(review|study|analysis|research|experiment|investigation|survey|assessment)\b',
+      ).hasMatch(lowerContext)) {
+    return '开展；进行';
+  }
+  final translatedMeaning = _pickMeaningFromTranslation(meanings, translation);
+  if (translatedMeaning.isNotEmpty) return translatedMeaning;
+  final grammaticalMeaning = _pickMeaningFromGrammar(
+    meanings,
+    normalized: family,
+    context: lowerContext,
+  );
+  if (grammaticalMeaning.isNotEmpty) return grammaticalMeaning;
   for (final meaning in meanings) {
     final compact = meaning
         .split(RegExp(r'[；;]'))
@@ -65,6 +334,97 @@ String pickExamContextMeaning(List<String> meanings) {
     if (compact.isNotEmpty) return compact;
   }
   return '';
+}
+
+String _pickMeaningFromGrammar(
+  List<String> meanings, {
+  required String normalized,
+  required String context,
+}) {
+  if (normalized.isEmpty || context.isEmpty) return '';
+  RegExpMatch? match;
+  for (final candidate in RegExp(
+    r"[a-z]+(?:['’][a-z]+)?",
+  ).allMatches(context)) {
+    if (normalizeExamWordFamily(candidate.group(0)!) == normalized) {
+      match = candidate;
+      break;
+    }
+  }
+  if (match == null) return '';
+  final before = context.substring(0, match.start).trimRight();
+  final after = context.substring(match.end).trimLeft();
+  final desired = switch ((before, after, normalized)) {
+    (final prefix, _, _)
+        when RegExp(
+          r'\b(?:to|can|could|will|would|shall|should|may|might|must|do|does|did)\s*$',
+        ).hasMatch(prefix) =>
+      'verb',
+    (final prefix, _, _)
+        when RegExp(
+          r'\b(?:a|an|the|this|that|these|those|each|every)\s*$',
+        ).hasMatch(prefix) =>
+      'noun',
+    (final prefix, _, _)
+        when RegExp(
+          r'\b(?:be|am|is|are|was|were|been|being|seem|seems|very|more|most)\s*$',
+        ).hasMatch(prefix) =>
+      'adjective',
+    (_, _, final word) when word.endsWith('ly') => 'adverb',
+    (_, final suffix, _) when RegExp(r'^[a-z]+').hasMatch(suffix) =>
+      'adjective',
+    _ => '',
+  };
+  if (desired.isEmpty) return '';
+  for (final meaning in meanings) {
+    for (final part in meaning.split(RegExp(r'[\n;\uFF1B]'))) {
+      final candidate = part.trim();
+      if (candidate.isEmpty) continue;
+      final lower = candidate.toLowerCase();
+      final matches = switch (desired) {
+        'verb' => RegExp(r'^(?:v|vt|vi)\.').hasMatch(lower),
+        'noun' => lower.startsWith('n.'),
+        'adjective' => RegExp(r'^(?:a|adj)\.').hasMatch(lower),
+        'adverb' => RegExp(r'^(?:ad|adv)\.').hasMatch(lower),
+        _ => false,
+      };
+      if (!matches) continue;
+      return candidate.replaceFirst(RegExp(r'^[a-z]+\.\s*'), '').trim();
+    }
+  }
+  return '';
+}
+
+String _pickMeaningFromTranslation(List<String> meanings, String translation) {
+  final translated = translation.replaceAll(RegExp(r'\s+'), '');
+  if (translated.isEmpty) return '';
+  final candidates = meanings
+      .expand((meaning) => meaning.split(RegExp(r'[；;，,、]')))
+      .map(
+        (part) => part
+            .replaceFirst(RegExp(r'^\s*(?:\[[^]]+\]|[a-z]+\.)\s*'), '')
+            .replaceAll(RegExp(r'[（）()\[\]]'), '')
+            .trim(),
+      )
+      .where((part) => part.runes.length >= 2)
+      .toList(growable: false);
+  String best = '';
+  var bestScore = 0;
+  for (final candidate in candidates) {
+    final compact = candidate.replaceAll(RegExp(r'\s+'), '');
+    if (translated.contains(compact)) return candidate;
+    var score = 0;
+    final chars = compact.runes.toList(growable: false);
+    for (var index = 0; index + 1 < chars.length; index++) {
+      final bigram = String.fromCharCodes(chars.sublist(index, index + 2));
+      if (translated.contains(bigram)) score += 2;
+    }
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return bestScore > 0 ? best : '';
 }
 
 String formatExamPassage(String source) {
@@ -85,12 +445,69 @@ String formatExamPassage(String source) {
       .join('\n\n');
 }
 
-String formatClozePassage(String source) {
+bool isExamClozeSection(ExamSection section) {
+  final type = section.type.toLowerCase();
+  return type.contains('cloze') ||
+      section.title.contains('完型') ||
+      section.title.contains('完形');
+}
+
+bool isExamReadingSection(ExamSection section) {
+  final type = section.type.toLowerCase();
+  return type.contains('reading') || section.title.contains('阅读');
+}
+
+String formatClozePassage(
+  String source, {
+  required Set<int> blankNumbers,
+  Map<int, String> submittedAnswers = const {},
+}) {
   final passage = formatExamPassage(source);
-  return passage.replaceAllMapped(
-    RegExp(r'(?<![\d(])(\d{1,2})(?![\d)])'),
-    (match) => '(${match.group(1)})',
-  );
+  return passage.replaceAllMapped(RegExp(r'(?<![\d(])(\d{1,2})(?![\d)])'), (
+    match,
+  ) {
+    final number = int.parse(match.group(1)!);
+    if (!blankNumbers.contains(number) ||
+        _isOrdinaryClozeNumber(passage, match)) {
+      return match.group(0)!;
+    }
+    final answer = submittedAnswers[number]?.trim() ?? '';
+    return '(${answer.isEmpty ? number : answer})';
+  });
+}
+
+bool _isOrdinaryClozeNumber(String passage, Match match) {
+  final suffix = passage.substring(match.end);
+  if (RegExp(r'^(?:st|nd|rd|th)\b', caseSensitive: false).hasMatch(suffix)) {
+    return true;
+  }
+  final nextWord = RegExp(r'^\s+([A-Za-z%]+)').firstMatch(suffix)?.group(1);
+  if (nextWord == null) return false;
+  return const {
+    'year',
+    'years',
+    'month',
+    'months',
+    'week',
+    'weeks',
+    'day',
+    'days',
+    'hour',
+    'hours',
+    'minute',
+    'minutes',
+    'second',
+    'seconds',
+    'percent',
+    'percentage',
+    'times',
+    'people',
+    'dollars',
+    'miles',
+    'kilometers',
+    'metres',
+    'meters',
+  }.contains(nextWord.toLowerCase());
 }
 
 String cleanExamExplanation(String source) {
@@ -117,6 +534,159 @@ String cleanExamExplanation(String source) {
       .map((line) => line.replaceAll(RegExp(r'\s+'), ' ').trim())
       .where((line) => line.isNotEmpty)
       .join('\n');
+}
+
+class ExamWrongAnswerReportDetail {
+  const ExamWrongAnswerReportDetail({
+    required this.questionNumber,
+    required this.question,
+    required this.selectedOption,
+    required this.correctOption,
+    required this.passageLocation,
+    required this.passageExcerpt,
+    required this.explanation,
+  });
+
+  final int questionNumber;
+  final String question;
+  final String selectedOption;
+  final String correctOption;
+  final String passageLocation;
+  final String passageExcerpt;
+  final String explanation;
+}
+
+const _examReportStopWords = {
+  'about',
+  'after',
+  'also',
+  'answer',
+  'because',
+  'before',
+  'between',
+  'choice',
+  'correct',
+  'does',
+  'from',
+  'have',
+  'into',
+  'most',
+  'only',
+  'question',
+  'that',
+  'their',
+  'there',
+  'these',
+  'this',
+  'those',
+  'under',
+  'what',
+  'when',
+  'which',
+  'with',
+  'would',
+};
+
+ExamWrongAnswerReportDetail? buildExamWrongAnswerReportDetail({
+  required ExamSection section,
+  required ExamQuestion question,
+  required Map<String, String> selections,
+}) {
+  final selectedLabel = selections[question.id]?.trim();
+  final correctLabel = question.answer?.trim();
+  if (!question.capabilities.autoGradable ||
+      selectedLabel == null ||
+      selectedLabel.isEmpty ||
+      correctLabel == null ||
+      correctLabel.isEmpty ||
+      selectedLabel == correctLabel) {
+    return null;
+  }
+
+  final selectedOption = _examReportOption(question, selectedLabel);
+  final correctOption = _examReportOption(question, correctLabel);
+  final reference = _locateExamReportPassage(
+    section.passage,
+    '${question.stem} $correctOption',
+  );
+  final sourceExplanation = cleanExamExplanation(question.explanation);
+  return ExamWrongAnswerReportDetail(
+    questionNumber: question.number,
+    question: question.stem.trim().isEmpty
+        ? '第 ${question.number} 题'
+        : question.stem.trim(),
+    selectedOption: selectedOption,
+    correctOption: correctOption,
+    passageLocation: reference.location,
+    passageExcerpt: reference.excerpt,
+    explanation: sourceExplanation.isEmpty
+        ? '本题应以原文定位为依据，比较各选项与原文的表述范围和逻辑关系后排除错项。'
+        : sourceExplanation,
+  );
+}
+
+String _examReportOption(ExamQuestion question, String label) {
+  for (final choice in question.choices) {
+    if (choice.label.trim() == label) {
+      final text = choice.text.trim();
+      return text.isEmpty ? label : '$label · $text';
+    }
+  }
+  return label;
+}
+
+class _ExamReportPassageReference {
+  const _ExamReportPassageReference({
+    required this.location,
+    required this.excerpt,
+  });
+
+  final String location;
+  final String excerpt;
+}
+
+_ExamReportPassageReference _locateExamReportPassage(
+  String passage,
+  String evidence,
+) {
+  final paragraphs = passage
+      .split(RegExp(r'\r?\n\s*\r?\n'))
+      .map((paragraph) => paragraph.replaceAll(RegExp(r'\s+'), ' ').trim())
+      .where((paragraph) => paragraph.isNotEmpty)
+      .toList(growable: false);
+  final keywords = RegExp(r"[A-Za-z][A-Za-z'-]*")
+      .allMatches(evidence.toLowerCase())
+      .map((match) => match.group(0)!)
+      .where((word) => word.length >= 4 && !_examReportStopWords.contains(word))
+      .toSet();
+
+  var bestIndex = -1;
+  var bestScore = 0;
+  for (var index = 0; index < paragraphs.length; index += 1) {
+    final lower = paragraphs[index].toLowerCase();
+    final score = keywords.where((word) => lower.contains(word)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  }
+
+  if (bestIndex < 0) {
+    return const _ExamReportPassageReference(
+      location: '全文',
+      excerpt: '题干与选项未提供可唯一定位的原文关键词，请结合全文主旨和段落关系判断。',
+    );
+  }
+  return _ExamReportPassageReference(
+    location: '第 ${bestIndex + 1} 段',
+    excerpt: _truncateExamReportExcerpt(paragraphs[bestIndex]),
+  );
+}
+
+String _truncateExamReportExcerpt(String value) {
+  const maxLength = 220;
+  if (value.length <= maxLength) return value;
+  return '${value.substring(0, maxLength).trimRight()}...';
 }
 
 class ExamSubmissionResult {
@@ -150,6 +720,396 @@ class ExamCausalFinding {
   final String word;
   final String reasoning;
   final double confidence;
+}
+
+class ExamClozeOptionReview {
+  const ExamClozeOptionReview({
+    required this.label,
+    required this.meaning,
+    required this.analysis,
+  });
+
+  final String label;
+  final String meaning;
+  final String analysis;
+}
+
+class ExamClozeQuestionReview {
+  const ExamClozeQuestionReview({
+    required this.questionNumber,
+    this.stem = '',
+    this.selectedAnswer = '',
+    this.correctAnswer = '',
+    this.evidenceLocation = '',
+    required this.contextSentence,
+    required this.annotatedContext,
+    required this.options,
+    required this.analysis,
+    required this.knowledgeGap,
+  });
+
+  final int questionNumber;
+  final String stem;
+  final String selectedAnswer;
+  final String correctAnswer;
+  final String evidenceLocation;
+  final String contextSentence;
+  final String annotatedContext;
+  final List<ExamClozeOptionReview> options;
+  final String analysis;
+  final String knowledgeGap;
+}
+
+class ExamClozeCorrectReview {
+  const ExamClozeCorrectReview({
+    required this.questionNumber,
+    required this.distinction,
+  });
+
+  final int questionNumber;
+  final String distinction;
+}
+
+class ExamClozeVocabularyPriority {
+  const ExamClozeVocabularyPriority({
+    required this.priority,
+    required this.word,
+    required this.meaning,
+    required this.mark,
+    required this.examFrequency,
+    required this.strictExamFrequency,
+    required this.examFamilyRoot,
+    required this.examRank,
+    required this.reason,
+  });
+
+  final int priority;
+  final String word;
+  final String meaning;
+  final String mark;
+  final int examFrequency;
+  final int strictExamFrequency;
+  final String examFamilyRoot;
+  final int? examRank;
+  final String reason;
+}
+
+class ExamSectionAiAnalysis {
+  const ExamSectionAiAnalysis({
+    required this.findings,
+    this.reviewFormat = '',
+    this.clozeQuestions = const [],
+    this.correctMarkedQuestions = const [],
+    this.vocabularyPriority = const [],
+  });
+
+  final List<ExamCausalFinding> findings;
+  final String reviewFormat;
+  final List<ExamClozeQuestionReview> clozeQuestions;
+  final List<ExamClozeCorrectReview> correctMarkedQuestions;
+  final List<ExamClozeVocabularyPriority> vocabularyPriority;
+
+  bool get isClozeReview =>
+      clozeQuestions.isNotEmpty ||
+      correctMarkedQuestions.isNotEmpty ||
+      vocabularyPriority.isNotEmpty;
+
+  bool get isStructuredReview =>
+      reviewFormat == 'cloze-review-v1' || reviewFormat == 'reading-review-v1';
+}
+
+enum ExamCausalAnalysisFailureKind {
+  providerUnavailable,
+  timeout,
+  incomplete,
+  insufficientEvidence,
+}
+
+class ExamCausalAnalysisException extends StateError {
+  ExamCausalAnalysisException({required this.kind, required String message})
+    : super(message);
+
+  final ExamCausalAnalysisFailureKind kind;
+
+  String get displayMessage => message.toString();
+}
+
+String formatExamCausalAnalysisError(Object error) {
+  if (error is ExamCausalAnalysisException) return error.displayMessage;
+  return '$error';
+}
+
+List<ExamCausalFinding> parseExamCausalFindings(
+  Map<String, dynamic> analysis, {
+  required int questionNumber,
+}) {
+  final providerStatus = '${analysis['providerStatus'] ?? ''}'.trim();
+  final limitations = (analysis['limitations'] as List<dynamic>? ?? const [])
+      .map((value) => '$value'.trim())
+      .where((value) => value.isNotEmpty)
+      .toList(growable: false);
+  if (providerStatus.isNotEmpty && providerStatus != 'completed') {
+    throw ExamCausalAnalysisException(
+      kind: ExamCausalAnalysisFailureKind.providerUnavailable,
+      message: limitations.isEmpty ? 'AI 服务暂时不可用' : limitations.join('；'),
+    );
+  }
+  if (analysis['eligible'] == false) {
+    final missing = (analysis['missingEvidence'] as List<dynamic>? ?? const [])
+        .map((value) => '$value'.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    throw ExamCausalAnalysisException(
+      kind: ExamCausalAnalysisFailureKind.insufficientEvidence,
+      message: missing.isEmpty ? '当前作答证据不满足分析条件' : missing.join('；'),
+    );
+  }
+  final findings = <ExamCausalFinding>[];
+  for (final candidate
+      in (analysis['candidates'] as List<dynamic>? ?? const [])) {
+    if (candidate is! Map<String, dynamic>) continue;
+    final word = '${candidate['word'] ?? ''}'.trim();
+    if (word.isEmpty) continue;
+    findings.add(
+      ExamCausalFinding(
+        questionNumber: questionNumber,
+        word: word,
+        reasoning: '${candidate['reasoning'] ?? ''}'.trim(),
+        confidence: ((candidate['confidence'] as num?) ?? 0).toDouble(),
+      ),
+    );
+  }
+  return findings;
+}
+
+List<ExamCausalFinding> parseExamSectionCausalFindings(
+  Map<String, dynamic> analysis, {
+  required List<ExamQuestion> questions,
+}) {
+  if (questions.isEmpty) return const [];
+  // Reuse the single-question validation so provider and evidence failures
+  // remain user-visible instead of silently producing an empty report.
+  if (analysis['providerStatus'] != null || analysis['eligible'] == false) {
+    parseExamCausalFindings(analysis, questionNumber: questions.first.number);
+  }
+  final questionById = {
+    for (final question in questions) question.id: question,
+  };
+  final findings = <ExamCausalFinding>[];
+  for (final item in analysis['questions'] as List<dynamic>? ?? const []) {
+    if (item is! Map<String, dynamic>) continue;
+    final question = questionById['${item['questionId'] ?? ''}'];
+    if (question == null) continue;
+    findings.addAll(
+      parseExamCausalFindings(<String, dynamic>{
+        ...analysis,
+        'candidates': item['candidates'] ?? const [],
+      }, questionNumber: question.number),
+    );
+  }
+  return findings;
+}
+
+ExamSectionAiAnalysis parseExamSectionAiAnalysis(
+  Map<String, dynamic> analysis, {
+  required List<ExamQuestion> questions,
+  Set<String>? requiredWrongQuestionIds,
+}) {
+  final findings = parseExamSectionCausalFindings(
+    analysis,
+    questions: questions,
+  );
+  final reviewFormat = '${analysis['reviewFormat'] ?? ''}'.trim();
+  if (reviewFormat != 'cloze-review-v1' &&
+      reviewFormat != 'reading-review-v1') {
+    return ExamSectionAiAnalysis(findings: findings);
+  }
+  final questionById = {
+    for (final question in questions) question.id: question,
+  };
+  Map<String, dynamic> mapValue(dynamic value) =>
+      value is Map<String, dynamic> ? value : const {};
+  final wrongReviews = <ExamClozeQuestionReview>[];
+  for (final raw in analysis['questions'] as List<dynamic>? ?? const []) {
+    final item = mapValue(raw);
+    final question = questionById['${item['questionId'] ?? ''}'];
+    if (question == null) continue;
+    final options = <ExamClozeOptionReview>[];
+    for (final rawOption
+        in item['optionAnalysis'] as List<dynamic>? ?? const []) {
+      final option = mapValue(rawOption);
+      options.add(
+        ExamClozeOptionReview(
+          label: '${option['label'] ?? ''}'.trim(),
+          meaning: '${option['meaning'] ?? ''}'.trim(),
+          analysis: '${option['analysis'] ?? ''}'.trim(),
+        ),
+      );
+    }
+    wrongReviews.add(
+      ExamClozeQuestionReview(
+        questionNumber: question.number,
+        stem: '${item['stem'] ?? question.stem}'.trim(),
+        selectedAnswer: '${item['selectedAnswer'] ?? ''}'.trim(),
+        correctAnswer: '${item['correctAnswer'] ?? question.answer ?? ''}'
+            .trim(),
+        evidenceLocation: '${item['evidenceLocation'] ?? ''}'.trim(),
+        contextSentence: '${item['contextSentence'] ?? ''}'.trim(),
+        annotatedContext: '${item['annotatedContext'] ?? ''}'.trim(),
+        options: options,
+        analysis: '${item['analysis'] ?? ''}'.trim(),
+        knowledgeGap: '${item['knowledgeGap'] ?? ''}'.trim(),
+      ),
+    );
+  }
+  final requiredIds = requiredWrongQuestionIds ?? const <String>{};
+  if (requiredIds.isNotEmpty) {
+    final isReadingReview = reviewFormat == 'reading-review-v1';
+    final reviewedIds = (analysis['questions'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .where((item) {
+          final id = '${item['questionId'] ?? ''}';
+          final options = item['optionAnalysis'] as List<dynamic>? ?? const [];
+          return requiredIds.contains(id) &&
+              (!isReadingReview ||
+                  ('${item['stem'] ?? ''}'.trim().isNotEmpty &&
+                      '${item['selectedAnswer'] ?? ''}'.trim().isNotEmpty &&
+                      '${item['correctAnswer'] ?? ''}'.trim().isNotEmpty &&
+                      '${item['evidenceLocation'] ?? ''}'.trim().isNotEmpty)) &&
+              '${item['contextSentence'] ?? ''}'.trim().isNotEmpty &&
+              options.isNotEmpty &&
+              '${item['analysis'] ?? ''}'.trim().isNotEmpty &&
+              '${item['knowledgeGap'] ?? ''}'.trim().isNotEmpty;
+        })
+        .map((item) => '${item['questionId']}')
+        .toSet();
+    if (!reviewedIds.containsAll(requiredIds)) {
+      throw ExamCausalAnalysisException(
+        kind: ExamCausalAnalysisFailureKind.incomplete,
+        message: 'AI 完型复盘未覆盖全部错题，请重试。',
+      );
+    }
+  }
+  final correctReviews = <ExamClozeCorrectReview>[];
+  for (final raw
+      in analysis['correctMarkedQuestions'] as List<dynamic>? ?? const []) {
+    final item = mapValue(raw);
+    final question = questionById['${item['questionId'] ?? ''}'];
+    final distinction = '${item['distinction'] ?? ''}'.trim();
+    if (question != null && distinction.isNotEmpty) {
+      correctReviews.add(
+        ExamClozeCorrectReview(
+          questionNumber: question.number,
+          distinction: distinction,
+        ),
+      );
+    }
+  }
+  final priorities = <ExamClozeVocabularyPriority>[];
+  for (final raw
+      in analysis['vocabularyPriority'] as List<dynamic>? ?? const []) {
+    final item = mapValue(raw);
+    final word = '${item['word'] ?? ''}'.trim();
+    if (word.isEmpty) continue;
+    final strictExamFrequency = (item['examFrequency'] as num?)?.toInt() ?? 0;
+    final examFrequency =
+        (item['displayExamFrequency'] as num?)?.toInt() ??
+        (item['examFamilyFrequency'] as num?)?.toInt() ??
+        strictExamFrequency;
+    priorities.add(
+      ExamClozeVocabularyPriority(
+        priority: (item['priority'] as num?)?.toInt() ?? priorities.length + 1,
+        word: word,
+        meaning: '${item['meaning'] ?? ''}'.trim(),
+        mark: '${item['mark'] ?? ''}'.trim(),
+        examFrequency: examFrequency,
+        strictExamFrequency: strictExamFrequency,
+        examFamilyRoot: '${item['examFamilyRoot'] ?? ''}'.trim(),
+        examRank: (item['examRank'] as num?)?.toInt(),
+        reason: '${item['priorityReason'] ?? ''}'.trim(),
+      ),
+    );
+  }
+  return ExamSectionAiAnalysis(
+    findings: findings,
+    reviewFormat: reviewFormat,
+    clozeQuestions: wrongReviews,
+    correctMarkedQuestions: correctReviews,
+    vocabularyPriority: priorities,
+  );
+}
+
+Future<List<ExamCausalFinding>> analyzeExamWrongQuestionsConcurrently(
+  List<ExamQuestion> questions, {
+  required Future<Map<String, dynamic>> Function(ExamQuestion question) analyze,
+  Duration timeout = const Duration(seconds: 45),
+  int maxConcurrency = 2,
+}) async {
+  if (questions.isEmpty) return const [];
+  final perQuestionFindings = List<List<ExamCausalFinding>?>.filled(
+    questions.length,
+    null,
+  );
+  var nextIndex = 0;
+  var successfulQuestions = 0;
+  var providerUnavailableQuestions = 0;
+  var timedOutQuestions = 0;
+  Object? firstError;
+  StackTrace? firstErrorStack;
+  Future<void> worker() async {
+    while (nextIndex < questions.length) {
+      final index = nextIndex++;
+      final question = questions[index];
+      try {
+        final analysis = await analyze(question).timeout(timeout);
+        perQuestionFindings[index] = parseExamCausalFindings(
+          analysis,
+          questionNumber: question.number,
+        );
+        successfulQuestions += 1;
+      } catch (error, stackTrace) {
+        if (error is ExamCausalAnalysisException &&
+            error.kind == ExamCausalAnalysisFailureKind.providerUnavailable) {
+          providerUnavailableQuestions += 1;
+        } else if (error is TimeoutException) {
+          timedOutQuestions += 1;
+        }
+        firstError ??= error;
+        firstErrorStack ??= stackTrace;
+      }
+    }
+  }
+
+  await Future.wait(
+    List.generate(maxConcurrency.clamp(1, questions.length), (_) => worker()),
+  );
+  if (firstError != null) {
+    if (successfulQuestions == 0 &&
+        providerUnavailableQuestions == questions.length) {
+      throw ExamCausalAnalysisException(
+        kind: ExamCausalAnalysisFailureKind.providerUnavailable,
+        message: 'AI 服务暂时不可用，未生成本大题 ${questions.length} 道错题的分析。请稍后在大题报告中重试。',
+      );
+    }
+    if (successfulQuestions == 0 && timedOutQuestions == questions.length) {
+      throw ExamCausalAnalysisException(
+        kind: ExamCausalAnalysisFailureKind.timeout,
+        message:
+            'AI 服务响应超时，未生成本大题 ${questions.length} 道错题的分析。请稍后在大题报告中重试（TimeoutException）。',
+      );
+    }
+    Error.throwWithStackTrace(
+      ExamCausalAnalysisException(
+        kind: ExamCausalAnalysisFailureKind.incomplete,
+        message:
+            'AI 分析仅完成 $successfulQuestions / ${questions.length} 道错题，结果未保存。请在大题报告中重试。原因：${formatExamCausalAnalysisError(firstError!)}',
+      ),
+      firstErrorStack!,
+    );
+  }
+  return perQuestionFindings
+      .expand((value) => value ?? const <ExamCausalFinding>[])
+      .toList(growable: false);
 }
 
 ExamSubmissionResult gradeExamSubmission(
@@ -656,12 +1616,15 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
   final Map<String, String> _selections = {};
   final Map<String, List<String>> _answerHistories = {};
   Map<String, String> _currentMeanings = {};
+  Map<String, String> _currentMarks = {};
   Set<String> _priorWords = {};
+  Map<String, String> _priorMarks = {};
   List<ExamTextAnnotation> _annotations = const [];
   ExamPracticeMode _mode = ExamPracticeMode.doing;
   ExamSubmissionResult? _submission;
   double _bubbleAlignment = 0;
   bool _saving = false;
+  bool _restoringInitialState = true;
   bool _questionBookmarkSeeded = false;
   bool _switchingReadingPosition = false;
   double _questionBaselineOffset = 0;
@@ -669,9 +1632,8 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
   bool _showParagraphTranslations = false;
 
   ExamSection get _section => widget.paper.sections[_sectionIndex];
-  bool get _isClozeSection =>
-      _section.title.contains('\u5b8c\u578b') ||
-      _section.title.contains('\u5b8c\u5f62');
+  bool get _isClozeSection => isExamClozeSection(_section);
+  bool get _isReadingSection => isExamReadingSection(_section);
   bool get _isTranslationSection =>
       _section.questions.any((question) => question.kind == 'translation') ||
       _section.title.contains('翻译');
@@ -693,8 +1655,12 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _seedQuestionBookmark();
     });
-    _restoreAttempts();
-    _hydrateAnnotations();
+    _restoreInitialState();
+  }
+
+  Future<void> _restoreInitialState() async {
+    await Future.wait([_restoreAttempts(), _hydrateAnnotations()]);
+    if (mounted) setState(() => _restoringInitialState = false);
   }
 
   @override
@@ -736,7 +1702,7 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
   }
 
   Future<void> _selectAnswer(ExamQuestion question, String answer) async {
-    if (_submission != null) return;
+    if (_submission != null || _restoringInitialState) return;
     final history = [...?_answerHistories[question.id]];
     if (history.isEmpty || history.last != answer) history.add(answer);
     setState(() {
@@ -761,6 +1727,7 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
   }
 
   Future<void> _submit() async {
+    if (_restoringInitialState) return;
     final result = gradeExamSubmission(_section.questions, _selections);
     setState(() => _saving = true);
     var saved = false;
@@ -794,40 +1761,99 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
     if (saved && mounted) await _openReport(result);
   }
 
-  Future<List<ExamCausalFinding>> _analyzeSectionWrongAnswers() async {
+  Future<ExamSectionAiAnalysis> _analyzeSectionWrongAnswers() async {
     final result = _submission;
-    if (result == null) return const [];
+    if (result == null) return const ExamSectionAiAnalysis(findings: []);
     final wrongQuestions = _section.questions
         .where((question) => result.incorrectQuestionIds.contains(question.id))
         .toList(growable: false);
-    final findings = <ExamCausalFinding>[];
-    for (final question in wrongQuestions) {
-      final analysis = await widget.client.analyzeQuestionVocabulary(
+    final analyzedQuestions = _isClozeSection || _isReadingSection
+        ? _section.questions
+              .where((question) => _selections.containsKey(question.id))
+              .toList(growable: false)
+        : wrongQuestions;
+    final createdAt = DateTime.now().toUtc().toIso8601String();
+    final taskId = '${widget.paper.id}:${_section.id}:$createdAt';
+    await widget.client.saveAnalysisTask(
+      taskId: taskId,
+      exam: widget.paper.exam,
+      paperId: widget.paper.id,
+      paperTitle: widget.paper.title,
+      sectionId: _section.id,
+      sectionTitle: _section.title,
+      status: 'running',
+      createdAt: createdAt,
+    );
+    await ExamAnalysisTaskNotifications.refresh(widget.client);
+    late final ExamSectionAiAnalysis sectionAnalysis;
+    late final Map<String, dynamic> rawAnalysis;
+    try {
+      rawAnalysis = await widget.client
+          .analyzeSectionVocabulary(
+            exam: widget.paper.exam,
+            paperId: widget.paper.id,
+            sectionId: _section.id,
+            attempts: analyzedQuestions
+                .map(
+                  (question) => ExamAnalysisAttempt(
+                    questionId: question.id,
+                    attemptId: _attemptIdFor(question),
+                  ),
+                )
+                .toList(growable: false),
+            purePurpleWords: _priorWords.difference(_currentMarks.keys.toSet()),
+          )
+          .timeout(examSectionAnalysisTimeout);
+      sectionAnalysis = parseExamSectionAiAnalysis(
+        rawAnalysis,
+        questions: analyzedQuestions,
+        requiredWrongQuestionIds: _isClozeSection || _isReadingSection
+            ? wrongQuestions.map((question) => question.id).toSet()
+            : null,
+      );
+      await widget.client.saveAnalysisTask(
+        taskId: taskId,
         exam: widget.paper.exam,
         paperId: widget.paper.id,
+        paperTitle: widget.paper.title,
         sectionId: _section.id,
-        questionId: question.id,
-        attemptId: _attemptIdFor(question),
+        sectionTitle: _section.title,
+        status: 'completed',
+        createdAt: createdAt,
+        completedAt: DateTime.now().toUtc().toIso8601String(),
+        findings: sectionAnalysis.findings
+            .map(
+              (finding) => ExamAnalysisFinding(
+                questionNumber: finding.questionNumber,
+                word: finding.word,
+                reasoning: finding.reasoning,
+                confidence: finding.confidence,
+              ),
+            )
+            .toList(growable: false),
+        review: rawAnalysis,
       );
-      for (final candidate
-          in (analysis['candidates'] as List<dynamic>? ?? const [])) {
-        if (candidate is! Map<String, dynamic>) continue;
-        final word = '${candidate['word'] ?? ''}'.trim();
-        if (word.isEmpty) continue;
-        findings.add(
-          ExamCausalFinding(
-            questionNumber: question.number,
-            word: word,
-            reasoning: '${candidate['reasoning'] ?? ''}'.trim(),
-            confidence: ((candidate['confidence'] as num?) ?? 0).toDouble(),
-          ),
-        );
-      }
+    } catch (error) {
+      await widget.client.saveAnalysisTask(
+        taskId: taskId,
+        exam: widget.paper.exam,
+        paperId: widget.paper.id,
+        paperTitle: widget.paper.title,
+        sectionId: _section.id,
+        sectionTitle: _section.title,
+        status: 'failed',
+        createdAt: createdAt,
+        completedAt: DateTime.now().toUtc().toIso8601String(),
+        error: formatExamCausalAnalysisError(error),
+      );
+      await ExamAnalysisTaskNotifications.refresh(widget.client);
+      rethrow;
     }
+    await ExamAnalysisTaskNotifications.refresh(widget.client);
     if (mounted) {
       setState(() {
         _causalWords = {
-          for (final finding in findings) ...[
+          for (final finding in sectionAnalysis.findings) ...[
             finding.word.toLowerCase(),
             ...finding.word
                 .toLowerCase()
@@ -837,7 +1863,7 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
         };
       });
     }
-    return findings;
+    return sectionAnalysis;
   }
 
   Future<void> _openReport([ExamSubmissionResult? result]) async {
@@ -861,8 +1887,30 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
 
   String get _articleId => '${widget.paper.id}:${_section.id}';
 
+  Map<int, String> get _submittedClozeAnswers {
+    if (_mode != ExamPracticeMode.analysis || _submission == null) {
+      return const {};
+    }
+    return {
+      for (final question in _section.questions)
+        if (question.answer case final answerLabel?)
+          question.number:
+              question.choices
+                  .where((choice) => choice.label == answerLabel)
+                  .map((choice) => choice.text)
+                  .firstOrNull ??
+              answerLabel,
+    };
+  }
+
   String get _displayPassage => _isClozeSection
-      ? formatClozePassage(_section.passage)
+      ? formatClozePassage(
+          _section.passage,
+          blankNumbers: _section.questions
+              .map((question) => question.number)
+              .toSet(),
+          submittedAnswers: _submittedClozeAnswers,
+        )
       : formatExamPassage(_section.passage);
 
   List<String> get _passageParagraphs => _displayPassage
@@ -905,7 +1953,10 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
         words: tokens.map((token) => token.normalized).toSet(),
       );
       final phraseWords = state.annotations
-          .map((annotation) => annotation.selectedText.trim().toLowerCase())
+          .map(
+            (annotation) =>
+                normalizeExamPhraseSelection(annotation.selectedText),
+          )
           .where((text) => text.contains(RegExp(r'\s+')))
           .toSet();
       if (phraseWords.isNotEmpty) {
@@ -916,10 +1967,11 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _currentMeanings = state.currentMeanings.map(
-          (word, meaning) => MapEntry(word, pickExamContextMeaning([meaning])),
-        );
+        _currentMeanings = normalizeExamMeaningKeys(state.currentMeanings);
+        _currentMarks = Map<String, String>.from(state.currentMarks);
         _priorWords = state.priorWords;
+        _priorMarks = Map<String, String>.from(state.priorMarks);
+        _causalWords = state.causalWords;
         _annotations = state.annotations;
       });
     } catch (_) {
@@ -930,14 +1982,29 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
   void _onInspectionChanged(ExamWordInspection inspection) {
     setState(() {
       final next = Map<String, String>.from(_currentMeanings);
+      final nextMarks = Map<String, String>.from(_currentMarks);
+      final family = normalizeExamWordFamily(inspection.normalized);
       if (inspection.isUnknown) {
-        next[inspection.normalized] = pickExamContextMeaning(
-          inspection.meanings,
-        );
+        next[family] = inspection.meanings.join('；');
+        nextMarks[family] = inspection.userMark;
       } else {
-        next.remove(inspection.normalized);
+        next.remove(family);
+        nextMarks.remove(family);
       }
       _currentMeanings = next;
+      _currentMarks = nextMarks;
+    });
+  }
+
+  void _onWordMarkChanged(String normalized, String mark) {
+    setState(() {
+      final nextMarks = Map<String, String>.from(_currentMarks);
+      if (mark == 'none') {
+        nextMarks.remove(normalized);
+      } else {
+        nextMarks[normalized] = mark;
+      }
+      _currentMarks = nextMarks;
     });
   }
 
@@ -1038,168 +2105,189 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
             ),
         ],
       ),
-      body: ExamReadingPositionBubble(
-        active: _positionMemory.active,
-        bubbleAlignment: _bubbleAlignment,
-        onSwitch: _switchReadingPosition,
-        onBubbleAlignmentChanged: (value) =>
-            setState(() => _bubbleAlignment = value),
-        child: ExamContinuousReader(
-          controller: _readerController,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-          children: [
-            SegmentedButton<ExamPracticeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: ExamPracticeMode.doing,
-                  icon: Icon(Icons.edit_note_rounded),
-                  label: Text('做题'),
-                ),
-                ButtonSegment(
-                  value: ExamPracticeMode.analysis,
-                  icon: Icon(Icons.analytics_outlined),
-                  label: Text('分析'),
-                ),
+      body: AbsorbPointer(
+        absorbing: _restoringInitialState,
+        child: ExamReadingPositionBubble(
+          active: _positionMemory.active,
+          bubbleAlignment: _bubbleAlignment,
+          onSwitch: _switchReadingPosition,
+          onBubbleAlignmentChanged: (value) =>
+              setState(() => _bubbleAlignment = value),
+          child: ExamContinuousReader(
+            controller: _readerController,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            children: [
+              if (_restoringInitialState) ...[
+                const LinearProgressIndicator(),
+                const SizedBox(height: 8),
+                const Text('正在恢复作答记录…'),
+                const SizedBox(height: 12),
               ],
-              selected: {_mode},
-              onSelectionChanged: (value) =>
-                  setState(() => _mode = value.first),
-              showSelectedIcon: false,
-            ),
-            if (_mode == ExamPracticeMode.analysis) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _section.paragraphTranslations.isEmpty
-                      ? null
-                      : _toggleReadingContext,
-                  icon: Icon(
-                    _showParagraphTranslations
-                        ? Icons.translate_rounded
-                        : Icons.g_translate_rounded,
+              SegmentedButton<ExamPracticeMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ExamPracticeMode.doing,
+                    icon: Icon(Icons.edit_note_rounded),
+                    label: Text('做题'),
                   ),
-                  label: Text(
-                    _section.paragraphTranslations.isEmpty
-                        ? '暂无内置译文'
-                        : _showParagraphTranslations
-                        ? '隐藏段落译文'
-                        : '显示段落译文',
+                  ButtonSegment(
+                    value: ExamPracticeMode.analysis,
+                    icon: Icon(Icons.analytics_outlined),
+                    label: Text('分析'),
                   ),
-                ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (value) =>
+                    setState(() => _mode = value.first),
+                showSelectedIcon: false,
               ),
-            ],
-            const SizedBox(height: 12),
-            Text(
-              _section.title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (_section.instructions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(_section.instructions),
-            ],
-            if (_section.passage.isNotEmpty && !_isWritingSection) ...[
-              const SizedBox(height: 16),
-              for (
-                var index = 0;
-                index < _passageParagraphs.length;
-                index++
-              ) ...[
-                ExamInteractiveText(
-                  client: widget.client,
-                  text: _passageParagraphs[index],
-                  articleId: _articleId,
-                  title: '${widget.paper.title} / ${_section.title}',
-                  articleBody: _articleBody,
-                  offsetBase: _passageParagraphOffset(index),
-                  metadata: {
-                    'paperId': widget.paper.id,
-                    'sectionId': _section.id,
-                    'scope': 'passage',
-                    'paragraphIndex': index,
-                  },
-                  mode: _mode,
-                  currentMeanings: _currentMeanings,
-                  priorWords: _priorWords,
-                  annotations: _annotations,
-                  compactClozeMarkers: _isClozeSection,
-                  emphasisWords: _causalWords,
-                  showInlineMeanings: _mode == ExamPracticeMode.analysis,
-                  onInspectionChanged: _onInspectionChanged,
-                  onAnnotationsChanged: (value) =>
-                      setState(() => _annotations = value),
-                  style: const TextStyle(fontSize: 16, height: 1.65),
-                ),
-                if (_mode == ExamPracticeMode.analysis &&
-                    _showParagraphTranslations &&
-                    index < _section.paragraphTranslations.length)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 6, 4, 14),
-                    child: Text(
-                      _section.paragraphTranslations[index],
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        height: 1.55,
-                      ),
+              if (_mode == ExamPracticeMode.analysis) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: _section.paragraphTranslations.isEmpty
+                        ? null
+                        : _toggleReadingContext,
+                    icon: Icon(
+                      _showParagraphTranslations
+                          ? Icons.translate_rounded
+                          : Icons.g_translate_rounded,
                     ),
-                  )
-                else
-                  const SizedBox(height: 12),
+                    label: Text(
+                      _section.paragraphTranslations.isEmpty
+                          ? '暂无内置译文'
+                          : _showParagraphTranslations
+                          ? '隐藏段落译文'
+                          : '显示段落译文',
+                    ),
+                  ),
+                ),
               ],
-            ],
-            const SizedBox(height: 16),
-            Container(key: _questionStartKey),
-            if (_isSubjectiveSection)
-              ExamSubjectiveReferencePanel(
-                kind: _isTranslationSection ? 'translation' : 'writing',
-                answers: _isTranslationSection
-                    ? _section.questions
-                          .map((question) => question.answer?.trim() ?? '')
-                          .where((answer) => answer.isNotEmpty)
-                          .toList(growable: false)
-                    : [
-                        if (_section.passage.trim().isNotEmpty)
-                          _section.passage.trim(),
-                        ..._section.questions
-                            .map((question) => question.answer?.trim() ?? '')
-                            .where((answer) => answer.isNotEmpty),
-                      ],
-              )
-            else
-              for (final question in _section.questions) ...[
-                ExamQuestionCard(
-                  question: question,
-                  compact: _isClozeSection,
-                  selectedAnswer: _selections[question.id],
-                  submitted: _submission != null,
-                  onSelect: (answer) => _selectAnswer(question, answer),
-                  interactiveTextBuilder: (text, scope) => ExamInteractiveText(
+              const SizedBox(height: 12),
+              Text(
+                _section.title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (_section.instructions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(_section.instructions),
+              ],
+              if (_section.passage.isNotEmpty && !_isWritingSection) ...[
+                const SizedBox(height: 16),
+                for (
+                  var index = 0;
+                  index < _passageParagraphs.length;
+                  index++
+                ) ...[
+                  ExamInteractiveText(
                     client: widget.client,
-                    text: text,
+                    text: _passageParagraphs[index],
                     articleId: _articleId,
                     title: '${widget.paper.title} / ${_section.title}',
                     articleBody: _articleBody,
-                    offsetBase: _scopeOffset(question, scope),
+                    offsetBase: _passageParagraphOffset(index),
                     metadata: {
                       'paperId': widget.paper.id,
                       'sectionId': _section.id,
-                      'questionId': question.id,
-                      'scope': scope,
+                      'scope': 'passage',
+                      'paragraphIndex': index,
                     },
                     mode: _mode,
                     currentMeanings: _currentMeanings,
+                    currentMarks: _currentMarks,
                     priorWords: _priorWords,
+                    priorMarks: _priorMarks,
+                    contextTranslation:
+                        index < _section.paragraphTranslations.length
+                        ? _section.paragraphTranslations[index]
+                        : '',
                     annotations: _annotations,
+                    compactClozeMarkers: _isClozeSection,
                     emphasisWords: _causalWords,
                     showInlineMeanings: _mode == ExamPracticeMode.analysis,
                     onInspectionChanged: _onInspectionChanged,
+                    onWordMarkChanged: _onWordMarkChanged,
                     onAnnotationsChanged: (value) =>
                         setState(() => _annotations = value),
+                    style: const TextStyle(fontSize: 16, height: 1.65),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  if (_mode == ExamPracticeMode.analysis &&
+                      _showParagraphTranslations &&
+                      index < _section.paragraphTranslations.length)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 4, 14),
+                      child: Text(
+                        _section.paragraphTranslations[index],
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.55,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 12),
+                ],
               ],
-          ],
+              const SizedBox(height: 16),
+              Container(key: _questionStartKey),
+              if (_isSubjectiveSection)
+                ExamSubjectiveReferencePanel(
+                  kind: _isTranslationSection ? 'translation' : 'writing',
+                  answers: _isTranslationSection
+                      ? _section.questions
+                            .map((question) => question.answer?.trim() ?? '')
+                            .where((answer) => answer.isNotEmpty)
+                            .toList(growable: false)
+                      : [
+                          if (_section.passage.trim().isNotEmpty)
+                            _section.passage.trim(),
+                          ..._section.questions
+                              .map((question) => question.answer?.trim() ?? '')
+                              .where((answer) => answer.isNotEmpty),
+                        ],
+                )
+              else
+                for (final question in _section.questions) ...[
+                  ExamQuestionCard(
+                    question: question,
+                    compact: _isClozeSection,
+                    selectedAnswer: _selections[question.id],
+                    submitted: _submission != null,
+                    onSelect: (answer) => _selectAnswer(question, answer),
+                    interactiveTextBuilder: (text, scope) =>
+                        ExamInteractiveText(
+                          client: widget.client,
+                          text: text,
+                          articleId: _articleId,
+                          title: '${widget.paper.title} / ${_section.title}',
+                          articleBody: _articleBody,
+                          offsetBase: _scopeOffset(question, scope),
+                          metadata: {
+                            'paperId': widget.paper.id,
+                            'sectionId': _section.id,
+                            'questionId': question.id,
+                            'scope': scope,
+                          },
+                          mode: _mode,
+                          currentMeanings: _currentMeanings,
+                          currentMarks: _currentMarks,
+                          priorWords: _priorWords,
+                          priorMarks: _priorMarks,
+                          annotations: _annotations,
+                          emphasisWords: _causalWords,
+                          showInlineMeanings:
+                              _mode == ExamPracticeMode.analysis,
+                          onInspectionChanged: _onInspectionChanged,
+                          onWordMarkChanged: _onWordMarkChanged,
+                          onAnnotationsChanged: (value) =>
+                              setState(() => _annotations = value),
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _isSubjectiveSection
@@ -1207,7 +2295,7 @@ class _ExamPracticeScreenState extends State<ExamPracticeScreen> {
           : SafeArea(
               minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: FilledButton.icon(
-                onPressed: _saving
+                onPressed: _saving || _restoringInitialState
                     ? null
                     : _submission == null
                     ? _submit
@@ -1446,7 +2534,7 @@ class ExamSectionReportScreen extends StatefulWidget {
   final ExamSection section;
   final Map<String, String> selections;
   final ExamSubmissionResult result;
-  final Future<List<ExamCausalFinding>> Function() onAnalyze;
+  final Future<ExamSectionAiAnalysis> Function() onAnalyze;
   final Set<String> currentWords;
   final Set<String> repeatedWords;
 
@@ -1458,7 +2546,7 @@ class ExamSectionReportScreen extends StatefulWidget {
 class _ExamSectionReportScreenState extends State<ExamSectionReportScreen> {
   String? _selectedQuestionId;
   bool _analyzing = false;
-  List<ExamCausalFinding>? _findings;
+  ExamSectionAiAnalysis? _analysis;
   Object? _analysisError;
 
   ExamQuestion? get _selectedQuestion {
@@ -1474,8 +2562,8 @@ class _ExamSectionReportScreenState extends State<ExamSectionReportScreen> {
       _analysisError = null;
     });
     try {
-      final findings = await widget.onAnalyze();
-      if (mounted) setState(() => _findings = findings);
+      final analysis = await widget.onAnalyze();
+      if (mounted) setState(() => _analysis = analysis);
     } catch (error) {
       if (mounted) setState(() => _analysisError = error);
     } finally {
@@ -1545,8 +2633,14 @@ class _ExamSectionReportScreenState extends State<ExamSectionReportScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.psychology_outlined),
-            label: const Text('AI 分析全部错题'),
+            label: Text(
+              isExamClozeSection(widget.section) ? '生成 AI 完型复盘' : 'AI 分析全部错题',
+            ),
           ),
+          if (_analyzing) ...[
+            const SizedBox(height: 6),
+            const Text('正在后台生成，离开本页后可在 AI 页查看进度与结果。'),
+          ],
           if (_analysisError != null) ...[
             const SizedBox(height: 8),
             Text(
@@ -1554,12 +2648,17 @@ class _ExamSectionReportScreenState extends State<ExamSectionReportScreen> {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
-          if (_findings != null) ...[
+          if (_analysis != null && _analysis!.isStructuredReview) ...[
+            const SizedBox(height: 18),
+            _ExamStructuredReviewView(analysis: _analysis!),
+          ] else if (_analysis != null) ...[
             const SizedBox(height: 12),
-            if (_findings!.isEmpty)
+            const Text('已检查本大题全部错题；下方只列真正影响选项判断的高亮词。'),
+            const SizedBox(height: 6),
+            if (_analysis!.findings.isEmpty)
               const Text('现有标记与作答证据不足以确定致错词。')
             else
-              for (final finding in _findings!)
+              for (final finding in _analysis!.findings)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
@@ -1577,7 +2676,13 @@ class _ExamSectionReportScreenState extends State<ExamSectionReportScreen> {
                   trailing: Text('${(finding.confidence * 100).round()}%'),
                 ),
           ],
-          if (selected != null) ...[
+          if (selected != null &&
+              buildExamWrongAnswerReportDetail(
+                    section: widget.section,
+                    question: selected,
+                    selections: widget.selections,
+                  ) ==
+                  null) ...[
             const Divider(height: 32),
             Text(
               '第 ${selected.number} 题',
@@ -1591,8 +2696,136 @@ class _ExamSectionReportScreenState extends State<ExamSectionReportScreen> {
               Text(cleanExamExplanation(selected.explanation)),
             ],
           ],
+          if (selected != null)
+            _ExamWrongAnswerReportDetailView(
+              detail: buildExamWrongAnswerReportDetail(
+                section: widget.section,
+                question: selected,
+                selections: widget.selections,
+              )!,
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _ExamStructuredReviewView extends StatelessWidget {
+  const _ExamStructuredReviewView({required this.analysis});
+
+  final ExamSectionAiAnalysis analysis;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('错题逐题复盘', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 10),
+        for (final question in analysis.clozeQuestions) ...[
+          Text(
+            '第 ${question.questionNumber} 题',
+            style: theme.textTheme.titleMedium,
+          ),
+          if (analysis.reviewFormat == 'reading-review-v1') ...[
+            if (question.stem.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('题目：${question.stem}'),
+            ],
+            Text(
+              '你的答案：${question.selectedAnswer.isEmpty ? '未作答' : question.selectedAnswer}  '
+              '正确答案：${question.correctAnswer.isEmpty ? '暂无' : question.correctAnswer}',
+            ),
+            if (question.evidenceLocation.isNotEmpty)
+              Text('定位：${question.evidenceLocation}'),
+          ],
+          if (question.annotatedContext.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('所需原文：${question.annotatedContext}'),
+          ] else if (question.contextSentence.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('所需原文：${question.contextSentence}'),
+          ],
+          if (question.options.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Text('选项辨析'),
+            for (final option in question.options)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '${option.label} ${option.meaning}${option.analysis.isEmpty ? '' : '：${option.analysis}'}',
+                ),
+              ),
+          ],
+          if (question.analysis.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('解析：${question.analysis}'),
+          ],
+          if (question.knowledgeGap.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('真正缺口：${question.knowledgeGap}'),
+          ],
+          const Divider(height: 28),
+        ],
+        if (analysis.correctMarkedQuestions.isNotEmpty) ...[
+          Text('答对题中的标记选项', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 8),
+          for (final question in analysis.correctMarkedQuestions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '第 ${question.questionNumber} 题：${question.distinction}',
+              ),
+            ),
+          const SizedBox(height: 12),
+        ],
+        Text('标记词重要程度', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 8),
+        for (final item in analysis.vocabularyPriority)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              '${item.priority}. ${item.word}  ${item.meaning}\n'
+              '${item.examFamilyRoot.isEmpty ? '真题出现 ${item.examFrequency} 次' : '同源词族真题出现 ${item.examFrequency} 次 · 本词条单独 ${item.strictExamFrequency} 次'}'
+              '${item.examRank == null
+                  ? ''
+                  : item.examFamilyRoot.isEmpty
+                  ? ' · 排名 ${item.examRank}'
+                  : ' · 本词严格排名 ${item.examRank}'}'
+              '${item.reason.isEmpty ? '' : '\n${item.reason}'}',
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ExamWrongAnswerReportDetailView extends StatelessWidget {
+  const _ExamWrongAnswerReportDetailView({required this.detail});
+
+  final ExamWrongAnswerReportDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '第 ${detail.questionNumber} 题错题解析',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text('题干\n${detail.question}'),
+        const SizedBox(height: 12),
+        Text('你的错选\n${detail.selectedOption}'),
+        const SizedBox(height: 12),
+        Text('正确答案\n${detail.correctOption}'),
+        const SizedBox(height: 12),
+        Text('原文定位\n${detail.passageLocation} · ${detail.passageExcerpt}'),
+        const SizedBox(height: 12),
+        Text('参考解析\n${detail.explanation}'),
+      ],
     );
   }
 }
@@ -1649,12 +2882,16 @@ class ExamInteractiveText extends StatefulWidget {
     this.style,
     this.mode = ExamPracticeMode.doing,
     this.currentMeanings = const {},
+    this.currentMarks = const {},
     this.priorWords = const {},
+    this.priorMarks = const {},
+    this.contextTranslation = '',
     this.annotations = const [],
     this.compactClozeMarkers = false,
     this.emphasisWords = const {},
     this.showInlineMeanings = true,
     this.onInspectionChanged,
+    this.onWordMarkChanged,
     this.onAnnotationsChanged,
   });
 
@@ -1668,26 +2905,69 @@ class ExamInteractiveText extends StatefulWidget {
   final TextStyle? style;
   final ExamPracticeMode mode;
   final Map<String, String> currentMeanings;
+  final Map<String, String> currentMarks;
   final Set<String> priorWords;
+  final Map<String, String> priorMarks;
+  final String contextTranslation;
   final List<ExamTextAnnotation> annotations;
   final bool compactClozeMarkers;
   final Set<String> emphasisWords;
   final bool showInlineMeanings;
   final ValueChanged<ExamWordInspection>? onInspectionChanged;
+  final void Function(String normalized, String mark)? onWordMarkChanged;
   final ValueChanged<List<ExamTextAnnotation>>? onAnnotationsChanged;
 
   @override
   State<ExamInteractiveText> createState() => _ExamInteractiveTextState();
 }
 
+class _ExamRenderedTapRange {
+  const _ExamRenderedTapRange({
+    required this.start,
+    required this.end,
+    required this.token,
+  });
+
+  final int start;
+  final int end;
+  final ExamWordToken token;
+}
+
+class _ExamPendingPointerTap {
+  _ExamPendingPointerTap({
+    required this.position,
+    required this.globalPosition,
+    required this.startedAt,
+    required this.markSerial,
+  });
+
+  final Offset position;
+  final Offset globalPosition;
+  final DateTime startedAt;
+  final int markSerial;
+  Timer? longPressTimer;
+  bool longPressTriggered = false;
+}
+
 class _ExamInteractiveTextState extends State<ExamInteractiveText> {
   List<ExamWordToken> _tokens = const [];
-  final List<TapGestureRecognizer> _recognizers = [];
-  TextSelection? _selection;
+  final List<GestureRecognizer> _recognizers = [];
+  final GlobalKey _selectableTextKey = GlobalKey();
+  Timer? _selectionLookupTimer;
+  Timer? _nativeToolbarDismissTimer;
+  int _selectionLookupGeneration = 0;
+  bool _selectionSheetOpen = false;
+  OverlayEntry? _markPaletteEntry;
+  Rect? _markPaletteRect;
+  ExamWordToken? _markPaletteToken;
+  String _markPaletteLevel = 'familiar';
+  final Map<int, _ExamPendingPointerTap> _pendingPointerTaps = {};
+  int _markRequestSerial = 0;
 
   @override
   void initState() {
     super.initState();
+    _useInteractionTokens(widget.text);
     _loadTokens();
   }
 
@@ -1696,12 +2976,22 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text ||
         oldWidget.articleId != widget.articleId) {
+      _useInteractionTokens(widget.text);
       _loadTokens();
+    } else if (oldWidget.currentMarks != widget.currentMarks) {
+      _rebuildRecognizers();
     }
   }
 
   @override
   void dispose() {
+    _selectionLookupTimer?.cancel();
+    _nativeToolbarDismissTimer?.cancel();
+    for (final pending in _pendingPointerTaps.values) {
+      pending.longPressTimer?.cancel();
+    }
+    _pendingPointerTaps.clear();
+    _hideMarkPalette();
     _disposeRecognizers();
     super.dispose();
   }
@@ -1713,23 +3003,43 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
     _recognizers.clear();
   }
 
+  void _useInteractionTokens(String text) {
+    _tokens = tokenizeExamTextForInteraction(text);
+    _rebuildRecognizers(notify: false);
+  }
+
   Future<void> _loadTokens() async {
     final text = widget.text;
     try {
       final tokens = await widget.client.tokenizeText(text);
       if (!mounted || text != widget.text) return;
+      final nativeCoverage = tokens.fold<int>(
+        0,
+        (total, token) => total + token.text.length,
+      );
+      final localCoverage = _tokens.fold<int>(
+        0,
+        (total, token) => total + token.text.length,
+      );
+      if (nativeCoverage < localCoverage) return;
       setState(() {
         _tokens = tokens;
-        _disposeRecognizers();
-        for (final token in tokens) {
-          _recognizers.add(
-            TapGestureRecognizer()..onTap = () => _toggleWord(token),
-          );
-        }
+        _rebuildRecognizers(notify: false);
       });
-    } catch (_) {
-      if (mounted) setState(() => _tokens = const []);
+    } catch (_) {}
+  }
+
+  void _rebuildRecognizers({bool notify = true}) {
+    _disposeRecognizers();
+    for (final token in _tokens) {
+      final family = normalizeExamWordFamily(token.normalized);
+      _recognizers.add(
+        TapGestureRecognizer()
+          ..onTap = () =>
+              _setWordMark(token, widget.currentMarks[family] ?? 'familiar'),
+      );
     }
+    if (notify && mounted) setState(() {});
   }
 
   Future<ExamWordInspection> _inspect(ExamWordToken token, {String? userMark}) {
@@ -1750,96 +3060,500 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
     );
   }
 
-  Future<void> _toggleWord(ExamWordToken token) async {
-    final updated = await _inspect(
-      token,
-      userMark: nextExamWordMark(
-        token.normalized,
-        widget.currentMeanings.keys.toSet(),
-      ),
+  void _showMarkPalette(ExamWordToken token, Offset globalPosition) {
+    _hideMarkPalette();
+    const width = 132.0;
+    const height = 44.0;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final left = (globalPosition.dx - width / 2).clamp(
+      8.0,
+      screenWidth - width - 8,
     );
-    if (!mounted) return;
-    widget.onInspectionChanged?.call(updated);
+    final top = (globalPosition.dy - height - 18).clamp(8.0, double.infinity);
+    _markPaletteRect = Rect.fromLTWH(left, top, width, height);
+    _markPaletteToken = token;
+    _markPaletteLevel = 'familiar';
+    _markPaletteEntry = OverlayEntry(builder: _buildMarkPalette);
+    Overlay.of(context, rootOverlay: true).insert(_markPaletteEntry!);
   }
 
-  Future<void> _saveSelection() async {
-    final selection = _selection;
-    if (selection == null || selection.isCollapsed) return;
+  void _commitMarkPalette() {
+    final token = _markPaletteToken;
+    final level = _markPaletteLevel;
+    _hideMarkPalette();
+    if (token != null) _setWordMark(token, level);
+  }
+
+  void _hideMarkPalette() {
+    _markPaletteEntry?.remove();
+    _markPaletteEntry = null;
+    _markPaletteRect = null;
+    _markPaletteToken = null;
+  }
+
+  Widget _buildMarkPalette(BuildContext context) {
+    final rect = _markPaletteRect!;
+    const labels = {'fuzzy': '释义模糊', 'familiar': '眼熟', 'unknown': '完全不会'};
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _hideMarkPalette,
+          ),
+        ),
+        Positioned(
+          key: const ValueKey('exam-mark-palette'),
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          child: Material(
+            elevation: 4,
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (final level in examFamiliarityLevels)
+                  Semantics(
+                    label: labels[level],
+                    selected: level == _markPaletteLevel,
+                    child: GestureDetector(
+                      key: ValueKey('exam-mark-$level'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        _markPaletteLevel = level;
+                        _commitMarkPalette();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 80),
+                        width: 34,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: examCurrentHighlightColor(level),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: level == _markPaletteLevel
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(context).colorScheme.outlineVariant,
+                            width: level == _markPaletteLevel ? 2 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _setWordMark(ExamWordToken token, String requestedMark) async {
+    _markRequestSerial += 1;
+    final family = normalizeExamWordFamily(token.normalized);
+    final currentMark = widget.currentMarks[family];
+    final nextMark = currentMark == requestedMark ? 'none' : requestedMark;
+    widget.onWordMarkChanged?.call(family, nextMark);
+    try {
+      final updated = await _inspect(token, userMark: nextMark);
+      if (!mounted) return;
+      widget.onInspectionChanged?.call(
+        ExamWordInspection(
+          occurrenceId: updated.occurrenceId,
+          entryId: updated.entryId,
+          word: updated.word,
+          normalized: family,
+          meanings: updated.meanings,
+          userMark: updated.userMark,
+          isUnknown: updated.isUnknown,
+        ),
+      );
+    } finally {
+      if (mounted) widget.onWordMarkChanged?.call(family, nextMark);
+    }
+  }
+
+  void _rememberPointerDown(PointerDownEvent event) {
+    final pending = _ExamPendingPointerTap(
+      position: event.localPosition,
+      globalPosition: event.position,
+      startedAt: DateTime.now(),
+      markSerial: _markRequestSerial,
+    );
+    pending.longPressTimer = Timer(const Duration(milliseconds: 360), () {
+      if (!identical(_pendingPointerTaps[event.pointer], pending)) return;
+      pending.longPressTriggered = true;
+      _handleWordLongPress(pending.globalPosition);
+    });
+    _pendingPointerTaps[event.pointer] = pending;
+  }
+
+  void _cancelPointerTap(PointerEvent event) {
+    _pendingPointerTaps.remove(event.pointer)?.longPressTimer?.cancel();
+  }
+
+  void _trackPointerMove(PointerMoveEvent event) {
+    final pending = _pendingPointerTaps[event.pointer];
+    if (pending == null || pending.longPressTriggered) return;
+    if ((event.localPosition - pending.position).distance > 10) {
+      _cancelPointerTap(event);
+    }
+  }
+
+  void _handlePointerUp(
+    PointerUpEvent event,
+    List<_ExamRenderedTapRange> tapRanges,
+  ) {
+    final pending = _pendingPointerTaps.remove(event.pointer);
+    pending?.longPressTimer?.cancel();
+    if (pending == null ||
+        pending.longPressTriggered ||
+        DateTime.now().difference(pending.startedAt) >=
+            const Duration(milliseconds: 300) ||
+        (event.localPosition - pending.position).distance > 10) {
+      return;
+    }
+    Future<void>.microtask(() async {
+      if (!mounted || pending.markSerial != _markRequestSerial) return;
+      final editable = _findRenderEditable();
+      if (editable == null) return;
+      final localPosition = editable.globalToLocal(event.position);
+      final renderedTextLength = tapRanges.isEmpty
+          ? 0
+          : tapRanges.map((range) => range.end).reduce((a, b) => a > b ? a : b);
+      _ExamRenderedTapRange? nearest;
+      var nearestDistance = double.infinity;
+      for (final range in tapRanges) {
+        final boxes = editable.getBoxesForSelection(
+          TextSelection(baseOffset: range.start, extentOffset: range.end),
+        );
+        for (final box in boxes) {
+          final rawRect = box.toRect();
+          final rect = Rect.fromLTRB(
+            rawRect.left - 4,
+            rawRect.top,
+            rawRect.right + 4,
+            rawRect.bottom,
+          );
+          if (!rect.contains(localPosition)) continue;
+          final distance = rawRect.contains(localPosition)
+              ? 0.0
+              : (localPosition.dx - rawRect.center.dx).abs();
+          if (distance < nearestDistance) {
+            nearest = range;
+            nearestDistance = distance;
+          }
+        }
+      }
+      if (nearest == null) {
+        final offset = editable.getPositionForPoint(event.position).offset;
+        for (final range in tapRanges) {
+          final containsOffset =
+              range.start <= offset &&
+              (offset < range.end ||
+                  (offset == range.end && range.end == renderedTextLength));
+          if (!containsOffset) continue;
+          final boxes = editable.getBoxesForSelection(
+            TextSelection(baseOffset: range.start, extentOffset: range.end),
+          );
+          if (boxes.any((box) {
+            final rect = box.toRect();
+            return localPosition.dy >= rect.top &&
+                localPosition.dy <= rect.bottom;
+          })) {
+            nearest = range;
+            break;
+          }
+        }
+      }
+      if (nearest == null) return;
+      final family = normalizeExamWordFamily(nearest.token.normalized);
+      await _setWordMark(
+        nearest.token,
+        widget.currentMarks[family] ?? 'familiar',
+      );
+    });
+  }
+
+  RenderEditable? _findRenderEditable() {
+    final root = _selectableTextKey.currentContext?.findRenderObject();
+    if (root == null) return null;
+    RenderEditable? result;
+    void visit(RenderObject child) {
+      if (result != null) return;
+      if (child is RenderEditable) {
+        result = child;
+        return;
+      }
+      child.visitChildren(visit);
+    }
+
+    if (root is RenderEditable) return root;
+    root.visitChildren(visit);
+    return result;
+  }
+
+  EditableTextState? _findEditableTextState() {
+    final root = _selectableTextKey.currentContext;
+    if (root == null) return null;
+    EditableTextState? result;
+    void visit(Element child) {
+      if (result != null) return;
+      if (child is StatefulElement && child.state is EditableTextState) {
+        result = child.state as EditableTextState;
+        return;
+      }
+      child.visitChildElements(visit);
+    }
+
+    root.visitChildElements(visit);
+    return result;
+  }
+
+  void _handleWordLongPress(Offset globalPosition) {
+    final editable = _findRenderEditable();
+    final editableState = _findEditableTextState();
+    if (editable == null || editableState == null) return;
+    final position = editable.getPositionForPoint(globalPosition);
+    final renderedText = editableState.textEditingValue.text;
+    final tokens = tokenizeExamTextForInteraction(renderedText);
+    ExamWordToken? selectedToken;
+    for (final token in tokens) {
+      if (token.startOffset <= position.offset &&
+          position.offset <= token.endOffset) {
+        selectedToken = token;
+        break;
+      }
+    }
+    if (selectedToken == null) return;
+    final token =
+        _tokenForRenderedSelection(
+          TextSelection(
+            baseOffset: selectedToken.startOffset,
+            extentOffset: selectedToken.endOffset,
+          ),
+          renderedText,
+        ) ??
+        selectedToken;
+    final family = normalizeExamWordFamily(token.normalized);
+    if (widget.currentMarks.containsKey(family)) {
+      // A native selectable-text long press can finish after our timer. Clear
+      // that selection first so Copy/Share cannot cover the color controls.
+      editableState.userUpdateTextEditingValue(
+        editableState.textEditingValue.copyWith(
+          selection: TextSelection.collapsed(offset: position.offset),
+        ),
+        SelectionChangedCause.longPress,
+      );
+      editableState.hideToolbar();
+      _showMarkPalette(token, globalPosition);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) editableState.hideToolbar();
+      });
+      _nativeToolbarDismissTimer?.cancel();
+      _nativeToolbarDismissTimer = Timer(const Duration(milliseconds: 220), () {
+        if (!mounted || _markPaletteEntry == null) return;
+        editableState.userUpdateTextEditingValue(
+          editableState.textEditingValue.copyWith(
+            selection: TextSelection.collapsed(offset: position.offset),
+          ),
+          SelectionChangedCause.longPress,
+        );
+        editableState.hideToolbar();
+      });
+      return;
+    }
+    editableState.userUpdateTextEditingValue(
+      editableState.textEditingValue.copyWith(
+        selection: TextSelection(
+          baseOffset: selectedToken.startOffset,
+          extentOffset: selectedToken.endOffset,
+        ),
+      ),
+      SelectionChangedCause.longPress,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) editableState.showToolbar();
+    });
+  }
+
+  Future<void> _markSelectionUnknown(
+    TextSelection selection,
+    String selected,
+  ) async {
     final start = selection.start.clamp(0, widget.text.length);
     final end = selection.end.clamp(0, widget.text.length);
     if (end <= start) return;
-    final selected = widget.text.substring(start, end);
-    final controller = TextEditingController();
-    final note = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('黄色标记与笔记'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(selected, maxLines: 4, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: '笔记（可选）',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    var annotations = widget.annotations;
+    final scope = '${widget.metadata['scope'] ?? 'passage'}';
+    final alreadyMarked = annotations.any(
+      (annotation) =>
+          annotation.scope == scope &&
+          annotation.startOffset == widget.offsetBase + start &&
+          annotation.endOffset == widget.offsetBase + end,
     );
-    controller.dispose();
-    if (note == null) return;
-    final annotations = await widget.client.saveAnnotation(
-      annotationId:
-          'annotation:${widget.articleId}:${widget.offsetBase + start}:${DateTime.now().microsecondsSinceEpoch}',
-      articleId: widget.articleId,
-      title: widget.title,
-      body: widget.articleBody ?? widget.text,
-      questionId: widget.metadata['questionId'] as String?,
-      scope: '${widget.metadata['scope'] ?? 'passage'}',
-      startOffset: widget.offsetBase + start,
-      endOffset: widget.offsetBase + end,
-      selectedText: selected,
-      noteText: note,
-      metadata: widget.metadata,
-    );
-    final phrase = selected.trim();
-    if (phrase.contains(RegExp(r'\s'))) {
-      final inspection = await widget.client.inspectWord(
+    if (!alreadyMarked) {
+      annotations = await widget.client.saveAnnotation(
+        annotationId:
+            'annotation:${widget.articleId}:${widget.offsetBase + start}:${DateTime.now().microsecondsSinceEpoch}',
         articleId: widget.articleId,
         title: widget.title,
         body: widget.articleBody ?? widget.text,
-        token: ExamWordToken(
-          text: phrase,
-          normalized: phrase.toLowerCase(),
-          startOffset: widget.offsetBase + start,
-          endOffset: widget.offsetBase + end,
-        ),
-        sentenceText: widget.text,
+        questionId: widget.metadata['questionId'] as String?,
+        scope: scope,
+        startOffset: widget.offsetBase + start,
+        endOffset: widget.offsetBase + end,
+        selectedText: selected,
+        noteText: '',
         metadata: widget.metadata,
-        userMark: 'unknown',
       );
-      widget.onInspectionChanged?.call(inspection);
     }
+    final phrase = normalizeExamPhraseSelection(selected);
+    final inspection = await widget.client.inspectWord(
+      articleId: widget.articleId,
+      title: widget.title,
+      body: widget.articleBody ?? widget.text,
+      token: ExamWordToken(
+        text: phrase,
+        normalized: phrase,
+        startOffset: widget.offsetBase + start,
+        endOffset: widget.offsetBase + end,
+      ),
+      sentenceText: widget.text,
+      metadata: widget.metadata,
+      userMark: 'unknown',
+    );
+    widget.onInspectionChanged?.call(inspection);
     if (!mounted) return;
-    setState(() => _selection = null);
     widget.onAnnotationsChanged?.call(annotations);
+  }
+
+  void _handleSelectionChanged(TextSelection selection) {
+    _selectionLookupTimer?.cancel();
+    final generation = ++_selectionLookupGeneration;
+    if (_markPaletteEntry != null) return;
+    if (selection.isCollapsed) return;
+    final selected = widget.text.substring(selection.start, selection.end);
+    final phrase = normalizeExamPhraseSelection(selected);
+    if (!phrase.contains(RegExp(r'\s'))) return;
+    _selectionLookupTimer = Timer(const Duration(milliseconds: 300), () {
+      _showSelectionMeaning(selection, selected, generation);
+    });
+  }
+
+  Future<void> _showSelectionMeaning(
+    TextSelection selection,
+    String selected,
+    int generation,
+  ) async {
+    if (_selectionSheetOpen || generation != _selectionLookupGeneration) return;
+    final phrase = normalizeExamPhraseSelection(selected);
+    final inspection = await widget.client.inspectWord(
+      articleId: widget.articleId,
+      title: widget.title,
+      body: widget.articleBody ?? widget.text,
+      token: ExamWordToken(
+        text: phrase,
+        normalized: phrase,
+        startOffset: widget.offsetBase + selection.start,
+        endOffset: widget.offsetBase + selection.end,
+      ),
+      sentenceText: widget.text,
+      metadata: widget.metadata,
+    );
+    if (!mounted || generation != _selectionLookupGeneration) return;
+    _selectionSheetOpen = true;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(phrase, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              Text(
+                inspection.meanings.isEmpty
+                    ? '词库中暂无释义'
+                    : inspection.meanings.join('；'),
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: inspection.isUnknown
+                    ? null
+                    : () async {
+                        await _markSelectionUnknown(selection, selected);
+                        if (sheetContext.mounted) {
+                          Navigator.pop(sheetContext);
+                        }
+                      },
+                icon: const Icon(Icons.bookmark_add_outlined),
+                label: Text(inspection.isUnknown ? '已标记为不会' : '标记为不会'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    _selectionSheetOpen = false;
+  }
+
+  Widget _buildSelectionMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    if (_markPaletteEntry != null) return const SizedBox.shrink();
+    final selection = editableTextState.textEditingValue.selection;
+    final token = _tokenForRenderedSelection(
+      selection,
+      editableTextState.textEditingValue.text,
+    );
+    final items = <ContextMenuButtonItem>[
+      if (token != null)
+        ContextMenuButtonItem(
+          label: '标记',
+          onPressed: () {
+            final editable = editableTextState.renderEditable;
+            final boxes = editable.getBoxesForSelection(selection);
+            final anchor = boxes.isNotEmpty
+                ? editable.localToGlobal(boxes.first.toRect().topCenter)
+                : const Offset(80, 120);
+            editableTextState.hideToolbar();
+            _showMarkPalette(token, anchor);
+          },
+        ),
+      ...editableTextState.contextMenuButtonItems.where(
+        (item) =>
+            item.type == ContextMenuButtonType.copy ||
+            item.type == ContextMenuButtonType.share,
+      ),
+    ];
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: items,
+    );
+  }
+
+  ExamWordToken? _tokenForRenderedSelection(
+    TextSelection selection,
+    String renderedText,
+  ) {
+    if (selection.isCollapsed) return null;
+    final selected = normalizeExamPhraseSelection(
+      renderedText.substring(selection.start, selection.end),
+    );
+    if (selected.isEmpty || selected.contains(' ')) return null;
+    for (final token in _tokens) {
+      if (normalizeExamPhraseSelection(token.text) == selected) return token;
+    }
+    return null;
   }
 
   @override
@@ -1855,13 +3569,20 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
       if (displayStart < 0) continue;
       final displayEnd = displayStart + token.text.length;
       if (displayStart > cursor) {
-        _appendPlainSpans(spans, widget.text.substring(cursor, displayStart));
+        final separator = widget.text.substring(cursor, displayStart);
+        if (index > 0) {
+          _appendTapSeparatorSpans(spans, separator, _recognizers[index - 1]);
+        } else {
+          _appendTapSeparatorSpans(spans, separator, _recognizers[index]);
+        }
       }
       final presentation = resolveExamWordPresentation(
         normalized: token.normalized,
         mode: widget.mode,
-        currentArticleMarks: widget.currentMeanings.keys.toSet(),
+        currentArticleMarks: widget.currentMarks.keys.toSet(),
         priorArticleMarks: widget.priorWords,
+        currentMarkKinds: widget.currentMarks,
+        priorMarkKinds: widget.priorMarks,
       );
       final scope = '${widget.metadata['scope'] ?? 'passage'}';
       final persistedStart = widget.offsetBase + displayStart;
@@ -1873,30 +3594,81 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
             annotation.endOffset > persistedStart,
       );
       final highlight = rangeMarked
-          ? ExamWordHighlight.currentArticle
+          ? ExamWordHighlight.familiar
           : presentation.highlight;
-      final backgroundColor = switch (highlight) {
-        ExamWordHighlight.currentArticle => const Color(0xFFFFE082),
-        ExamWordHighlight.priorArticle => const Color(0xFFE1BEE7),
-        ExamWordHighlight.none => null,
-      };
-      spans.add(
-        TextSpan(
-          text: widget.text.substring(displayStart, displayEnd),
-          recognizer: _recognizers[index],
-          style: TextStyle(
-            color: widget.emphasisWords.contains(token.normalized)
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.onSurface,
-            backgroundColor: backgroundColor,
-            fontWeight: widget.emphasisWords.contains(token.normalized)
-                ? FontWeight.w700
-                : null,
+      final foregroundColor = widget.emphasisWords.contains(token.normalized)
+          ? Theme.of(context).colorScheme.error
+          : Theme.of(context).colorScheme.onSurface;
+      final fontWeight = widget.emphasisWords.contains(token.normalized)
+          ? FontWeight.w700
+          : null;
+      final tokenText = widget.text.substring(displayStart, displayEnd);
+      if (highlight == ExamWordHighlight.mixed) {
+        final split = (tokenText.length / 2).ceil();
+        spans
+          ..add(
+            TextSpan(
+              text: tokenText.substring(0, split),
+              recognizer: _recognizers[index],
+              style: TextStyle(
+                color: foregroundColor,
+                backgroundColor: examPriorHighlightColor(
+                  presentation.priorMarkLevel ?? 'unknown',
+                ),
+                fontWeight: fontWeight,
+              ),
+            ),
+          )
+          ..add(
+            TextSpan(
+              text: tokenText.substring(split),
+              recognizer: _recognizers[index],
+              style: TextStyle(
+                color: foregroundColor,
+                backgroundColor: examCurrentHighlightColor(
+                  presentation.currentMarkLevel ?? 'unknown',
+                ),
+                fontWeight: fontWeight,
+              ),
+            ),
+          );
+      } else {
+        final backgroundColor = switch (highlight) {
+          ExamWordHighlight.fuzzy => examCurrentHighlightColor('fuzzy'),
+          ExamWordHighlight.familiar => examCurrentHighlightColor('familiar'),
+          ExamWordHighlight.unknown => examCurrentHighlightColor('unknown'),
+          ExamWordHighlight.priorArticle => examPriorHighlightColor(
+            presentation.priorMarkLevel ?? 'unknown',
           ),
-        ),
-      );
+          ExamWordHighlight.none || ExamWordHighlight.mixed => null,
+        };
+        spans.add(
+          TextSpan(
+            text: tokenText,
+            recognizer: _recognizers[index],
+            style: TextStyle(
+              color: foregroundColor,
+              backgroundColor: backgroundColor,
+              fontWeight: fontWeight,
+            ),
+          ),
+        );
+      }
       if (presentation.showMeaning && widget.showInlineMeanings) {
-        final meaning = widget.currentMeanings[token.normalized] ?? '';
+        final family = normalizeExamWordFamily(token.normalized);
+        final rawMeaning = resolveExamMarkedMeaning(
+          widget.currentMeanings,
+          token.normalized,
+        );
+        final meaning = pickExamContextMeaning(
+          [rawMeaning],
+          normalized: family,
+          context: widget.text.substring(
+            (displayStart - 80).clamp(0, widget.text.length),
+            (displayEnd + 80).clamp(0, widget.text.length),
+          ),
+          translation: widget.contextTranslation,
+        );
         if (meaning.isNotEmpty) {
           spans.add(
             TextSpan(
@@ -1912,12 +3684,19 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
       cursor = displayEnd;
     }
     if (cursor < widget.text.length) {
-      _appendPlainSpans(spans, widget.text.substring(cursor));
+      final trailing = widget.text.substring(cursor);
+      if (_recognizers.isNotEmpty) {
+        _appendTapSeparatorSpans(spans, trailing, _recognizers.last);
+      } else {
+        _appendPlainSpans(spans, trailing);
+      }
     }
     final scope = '${widget.metadata['scope'] ?? 'passage'}';
     final phraseAnnotations = widget.annotations
         .where((annotation) {
-          final normalized = annotation.selectedText.trim().toLowerCase();
+          final normalized = normalizeExamPhraseSelection(
+            annotation.selectedText,
+          );
           return widget.mode == ExamPracticeMode.analysis &&
               widget.showInlineMeanings &&
               annotation.scope == scope &&
@@ -1925,15 +3704,43 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
               (widget.currentMeanings[normalized] ?? '').isNotEmpty;
         })
         .toList(growable: false);
+    final rootSpan = TextSpan(style: widget.style, children: spans);
+    final tapRanges = <_ExamRenderedTapRange>[];
+    var renderedOffset = 0;
+    for (final span in spans.whereType<TextSpan>()) {
+      final textLength = span.text?.length ?? 0;
+      final recognizerIndex = span.recognizer == null
+          ? -1
+          : _recognizers.indexWhere(
+              (recognizer) => identical(recognizer, span.recognizer),
+            );
+      if (recognizerIndex >= 0 && textLength > 0) {
+        tapRanges.add(
+          _ExamRenderedTapRange(
+            start: renderedOffset,
+            end: renderedOffset + textLength,
+            token: _tokens[recognizerIndex],
+          ),
+        );
+      }
+      renderedOffset += textLength;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SelectableText.rich(
-          TextSpan(style: widget.style, children: spans),
-          onSelectionChanged: (selection, _) {
-            if (selection.isCollapsed) return;
-            setState(() => _selection = selection);
-          },
+        Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: _rememberPointerDown,
+          onPointerMove: _trackPointerMove,
+          onPointerCancel: _cancelPointerTap,
+          onPointerUp: (event) => _handlePointerUp(event, tapRanges),
+          child: SelectableText.rich(
+            key: _selectableTextKey,
+            rootSpan,
+            contextMenuBuilder: _buildSelectionMenu,
+            onSelectionChanged: (selection, _) =>
+                _handleSelectionChanged(selection),
+          ),
         ),
         for (final annotation in phraseAnnotations)
           Padding(
@@ -1950,7 +3757,7 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
                   ),
                   TextSpan(
                     text:
-                        '（${widget.currentMeanings[annotation.selectedText.trim().toLowerCase()]}）',
+                        '（${widget.currentMeanings[normalizeExamPhraseSelection(annotation.selectedText)]}）',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.tertiary,
                     ),
@@ -1958,12 +3765,6 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
                 ],
               ),
             ),
-          ),
-        if (_selection != null && !_selection!.isCollapsed)
-          TextButton.icon(
-            onPressed: _saveSelection,
-            icon: const Icon(Icons.border_color_outlined, size: 17),
-            label: const Text('黄色标记 / 笔记'),
           ),
       ],
     );
@@ -1995,6 +3796,20 @@ class _ExamInteractiveTextState extends State<ExamInteractiveText> {
     if (cursor < text.length) {
       spans.add(TextSpan(text: text.substring(cursor)));
     }
+  }
+
+  void _appendTapSeparatorSpans(
+    List<InlineSpan> spans,
+    String text,
+    GestureRecognizer recognizer,
+  ) {
+    if (text.contains('\n') ||
+        text.contains('\r') ||
+        (widget.compactClozeMarkers && RegExp(r'\(\d{1,2}\)').hasMatch(text))) {
+      _appendPlainSpans(spans, text);
+      return;
+    }
+    spans.add(TextSpan(text: text, recognizer: recognizer));
   }
 }
 

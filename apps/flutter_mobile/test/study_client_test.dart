@@ -1,8 +1,35 @@
+import 'dart:convert';
+
 import 'package:flutter_mobile/sdk/study_client.dart';
 import 'package:flutter_mobile/bridge/bridge.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('start response preserves its native session progress', () {
+    final response = StartSessionResponse.fromJson({
+      'session': {
+        'sessionId': 'hf-restart',
+        'mode': 'highFrequency',
+        'totalWords': 100,
+        'startedAt': '2026-08-23T00:00:00Z',
+      },
+      'currentQuestion': {
+        'questionId': 'q-hf-restart',
+        'questionType': 'enToCnInput',
+        'entrySourceId': 'obtain',
+        'word': 'obtain',
+        'prompt': 'obtain',
+        'acceptedMeanings': ['获得'],
+        'questionIndex': 0,
+        'totalQuestions': 100,
+      },
+      'progress': {'current': 1, 'total': 100},
+    });
+
+    expect(response.progress.current, 1);
+    expect(response.progress.total, 100);
+  });
+
   test('submit answer response tolerates nullable final result fields', () {
     final response = SubmitAnswerResponse.fromJson({
       'result': {
@@ -33,6 +60,7 @@ void main() {
       },
       'nextAction': null,
       'progress': {'current': '1', 'total': null},
+      'masteredCount': '27',
       'hintPrompt': {
         'entryId': '42',
         'word': null,
@@ -55,6 +83,7 @@ void main() {
     expect(response.progress.total, 0);
     expect(response.hintPrompt?.entryId, 42);
     expect(response.hintPrompt?.word, '');
+    expect(response.masteredCount, 27);
   });
 
   test('submit answer response ignores incomplete currentQuestion objects', () {
@@ -121,6 +150,83 @@ void main() {
     expect(question.choices?[2]['label'], 'C');
     expect(question.choices?[2]['value'], 'C');
     expect(question.choices?[2]['text'], 'food shortage');
+  });
+
+  test('study question decode preserves cumulative error count', () {
+    final question = StudyQuestion.fromJson({
+      'questionId': 'q-error-count',
+      'questionType': 'enToCnInput',
+      'entrySourceId': 'available',
+      'word': 'available',
+      'prompt': 'available',
+      'acceptedMeanings': ['可用的'],
+      'questionIndex': 0,
+      'totalQuestions': 1,
+      'errorCount': 7,
+    });
+
+    expect(question.errorCount, 7);
+  });
+
+  test('study question decodes the native entry ID for saved hint edits', () {
+    final question = StudyQuestion.fromJson({
+      'questionId': 'q-entry-id',
+      'questionType': 'enToCnInput',
+      'entrySourceId': 'concept',
+      'entryId': 42,
+      'word': 'concept',
+      'prompt': 'concept',
+      'acceptedMeanings': ['概念'],
+      'questionIndex': 0,
+      'totalQuestions': 1,
+    });
+
+    expect(question.entryId, 42);
+  });
+
+  test('study question decodes grouped high-frequency synonyms', () {
+    final question = StudyQuestion.fromJson({
+      'questionId': 'q-synonyms',
+      'questionType': 'enToCnInput',
+      'entrySourceId': 'assist',
+      'word': 'assist',
+      'prompt': 'assist',
+      'acceptedMeanings': ['帮助'],
+      'questionIndex': 0,
+      'totalQuestions': 1,
+      'synonymGroups': [
+        {
+          'meaning': '帮助',
+          'words': ['aid', 'help'],
+        },
+        {
+          'meaning': '协助',
+          'words': ['support'],
+        },
+      ],
+    });
+
+    expect(question.synonymGroups.first.meaning, '帮助');
+    expect(question.synonymGroups.first.words, ['aid', 'help']);
+    expect(question.synonymGroups.last.words, ['support']);
+  });
+
+  test('submit answer sends whether the current hint was used', () async {
+    final bridge = _SubmitRecordingBridge();
+    final client = StudyClient(bridge, const BridgeCodec());
+
+    await client.submitAnswer(
+      questionId: 'q-hinted',
+      response: '释义',
+      responseTimeMs: 1200,
+      hintUsed: true,
+      studyMode: 'highFrequency',
+    );
+
+    expect(bridge.method, 'submitStudyAnswer');
+    final request = jsonDecode(bridge.argument!) as Map<String, dynamic>;
+    expect(request['hintUsed'], isTrue);
+    expect(request['studyMode'], 'highFrequency');
   });
 
   test('study question decode filters empty choice text distractors', () {
@@ -225,4 +331,30 @@ void main() {
       expect(question.acceptedMeanings, ['ub']);
     },
   );
+}
+
+class _SubmitRecordingBridge extends RustBridge {
+  String? method;
+  String? argument;
+
+  @override
+  Future<String> call(String method, [String? argument]) async {
+    this.method = method;
+    this.argument = argument;
+    return jsonEncode({
+      'result': {
+        'questionId': 'q-hinted',
+        'entrySourceId': 'available',
+        'questionType': 'enToCnInput',
+        'userResponse': '释义',
+        'correctAnswer': '释义',
+        'outcome': 'correct',
+        'responseTimeMs': 1200,
+        'answeredAt': '2026-08-20T00:00:00Z',
+      },
+      'isComplete': false,
+      'currentQuestion': null,
+      'progress': {'current': 1, 'total': 2},
+    });
+  }
 }

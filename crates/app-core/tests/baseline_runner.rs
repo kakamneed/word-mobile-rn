@@ -1522,8 +1522,10 @@ fn phase6_fixture_contracts_are_registered_for_future_semantic_execution() {
             .unwrap_or_else(|| panic!("manifest {array_name} must be an array"));
         for fixture in fixtures {
             let id = fixture["id"].as_str().expect("fixture id");
-            let request_path = fixture_root.join(fixture["request"].as_str().expect("request path"));
-            let expected_path = fixture_root.join(fixture["expected"].as_str().expect("expected path"));
+            let request_path =
+                fixture_root.join(fixture["request"].as_str().expect("request path"));
+            let expected_path =
+                fixture_root.join(fixture["expected"].as_str().expect("expected path"));
             let request: Value = serde_json::from_str(
                 &fs::read_to_string(request_path).expect("read registered fixture request"),
             )

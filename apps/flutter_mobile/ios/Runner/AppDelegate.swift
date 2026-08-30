@@ -210,6 +210,20 @@ import UniformTypeIdentifiers
       request.withCString { pointer in
         handleString(result: result) { word_mobile_ios_analyze_exam_question_vocabulary(pointer) }
       }
+    case "analyzeExamSectionVocabulary":
+      guard let request = call.arguments as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "analyzeExamSectionVocabulary requires JSON string", details: nil))
+        return
+      }
+      request.withCString { pointer in
+        handleString(result: result) { word_mobile_ios_analyze_exam_section_vocabulary(pointer) }
+      }
+    case "saveExamAnalysisTask":
+      handleJsonStringCall(call: call, result: result, name: "saveExamAnalysisTask", action: word_mobile_ios_save_exam_analysis_task)
+    case "getExamAnalysisTasks":
+      handleString(result: result) { word_mobile_ios_get_exam_analysis_tasks() }
+    case "markExamAnalysisTasksRead":
+      handleString(result: result) { word_mobile_ios_mark_exam_analysis_tasks_read() }
     case "saveExamAttempt":
       handleJsonStringCall(call: call, result: result, name: "saveExamAttempt", action: word_mobile_ios_save_exam_attempt)
     case "getExamAttempt":

@@ -14,6 +14,7 @@ import '../widgets/crocodile_frame_animation.dart';
 import 'ai_screen.dart';
 import 'auth_screen.dart';
 import 'exam_practice_screen.dart';
+import 'learning_content_mode_selector.dart';
 import 'plan_screen.dart';
 import 'reports_screen.dart';
 import 'shell_page_data_cache.dart';
@@ -35,6 +36,8 @@ class TodayShellScreen extends StatefulWidget {
     this.onOpenWrongWords,
     this.onOpenAi,
     this.onOpenAccount,
+    this.learningContent = LearningContentMode.wordStudy,
+    this.onLearningContentChanged,
   });
 
   final AppState appState;
@@ -48,6 +51,8 @@ class TodayShellScreen extends StatefulWidget {
   final Future<void> Function({bool generateOnOpen, bool showPassageFirst})?
   onOpenAi;
   final Future<void> Function()? onOpenAccount;
+  final LearningContentMode learningContent;
+  final ValueChanged<LearningContentMode>? onLearningContentChanged;
 
   @override
   State<TodayShellScreen> createState() => _TodayShellScreenState();
@@ -62,7 +67,6 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
   bool _secondaryLoading = false;
   bool _aiGenerating = false;
   String? _aiMessage;
-  TodayLearningContent _learningContent = TodayLearningContent.words;
 
   @override
   void initState() {
@@ -354,7 +358,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     }
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ReportsScreen(sdk: widget.appState.sdk),
+        builder: (_) => ReportsScreen(
+          sdk: widget.appState.sdk,
+          content: widget.learningContent,
+        ),
       ),
     );
   }
@@ -367,7 +374,10 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
     }
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => WrongWordsScreen(sdk: widget.appState.sdk),
+        builder: (_) => WrongWordsScreen(
+          sdk: widget.appState.sdk,
+          content: widget.learningContent,
+        ),
       ),
     );
   }
@@ -445,9 +455,16 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
             const SizedBox(width: 12),
             Flexible(
               child: TodayLearningModeSelector(
-                selected: _learningContent,
+                selected:
+                    widget.learningContent == LearningContentMode.examPractice
+                    ? TodayLearningContent.practice
+                    : TodayLearningContent.words,
                 onChanged: (value) {
-                  setState(() => _learningContent = value);
+                  widget.onLearningContentChanged?.call(
+                    value == TodayLearningContent.practice
+                        ? LearningContentMode.examPractice
+                        : LearningContentMode.wordStudy,
+                  );
                 },
               ),
             ),
@@ -466,7 +483,7 @@ class _TodayShellScreenState extends State<TodayShellScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_learningContent == TodayLearningContent.practice) {
+    if (widget.learningContent == LearningContentMode.examPractice) {
       return ExamPracticeHome(sdk: widget.appState.sdk);
     }
     final cachedBundle = _cachedBundle;
@@ -760,6 +777,10 @@ Map<String, dynamic> _snapshotOrPlanFallback(
     'wrongWordTestBaseTarget': activePlan.wrongWordTestPerDay,
     'wrongWordTestCarryoverTarget': 0,
     'wrongWordTestCompleted': 0,
+    'highFrequencyTarget': activePlan.highFrequencyPerDay,
+    'highFrequencyBaseTarget': activePlan.highFrequencyPerDay,
+    'highFrequencyCarryoverTarget': 0,
+    'highFrequencyCompleted': 0,
     'rootAffixTarget': activePlan.rootAffixPerDay ?? 0,
     'rootAffixBaseTarget': activePlan.rootAffixPerDay ?? 0,
     'rootAffixCarryoverTarget': 0,
@@ -853,6 +874,19 @@ _PrimaryAction _buildPrimaryAction(
     );
   }
 
+  final highFrequencyCompleted = _intValue(snapshot, 'highFrequencyCompleted');
+  final highFrequencyTarget = _intValue(snapshot, 'highFrequencyTarget');
+  if (highFrequencyCompleted < highFrequencyTarget) {
+    return _PrimaryAction(
+      label: '练习高频词',
+      count: highFrequencyTarget - highFrequencyCompleted,
+      mode: 'highFrequency',
+      isDone: false,
+      buttonLabel: '进入高频词',
+      description: '按真题出现频次巩固最常见的考研词汇。',
+    );
+  }
+
   final rootAffixCompleted = _intValue(snapshot, 'rootAffixCompleted');
   final rootAffixTarget = _intValue(snapshot, 'rootAffixTarget');
   if (rootAffixCompleted < rootAffixTarget) {
@@ -889,17 +923,28 @@ int _calculateCompletion(
     activePlan,
   );
   final rootAffixTarget = _displayTarget(snapshot, 'rootAffix', activePlan);
+  final highFrequencyTarget = _displayTarget(
+    snapshot,
+    'highFrequency',
+    activePlan,
+  );
   final total =
       newWordsTarget +
       reviewWordsTarget +
       mixedTestTarget +
       wrongWordTarget +
+      highFrequencyTarget +
       rootAffixTarget;
   final completed =
       _cappedCompleted(snapshot, 'newWordsCompleted', newWordsTarget) +
       _cappedCompleted(snapshot, 'reviewWordsCompleted', reviewWordsTarget) +
       _cappedCompleted(snapshot, 'mixedTestCompleted', mixedTestTarget) +
       _cappedCompleted(snapshot, 'wrongWordTestCompleted', wrongWordTarget) +
+      _cappedCompleted(
+        snapshot,
+        'highFrequencyCompleted',
+        highFrequencyTarget,
+      ) +
       _cappedCompleted(snapshot, 'rootAffixCompleted', rootAffixTarget);
   if (total <= 0) return 0;
   return ((completed / total) * 100).round().clamp(0, 100);
@@ -973,6 +1018,19 @@ List<_TaskItemViewModel> _buildTaskItems(
           mode: 'wrongWordReinforcement',
         ),
         _TaskItemViewModel(
+          label: '高频词',
+          helper: '按真题频次巩固核心词',
+          target: _displayTarget(snapshot, 'highFrequency', activePlan),
+          completed: _cappedCompleted(
+            snapshot,
+            'highFrequencyCompleted',
+            _displayTarget(snapshot, 'highFrequency', activePlan),
+          ),
+          plannedTarget: _planTarget('highFrequency', activePlan),
+          color: const Color(0xFFB06A21),
+          mode: 'highFrequency',
+        ),
+        _TaskItemViewModel(
           label: '词根词缀',
           helper: '补充结构化记忆',
           target: _displayTarget(snapshot, 'rootAffix', activePlan),
@@ -1000,6 +1058,7 @@ int _displayTarget(
     'review' => _intValue(snapshot, 'reviewWordsTarget'),
     'mixedTest' => _intValue(snapshot, 'mixedTestTarget'),
     'wrongWordReinforcement' => _intValue(snapshot, 'wrongWordTestTarget'),
+    'highFrequency' => _intValue(snapshot, 'highFrequencyTarget'),
     'rootAffix' => _intValue(snapshot, 'rootAffixTarget'),
     _ => 0,
   };
@@ -1008,6 +1067,7 @@ int _displayTarget(
     'review' => snapshot.containsKey('reviewWordsTarget'),
     'mixedTest' => snapshot.containsKey('mixedTestTarget'),
     'wrongWordReinforcement' => snapshot.containsKey('wrongWordTestTarget'),
+    'highFrequency' => snapshot.containsKey('highFrequencyTarget'),
     'rootAffix' => snapshot.containsKey('rootAffixTarget'),
     _ => false,
   };
@@ -1019,6 +1079,7 @@ int _displayTarget(
     'review' => activePlan.reviewWordsPerDay * 4,
     'mixedTest' => activePlan.mixedTestPerDay,
     'wrongWordReinforcement' => activePlan.wrongWordTestPerDay,
+    'highFrequency' => activePlan.highFrequencyPerDay,
     'rootAffix' => activePlan.rootAffixPerDay ?? 0,
     _ => 0,
   };
@@ -1031,6 +1092,7 @@ int _planTarget(String mode, PlanSummary? activePlan) {
     'review' => activePlan.reviewWordsPerDay * 4,
     'mixedTest' => activePlan.mixedTestPerDay,
     'wrongWordReinforcement' => activePlan.wrongWordTestPerDay,
+    'highFrequency' => activePlan.highFrequencyPerDay,
     'rootAffix' => activePlan.rootAffixPerDay ?? 0,
     _ => 0,
   };

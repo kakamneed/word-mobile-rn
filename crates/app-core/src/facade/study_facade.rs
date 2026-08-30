@@ -35,6 +35,7 @@ pub enum StudyError {
 }
 
 /// Active session state held in memory.
+#[derive(Clone)]
 struct ActiveSession {
     session: StudySession,
     questions: Vec<StudyQuestion>,
@@ -45,6 +46,7 @@ struct ActiveSession {
     entry_source_ids: Vec<String>,
     entry_payloads: Vec<StartSessionEntryPayload>,
     distractor_payloads: Vec<StartSessionEntryPayload>,
+    question_plan_mutated: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,6 +86,8 @@ struct ActiveSessionSnapshotV2 {
     distractor_payloads: Vec<StartSessionEntryPayload>,
     #[serde(default)]
     question_plan_signature: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    questions: Vec<StudyQuestion>,
     current_index: usize,
     results: Vec<StudyResult>,
     #[serde(default)]
@@ -98,9 +102,11 @@ enum LoadedActiveSessionSnapshot {
 // Global in-memory session storage
 static ACTIVE_SESSIONS: Lazy<Mutex<HashMap<String, ActiveSession>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static RECENT_COMPLETED_SESSIONS: Lazy<Mutex<HashMap<String, ActiveSession>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 static STUDY_DIAGNOSTICS: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
-const QUESTION_ENGINE_VERSION: i64 = 9;
+const QUESTION_ENGINE_VERSION: i64 = 10;
 const ACTIVE_SNAPSHOT_SCHEMA_VERSION_V1: i64 = 1;
 const ACTIVE_SNAPSHOT_SCHEMA_VERSION_V2: i64 = 2;
 const ANSWERED_FEED_WINDOW: usize = 20;
@@ -120,6 +126,10 @@ fn default_question_engine_version() -> i64 {
 pub fn clear_all_active_sessions() {
     let mut guard = ACTIVE_SESSIONS.lock().unwrap_or_else(|e| e.into_inner());
     guard.clear();
+    RECENT_COMPLETED_SESSIONS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
     STUDY_DIAGNOSTICS
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -146,6 +156,13 @@ fn record_study_diagnostic(message: impl Into<String>) {
 /// Lock ACTIVE_SESSIONS, recovering from mutex poison.
 fn lock_sessions() -> std::sync::MutexGuard<'static, HashMap<String, ActiveSession>> {
     ACTIVE_SESSIONS.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn lock_recent_completed_sessions() -> std::sync::MutexGuard<'static, HashMap<String, ActiveSession>>
+{
+    RECENT_COMPLETED_SESSIONS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 /// Start a new study session.
@@ -378,6 +395,7 @@ pub fn start_study_session(
         entry_source_ids: active_entry_source_ids,
         entry_payloads: usable_entry_payloads.clone(),
         distractor_payloads: usable_distractor_payloads.clone(),
+        question_plan_mutated: false,
     };
     persist_active_session(conn, &active)?;
 
@@ -590,10 +608,24 @@ fn downgrade_choice_question_to_input(mut question: StudyQuestion) -> StudyQuest
         "downgraded incomplete choice question to input: {} ({:?})",
         question.question_id, question.question_type
     ));
+    let was_example_question = matches!(
+        question.question_type,
+        word_storage_core::models::QuestionType::ExampleToCnChoice
+            | word_storage_core::models::QuestionType::ExampleToCnChoiceNoTranslation
+    );
     question.question_type = word_storage_core::models::QuestionType::EnToCnInput;
-    question.prompt = question.word.clone();
-    question.example_sentence = None;
-    question.example_translation = None;
+    question.prompt = if was_example_question {
+        question
+            .example_sentence
+            .clone()
+            .unwrap_or_else(|| question.word.clone())
+    } else {
+        question.word.clone()
+    };
+    if !was_example_question {
+        question.example_sentence = None;
+        question.example_translation = None;
+    }
     question.choices = None;
     question.correct_choice_label = None;
     question
@@ -677,23 +709,50 @@ pub fn accept_disputed_meaning(
     conn: &Connection,
     request: AcceptDisputedMeaningRequest,
 ) -> Result<AcceptDisputedMeaningResponse, StudyError> {
-    let mut guard = lock_sessions();
-    let active = guard
-        .values_mut()
-        .find(|session| session.question_map.contains_key(&request.question_id))
-        .ok_or(StudyError::NoActiveSession)?;
-    let question_index = active
-        .question_map
-        .get(&request.question_id)
-        .copied()
-        .ok_or(StudyError::NoActiveSession)?;
-    let question = active.questions[question_index].clone();
     let accepted_meaning = request.submitted_answer.trim().to_string();
     if accepted_meaning.is_empty() {
         return Err(StudyError::InvalidMode(
             "accepted meaning cannot be empty".to_string(),
         ));
     }
+
+    {
+        let mut guard = lock_sessions();
+        if let Some(active) = guard
+            .values_mut()
+            .find(|session| session.question_map.contains_key(&request.question_id))
+        {
+            return accept_disputed_meaning_for_session(
+                conn,
+                active,
+                request,
+                accepted_meaning,
+                false,
+            );
+        }
+    }
+
+    let mut completed_guard = lock_recent_completed_sessions();
+    let completed = completed_guard
+        .values_mut()
+        .find(|session| session.question_map.contains_key(&request.question_id))
+        .ok_or(StudyError::NoActiveSession)?;
+    accept_disputed_meaning_for_session(conn, completed, request, accepted_meaning, true)
+}
+
+fn accept_disputed_meaning_for_session(
+    conn: &Connection,
+    active: &mut ActiveSession,
+    request: AcceptDisputedMeaningRequest,
+    accepted_meaning: String,
+    session_completed: bool,
+) -> Result<AcceptDisputedMeaningResponse, StudyError> {
+    let question_index = active
+        .question_map
+        .get(&request.question_id)
+        .copied()
+        .ok_or(StudyError::NoActiveSession)?;
+    let question = active.questions[question_index].clone();
     let answered_at = chrono::Utc::now().to_rfc3339();
     let result = StudyResult {
         question_id: request.question_id,
@@ -705,6 +764,7 @@ pub fn accept_disputed_meaning(
         outcome: AnswerOutcome::FuzzyCorrect,
         response_time_ms: 0,
         answered_at,
+        hint_used: false,
     };
 
     if let Some(existing) = active
@@ -716,11 +776,45 @@ pub fn accept_disputed_meaning(
     } else {
         active.results.push(result.clone());
     }
-    persist_active_session(conn, active)?;
-    if let Err(error) =
-        persistence::study_repo::save_session_progress(conn, &active.session, &active.results)
-    {
-        eprintln!("study progress persistence failed after disputed meaning accept: {error}");
+    let question_type = serde_json::to_string(&question.question_type)
+        .unwrap_or_default()
+        .trim_matches('"')
+        .to_string();
+    if let Err(error) = persistence::user_accepted_meaning_repo::save_user_dispute(
+        conn,
+        &question.entry_source_id,
+        &result.question_id,
+        &question_type,
+        &accepted_meaning,
+    ) {
+        eprintln!("accepted meaning persistence failed but dispute result was accepted: {error}");
+    }
+
+    if session_completed {
+        let completed_at = chrono::Utc::now().to_rfc3339();
+        let summary = SessionSummaryService::build_summary_with_total(
+            &active.session,
+            &active.results,
+            active.questions.len() as u32,
+            &completed_at,
+        );
+        let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
+        if let Err(error) = persistence::study_repo::save_completed_session(
+            conn,
+            &active.session,
+            &summary,
+            &active.results,
+            &next_action,
+        ) {
+            eprintln!("study persistence failed after completed disputed meaning accept: {error}");
+        }
+    } else {
+        persist_active_session(conn, active)?;
+        if let Err(error) =
+            persistence::study_repo::save_session_progress(conn, &active.session, &active.results)
+        {
+            eprintln!("study progress persistence failed after disputed meaning accept: {error}");
+        }
     }
 
     Ok(AcceptDisputedMeaningResponse {
@@ -738,6 +832,14 @@ pub fn accept_disputed_meaning(
 pub fn submit_study_answer(
     conn: &Connection,
     request: SubmitAnswerRequest,
+) -> Result<SubmitAnswerResponse, StudyError> {
+    submit_study_answer_with_hint_usage(conn, request, false)
+}
+
+pub fn submit_study_answer_with_hint_usage(
+    conn: &Connection,
+    request: SubmitAnswerRequest,
+    hint_used: bool,
 ) -> Result<SubmitAnswerResponse, StudyError> {
     let mut guard = lock_sessions();
     let active = guard
@@ -774,7 +876,26 @@ pub fn submit_study_answer(
     };
 
     // Evaluate
-    let result = AnswerEvaluator::evaluate(current_q, &answer, &answered_at);
+    let mut result = AnswerEvaluator::evaluate(current_q, &answer, &answered_at);
+    result.hint_used = hint_used;
+    if active.session.mode == word_storage_core::models::SessionMode::HighFrequency
+        && result.outcome.is_positive()
+        && !result.hint_used
+        && has_required_prior_high_frequency_correct_answers(conn, &result.entry_source_id)?
+    {
+        let mastery_reason = if high_frequency_entry_has_hint(conn, &result.entry_source_id)? {
+            "high_frequency_five_correct_with_hint"
+        } else {
+            "high_frequency_three_correct"
+        };
+        if let Err(error) = persistence::mastered_entry_repo::mark_mastered_by_source_id(
+            conn,
+            &result.entry_source_id,
+            mastery_reason,
+        ) {
+            eprintln!("failed to auto-master high-frequency entry: {error}");
+        }
+    }
     active.results.push(result.clone());
 
     // Advance
@@ -831,6 +952,7 @@ pub fn submit_study_answer(
             }
         }
         let mode_key = mode_storage_key(&active.session.mode);
+        lock_recent_completed_sessions().insert(mode_key.clone(), active.clone());
         clear_persisted_session(conn, &active.session.mode)?;
         guard.remove(&mode_key);
     } else {
@@ -843,6 +965,75 @@ pub fn submit_study_answer(
     }
 
     Ok(response)
+}
+
+fn has_required_prior_high_frequency_correct_answers(
+    conn: &Connection,
+    entry_source_id: &str,
+) -> Result<bool, StudyError> {
+    let entry_id = conn
+        .query_row(
+            "SELECT id FROM entries WHERE source_entry_key = ?1 ORDER BY id ASC LIMIT 1",
+            [entry_source_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| {
+            StudyError::Storage(format!("Failed to resolve high-frequency entry: {error}"))
+        })?;
+    let required_prior_answers = if persistence::word_hint_repo::get_hint(conn, entry_id)
+        .map_err(|error| StudyError::Storage(error.to_string()))?
+        .is_some()
+    {
+        4
+    } else {
+        2
+    };
+    let mut statement = conn
+        .prepare(
+            "SELECT r.outcome
+             FROM study_results r
+             INNER JOIN study_sessions s ON s.session_id = r.session_id
+             WHERE r.entry_id = ?1
+               AND s.mode IN ('highFrequency', '\"highFrequency\"')
+               AND COALESCE(r.hint_used, 0) = 0
+             ORDER BY r.answered_at DESC, r.id DESC
+             LIMIT ?2",
+        )
+        .map_err(|error| {
+            StudyError::Storage(format!("Failed to prepare answer streak query: {error}"))
+        })?;
+    let outcomes = statement
+        .query_map(rusqlite::params![entry_id, required_prior_answers], |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(|error| StudyError::Storage(format!("Failed to query answer streak: {error}")))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| StudyError::Storage(format!("Failed to read answer streak: {error}")))?;
+    Ok(outcomes.len() == required_prior_answers as usize
+        && outcomes.iter().all(|outcome| {
+            matches!(
+                outcome.trim_matches('"'),
+                "correct" | "fuzzyCorrect" | "fuzzy_correct"
+            )
+        }))
+}
+
+fn high_frequency_entry_has_hint(
+    conn: &Connection,
+    entry_source_id: &str,
+) -> Result<bool, StudyError> {
+    let entry_id = conn
+        .query_row(
+            "SELECT id FROM entries WHERE source_entry_key = ?1 ORDER BY id ASC LIMIT 1",
+            [entry_source_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| {
+            StudyError::Storage(format!("Failed to resolve high-frequency entry: {error}"))
+        })?;
+    persistence::word_hint_repo::get_hint(conn, entry_id)
+        .map(|hint| hint.is_some())
+        .map_err(|error| StudyError::Storage(error.to_string()))
 }
 
 fn build_idempotent_submit_response(
@@ -872,6 +1063,14 @@ pub fn mark_study_entry_mastered(
     conn: &Connection,
     request: MarkStudyEntryMasteredRequest,
 ) -> Result<MarkStudyEntryMasteredResponse, StudyError> {
+    mark_study_entry_mastered_with_replacements(conn, request, Vec::new())
+}
+
+pub fn mark_study_entry_mastered_with_replacements(
+    conn: &Connection,
+    request: MarkStudyEntryMasteredRequest,
+    replacement_entry_payloads: Vec<StartSessionEntryPayload>,
+) -> Result<MarkStudyEntryMasteredResponse, StudyError> {
     let entry_id = persistence::mastered_entry_repo::mark_mastered_by_source_id(
         conn,
         &request.entry_source_id,
@@ -883,16 +1082,47 @@ pub fn mark_study_entry_mastered(
     let mode_key = guard
         .iter()
         .find(|(_, active)| {
-            active.questions.iter().any(|question| {
-                question.entry_source_id == request.entry_source_id
-                    && !active
-                        .results
-                        .iter()
-                        .any(|result| result.question_id == question.question_id)
-            })
+            active
+                .questions
+                .iter()
+                .any(|question| question.entry_source_id == request.entry_source_id)
         })
-        .map(|(mode, _)| mode.clone())
-        .ok_or(StudyError::NoActiveSession)?;
+        .map(|(mode, _)| mode.clone());
+    let Some(mode_key) = mode_key else {
+        drop(guard);
+        let completed_guard = lock_recent_completed_sessions();
+        let active = completed_guard
+            .values()
+            .find(|active| {
+                active
+                    .questions
+                    .iter()
+                    .any(|question| question.entry_source_id == request.entry_source_id)
+            })
+            .ok_or(StudyError::NoActiveSession)?;
+        let completed_at = chrono::Utc::now().to_rfc3339();
+        let summary = SessionSummaryService::build_summary_with_total(
+            &active.session,
+            &active.results,
+            active.questions.len() as u32,
+            &completed_at,
+        );
+        let next_action = SessionSummaryService::next_action(&summary, &active.session.mode);
+        return Ok(MarkStudyEntryMasteredResponse {
+            entry_source_id: request.entry_source_id,
+            entry_id,
+            pruned_question_count: 0,
+            is_complete: true,
+            current_question: None,
+            summary: Some(summary),
+            next_action: Some(next_action),
+            progress: SessionProgress {
+                current: active.questions.len() as u32,
+                total: active.questions.len() as u32,
+            },
+            answered_questions: answered_questions(active),
+        });
+    };
     let active = guard
         .get_mut(&mode_key)
         .ok_or(StudyError::NoActiveSession)?;
@@ -901,12 +1131,73 @@ pub fn mark_study_entry_mastered(
         .iter()
         .map(|result| result.question_id.clone())
         .collect::<std::collections::HashSet<_>>();
+    let entry_was_answered = active.questions.iter().any(|question| {
+        question.entry_source_id == request.entry_source_id
+            && answered_ids.contains(&question.question_id)
+    });
     let before = active.questions.len();
     active.questions.retain(|question| {
         question.entry_source_id != request.entry_source_id
             || answered_ids.contains(&question.question_id)
     });
     let pruned_question_count = before.saturating_sub(active.questions.len()) as u32;
+    if pruned_question_count > 0 {
+        active.question_plan_mutated = true;
+    }
+    if !entry_was_answered && pruned_question_count > 0 {
+        active
+            .entry_source_ids
+            .retain(|source_id| source_id != &request.entry_source_id);
+        active
+            .entry_payloads
+            .retain(|payload| payload.source_id != request.entry_source_id);
+
+        let existing_sources = active
+            .entry_source_ids
+            .iter()
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
+        let replacements = valid_entry_payloads(&replacement_entry_payloads)
+            .into_iter()
+            .filter(|payload| {
+                payload.source_id != request.entry_source_id
+                    && !existing_sources.contains(&payload.source_id)
+            })
+            .collect::<Vec<_>>();
+        if !replacements.is_empty() {
+            let replacement_words = payloads_to_words(&replacements);
+            let mut distractor_payloads = active.entry_payloads.clone();
+            distractor_payloads.extend(active.distractor_payloads.clone());
+            distractor_payloads.extend(replacements.clone());
+            let distractors = payloads_to_words(&distractor_payloads);
+            let replacement_session_id = format!(
+                "{}_replacement_{}_{}",
+                active.session.session_id,
+                active.results.len(),
+                replacements[0].source_id
+            );
+            let mut replacement_questions = QuestionBuilder::build_session_questions(
+                &active.session.mode,
+                &replacement_words,
+                &distractors,
+                &replacement_session_id,
+                &active.question_type_weights,
+            );
+            replacement_questions = repair_study_questions(replacement_questions);
+            replacement_questions = valid_study_questions(replacement_questions);
+            active.questions.extend(replacement_questions);
+            for replacement in replacements {
+                active.entry_source_ids.push(replacement.source_id.clone());
+                active.entry_payloads.push(replacement);
+            }
+        }
+        if !active.entry_payloads.is_empty() {
+            active.session.total_words = active.entry_payloads.len() as u32;
+        } else {
+            active.session.total_words = active.entry_source_ids.len() as u32;
+        }
+    }
+    normalize_question_indexes(&mut active.questions);
     rebuild_question_map(active);
     active.current_index = active
         .questions
@@ -966,6 +1257,7 @@ pub fn mark_study_entry_mastered(
                 }
             }
         }
+        lock_recent_completed_sessions().insert(mode_key.clone(), active.clone());
         clear_persisted_session(conn, &active.session.mode)?;
         guard.remove(&mode_key);
     } else {
@@ -1330,6 +1622,7 @@ fn active_session_from_snapshot(snapshot: ActiveSessionSnapshotV1) -> ActiveSess
         entry_source_ids,
         entry_payloads: Vec::new(),
         distractor_payloads: Vec::new(),
+        question_plan_mutated: false,
     }
 }
 
@@ -1351,15 +1644,20 @@ fn active_session_from_v2_snapshot(
         return None;
     }
     let distractor_payloads = valid_entry_payloads(&snapshot.distractor_payloads);
-    let words = payloads_to_words(&entry_payloads);
-    let distractors = payloads_to_words(&distractor_payloads);
-    let mut questions = QuestionBuilder::build_session_questions(
-        &snapshot.session.mode,
-        &words,
-        &distractors,
-        &snapshot.session.session_id,
-        &snapshot.question_type_weights,
-    );
+    let question_plan_mutated = !snapshot.questions.is_empty();
+    let mut questions = if !question_plan_mutated {
+        let words = payloads_to_words(&entry_payloads);
+        let distractors = payloads_to_words(&distractor_payloads);
+        QuestionBuilder::build_session_questions(
+            &snapshot.session.mode,
+            &words,
+            &distractors,
+            &snapshot.session.session_id,
+            &snapshot.question_type_weights,
+        )
+    } else {
+        snapshot.questions
+    };
     questions = repair_study_questions(questions);
     questions = valid_study_questions(questions);
     normalize_question_indexes(&mut questions);
@@ -1382,6 +1680,7 @@ fn active_session_from_v2_snapshot(
         entry_source_ids: snapshot.entry_source_ids,
         entry_payloads,
         distractor_payloads,
+        question_plan_mutated,
     })
 }
 
@@ -1439,6 +1738,11 @@ fn active_session_snapshot_payload(active: &ActiveSession) -> serde_json::Value 
             entry_payloads: active.entry_payloads.clone(),
             distractor_payloads: active.distractor_payloads.clone(),
             question_plan_signature: question_plan_signature(active),
+            questions: if active.question_plan_mutated {
+                active.questions.clone()
+            } else {
+                Vec::new()
+            },
             current_index: active.current_index,
             results: active.results.clone(),
             question_type_weights: active.question_type_weights.clone(),
@@ -1510,16 +1814,121 @@ fn expected_question_count(
 #[cfg(test)]
 mod tests {
     use super::{
-        clear_all_active_sessions, mark_study_entry_mastered, start_study_session,
-        submit_study_answer, StudyError,
+        accept_disputed_meaning, clear_all_active_sessions,
+        has_required_prior_high_frequency_correct_answers, mark_study_entry_mastered,
+        mark_study_entry_mastered_with_replacements, start_study_session, submit_study_answer,
+        StudyError,
     };
     use rusqlite::OptionalExtension;
     use word_storage_core::models::{
-        AnswerOutcome, ChoiceOption, MarkStudyEntryMasteredRequest, QuestionType,
-        QuestionTypeWeight, SessionMode, StartSessionEntryPayload, StartSessionMeaningPayload,
-        StartSessionRequest, StudyQuestion, SubmitAnswerRequest,
+        AcceptDisputedMeaningRequest, AnswerOutcome, ChoiceOption, MarkStudyEntryMasteredRequest,
+        QuestionType, QuestionTypeWeight, SessionMode, StartSessionEntryPayload,
+        StartSessionMeaningPayload, StartSessionRequest, StudyQuestion, SubmitAnswerRequest,
     };
     use word_storage_core::persistence::study_repo;
+
+    #[test]
+    fn high_frequency_streak_requires_more_correct_answers_when_a_hint_exists() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO source_versions (id, source_commit, status) VALUES (1, 'streak-test', 'ready')",
+            [],
+        )
+        .expect("source");
+        conn.execute(
+            "INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma)
+             VALUES (1, 1, 'streak-word', 'state', 'state')",
+            [],
+        )
+        .expect("entry");
+        for (index, outcome) in ["\"correct\"", "\"fuzzyCorrect\""].into_iter().enumerate() {
+            let session_id = format!("streak-session-{index}");
+            conn.execute(
+                "INSERT INTO study_sessions (session_id, mode, total_words, started_at, completed_at)
+                 VALUES (?1, '\"highFrequency\"', 1, datetime('now'), datetime('now'))",
+                [&session_id],
+            )
+            .expect("session");
+            conn.execute(
+                "INSERT INTO study_results (session_id, question_id, entry_id, question_type,
+                 user_response, correct_answer, outcome, response_time_ms, answered_at)
+                 VALUES (?1, ?2, 1, '\"enToCnInput\"', 'x', 'x', ?3, 1, ?4)",
+                rusqlite::params![
+                    session_id,
+                    format!("q-{index}"),
+                    outcome,
+                    format!("2026-08-06T00:00:0{index}Z")
+                ],
+            )
+            .expect("result");
+        }
+        assert!(
+            has_required_prior_high_frequency_correct_answers(&conn, "streak-word")
+                .expect("positive streak")
+        );
+
+        word_storage_core::persistence::word_hint_repo::save_hint(
+            &conn,
+            1,
+            "remember this",
+            "user",
+        )
+        .expect("save hint");
+        assert!(
+            !has_required_prior_high_frequency_correct_answers(&conn, "streak-word")
+                .expect("hinted streak needs four prior answers")
+        );
+        for index in 2..4 {
+            let session_id = format!("streak-session-{index}");
+            conn.execute(
+                "INSERT INTO study_sessions (session_id, mode, total_words, started_at, completed_at)
+                 VALUES (?1, '\"highFrequency\"', 1, datetime('now'), datetime('now'))",
+                [&session_id],
+            )
+            .expect("session");
+            conn.execute(
+                "INSERT INTO study_results (session_id, question_id, entry_id, question_type,
+                 user_response, correct_answer, outcome, response_time_ms, answered_at)
+                 VALUES (?1, ?2, 1, '\"enToCnInput\"', 'x', 'x', '\"correct\"', 1, ?3)",
+                rusqlite::params![
+                    session_id,
+                    format!("q-{index}"),
+                    format!("2026-08-06T00:00:0{index}Z")
+                ],
+            )
+            .expect("result");
+        }
+        assert!(
+            has_required_prior_high_frequency_correct_answers(&conn, "streak-word")
+                .expect("four prior answers satisfy hinted streak")
+        );
+
+        conn.execute(
+            "UPDATE study_results SET hint_used = 1 WHERE question_id = 'q-3'",
+            [],
+        )
+        .expect("mark one correct answer as hinted");
+        assert!(
+            !has_required_prior_high_frequency_correct_answers(&conn, "streak-word")
+                .expect("hinted correct answer adds no mastery progress")
+        );
+        conn.execute(
+            "UPDATE study_results SET hint_used = 0 WHERE question_id = 'q-3'",
+            [],
+        )
+        .expect("restore unhinted streak");
+
+        conn.execute(
+            "UPDATE study_results SET outcome = '\"incorrect\"' WHERE question_id = 'q-1'",
+            [],
+        )
+        .expect("break streak");
+        assert!(
+            !has_required_prior_high_frequency_correct_answers(&conn, "streak-word")
+                .expect("broken streak")
+        );
+    }
 
     fn test_entry(source_id: &str, word: &str, meaning: &str) -> StartSessionEntryPayload {
         StartSessionEntryPayload {
@@ -2379,6 +2788,36 @@ mod tests {
     }
 
     #[test]
+    fn incomplete_example_choice_keeps_its_sentence_when_downgraded() {
+        let question = StudyQuestion {
+            question_id: "example_choice".to_string(),
+            question_type: QuestionType::ExampleToCnChoice,
+            entry_source_id: "survive".to_string(),
+            word: "survive".to_string(),
+            part_of_speech: Some("v".to_string()),
+            phonetic_us: None,
+            phonetic_uk: None,
+            prompt: "Only the strongest plants survive.".to_string(),
+            accepted_meanings: vec!["生存".to_string()],
+            example_sentence: Some("Only the strongest plants survive.".to_string()),
+            example_translation: None,
+            choices: Some(Vec::new()),
+            correct_choice_label: None,
+            question_index: 0,
+            total_questions: 1,
+        };
+
+        let repaired = super::repair_study_questions(vec![question]);
+
+        assert_eq!(repaired[0].question_type, QuestionType::EnToCnInput);
+        assert_eq!(repaired[0].prompt, "Only the strongest plants survive.");
+        assert_eq!(
+            repaired[0].example_sentence.as_deref(),
+            Some("Only the strongest plants survive.")
+        );
+    }
+
+    #[test]
     fn study_question_validation_rejects_mismatched_correct_choice_label() {
         let question = StudyQuestion {
             question_id: "q_choice_conflict".to_string(),
@@ -2978,15 +3417,22 @@ mod tests {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
         word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
         clear_all_active_sessions();
+        conn.execute_batch(
+            "INSERT INTO source_versions (id, source_commit, status)
+             VALUES (1, 'final-dispute-test', 'ready');
+             INSERT INTO entries (id, source_version_id, source_entry_key, word, lemma, part_of_speech)
+             VALUES (1, 1, 'alpha', 'alpha', 'alpha', 'n');",
+        )
+        .expect("seed entry");
 
         let start = start_study_session(
             &conn,
             StartSessionRequest {
                 mode: SessionMode::MixedTest,
                 wordbook_id: None,
-                entry_source_ids: vec!["alpha".to_string()],
+                entry_source_ids: vec!["1".to_string()],
                 entry_payloads: vec![StartSessionEntryPayload {
-                    source_id: "alpha".to_string(),
+                    source_id: "1".to_string(),
                     word: "alpha".to_string(),
                     part_of_speech: Some("n".to_string()),
                     frequency: 1.0,
@@ -3045,6 +3491,35 @@ mod tests {
             )
             .expect("snapshot count");
         assert_eq!(snapshot_count, 0);
+
+        let dispute = accept_disputed_meaning(
+            &conn,
+            AcceptDisputedMeaningRequest {
+                question_id: start.current_question.question_id.clone(),
+                submitted_answer: "accepted final meaning".to_string(),
+            },
+        )
+        .expect("completed final question can still accept dispute");
+        assert_eq!(dispute.result.outcome, AnswerOutcome::FuzzyCorrect);
+        assert_eq!(dispute.result.correct_answer, "accepted final meaning");
+        assert_eq!(
+            dispute
+                .answered_questions
+                .last()
+                .expect("answered final question remains in feed")
+                .result
+                .outcome,
+            AnswerOutcome::FuzzyCorrect
+        );
+
+        let stored_outcome: String = conn
+            .query_row(
+                "SELECT outcome FROM study_results WHERE question_id = ?1",
+                [&start.current_question.question_id],
+                |row| row.get(0),
+            )
+            .expect("stored completed result outcome");
+        assert_eq!(stored_outcome, "\"fuzzyCorrect\"");
 
         clear_all_active_sessions();
         let error = start_study_session(
@@ -3230,11 +3705,7 @@ mod tests {
                 .current_question
                 .choices
                 .as_ref()
-                .and_then(|choices| {
-                    choices
-                        .iter()
-                        .find(|choice| choice.label != correct_label)
-                })
+                .and_then(|choices| choices.iter().find(|choice| choice.label != correct_label))
                 .map(|choice| choice.label.clone())
                 .expect("a distinct wrong choice exists")
         } else {
@@ -3607,10 +4078,13 @@ mod tests {
         assert_eq!(pruned.pruned_question_count, 4);
         assert!(!pruned.is_complete);
         assert_eq!(pruned.progress.total, 4);
+        let current = pruned.current_question.unwrap();
         assert_ne!(
-            pruned.current_question.unwrap().entry_source_id,
+            current.entry_source_id,
             start.current_question.entry_source_id
         );
+        assert_eq!(current.question_index, 0);
+        assert_eq!(current.total_questions, 4);
     }
 
     #[test]
@@ -3668,5 +4142,135 @@ mod tests {
             )
             .expect("query mastered")
         );
+    }
+
+    #[test]
+    fn mastered_answered_entry_keeps_answer_and_does_not_add_replacement() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let start = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::MixedTest,
+                wordbook_id: None,
+                entry_source_ids: vec!["alpha".to_string(), "beta".to_string()],
+                entry_payloads: vec![
+                    test_entry("alpha", "alpha", "alpha meaning"),
+                    test_entry("beta", "beta", "beta meaning"),
+                ],
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("start session");
+        let answered_source_id = start.current_question.entry_source_id.clone();
+        let submitted = submit_study_answer(
+            &conn,
+            SubmitAnswerRequest {
+                question_id: start.current_question.question_id,
+                response: start.current_question.accepted_meanings[0].clone(),
+                response_time_ms: 100,
+            },
+        )
+        .expect("submit answer");
+        assert!(!submitted.is_complete);
+
+        let marked = mark_study_entry_mastered(
+            &conn,
+            MarkStudyEntryMasteredRequest {
+                entry_source_id: answered_source_id.clone(),
+                reason: "mastered".to_string(),
+            },
+        )
+        .expect("mark answered entry mastered");
+
+        assert_eq!(marked.pruned_question_count, 0);
+        assert!(!marked.is_complete);
+        assert_eq!(marked.progress.total, 2);
+        assert_eq!(marked.answered_questions.len(), 1);
+        let final_question = marked.current_question.unwrap();
+        assert_ne!(final_question.entry_source_id, answered_source_id);
+
+        let final_submit = submit_study_answer(
+            &conn,
+            SubmitAnswerRequest {
+                question_id: final_question.question_id,
+                response: final_question.accepted_meanings[0].clone(),
+                response_time_ms: 100,
+            },
+        )
+        .expect("submit final answer");
+        assert!(final_submit.is_complete);
+
+        let final_marked = mark_study_entry_mastered(
+            &conn,
+            MarkStudyEntryMasteredRequest {
+                entry_source_id: final_question.entry_source_id,
+                reason: "mastered".to_string(),
+            },
+        )
+        .expect("mark final answered entry mastered");
+        assert_eq!(final_marked.pruned_question_count, 0);
+        assert!(final_marked.is_complete);
+        assert_eq!(final_marked.progress.total, 2);
+        assert_eq!(final_marked.answered_questions.len(), 2);
+    }
+
+    #[test]
+    fn mastered_unanswered_final_entry_uses_replacement_and_resumes_actual_plan() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+        word_storage_core::persistence::schema::apply_schema(&conn).expect("apply schema");
+        clear_all_active_sessions();
+
+        let start = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::HighFrequency,
+                wordbook_id: None,
+                entry_source_ids: vec!["alpha".to_string()],
+                entry_payloads: vec![test_entry("alpha", "alpha", "alpha meaning")],
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("start session");
+
+        let replaced = mark_study_entry_mastered_with_replacements(
+            &conn,
+            MarkStudyEntryMasteredRequest {
+                entry_source_id: start.current_question.entry_source_id,
+                reason: "mastered".to_string(),
+            },
+            vec![test_entry("beta", "beta", "beta meaning")],
+        )
+        .expect("replace unanswered mastered entry");
+
+        assert_eq!(replaced.pruned_question_count, 1);
+        assert!(!replaced.is_complete);
+        assert_eq!(replaced.progress.current, 1);
+        assert_eq!(replaced.progress.total, 1);
+        let replacement = replaced.current_question.expect("replacement question");
+        assert_eq!(replacement.entry_source_id, "beta");
+        assert_eq!(replacement.question_index, 0);
+        assert_eq!(replacement.total_questions, 1);
+
+        clear_all_active_sessions();
+        let resumed = start_study_session(
+            &conn,
+            StartSessionRequest {
+                mode: SessionMode::HighFrequency,
+                wordbook_id: None,
+                entry_source_ids: Vec::new(),
+                entry_payloads: Vec::new(),
+                distractor_payloads: Vec::new(),
+                question_type_weights: Vec::new(),
+            },
+        )
+        .expect("resume replacement plan");
+        assert_eq!(resumed.current_question.entry_source_id, "beta");
+        assert_eq!(resumed.progress.current, 1);
+        assert_eq!(resumed.progress.total, 1);
     }
 }

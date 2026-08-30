@@ -2,7 +2,7 @@
 
 > Slug: `croc-bti`
 > Status: `mobile_in_progress`
-> Updated: `2026-06-25`
+> Updated: `2026-08-11`
 
 ## Product Intent
 
@@ -70,6 +70,8 @@
 
 ## Implementation Log
 
+- `2026-08-11`: Diagnosis only: the observed wrong-word reinforcement ceiling at 30 and review `28 -> 25` Today display mismatch were not caused directly by Croc BTI daily-time allocation. The direct causes were the Plan screen wrong-word target cap and the Today available-pool target rewrite in the shared mobile bridge.
+- `2026-08-06`: Added `highFrequencyPerDay` to Croc BTI recommendations and the editable plan sliders. The recommendation splits high-frequency questions out of the prior review allocation so the selected daily-time question budget remains unchanged rather than adding extra work.
 - `2026-05-06`: 加入 Croc BTI 问题、评分、标题、推荐逻辑、测试、移动端入口，并镜像到 Flutter shell。
 - `2026-05`: 入口从计划页改为侧边栏；首次引导加入可跳过的鳄 bti 流程。
 - `2026-05`: 增加“做过一次后默认展示结果，手动重测才重新答题”。
@@ -113,6 +115,8 @@
 
 ## Known Pitfalls
 
+- Do not blame Croc BTI minute budgeting for manual Plan caps or Today target shrinkage without tracing the Plan save path and Today target seed path first.
+- 不要在现有 Croc BTI 模式配额之外直接追加高频词题量；应从相近的复习配额拆分，否则“10 分钟约 40 题”的总预算会漂移。
 - 不要让 Croc BTI 结果直接绕过 plan save/apply 写 Today 或 Supabase。
 - 不要只更新今日首页而忘记计划页。
 - 不要让计划名称继续保持旧计划名；应用 Croc BTI 后应使用当前人格名称。
@@ -127,6 +131,9 @@
 
 ## Verification
 
+- Mobile/shared (`2026-08-11`): Diagnosis was covered by the learning-flow regressions for Plan target caps and Today target seed preservation; no Croc BTI scoring/model code was changed in this turn.
+- Mobile (`2026-08-06`): `flutter test test\croc_bti_model_test.dart test\today_task_breakdown_test.dart` passed 17/17. The daily-minutes regression again asserts totals of 40 and 80 questions after high-frequency allocation is split from review.
+- Mobile (`2026-08-06`): targeted `flutter analyze --no-pub` over the eight changed Plan/Croc/Study/Today/Reports Dart files passed with no issues.
 - Mobile: 历史 `flutter analyze --no-pub` 通过；历史 `flutter test test/croc_bti_model_test.dart` 覆盖人格映射、题量时间换算、题型占比归一化、账号 scope 隔离、重测清理。最近一次本线程中 `git diff --check` 通过；`dart analyze` 曾因 Flutter/Dart 工具卡住超时，未给出诊断。
 - Desktop: Pending; 尚无 Tauri UI 验证。
 - Shared/domain: 需要持续覆盖四轴评分、模式权重总和 100、每日时间题量、`newWordsPerDay` 为 4 的倍数、过滤 `newWord/rootAffix`、应用后 Today/Plan 同步。

@@ -5,6 +5,81 @@ import 'package:flutter_mobile/sdk/exam_practice_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('exam analysis inbox decodes background status and unread results', () {
+    final inbox = ExamAnalysisInbox.fromJson({
+      'unreadCount': 1,
+      'items': [
+        {
+          'taskId': 'task-1',
+          'exam': 'kaoyan-english-1',
+          'paperId': 'paper-2010',
+          'paperTitle': 'Kaoyan English I 2010',
+          'sectionId': 'reading-1',
+          'sectionTitle': 'Reading Text 1',
+          'status': 'completed',
+          'unread': true,
+          'createdAt': '2026-07-27T10:00:00Z',
+          'completedAt': '2026-07-27T10:01:00Z',
+          'findings': [
+            {
+              'questionNumber': 1,
+              'word': 'consequential',
+              'reasoning': 'Changed the choice.',
+              'confidence': 0.9,
+            },
+          ],
+          'review': {
+            'reviewFormat': 'cloze-review-v1',
+            'vocabularyPriority': [
+              {'word': 'observe', 'examFrequency': 42},
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(inbox.unreadCount, 1);
+    expect(inbox.items.single.isCompleted, isTrue);
+    expect(inbox.items.single.findings.single.word, 'consequential');
+    expect(inbox.items.single.review['reviewFormat'], 'cloze-review-v1');
+  });
+
+  test('exam analysis inbox normalizes malformed structured review arrays', () {
+    final inbox = ExamAnalysisInbox.fromJson({
+      'items': [
+        {
+          'taskId': 'legacy-task',
+          'status': 'completed',
+          'review': {
+            'reviewFormat': 'reading-review-v1',
+            'questions': 'not-an-array',
+            'correctMarkedQuestions': 'not-an-array',
+            'vocabularyPriority': 'not-an-array',
+          },
+        },
+      ],
+    });
+
+    final review = inbox.items.single.review;
+    expect(review['questions'], isEmpty);
+    expect(review['correctMarkedQuestions'], isEmpty);
+    expect(review['vocabularyPriority'], isEmpty);
+  });
+
+  test('annotation state restores persisted AI causal words', () {
+    final state = ExamAnnotationState.fromJson({
+      'currentMarks': [
+        {'normalized': 'consequential', 'meaning': '重要的', 'mark': 'familiar'},
+      ],
+      'priorMarks': [],
+      'causalWords': ['consequential'],
+      'annotations': [],
+    });
+
+    expect(state.causalWords, {'consequential'});
+    expect(state.currentMarks['consequential'], 'familiar');
+  });
+
   test(
     'definition lookup omits userMark so it cannot clear persisted state',
     () async {
@@ -27,6 +102,35 @@ void main() {
 
       final request = jsonDecode(bridge.argument!) as Map<String, dynamic>;
       expect(request.containsKey('userMark'), isFalse);
+    },
+  );
+
+  test(
+    'section analysis sends all wrong attempts through one bridge call',
+    () async {
+      final bridge = _InspectRecordingBridge();
+      final client = ExamPracticeClient(bridge, const BridgeCodec());
+
+      await client.analyzeSectionVocabulary(
+        exam: 'kaoyan-english-1',
+        paperId: 'paper-2010',
+        sectionId: 'reading-1',
+        attempts: const [
+          ExamAnalysisAttempt(questionId: 'q1', attemptId: 'attempt-1'),
+          ExamAnalysisAttempt(questionId: 'q3', attemptId: 'attempt-3'),
+        ],
+        purePurpleWords: const {'rare', 'observe'},
+      );
+
+      expect(bridge.method, 'analyzeExamSectionVocabulary');
+      expect(jsonDecode(bridge.argument!)['attempts'], [
+        {'questionId': 'q1', 'attemptId': 'attempt-1'},
+        {'questionId': 'q3', 'attemptId': 'attempt-3'},
+      ]);
+      expect(jsonDecode(bridge.argument!)['purePurpleWords'], [
+        'observe',
+        'rare',
+      ]);
     },
   );
 
@@ -281,10 +385,12 @@ void main() {
 }
 
 class _InspectRecordingBridge extends RustBridge {
+  String? method;
   String? argument;
 
   @override
   Future<String> call(String method, [String? argument]) async {
+    this.method = method;
     this.argument = argument;
     return jsonEncode({
       'occurrenceId': 1,

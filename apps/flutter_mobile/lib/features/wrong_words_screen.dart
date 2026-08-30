@@ -12,13 +12,28 @@ List<ExamVocabularyPriority> sortExamPracticeWrongWords(
   Iterable<ExamVocabularyPriority> items,
 ) {
   final sorted = items
-      .where((item) => item.unknownMarkCount + item.wrongAssociationCount > 0)
+      .where(
+        (item) =>
+            item.fuzzyMarkCount +
+                item.familiarMarkCount +
+                item.unknownMarkCount +
+                item.wrongAssociationCount >
+            0,
+      )
       .toList(growable: false);
   sorted.sort((left, right) {
-    final leftTotal = left.unknownMarkCount + left.wrongAssociationCount;
-    final rightTotal = right.unknownMarkCount + right.wrongAssociationCount;
-    return rightTotal.compareTo(leftTotal) != 0
-        ? rightTotal.compareTo(leftTotal)
+    final leftScore =
+        left.fuzzyMarkCount +
+        left.familiarMarkCount * 2 +
+        left.unknownMarkCount * 3 +
+        left.wrongAssociationCount * 5;
+    final rightScore =
+        right.fuzzyMarkCount +
+        right.familiarMarkCount * 2 +
+        right.unknownMarkCount * 3 +
+        right.wrongAssociationCount * 5;
+    return rightScore.compareTo(leftScore) != 0
+        ? rightScore.compareTo(leftScore)
         : right.wrongAssociationCount.compareTo(left.wrongAssociationCount) != 0
         ? right.wrongAssociationCount.compareTo(left.wrongAssociationCount)
         : left.word.compareTo(right.word);
@@ -27,10 +42,16 @@ List<ExamVocabularyPriority> sortExamPracticeWrongWords(
 }
 
 class WrongWordsScreen extends StatefulWidget {
-  const WrongWordsScreen({super.key, required this.sdk, this.onStartStudy});
+  const WrongWordsScreen({
+    super.key,
+    required this.sdk,
+    this.onStartStudy,
+    this.content = LearningContentMode.wordStudy,
+  });
 
   final WordSdk sdk;
   final Future<void> Function(String mode)? onStartStudy;
+  final LearningContentMode content;
 
   @override
   State<WrongWordsScreen> createState() => _WrongWordsScreenState();
@@ -43,7 +64,6 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
 
   List<WrongWordEntry> _words = const [];
   List<ExamVocabularyPriority> _practiceWords = const [];
-  LearningContentMode _content = LearningContentMode.wordStudy;
   WrongWordDetail? _detail;
   int? _selectedId;
   int _detailScrollGeneration = 0;
@@ -63,6 +83,14 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
   void initState() {
     super.initState();
     _loadAll();
+  }
+
+  @override
+  void didUpdateWidget(covariant WrongWordsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content) {
+      _loadAll();
+    }
   }
 
   @override
@@ -125,7 +153,7 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
       _error = null;
     });
     try {
-      if (_content == LearningContentMode.examPractice) {
+      if (widget.content == LearningContentMode.examPractice) {
         final words = sortExamPracticeWrongWords(
           await widget.sdk.examPractice.getVocabularyPriority(),
         );
@@ -164,18 +192,15 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     }
   }
 
-  void _changeContent(LearningContentMode value) {
-    if (value == _content) return;
-    setState(() {
-      _content = value;
-      _selectedId = null;
-      _detail = null;
-      _error = null;
-    });
-    _loadAll();
-  }
-
   Widget _buildPracticeWords() {
+    final fuzzyCount = _practiceWords.fold<int>(
+      0,
+      (sum, item) => sum + item.fuzzyMarkCount,
+    );
+    final familiarCount = _practiceWords.fold<int>(
+      0,
+      (sum, item) => sum + item.familiarMarkCount,
+    );
     final redCount = _practiceWords.fold<int>(
       0,
       (sum, item) => sum + item.wrongAssociationCount,
@@ -192,18 +217,28 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
         children: [
           _SectionCard(
             title: '模拟练习错词',
-            subtitle: '按标红、标黄总次数排序；次数相同时，标红更多的词优先。',
+            subtitle: '按释义模糊、眼熟、完全不会与致错标记的加权优先级排序。',
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
                 _PracticeMarkStat(
-                  label: '标红',
+                  label: '释义模糊',
+                  value: fuzzyCount,
+                  color: const Color(0xFFC9A72E),
+                ),
+                _PracticeMarkStat(
+                  label: '眼熟',
+                  value: familiarCount,
+                  color: const Color(0xFFD58B16),
+                ),
+                _PracticeMarkStat(
+                  label: '致错',
                   value: redCount,
                   color: Theme.of(context).colorScheme.error,
                 ),
                 _PracticeMarkStat(
-                  label: '标黄',
+                  label: '不会',
                   value: yellowCount,
                   color: const Color(0xFFC28B00),
                 ),
@@ -219,25 +254,26 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
             const _SectionCard(
               title: '当前为空',
               subtitle: '这里不读取单词学习错误次数。',
-              child: Text('在模拟练习中标黄或标红的词会出现在这里。'),
+              child: Text('在模拟练习中标为释义模糊、眼熟、完全不会或致错的词会出现在这里。'),
             )
           else
             _SectionCard(
               title: '错词排序',
-              subtitle: '红黄标记均来自模拟练习文章、题干和选项。',
+              subtitle: '标记均来自模拟练习文章、题干和选项。',
               child: Column(
                 children: [
                   for (final item in _practiceWords)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
+                      onTap: () => _showPracticeWordSources(item),
                       title: Text(item.word),
                       subtitle: Text(
-                        '标红 ${item.wrongAssociationCount} 次 · 标黄 ${item.unknownMarkCount} 次',
+                        '模糊 ${item.fuzzyMarkCount} 次 · 眼熟 ${item.familiarMarkCount} 次 · 不会 ${item.unknownMarkCount} 次 · 致错 ${item.wrongAssociationCount} 次',
                       ),
                       trailing: CircleAvatar(
                         radius: 18,
                         child: Text(
-                          '${item.wrongAssociationCount + item.unknownMarkCount}',
+                          '${item.fuzzyMarkCount + item.familiarMarkCount + item.wrongAssociationCount + item.unknownMarkCount}',
                         ),
                       ),
                     ),
@@ -245,6 +281,57 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showPracticeWordSources(ExamVocabularyPriority item) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(item.word, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text(
+                '模糊 ${item.fuzzyMarkCount} 次 · 眼熟 ${item.familiarMarkCount} 次 · 不会 ${item.unknownMarkCount} 次 · 致错 ${item.wrongAssociationCount} 次',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              Text('出错来源', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              if (item.sources.isEmpty)
+                const Text('旧记录未保存试卷与大题来源。后续练习标记会自动记录。')
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: item.sources.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final source = item.sources[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.assignment_outlined),
+                        title: Text(source.paperTitle),
+                        subtitle: Text(
+                          '${source.sectionTitle}\n'
+                          '模糊 ${source.fuzzyMarkCount} 次 · 眼熟 ${source.familiarMarkCount} 次 · 不会 ${source.unknownMarkCount} 次 · 致错 ${source.wrongAssociationCount} 次',
+                        ),
+                        isThreeLine: true,
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -718,16 +805,6 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('\u9519\u8bcd\u672c'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(58),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: LearningContentModeSelector(
-              value: _content,
-              onChanged: _changeContent,
-            ),
-          ),
-        ),
         actions: [
           IconButton(
             tooltip: 'Wrong word graph',
@@ -746,7 +823,7 @@ class _WrongWordsScreenState extends State<WrongWordsScreen> {
           ? const CrocodileLoadingAnimation(label: '加载中...')
           : _error != null
           ? _WrongWordsMessage(message: _error!, onRetry: _loadAll)
-          : _content == LearningContentMode.examPractice
+          : widget.content == LearningContentMode.examPractice
           ? _buildPracticeWords()
           : CrocodileRefreshIndicator(
               onRefresh: () => _loadAll(showFullLoading: false),

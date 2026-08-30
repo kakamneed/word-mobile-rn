@@ -71,6 +71,7 @@ flutter:
     - assets/crocodile/crawl/
     - assets/croc_bti/
     - assets/exam-papers/
+    - assets/exam-dictionary/
     - assets/rewards/manifest.json
     - assets/rewards/webp_q60_540/
 
